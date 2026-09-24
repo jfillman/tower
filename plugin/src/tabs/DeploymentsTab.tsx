@@ -296,7 +296,23 @@ export function DeploymentsTab() {
 
   const rolloutProgress = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress : undefined;
   const activeDelivery = delivery.current ?? delivery.previous;
-  const envImage = envPillImage(env, delivery, pipelineRuns.runs);
+  // Live vs. incoming, kept separate for the command panel (2026-09-24). While a
+  // delivery is in flight the image that's LIVE is the one the previous
+  // delivery put there (its release PR/commit's own tag - not env.image, which
+  // can already read the incoming spec's image once ArgoCD has applied it), so
+  // it stays visible until the new one completes; only once nothing's in flight
+  // does env.image itself become the answer again.
+  const incomingTag = delivery.current ? deliveryTag(delivery.current) : undefined;
+  let liveTag: string | undefined;
+  if (incomingTag) {
+    const priorTag = delivery.previous ? deliveryTag(delivery.previous) : undefined;
+    const runningTag = env.image ? imageTagOf(env.image) : undefined;
+    liveTag = priorTag ?? (runningTag !== incomingTag ? runningTag : undefined);
+  } else if (env.image) {
+    liveTag = imageTagOf(env.image);
+  }
+  const liveImage = liveTag ? { tag: liveTag, nickname: nicknameForImageTag(liveTag, pipelineRuns.runs) } : undefined;
+  const incomingImage = incomingTag ? { tag: incomingTag, nickname: nicknameForImageTag(incomingTag, pipelineRuns.runs) } : undefined;
 
   // Real "step X/Y · Z% now" text for StageDetail's progressing row - only
   // while useCdDelivery has itself already decided this delivery's own
@@ -350,9 +366,9 @@ export function DeploymentsTab() {
 
       <Typography className={classes.title}>{env.env}</Typography>
 
-      <ArgoCommandPanel env={env} argoActions={argoActions} currentImage={envImage} />
+      <ArgoCommandPanel env={env} argoActions={argoActions} currentImage={liveImage} incomingImage={incomingImage} />
 
-      <TroubleshootBanner env={env} currentSteps={delivery.current?.steps} />
+      <TroubleshootBanner env={env} currentSteps={activeSteps} />
 
       <div className={classes.dagCard}>
         <div className={classes.dagInner}>

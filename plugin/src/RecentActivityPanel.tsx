@@ -1,4 +1,5 @@
 import { useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import { preventFocusScroll } from './preventFocusScroll';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -641,6 +642,7 @@ export function RecentActivityPanel({
                 active ? classes.filterBtnActive : ''
               }`}
               style={style}
+              onMouseDown={preventFocusScroll}
               onClick={() => setCategory(c)}
             >
               {CategoryIcon && <CategoryIcon width={11} height={11} />}

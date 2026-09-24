@@ -44,3 +44,14 @@ export function keepScrollPosition(from: Element | null, change: () => void) {
     requestAnimationFrame(restore);
   });
 }
+
+// Scrolls a just-revealed panel into view once its own open animation/render
+// has settled (2026-09-24: "clicking on a pipeline in the table should scroll
+// down to the pipeline details panel", same for the Release Matrix) - the
+// delay is what lets the element have its real height first, otherwise a
+// Collapse that's still growing scrolls to the wrong offset.
+export function scrollPanelIntoView(getEl: () => Element | null | undefined, delayMs = 120) {
+  window.setTimeout(() => {
+    getEl()?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, delayMs);
+}

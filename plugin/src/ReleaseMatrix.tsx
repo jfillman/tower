@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { preventFocusScroll, scrollPanelIntoView } from './preventFocusScroll';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -189,6 +190,13 @@ export function ReleaseMatrix({
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [open, setOpen] = useState<ExpandKey | null>(null);
+  const expandRef = useRef<HTMLDivElement>(null);
+  // Scroll to the newly opened details section (2026-09-24 feedback); the
+  // longer delay covers the surrounding Collapse's own grow animation.
+  useEffect(() => {
+    if (open) scrollPanelIntoView(() => expandRef.current, 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open?.tag, open?.env]);
   const [, setSearchParams] = useSearchParams();
 
   if (releases.length === 0) {
@@ -314,6 +322,7 @@ export function ReleaseMatrix({
                             clickable ? classes.cellClickable : '',
                           ].join(' ')}
                           style={isOpen ? { outline: `2px solid ${t.skyLine}`, outlineOffset: 1 } : undefined}
+                          onMouseDown={clickable ? preventFocusScroll : undefined}
                           onClick={clickable ? () => setOpen(isOpen ? null : { tag: row.imageTag, env: env.env }) : undefined}
                           onKeyDown={
                             clickable
@@ -340,7 +349,7 @@ export function ReleaseMatrix({
 
       <Collapse in={Boolean(openRow && openCell && open)} unmountOnExit>
         {openRow && openCell && open && (
-          <div className={classes.expand}>
+          <div className={classes.expand} ref={expandRef} style={{ scrollMarginTop: 16 }}>
             <div className={classes.expandHead}>
               <span className={classes.expandTag}>{open.tag}</span>
               <span className={classes.expandArrow}>→</span>

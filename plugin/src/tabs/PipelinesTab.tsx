@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -13,6 +13,7 @@ import { useRerunPipelineRun } from '../tekton/useRerunPipelineRun';
 import { useCancelPipelineRun } from '../tekton/useCancelPipelineRun';
 import { PipelineRunList } from '../PipelineRunList';
 import { PipelineDag } from '../PipelineDag';
+import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { isPreviewEnvName, isRolloutActive } from '../types';
@@ -171,9 +172,14 @@ export function PipelinesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelineRuns.runs, linkedRun]);
   const selectedRun = pipelineRuns.runs.find(r => r.name === selectedRunName);
+  const dagPanelRef = useRef<HTMLDivElement>(null);
   const selectRun = (name: string) => {
     setSelectedRunName(name);
     setDagExpandSignal(n => (n ?? 0) + 1);
+    // Bring the details panel into view (2026-09-24 feedback) - a long run
+    // list can leave it well below the fold, so a click looked like nothing
+    // happened.
+    scrollPanelIntoView(() => dagPanelRef.current);
   };
 
   const goToDeployments = () =>
@@ -209,7 +215,7 @@ export function PipelinesTab() {
         {rerun.error && <Typography className={classes.warnNote}>Re-run failed: {rerun.error}</Typography>}
         {cancelRun.error && <Typography className={classes.warnNote}>Cancel failed: {cancelRun.error}</Typography>}
         {selectedRun && (
-          <div className={classes.dagGap}>
+          <div className={classes.dagGap} ref={dagPanelRef} style={{ scrollMarginTop: 16 }}>
             <PipelineDag run={selectedRun} expandSignal={dagExpandSignal} />
           </div>
         )}
@@ -246,7 +252,9 @@ export function PipelinesTab() {
       )}
       <div>
         <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>Continuous Integration</span>
+          {/* No section title (2026-09-24: "does it make sense to still have the
+              'Continuous Integration' header?") - CD moved to the Deployments tab,
+              so this tab is only pipelines and the tab name already says so. */}
           <span className={classes.sectionSub}>
             {pipelineRuns.loading ? 'loading…' : `${pipelineRuns.runs.length} pipeline run${pipelineRuns.runs.length === 1 ? '' : 's'}`} &middot; kind-dev
           </span>

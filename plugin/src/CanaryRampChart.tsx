@@ -228,14 +228,30 @@ export function CanaryRampChart({
   // buildCanaryProgress already reads from status.canary, so this is exactly
   // Argo Rollouts' own idea of "which run is the background one", not a
   // guessed naming convention.
+  // Prefer Argo Rollouts' own labels (rollout-type / step-index) - exact, and
+  // still present after the rollout completes, unlike the live
+  // status.canary.currentBackgroundAnalysisRunStatus pointer this used to
+  // depend on (2026-09-24 bugs: "the background analysis panel... didn't
+  // display anything" and "the analysis checks... no longer display the check
+  // results" - both because that pointer is cleared once the rollout finishes,
+  // leaving the background run miscounted as a step run). The positional
+  // pairing below is only the fallback for runs missing those labels.
   const analysisStepIndices = steps.map((s, i) => ({ s, i })).filter(x => x.s.kind === 'analysis').map(x => x.i);
+  const labelledStepRuns = analysisRuns.runs.filter(r => r.rolloutType === 'Step' && r.stepIndex !== undefined);
   const sortedRuns = analysisRuns.runs
-    .filter(r => r.name !== progress.currentBackgroundAnalysisRunName)
+    .filter(r => r.rolloutType !== 'Background' && r.name !== progress.currentBackgroundAnalysisRunName)
     .sort((a, b) => new Date(a.startedAt ?? 0).getTime() - new Date(b.startedAt ?? 0).getTime());
   const runByStepIndex = new Map<number, AnalysisRunSummary>();
-  analysisStepIndices.forEach((stepIndex, k) => {
-    if (sortedRuns[k]) runByStepIndex.set(stepIndex, sortedRuns[k]);
-  });
+  if (labelledStepRuns.length > 0) {
+    // A step can be retried (same index, more than one run) - the newest wins.
+    [...labelledStepRuns]
+      .sort((a, b) => new Date(a.startedAt ?? 0).getTime() - new Date(b.startedAt ?? 0).getTime())
+      .forEach(r => runByStepIndex.set(r.stepIndex!, r));
+  } else {
+    analysisStepIndices.forEach((stepIndex, k) => {
+      if (sortedRuns[k]) runByStepIndex.set(stepIndex, sortedRuns[k]);
+    });
+  }
 
   if (steps.length === 0) {
     return <Typography className={classes.note}>This rollout declares no canary steps.</Typography>;
@@ -273,9 +289,11 @@ export function CanaryRampChart({
   const openStep = openStepIndex !== undefined ? steps[openStepIndex] : undefined;
 
   const backgroundTemplates = progress.backgroundAnalysisTemplates ?? [];
-  const backgroundRun = progress.currentBackgroundAnalysisRunName
-    ? analysisRuns.runs.find(r => r.name === progress.currentBackgroundAnalysisRunName)
-    : undefined;
+  const backgroundRun =
+    analysisRuns.runs.find(r => r.rolloutType === 'Background') ??
+    (progress.currentBackgroundAnalysisRunName
+      ? analysisRuns.runs.find(r => r.name === progress.currentBackgroundAnalysisRunName)
+      : undefined);
 
   return (
     <div className={classes.wrap}>

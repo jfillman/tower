@@ -76,6 +76,8 @@ function toAnalysisRunSummary(raw: RawAnalysisRun): AnalysisRunSummary {
     name: raw.metadata.name,
     phase: raw.status?.phase,
     message: raw.status?.message,
+    rolloutType: raw.metadata.labels?.['rollout-type'],
+    stepIndex: raw.metadata.labels?.['step-index'] !== undefined ? Number(raw.metadata.labels['step-index']) : undefined,
     startedAt: raw.status?.startedAt,
     completedAt: raw.status?.completedAt,
     metrics,

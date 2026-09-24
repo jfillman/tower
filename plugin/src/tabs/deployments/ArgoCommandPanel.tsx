@@ -256,6 +256,7 @@ export function ArgoCommandPanel({
   env,
   argoActions,
   currentImage,
+  incomingImage,
 }: {
   env: EnvironmentSummary;
   argoActions: ReturnType<typeof useArgoActions>;
@@ -266,6 +267,13 @@ export function ArgoCommandPanel({
   // one place already answering "what is this environment's ArgoCD app
   // currently doing," and the image is exactly that same kind of fact.
   currentImage?: { tag?: string; nickname?: string };
+  // The release being deployed right now, when one is in flight (2026-09-24:
+  // "when a new deployment begins, the current image details should be still
+  // visible somewhere until the deployment successfully completes" - so
+  // `currentImage` above stays the image that's live until this one finishes,
+  // and this shows what's replacing it, side by side, rather than the new tag
+  // silently taking the old one's place).
+  incomingImage?: { tag?: string; nickname?: string };
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -318,7 +326,18 @@ export function ArgoCommandPanel({
         <div>
           <Typography className={classes.title}>{env.argoAppName}</Typography>
         </div>
-        {currentImage?.tag && <ImageTagPill tag={currentImage.tag} nickname={currentImage.nickname} size="small" />}
+        {currentImage?.tag && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {incomingImage?.tag && <span style={{ fontSize: 10, color: t.textFaint, fontFamily: fontMono }}>LIVE</span>}
+            <ImageTagPill tag={currentImage.tag} nickname={currentImage.nickname} size="small" />
+          </span>
+        )}
+        {incomingImage?.tag && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: t.amberInk, fontFamily: fontMono, fontWeight: 700 }}>⇢ DEPLOYING</span>
+            <ImageTagPill tag={incomingImage.tag} nickname={incomingImage.nickname} size="small" />
+          </span>
+        )}
         <div className={classes.statusChips}>
           <span className={`${classes.chip} ${statusChipClass(classes, env.argoSyncStatus)}`}>
             {env.argoSyncStatus ?? 'unknown'}

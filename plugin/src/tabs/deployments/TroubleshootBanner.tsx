@@ -101,7 +101,15 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
     };
   }
 
-  if (env.argoOperationPhase === 'Running') {
+  // Only while the DAG itself still says the sync hasn't been applied (2026-09-24
+  // bug: "once the canary completed and the 'rollout completes' stage finished,
+  // the info panel didn't update. it still has the 'A sync is currently being
+  // applied' message") - ArgoCD's operation phase can stay 'Running' well past
+  // the point everything is applied (a PostSync hook still pending, or the
+  // phase simply never being refreshed), so it can't be trusted alone; the
+  // delivery steps already encode the "applied despite Running" evidence
+  // (see useCdDelivery's appliedDespiteRunning).
+  if (env.argoOperationPhase === 'Running' && stepByKey(currentSteps, 'synced')?.status !== 'good') {
     return {
       tone: 'info',
       live: true,

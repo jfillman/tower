@@ -257,6 +257,15 @@ export interface AnalysisRunSummary {
   // Failed/Error run (usually names which metric tipped it over) even
   // before drilling into a specific metric's own message above.
   message?: string;
+  // Argo Rollouts' own `rollout-type` label ('Background' | 'Step') and, for a
+  // step run, its `step-index` label - the authoritative way to tell the
+  // background run apart from step runs and to map a step run to its step
+  // (2026-09-24: the old positional pairing depended on the Rollout's live
+  // status.canary.currentBackgroundAnalysisRunStatus name, which Argo Rollouts
+  // clears once the rollout completes - after which the background run got
+  // counted as a step run and shifted every step's results by one).
+  rolloutType?: string;
+  stepIndex?: number;
   metrics: AnalysisMetricResult[];
   raw: unknown;
 }

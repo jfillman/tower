@@ -338,7 +338,19 @@ function buildStepsCore(
   let syncedAt: string | undefined;
   if (!argoStale) {
     if (!operationRunning) syncedAt = argo?.operationFinishedAt;
-    else if (synced && argo?.healthStatus === 'Progressing') syncedAt = argo?.healthSince;
+    else if (synced) {
+      // The operation is still open only because of a PostSync hook waiting on
+      // the canary, so there's no operationFinishedAt yet (2026-09-24 bug: "the
+      // 'application sync' stage... didn't update with the timestamp once it
+      // completed"). Best real evidence of when the apply landed: the app's own
+      // health transition if it happened after this operation began, else
+      // (a clean canary can keep the aggregate Healthy throughout, so
+      // healthSince predates the operation) when the operation began - the same
+      // coarser-but-real fallback progressingAt already uses.
+      syncedAt = healthSinceMs !== undefined && operationStartedMs !== undefined && healthSinceMs >= operationStartedMs
+        ? argo?.healthSince
+        : argo?.operationStartedAt;
+    }
   }
   const at: Record<CdStepKey, string | undefined> = {
     created: createdAt,

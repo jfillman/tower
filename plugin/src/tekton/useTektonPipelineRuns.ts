@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
+import { chainIdToSlug } from './chainSlug';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
 
 // Real Tekton PipelineRuns for an app live in `app-<appName>-cicd` on the
@@ -308,7 +309,16 @@ export function linkFlowSlugsByChainId(runs: PipelineRunSummary[]): void {
     if (run.flowSlug) return;
     const chainId = chainIdOf(run);
     const borrowed = chainId ? slugByChainId.get(chainId) : undefined;
-    if (borrowed) run.flowSlug = borrowed;
+    if (borrowed) {
+      run.flowSlug = borrowed;
+      return;
+    }
+    // Last resort (2026-09-24): a promotion chain (Tower Promote mints a fresh
+    // chain-id) has no build/deploy/test sibling at all, so nothing to borrow
+    // from - derive the same deterministic slug the toolbox would have. See
+    // chainSlug.ts for why this is a fallback only.
+    const derived = chainId ? chainIdToSlug(chainId) : undefined;
+    if (derived) run.flowSlug = derived;
   });
 }
 
