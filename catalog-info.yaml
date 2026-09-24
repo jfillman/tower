@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: tower
+  title: Tower
+  description: Release orchestration and operational intelligence for Backstage
+  links:
+    - url: https://github.com/jfillman/tower
+      title: GitHub Repository
+spec:
+  type: plugin
+  lifecycle: experimental
+  owner: jfillman
+  dependsOn:
+    - component:default/hangar
+    - component:default/glidepath

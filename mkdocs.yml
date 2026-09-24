@@ -1,0 +1,14 @@
+site_name: Tower
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - toc.integrate
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Architecture: architecture.md
+  - Components: components.md
+  - Patches: patches.md
