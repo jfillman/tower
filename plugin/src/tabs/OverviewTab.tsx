@@ -152,34 +152,25 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // across multiple rows in the real Overview grid, that external margin
   // is never guaranteed, and the label overlapped the row above it -
   // confirmed live 2026-09-10.
+  // WRAPPING (2026-09-24: "when all the rail card envs share the same rail image
+  // tag and the browser window is small, the rail cards extend off the page") -
+  // this used to be a non-wrapping flex row, so a track holding every env (each
+  // card min 175px) simply overflowed the page at narrow widths. It now wraps
+  // like the outer grid does. The connecting band and per-env dots moved onto
+  // the cards themselves (trackCard's ::before/::after) so that every wrapped
+  // row gets its own correctly-positioned band, instead of one track-wide band
+  // whose percentage-positioned dots no longer lined up with the cards once
+  // they broke across lines.
   track: {
     position: 'relative',
     flex: '0 1 auto',
     minWidth: 0,
     maxWidth: '100%',
     display: 'flex',
-    gap: 16,
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 32,
     paddingTop: 44,
-  },
-  trackBand: {
-    position: 'absolute',
-    top: 28,
-    left: 8,
-    right: 8,
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: ({ t }) => t.sky,
-    opacity: 0.9,
-  },
-  trackNode: {
-    position: 'absolute',
-    top: 24,
-    width: 12,
-    height: 12,
-    borderRadius: '50%',
-    backgroundColor: ({ t }) => t.sky,
-    border: ({ t }) => `2px solid ${t.bg}`,
-    transform: 'translateX(-50%)',
   },
   trackLabel: {
     position: 'absolute',
@@ -206,7 +197,37 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 8,
     border: '1px solid',
   },
-  trackCard: { flex: '1 1 0', minWidth: 175, maxWidth: 'none' },
+  trackCard: {
+    flex: '1 1 200px',
+    minWidth: 175,
+    maxWidth: 'none',
+    position: 'relative',
+    // Band segment + node above THIS card; the -8px overhang on each side meets
+    // the neighbouring card's segment across the 16px column gap.
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: -16,
+      left: -8,
+      right: -8,
+      height: 4,
+      borderRadius: 4,
+      backgroundColor: ({ t }: { t: HangarTokens }) => t.sky,
+      opacity: 0.9,
+    },
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      top: -20,
+      left: '50%',
+      width: 12,
+      height: 12,
+      borderRadius: '50%',
+      backgroundColor: ({ t }: { t: HangarTokens }) => t.sky,
+      border: ({ t }: { t: HangarTokens }) => `2px solid ${t.bg}`,
+      transform: 'translateX(-50%)',
+    },
+  },
   cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
   // level (DNS-1123) - capitalizing them for display invented a form the
@@ -459,7 +480,12 @@ export function OverviewTab() {
   if (loading) return <Progress />;
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
 
-  const sourceUrl = repoRef ? `https://github.com/${repoRef.owner}/${repoRef.repo}` : undefined;
+  // Falls back to the catalog's github.com/project-slug (owner/appName) when no
+  // deployed image's provenance has resolved a repoRef yet (2026-09-24: "for a
+  // brand new app, the src repo link doesn't appear in the info panel") - same
+  // fallback gitopsUrl below already used.
+  const sourceRepo = repoRef ?? (owner && appName ? { owner, repo: appName } : undefined);
+  const sourceUrl = sourceRepo ? `https://github.com/${sourceRepo.owner}/${sourceRepo.repo}` : undefined;
   const gitopsUrl = owner && appName ? `https://github.com/${owner}/gitops-${appName}` : undefined;
   const previewEnvs = environments.filter(env => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter(env => !isPreviewEnvName(env.env));
@@ -604,7 +630,7 @@ export function OverviewTab() {
           <span className={classes.metaLabel}>Source repo</span>
           {sourceUrl ? (
             <a className={classes.metaLink} href={sourceUrl} target="_blank" rel="noopener noreferrer">
-              {repoRef!.owner}/{repoRef!.repo}
+              {sourceRepo!.owner}/{sourceRepo!.repo}
             </a>
           ) : (
             <span className={classes.metaValue}>—</span>
@@ -659,14 +685,6 @@ export function OverviewTab() {
           const nickname = nicknameForImageTag(imageTag(run.image), pipelineRuns);
           return (
             <div key={run.envs[0].key} className={classes.track}>
-              <div className={classes.trackBand} />
-              {run.envs.map((env, i) => (
-                <span
-                  key={env.key}
-                  className={classes.trackNode}
-                  style={{ left: `${n > 1 ? (i / (n - 1)) * 100 : 50}%` }}
-                />
-              ))}
               <button
                 type="button"
                 className={classes.trackLabel}

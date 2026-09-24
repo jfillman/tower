@@ -526,7 +526,19 @@ export function PipelineRunList({
       <div className={classes.list} style={truncated ? { borderRadius: 0 } : undefined}>
         {filtered.length === 0 && <div className={classes.empty}>No pipeline runs match this filter.</div>}
         {visible.map((run, i) => {
-          const tone = phaseTone(t, run.phase);
+          // 'cancelling' (2026-09-24: "when you click on the 'cancel' button, the
+          // 'running' chip should change to 'canceling'") - from the moment the
+          // click is in flight, and afterwards for as long as the run's own
+          // spec.status says it was asked to cancel but it hasn't reached a
+          // terminal phase yet (CancelledRunFinally lets the finally block run
+          // first, so that window can last a while).
+          const cancelRequested = String((run.raw as { spec?: { status?: string } } | undefined)?.spec?.status ?? '').startsWith(
+            'Cancelled',
+          );
+          const cancelling = (run.phase === 'running' || run.phase === 'pending') && (cancelPending === run.name || cancelRequested);
+          const tone = cancelling
+            ? { ...phaseTone(t, 'running'), label: 'canceling' }
+            : phaseTone(t, run.phase);
           const durationLabel = (() => {
             if (!run.startTime) return '—';
             const start = new Date(run.startTime).getTime();
@@ -572,13 +584,13 @@ export function PipelineRunList({
                   <button
                     type="button"
                     className={classes.cancelBtn}
-                    disabled={cancelPending === run.name}
+                    disabled={cancelPending === run.name || cancelling}
                     onClick={ev => {
                       ev.stopPropagation();
                       onCancel(run);
                     }}
                   >
-                    {cancelPending === run.name ? 'cancelling…' : 'Cancel'}
+                    {cancelling ? 'canceling…' : 'Cancel'}
                   </button>
                 )}
                 <span className={classes.pill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg }}>

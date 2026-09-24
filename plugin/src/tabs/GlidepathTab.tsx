@@ -94,11 +94,11 @@ interface CicdFormState {
   lowerEnvironments: string;
   upperEnvironmentsRaw: string;
   promotionOrder: string;
-  strategy: 'deployment' | 'rollout';
+  strategy: 'rollout';
   buildAgent: BuildAgent;
   buildScriptEnabled: boolean;
   buildScript: string;
-  buildDockerfile: string;
+  buildContainerfile: string;
   buildUnitTestEnabled: boolean;
   buildUnitTestCommand: string;
   buildSonar: boolean;
@@ -145,13 +145,18 @@ function buildFormFromValues(values: Partial<Record<CicdTopLevelField, unknown>>
     lowerEnvironments: joinCsv(deploy.lowerEnvironments ?? ['dev']),
     upperEnvironmentsRaw: safeYamlDump(deploy.upperEnvironments ?? []),
     promotionOrder: joinCsv(deploy.promotionOrder ?? []),
-    strategy: deploy.strategy === 'deployment' ? 'deployment' : 'rollout',
+    // Argo Rollouts is the only implemented strategy (2026-09-24) - a legacy
+    // `strategy: deployment` in the file is normalized to it on the next save.
+    strategy: 'rollout',
     buildAgent: (BUILD_AGENTS as readonly string[]).includes(build.agent as string)
       ? (build.agent as BuildAgent)
       : 'nodejs-20',
     buildScriptEnabled: typeof build.script === 'string',
     buildScript: typeof build.script === 'string' ? build.script : '',
-    buildDockerfile: typeof build.dockerfile === 'string' ? build.dockerfile : './Dockerfile',
+    // `containerfile` is the schema's current key; `dockerfile` is the legacy name
+    // (renamed 2026-09-22) - read as a fallback so an un-migrated file still shows
+    // its real path, but only ever written back as `containerfile`.
+    buildContainerfile: [build.containerfile, build.dockerfile].find((v): v is string => typeof v === 'string') ?? './Containerfile',
     buildUnitTestEnabled: unitTest.enabled !== false,
     buildUnitTestCommand: typeof unitTest.command === 'string' ? unitTest.command : './test.sh',
     buildSonar: Boolean(build.sonar),
@@ -196,7 +201,7 @@ function emptyDefaultFor(key: CicdTopLevelField): unknown {
       // branch only matters for the pathological "no build section at all"
       // case (a brand-new/never-onboarded cicd.yaml).
       return {
-        dockerfile: './Dockerfile',
+        containerfile: './Containerfile',
         unitTest: { enabled: true, command: './test.sh' },
         sonar: false,
         cache: { enabled: false, size: 'small' },
@@ -226,12 +231,23 @@ function emptyDefaultFor(key: CicdTopLevelField): unknown {
   }
 }
 
-function buildCandidateValues(form: CicdFormState): Partial<Record<CicdTopLevelField, unknown>> {
+function buildCandidateValues(
+  form: CicdFormState,
+  originalValues: Partial<Record<CicdTopLevelField, unknown>>,
+): Partial<Record<CicdTopLevelField, unknown>> {
+  // The whole `build` section is replaced on save, so start from the file's own
+  // build object to keep keys this form has no field for (e.g. `platforms`) -
+  // minus the legacy `dockerfile` key (superseded by `containerfile`; leaving it
+  // would fail schema validation: "Additional property dockerfile is not
+  // allowed") and `script` (re-added below only when the switch is on).
+  const { dockerfile: _legacyDockerfile, script: _script, ...originalBuild } =
+    (originalValues.build as Record<string, unknown> | undefined) ?? {};
   return {
     build: {
+      ...originalBuild,
       agent: form.buildAgent,
       ...(form.buildScriptEnabled ? { script: form.buildScript } : {}),
-      dockerfile: form.buildDockerfile,
+      containerfile: form.buildContainerfile,
       unitTest: { enabled: form.buildUnitTestEnabled, command: form.buildUnitTestCommand },
       sonar: form.buildSonar,
       cache: { enabled: form.buildCacheEnabled, size: form.buildCacheSize },
@@ -271,7 +287,7 @@ function buildCicdPatch(
   form: CicdFormState,
   originalValues: Partial<Record<CicdTopLevelField, unknown>>,
 ): Partial<Record<CicdTopLevelField, unknown>> {
-  const candidate = buildCandidateValues(form);
+  const candidate = buildCandidateValues(form, originalValues);
   const patch: Partial<Record<CicdTopLevelField, unknown>> = {};
   for (const key of CICD_TOP_LEVEL_FIELDS) {
     const baseline = originalValues[key] ?? emptyDefaultFor(key);
@@ -428,9 +444,9 @@ export function GlidepathTab() {
             ))}
           </Select>
           <TextField
-            label="Dockerfile path"
-            value={form.buildDockerfile}
-            onChange={e => setForm(f => (f ? { ...f, buildDockerfile: e.target.value } : f))}
+            label="Containerfile path"
+            value={form.buildContainerfile}
+            onChange={e => setForm(f => (f ? { ...f, buildContainerfile: e.target.value } : f))}
             size="small"
           />
         </div>
@@ -453,7 +469,7 @@ export function GlidepathTab() {
           />
         ) : (
           <Typography className={classes.sectionHint}>
-            Off - the whole build happens inside {form.buildDockerfile} (kaniko builds it directly).
+            Off - the whole build happens inside {form.buildContainerfile} (kaniko builds it directly).
           </Typography>
         )}
         <div className={classes.switchRow}>
@@ -549,18 +565,12 @@ export function GlidepathTab() {
           />
         </div>
         <div className={classes.row}>
-          <Select
-            value={form.strategy}
-            onChange={e => setForm(f => (f ? { ...f, strategy: e.target.value as 'deployment' | 'rollout' } : f))}
-          >
-            <MenuItem value="deployment">deployment</MenuItem>
+          <Select value={form.strategy} disabled>
             <MenuItem value="rollout">rollout</MenuItem>
           </Select>
-          {form.strategy === 'deployment' && (
-            <Typography className={classes.govCaption}>
-              Every deploy actually provisions an Argo Rollout today, regardless of this setting.
-            </Typography>
-          )}
+          <Typography className={classes.govCaption}>
+            Argo Rollouts is the only supported deploy strategy.
+          </Typography>
         </div>
         <YamlBlockEditor
           label="upperEnvironments (name, or {name, cluster})"

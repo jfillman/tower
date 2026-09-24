@@ -168,21 +168,12 @@ const TAG_FILTER_OPTIONS: Array<{ value: TagFilter; label: string }> = [
 export function ImagesTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const { environments, loading, error, pipelineRuns } = useReleaseContext();
+  const { environments, loading, error, pipelineRuns, owner, appName } = useReleaseContext();
   const [searchParams] = useSearchParams();
   const highlightTag = searchParams.get('imageTag') ?? undefined;
 
   if (loading) return <Progress />;
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
-  if (environments.length === 0) {
-    return (
-      <TowerEmptyState
-        title="No live workloads found"
-        description="Tower reads the live container image from this entity's Rollouts/Deployments/Pods. Once it's rolled out somewhere, its GHCR image history will show up here."
-      />
-    );
-  }
-
   // Preview environments deliberately excluded here: this platform's
   // PR-validation builds push to their own "-pr" GHCR package suffix (see
   // glidepath's docs/admin/naming-conventions.md and build-image.yaml's
@@ -197,7 +188,13 @@ export function ImagesTab() {
   const image =
     environments.find(e => e.image && !isPreviewEnvName(e.env))?.image ??
     environments.find(e => e.image)?.image;
-  const ownerRepo = image ? parseGhcrOwnerRepo(image) : undefined;
+  // Falls back to the catalog's own owner + app name (ghcr.io/<owner>/<appName> is
+  // this platform's image naming convention) when nothing is deployed anywhere yet
+  // (2026-09-24 bug: a brand-new app, boarding-api, had built and pushed its first
+  // image to GHCR but the tab only ever looked images up via a LIVE workload's
+  // image, so it showed "No live workloads found" instead of the pushed image).
+  const ownerRepo =
+    (image ? parseGhcrOwnerRepo(image) : undefined) ?? (owner && appName ? { owner, repo: appName } : undefined);
 
   return (
     <ImagesTable

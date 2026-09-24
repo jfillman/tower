@@ -5,6 +5,7 @@ import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs';
 import type { TaskStepSummary } from './tekton/types';
+import { renderAnsi, type AnsiState } from './ansi';
 
 // Consolidated multi-step log view for one TaskRun (2026-09-11: "consolidate
 // the logs so all step logs appear in the same window, no container
@@ -115,12 +116,21 @@ export function TaskRunLogConsole({
             {block.lines.length === 0 && !block.error && block.state !== 'waiting' && (
               <div className={classes.line}>(no output yet)</div>
             )}
-            {block.lines.map((line, i) => (
-              <div key={i} className={classes.line}>
-                {line.at && <span className={classes.at}>[{formatLineTime(line.at)}] </span>}
-                {line.text}
-              </div>
-            ))}
+            {(() => {
+              // Colour state carries from line to line within a step (a tool often
+              // opens a colour on one line and resets it on a later one).
+              let ansi: AnsiState = {};
+              return block.lines.map((line, i) => {
+                const rendered = renderAnsi(line.text, ansi);
+                ansi = rendered.state;
+                return (
+                  <div key={i} className={classes.line}>
+                    {line.at && <span className={classes.at}>[{formatLineTime(line.at)}] </span>}
+                    {rendered.nodes}
+                  </div>
+                );
+              });
+            })()}
           </div>
         );
       })}

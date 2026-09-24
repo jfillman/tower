@@ -600,13 +600,14 @@ export function RecentActivityPanel({
     return out;
   }, [filtered]);
 
-  if (
-    !loading &&
-    notifications.every(
-      n => !n.payload.topic || !KNOWN_TOPICS.has(n.payload.topic),
-    )
-  ) {
-    return null;
+  // Always rendered, even for a brand-new app with nothing to show yet (2026-09-24: "for a
+  // brand new app, the Recent Activity panel doesn't appear") - it used to return null
+  // until the first known-topic notification existed, so the panel (and its filters)
+  // only popped into existence after activity.
+  let emptyText = 'Nothing to show for this filter yet.';
+  if (loading) emptyText = 'Loading…';
+  else if (notifications.length === 0) {
+    emptyText = 'No activity yet - builds, deployments and releases for this app will show up here.';
   }
 
   return (
@@ -664,7 +665,7 @@ export function RecentActivityPanel({
       <div className={classes.scrollArea}>
       {groups.length === 0 ? (
         <Typography className={classes.empty}>
-          Nothing to show for this filter yet.
+          {emptyText}
         </Typography>
       ) : (
         groups.map((group, gi) => (
