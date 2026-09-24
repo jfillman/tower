@@ -209,9 +209,32 @@ function buildStepsCore(
   // operationStartedAt is accurate the moment an operation begins,
   // regardless of whether it's finished.
   const operationRunning = argo?.operationPhase === 'Running';
-  const synced = !argoStale && !operationRunning && argo?.syncStatus === 'Synced';
+  // An ArgoCD sync operation with a PostSync hook (this platform's
+  // platform-outcome-postsync Job) stays phase 'Running' until that hook
+  // finishes - and PostSync hooks only run once the app is Healthy, i.e.
+  // AFTER the whole canary completes. So `operationRunning` is true through
+  // the entire canary, not just the apply (2026-09-23 bug: "the DAG gets
+  // stuck on 'application sync'... when the sync completes and the canary
+  // begins, the item stays orange and pulsing... 'rollout starts' never
+  // goes orange"). Real evidence the resources have already been applied
+  // despite the operation still 'Running': the Rollout is mid-canary, ArgoCD
+  // reads Progressing, or Healthy has been true since AFTER this operation
+  // began (healthSince >= operationStartedAt, which a stale reading left
+  // over from the previous release can't satisfy). Each of these is only
+  // ever true once the new spec has been applied, so none is fooled by the
+  // syncStatus/healthStatus lag `operationRunning` exists to guard against.
+  const healthSinceMs = argo?.healthSince ? new Date(argo.healthSince).getTime() : undefined;
+  const operationStartedMs = argo?.operationStartedAt ? new Date(argo.operationStartedAt).getTime() : undefined;
+  const healthyThisOperation =
+    argo?.healthStatus === 'Healthy' &&
+    healthSinceMs !== undefined &&
+    operationStartedMs !== undefined &&
+    healthSinceMs >= operationStartedMs;
+  const appliedDespiteRunning = Boolean(rolloutStillActive) || argo?.healthStatus === 'Progressing' || healthyThisOperation;
+  const synced = !argoStale && argo?.syncStatus === 'Synced' && (!operationRunning || appliedDespiteRunning);
   const healthStatus = argo?.healthStatus;
-  const healthy = !argoStale && !operationRunning && !rolloutStillActive && healthStatus === 'Healthy';
+  const healthy =
+    !argoStale && !rolloutStillActive && healthStatus === 'Healthy' && (!operationRunning || healthyThisOperation);
   // Gated by !operationRunning too - a normal rolling sync can genuinely
   // dip through a transient "Degraded" reading mid-apply (old pods
   // terminating before new ones are ready), which isn't a real failure
@@ -273,7 +296,16 @@ function buildStepsCore(
   // `rolloutStillActive`/`healthy` are each independently real evidence too
   // - `healthy` alone covers a fast/no-canary deploy that's already fully
   // done by the time this evaluates (it obviously started at some point).
-  const rolloutStarted = merged && !argoStale && (synced || Boolean(rolloutStillActive) || healthy);
+  // "Rollout starts" stays the CURRENT (amber, pulsing) step for as long as
+  // the canary is actually running, and only goes green once it has
+  // finished ramping (2026-09-23: the user wants this node live during the
+  // canary, and the canary's own live step/weight text is keyed off it being
+  // 'current') - `synced` already requires the apply to have finished, so
+  // the left-to-right order stays honest. `healthy` alone still covers a
+  // fast/no-canary deploy that's already fully done by the time this
+  // evaluates.
+  const rolloutStarted =
+    merged && !argoStale && (healthy || (synced && !rolloutStillActive && healthStatus !== 'Progressing'));
   // Once merged, guardrails must already have passed - this platform's
   // branch protection requires every required check green before a merge
   // can happen at all, so `merged` alone is authoritative there and
@@ -303,6 +335,11 @@ function buildStepsCore(
   // whatever streak predates THIS operation, not a real completion time for
   // it). Blank rather than attach a real-looking but wrong (older) date to a
   // step that hasn't actually happened yet.
+  let syncedAt: string | undefined;
+  if (!argoStale) {
+    if (!operationRunning) syncedAt = argo?.operationFinishedAt;
+    else if (synced && argo?.healthStatus === 'Progressing') syncedAt = argo?.healthSince;
+  }
   const at: Record<CdStepKey, string | undefined> = {
     created: createdAt,
     // The real "guardrails finished checking at X" instant - the backend's
@@ -316,9 +353,13 @@ function buildStepsCore(
     // while still genuinely running, same "no timestamp until it's really
     // done" posture as guardrails/healthy below, rather than the started-at
     // instant this used to show.
-    synced: argoStale || operationRunning ? undefined : argo?.operationFinishedAt,
+    // While the operation is still 'Running' only because a PostSync hook is
+    // waiting on the canary (see appliedDespiteRunning), there's no
+    // operationFinishedAt yet - the app's own Progressing transition is the
+    // closest real "the apply finished" instant.
+    synced: syncedAt,
     progressing: progressingAt(argoStale, healthStatus, argo?.healthSince, rolloutStarted, argo?.operationStartedAt),
-    healthy: argoStale || operationRunning || rolloutStillActive ? undefined : argo?.healthSince,
+    healthy: healthy ? argo?.healthSince : undefined,
   };
 
   let gapAssigned = false;

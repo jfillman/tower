@@ -19,3 +19,28 @@ import type { MouseEvent } from 'react';
 export function preventFocusScroll(e: MouseEvent) {
   e.preventDefault();
 }
+
+// Belt-and-braces for the same bug class (2026-09-23: "clicking on any one
+// of the deployment DAG items scrolls you to the top of the screen" - still
+// reproducing with the mousedown fix above in place, so something other than
+// native focus is moving the scroll, e.g. the detail panel below swapping to
+// a much shorter/taller body and the nested scroll container re-clamping).
+// Snapshots every scrollable ancestor's scrollTop before `change` runs and
+// restores any that moved once React has committed the resulting re-render.
+export function keepScrollPosition(from: Element | null, change: () => void) {
+  const saved: Array<[Element, number]> = [];
+  for (let el: Element | null = from; el; el = el.parentElement) {
+    if (el.scrollTop > 0) saved.push([el, el.scrollTop]);
+  }
+  saved.push([document.scrollingElement ?? document.documentElement, window.scrollY]);
+  change();
+  const restore = () => {
+    for (const [el, top] of saved) {
+      if (el.scrollTop !== top) el.scrollTop = top;
+    }
+  };
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(restore);
+  });
+}

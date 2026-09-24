@@ -9,6 +9,7 @@ import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import { relativeTime, formatDateTime } from '../shared/format';
 import { fontMono, type HangarTokens } from '../brand/tokens';
+import { keepScrollPosition } from './preventFocusScroll';
 import { PrButton } from './PrButton';
 import { parseGitopsPrTitle } from './useReleaseContext';
 import type { CdDelivery, CdStep, CdStepKey, CdStepStatus } from './useCdDelivery';
@@ -300,9 +301,9 @@ export function Rail({
               ? {
                   role: 'button',
                   tabIndex: 0,
-                  onClick: () => onSelectKey(step.key),
+                  onClick: (e: MouseEvent<HTMLElement>) => keepScrollPosition(e.currentTarget, () => onSelectKey(step.key)),
                   onKeyDown: (e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') onSelectKey(step.key);
+                    if (e.key === 'Enter' || e.key === ' ') keepScrollPosition(e.currentTarget as Element, () => onSelectKey(step.key));
                   },
                   // Suppresses the browser's default click-to-focus scroll
                   // (2026-09-16 bug: "when you click on a deployment stage,

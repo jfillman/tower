@@ -84,7 +84,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
   chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
   chipAmber: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  progressBig: { fontFamily: fontMono, fontSize: 20, fontWeight: 700, color: ({ t }) => t.amberInk },
+  '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
+  // Amber + pulsing while the canary is live (2026-09-23 feedback).
+  progressBig: { fontFamily: fontMono, fontSize: 20, fontWeight: 700, color: ({ t }) => t.amberInk, animation: '$livePulse 1.6s ease-in-out infinite' },
   resourceList: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 },
   resourceRow: { display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11.5 },
   resourceRowPinned: { border: ({ t }) => `1px solid ${t.skyLine}` },

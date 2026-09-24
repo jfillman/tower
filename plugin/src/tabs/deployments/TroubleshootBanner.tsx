@@ -21,6 +21,8 @@ export interface Diagnosis {
   tone: BannerTone;
   title: string;
   body: string;
+  // Real work is in flight right now - the banner pulses amber for it.
+  live?: boolean;
 }
 
 function stepByKey(steps: CdStep[] | undefined, key: CdStep['key']): CdStep | undefined {
@@ -79,24 +81,32 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
     };
   }
 
-  if (env.argoOperationPhase === 'Running') {
-    return {
-      tone: 'info',
-      title: 'A sync is currently being applied',
-      body: "ArgoCD is actively applying this environment's manifests right now - sync/health status below may still read as the previous release's until this finishes.",
-    };
-  }
-
+  // Checked BEFORE the "sync is currently being applied" rule below (2026-09-23
+  // bug: "the info panel doesn't always provide the current canary steps as
+  // the canary is progressing") - ArgoCD's sync operation stays phase
+  // 'Running' for the whole canary whenever a PostSync hook is waiting on
+  // the rollout to go Healthy, so that rule used to mask this one for the
+  // entire canary and the live step/weight text below never showed.
   const weight = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.currentWeight : undefined;
   const stepIndex = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.currentStepIndex : undefined;
   const totalSteps = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.steps.length : undefined;
   if (weight !== undefined && weight < 100) {
     const stepText =
-      stepIndex !== undefined && totalSteps ? ` (step ${Math.min(stepIndex + 1, totalSteps)} of ${totalSteps})` : '';
+      stepIndex !== undefined && totalSteps ? `step ${Math.min(stepIndex + 1, totalSteps)} of ${totalSteps}, ` : '';
     return {
       tone: 'info',
-      title: 'Waiting on canary rollout - this is expected',
-      body: `The Rollout controller is mid-canary at ${weight}% traffic${stepText}. ArgoCD reports Synced/Progressing because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`,
+      live: true,
+      title: `Canary rollout in progress - ${stepText}${weight}% traffic`,
+      body: `The Rollout controller is mid-canary at ${weight}% traffic. ArgoCD reports Synced/Progressing${env.argoOperationPhase === 'Running' ? ' (and its sync operation stays open until the PostSync hook runs after the canary finishes)' : ''} because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`,
+    };
+  }
+
+  if (env.argoOperationPhase === 'Running') {
+    return {
+      tone: 'info',
+      live: true,
+      title: 'A sync is currently being applied',
+      body: "ArgoCD is actively applying this environment's manifests right now - sync/health status below may still read as the previous release's until this finishes.",
     };
   }
 
@@ -163,7 +173,10 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
   };
 }
 
-function toneColors(t: HangarTokens, tone: BannerTone): { border: string; bg: string; fg: string; icon: string } {
+function toneColors(t: HangarTokens, tone: BannerTone, live = false): { border: string; bg: string; fg: string; icon: string } {
+  // A live (in-flight) info banner goes amber, matching the DAG's own
+  // current-step color, instead of the calm sky "info" tone.
+  if (live && tone === 'info') return { border: t.amberLine, bg: t.amberSoft, fg: t.amberInk, icon: 'i' };
   switch (tone) {
     case 'ok':
       return { border: '#2c4a37', bg: t.goodSoft, fg: t.good, icon: '✓' };
@@ -175,15 +188,17 @@ function toneColors(t: HangarTokens, tone: BannerTone): { border: string; bg: st
   }
 }
 
-const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone }>(() => ({
+const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone; live: boolean }>(() => ({
+  '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.55 } },
+  livePulse: { animation: '$livePulse 1.6s ease-in-out infinite' },
   banner: {
     display: 'flex',
     alignItems: 'flex-start',
     gap: 12,
     padding: '14px 18px',
     borderRadius: 10,
-    border: ({ t, tone }) => `1px solid ${toneColors(t, tone).border}`,
-    backgroundColor: ({ t, tone }) => toneColors(t, tone).bg,
+    border: ({ t, tone, live }) => `1px solid ${toneColors(t, tone, live).border}`,
+    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).bg,
   },
   icon: {
     width: 22,
@@ -196,14 +211,14 @@ const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone }>(() =>
     fontWeight: 800,
     fontSize: 12,
     color: ({ t }) => t.bg,
-    backgroundColor: ({ t, tone }) => toneColors(t, tone).fg,
+    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).fg,
   },
   title: {
     fontFamily: fontDisplay,
     fontWeight: 700,
     fontSize: 13,
     marginBottom: 3,
-    color: ({ t, tone }) => toneColors(t, tone).fg,
+    color: ({ t, tone, live }) => toneColors(t, tone, live).fg,
   },
   body: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.55 },
 }));
@@ -211,13 +226,13 @@ const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone }>(() =>
 export function TroubleshootBanner({ env, currentSteps }: { env: EnvironmentSummary; currentSteps: CdStep[] | undefined }) {
   const t = useHangarTokens();
   const diagnosis = diagnose(env, currentSteps);
-  const classes = useStyles({ t, tone: diagnosis.tone });
-  const icon = toneColors(t, diagnosis.tone).icon;
+  const classes = useStyles({ t, tone: diagnosis.tone, live: Boolean(diagnosis.live) });
+  const icon = toneColors(t, diagnosis.tone, diagnosis.live).icon;
   return (
     <div className={classes.banner}>
       <span className={classes.icon}>{icon}</span>
       <div>
-        <Typography className={classes.title}>{diagnosis.title}</Typography>
+        <Typography className={`${classes.title} ${diagnosis.live ? classes.livePulse : ''}`}>{diagnosis.title}</Typography>
         <Typography className={classes.body}>{diagnosis.body}</Typography>
       </div>
     </div>

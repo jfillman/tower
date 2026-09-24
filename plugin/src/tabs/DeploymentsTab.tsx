@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -47,6 +47,9 @@ import {
 // highest-stakes-first ordering is a different, intentional choice for a
 // different view).
 const TIER_ORDER: EnvTier[] = ['lower', 'upper'];
+
+// How long the detail panel lingers on a just-completed stage before following the DAG on.
+const STAGE_DWELL_MS = 4000;
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   main: { display: 'flex', flexDirection: 'column', gap: 16 },
@@ -225,8 +228,28 @@ export function DeploymentsTab() {
   const preActiveSteps: CdStep[] | undefined = preSelected?.delivery.current?.steps ?? preSelected?.delivery.previous?.steps;
   const liveCurrentKey = preActiveSteps?.find(s => s.status === 'current')?.key;
   const [selectedStepKey, setSelectedStepKey] = useState<CdStepKey | undefined>(undefined);
+  const selectedStepKeyRef = useRef<CdStepKey | undefined>(undefined);
+  selectedStepKeyRef.current = selectedStepKey;
+  const followRef = useRef<{ env?: string; key?: CdStepKey }>({});
   useEffect(() => {
-    setSelectedStepKey(liveCurrentKey ?? preActiveSteps?.[preActiveSteps.length - 1]?.key);
+    const target = liveCurrentKey ?? preActiveSteps?.[preActiveSteps.length - 1]?.key;
+    const prev = followRef.current;
+    followRef.current = { env: selectedEnv, key: target };
+    // Dwell (2026-09-23: "if that DAG item completes, pause there for a few
+    // seconds before moving the focus to the next... i'd like to see the PR
+    // merged info appear on the screen after the PR is merged") - only when
+    // the user is actually looking at the step that just finished; anyone
+    // viewing some other stage, or a freshly picked env, still snaps
+    // immediately. A manual click during the pause wins over the timer.
+    const dwell = prev.env === selectedEnv && prev.key !== undefined && prev.key !== target && selectedStepKeyRef.current === prev.key;
+    if (!dwell) {
+      setSelectedStepKey(target);
+      return undefined;
+    }
+    const id = setTimeout(() => {
+      if (selectedStepKeyRef.current === prev.key) setSelectedStepKey(target);
+    }, STAGE_DWELL_MS);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEnv, liveCurrentKey]);
 
@@ -339,6 +362,7 @@ export function DeploymentsTab() {
               classes={railClasses}
               t={t}
               labelOverride={guardrailsLabelOverride}
+              metaOverride={liveProgress ? { key: 'progressing', text: liveProgress } : undefined}
               selectedKey={selectedStepKey}
               onSelectKey={setSelectedStepKey}
             />

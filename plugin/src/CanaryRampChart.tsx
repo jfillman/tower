@@ -79,6 +79,14 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   node: { width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid', fontSize: 12, backgroundColor: ({ t }) => t.panel },
   nodeCurrent: { animation: '$pulse 1.6s ease-in-out infinite' },
   '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.55 } },
+  // Live-canary activity on the weight chart itself (2026-09-23: "a little
+  // more alive/active during a rollout") - the current step's dot pulses, a
+  // halo ripples out from it, and the "x% now" label pulses amber. Only ever
+  // applied to the step that stepState() says is 'current'.
+  '@keyframes halo': { '0%': { opacity: 0.7, transform: 'scale(0.8)' }, '100%': { opacity: 0, transform: 'scale(2.2)' } },
+  chartDotLive: { animation: '$pulse 1.2s ease-in-out infinite' },
+  chartHalo: { transformBox: 'fill-box', transformOrigin: 'center', animation: '$halo 1.6s ease-out infinite' },
+  nowLabelLive: { animation: '$pulse 1.2s ease-in-out infinite' },
   line: { flex: `0 0 ${STEP_LINE}px`, height: 2, marginTop: STEP_COL / 2 },
   label: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, textAlign: 'center', lineHeight: 1.3 },
   labelValue: { display: 'block', color: ({ t }) => t.textHi, fontSize: 10 },
@@ -299,17 +307,29 @@ export function CanaryRampChart({
                 const x = stepCenterX(i);
                 const y = yFor(series[i]);
                 const filled = state === 'done' || state === 'current' || state === 'bad';
+                const live = state === 'current';
+                const halo = live ? <circle cx={x} cy={y} r={7} fill="none" stroke={color} strokeWidth={1.5} className={classes.chartHalo} /> : null;
                 if (s.kind === 'analysis') {
                   return (
-                    <rect key={i} x={x - 5} y={y - 5} width={10} height={10} fill={filled ? color : t.panel} stroke={color} strokeWidth={1.5} transform={`rotate(45 ${x} ${y})`} />
+                    <g key={i}>
+                    {halo}
+                    <rect className={live ? classes.chartDotLive : undefined} x={x - 5} y={y - 5} width={10} height={10} fill={filled ? color : t.panel} stroke={color} strokeWidth={1.5} transform={`rotate(45 ${x} ${y})`} />
+                    </g>
                   );
                 }
                 if (s.kind === 'pause') {
-                  return <circle key={i} cx={x} cy={y} r={4} fill={t.panel} stroke={color} strokeWidth={1.5} />;
+                  return (
+                    <g key={i}>
+                      {halo}
+                      <circle className={live ? classes.chartDotLive : undefined} cx={x} cy={y} r={4} fill={t.panel} stroke={color} strokeWidth={1.5} />
+                    </g>
+                  );
                 }
                 return (
+                  <g key={i}>
+                  {halo}
                   <circle
-                    key={i}
+                    className={live ? classes.chartDotLive : undefined}
                     cx={x}
                     cy={y}
                     r={5}
@@ -318,10 +338,11 @@ export function CanaryRampChart({
                     strokeWidth={1.5}
                     strokeDasharray={s.implied ? '2 2' : undefined}
                   />
+                  </g>
                 );
               })}
               {currentStepIndex !== undefined && currentStepIndex < steps.length && currentWeight !== undefined && (
-                <text x={stepCenterX(currentStepIndex)} y={yFor(series[currentStepIndex]) - 14} textAnchor="middle" fontFamily={fontMono} fontWeight={600} fontSize={11} fill={t.amberInk}>
+                <text x={stepCenterX(currentStepIndex)} y={yFor(series[currentStepIndex]) - 14} textAnchor="middle" fontFamily={fontMono} fontWeight={600} fontSize={11} fill={t.amberInk} className={currentWeight < 100 ? classes.nowLabelLive : undefined}>
                   {currentWeight}% now
                 </text>
               )}
