@@ -68,7 +68,19 @@ const TEKTON_RESULTS_RELAY_PORT = 8080;
 // go either way depending on the server's own marshalling config.
 function recordsProxyPath(parent: string, pageToken: string | undefined): string {
   const base = `/api/v1/namespaces/${TEKTON_RESULTS_RELAY_NAMESPACE}/services/${TEKTON_RESULTS_RELAY_SERVICE}:${TEKTON_RESULTS_RELAY_PORT}/proxy/apis/results.tekton.dev/v1alpha2/parents/${encodeURIComponent(parent)}/results/-/records`;
-  const params = new URLSearchParams({ page_size: '200' });
+  // 2026-09-23 bug: "all the pipeline result info... is missing" from the
+  // Release Record. Verified live (checkout-api: 241 archived PipelineRuns,
+  // ~11 pages of 200) that an unfiltered, unordered listing came back in no
+  // useful order and a third of it was Log records this hook discards
+  // anyway, so the old 5-page cap silently dropped roughly half of the
+  // archive - including builds for recent releases. Server-side `filter`
+  // (CEL) drops the Log records, and `order_by=create_time desc` makes
+  // whatever the page cap does cut off the OLDEST runs, not arbitrary ones.
+  const params = new URLSearchParams({
+    page_size: '200',
+    filter: 'data_type in ["tekton.dev/v1.PipelineRun","tekton.dev/v1.TaskRun"]',
+    order_by: 'create_time desc',
+  });
   if (pageToken) params.set('page_token', pageToken);
   return `${base}?${params.toString()}`;
 }
@@ -121,7 +133,7 @@ export interface UseTektonResultsRunsResult {
 // own MATRIX_ROW_CAP reasoning - a namespace with a very long release
 // history could otherwise page indefinitely for a view that only needs
 // enough archived runs to cover this app's own visible Release Records.
-const MAX_PAGES = 5;
+const MAX_PAGES = 12;
 
 // Not polled like useTektonPipelineRuns - archived runs are, by definition,
 // already finished and never change again, so there's nothing to watch for.

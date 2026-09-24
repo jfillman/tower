@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { PullRequestSummary } from '../pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
+import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
 import type { ProvenanceState } from './useReleaseData';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
 import type { ReleaseRow } from './useReleaseContext';
@@ -368,6 +369,68 @@ function computeConfidence(input: {
 // that make up the rest of this score.
 export function applyApprovalBonus(baseConfidence: number, approvalsCount: number): number {
   return Math.min(100, baseConfidence + Math.min(10, approvalsCount * 5));
+}
+
+// Falls back to the guardrails frozen into the committed record when the live
+// gitops-PR lookup no longer has them (a superseded release, or one whose PR
+// fell out of the live window) - and recomputes the technical score to match,
+// so the confidence number never silently drops just because live data aged
+// out. A record that still has live guardrails is returned untouched.
+export function withPersistedGuardrails(record: ReleaseRecord, doc: ReleaseRecordDoc | undefined): ReleaseRecord {
+  if (record.guardrails || !doc?.guardrails) return record;
+  return {
+    ...record,
+    guardrails: doc.guardrails.ci,
+    guardrailsPrUrl: doc.guardrails.prUrl,
+    guardrailsPrNumber: doc.guardrails.prNumber,
+    confidence: computeConfidence({ guardrails: doc.guardrails.ci, provenance: record.provenance }),
+  };
+}
+
+export interface ConfidenceLine {
+  label: string;
+  points: number;
+  max: number;
+  note: string;
+}
+
+// The score's own itemization, for the explainer panel (2026-09-23: "a
+// confidence score explainer should be present somewhere"). Mirrors
+// computeConfidence + applyApprovalBonus line for line - if either changes,
+// this must move with them (same "no shared source of truth, keep in sync
+// by hand" posture as the rest of this file), which is why it recomputes
+// each term rather than trusting record.confidence's own sum.
+export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: number): ConfidenceLine[] {
+  const g = record.guardrails;
+  let guardPoints = 0;
+  let guardNote = 'No guardrail (release-gate) results are available for this release, so this earns nothing - not because a check failed, but because there is nothing on record to count.';
+  if (g) {
+    guardPoints = g.totalChecks > 0 ? Math.round((g.passedChecks / g.totalChecks) * 30) : 15;
+    guardNote =
+      g.totalChecks > 0
+        ? `${g.passedChecks} of ${g.totalChecks} required release guardrails passed (scaled to 30).`
+        : 'The release PR reported no required checks (half credit).';
+  }
+  const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
+  return [
+    { label: 'Baseline', points: 50, max: 50, note: 'Every release that reached a Flight-tier environment starts here.' },
+    { label: 'Release guardrails', points: guardPoints, max: 30, note: guardNote },
+    {
+      label: 'Signed & attested',
+      points: verified ? 15 : 0,
+      max: 15,
+      note: verified
+        ? 'The image has a cosign/SLSA attestation that verified.'
+        : 'No verified cosign/SLSA attestation found for this image.',
+    },
+    { label: 'No incidents', points: 5, max: 5, note: 'No incidents are recorded against this release (Tower does not track incidents yet, so this is always awarded).' },
+    {
+      label: 'Human approvals',
+      points: Math.min(10, approvalsCount * 5),
+      max: 10,
+      note: `${approvalsCount} approval${approvalsCount === 1 ? '' : 's'} recorded in the Human Context - +5 each, up to +10.`,
+    },
+  ];
 }
 
 // Records only ever come from `releases` (useReleaseContext.ts's own

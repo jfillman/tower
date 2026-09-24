@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { PullRequestSummary } from '../pullRequests/usePullRequests';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 
 // Phase 2 of HANDOFF-tower-release-record.md - the persisted counterpart to
@@ -37,6 +38,9 @@ export interface ReleaseRecordDoc {
   cluster: string;
   env: string;
   generatedAt: string;
+  // Guardrail Check Runs frozen at generation time - see the backend's
+  // ReleaseRecordDoc.guardrails comment. Absent on older records.
+  guardrails?: { prNumber: number; prUrl: string; ci: NonNullable<PullRequestSummary['ci']> };
   humanContext: ReleaseRecordHumanContext;
 }
 

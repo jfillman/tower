@@ -1,6 +1,6 @@
 import { formatDateTime } from '../shared/format';
 import { slugHue } from './PipelineRunList';
-import { applyApprovalBonus, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
+import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 
 // Test-results cap matches ReleaseRecordDetail.tsx's own live-page cap - kept in
@@ -182,7 +182,7 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
   <div class="page">
     <div class="head">
       <div class="mark">
-        <div class="ring"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#A96A16" stroke-width="1.6"><path d="M4 20 L4 11 L12 5 L20 11 L20 20 Z"/><path d="M9 20 L9 14 L15 14 L15 20"/></svg></div>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="38" height="38" role="img" aria-label="Hangar mark"><rect x="8" y="8" width="80" height="80" rx="22" fill="#0B0D10"/><g transform="translate(48 48) scale(0.82) translate(-48 -48)"><circle cx="48" cy="48" r="40" fill="none" stroke="#262C33" stroke-width="2"/><g stroke="#66717B" stroke-width="2"><line x1="48" y1="8" x2="48" y2="15" transform="rotate(0 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(45 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(90 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(135 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(180 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(225 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(270 48 48)"/><line x1="48" y1="8" x2="48" y2="15" transform="rotate(315 48 48)"/></g><polygon points="44,2 52,2 48,9" fill="#E8A33D"/><path d="M32,64 V48 A16,16 0 0 1 64,48 V64" fill="none" stroke="#E8A33D" stroke-width="4" stroke-linecap="round"/><line x1="26" y1="68" x2="70" y2="68" stroke="#262C33" stroke-width="2"/></g></svg>
         <div class="word">HANGAR <span>· TOWER</span></div>
       </div>
       <div class="meta">RELEASE RECORD<br/>${esc(record.appName)} · ${esc(record.version ?? record.imageTag)}${nicknameBadgeHtml(record.nickname)}<br/>Generated ${formatDateTime(new Date().toISOString())}</div>
@@ -205,6 +205,12 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
       </div>
     </div>
     <div class="human">${humanContextHtml(humanContext)}</div>
+    <div class="cats" style="margin-top:18px;">
+      <b>How the confidence score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
+      ${confidenceBreakdown(record, humanContext?.approvals.length ?? 0)
+        .map(l => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`)
+        .join(' · ')}
+    </div>
     <div class="foot">
       <span class="mono">tower/release-record@1 · ${esc(record.id)}</span>
       <span>Generated ${esc(new Date().toISOString())}</span>

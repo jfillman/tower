@@ -5,13 +5,15 @@ import Typography from '@material-ui/core/Typography';
 import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { preventFocusScroll } from './preventFocusScroll';
+import { HangarMark } from '../brand/HangarMark';
 import { SupplyChainChips } from './SupplyChainChips';
 import { GateLedger, useSignalRailStyles } from './SignalRail';
 import { phaseTone } from './PipelineRunList';
 import { downloadReleaseRecordHtml, printReleaseRecordPdf } from './ReleaseRecordExport';
 import { confidenceColor } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
-import { applyApprovalBonus, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
+import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
@@ -54,18 +56,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 22,
   },
   headLeft: { display: 'flex', gap: 16, alignItems: 'center' },
-  mark: {
-    width: 52,
-    height: 52,
-    borderRadius: '50%',
-    border: ({ t }) => `2px solid ${t.amber}`,
-    flex: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    backgroundColor: ({ t }) => t.bg,
-  },
+  // The Hangar instrument-dial mark itself (2026-09-23: "change the release record logo to match the Hangar logo") - no wrapper ring, the mark carries its own.
+  mark: { flex: 'none', display: 'flex' },
   kicker: {
     fontFamily: fontDisplay,
     fontWeight: 600,
@@ -90,6 +82,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
   scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.3 },
+  scoreLink: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.sky, '&:hover': { textDecoration: 'underline' } },
+  explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 12.5, color: ({ t }) => t.textLo },
+  explainRow: { display: 'grid', gridTemplateColumns: '150px 60px 1fr', gap: 12, padding: '5px 0', borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: 'baseline' },
+  explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
   actionsBar: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   btn: {
     fontFamily: fontDisplay,
@@ -266,7 +262,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 }));
 
 export function ReleaseRecordDetail({
-  record,
+  record: liveRecord,
   appName,
   owner,
   otherRecords,
@@ -283,16 +279,21 @@ export function ReleaseRecordDetail({
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const railClasses = useSignalRailStyles({ t });
+
+  const persistTarget = owner && appName ? { owner, appName, imageTag: liveRecord.imageTag } : undefined;
+  const persisted = useReleaseRecordDoc(persistTarget);
+  // Guardrails frozen into the committed record win over nothing, never over live data - see withPersistedGuardrails.
+  const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
   const liveDeployment = record.deployments.find(d => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
 
-  const persistTarget = owner && appName ? { owner, appName, imageTag: record.imageTag } : undefined;
-  const persisted = useReleaseRecordDoc(persistTarget);
   // Committed approvals only, never the pending/unsaved form state below -
   // same reasoning as the cert strip's own "N approvals on record" count.
   const displayConfidence = applyApprovalBonus(record.confidence, persisted.data?.humanContext.approvals.length ?? 0);
+  const [showScoreExplainer, setShowScoreExplainer] = useState(false);
+  const scoreLines = confidenceBreakdown(record, persisted.data?.humanContext.approvals.length ?? 0);
   const submitContext = useSubmitHumanContext();
   const [form, setForm] = useState<ReleaseRecordHumanContext>({ approvals: [] });
   const [approvalRole, setApprovalRole] = useState('');
@@ -356,10 +357,7 @@ export function ReleaseRecordDetail({
       <div className={classes.head}>
         <div className={classes.headLeft}>
           <div className={classes.mark}>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={t.amber} strokeWidth={1.6}>
-              <path d="M4 20 L4 11 L12 5 L20 11 L20 20 Z" />
-              <path d="M9 20 L9 14 L15 14 L15 20" />
-            </svg>
+            <HangarMark glyph="hangar" size={52} />
           </div>
           <div>
             <div className={classes.kicker}>Release Record</div>
@@ -396,6 +394,10 @@ export function ReleaseRecordDetail({
               confidence
               <br />
               score
+              <br />
+              <button type="button" className={classes.scoreLink} onMouseDown={preventFocusScroll} onClick={() => setShowScoreExplainer(v => !v)}>
+                {showScoreExplainer ? 'hide how ▴' : 'how? ▾'}
+              </button>
             </span>
           </div>
           <div className={classes.actionsBar}>
@@ -431,6 +433,25 @@ export function ReleaseRecordDetail({
           </div>
         </div>
       </div>
+
+      {showScoreExplainer && (
+        <div className={classes.explainer}>
+          <Typography style={{ fontWeight: 700, color: t.textHi, marginBottom: 6 }}>How the confidence score works</Typography>
+          <Typography style={{ fontSize: 12, marginBottom: 8 }}>
+            A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for recorded human approvals; it moves if any of that evidence changes.
+          </Typography>
+          {scoreLines.map(line => (
+            <div key={line.label} className={classes.explainRow}>
+              <span style={{ color: t.textHi }}>{line.label}</span>
+              <span className={classes.explainPts}>
+                +{line.points} / {line.max}
+              </span>
+              <span>{line.note}</span>
+            </div>
+          ))}
+          <Typography style={{ fontSize: 12, marginTop: 8, color: t.textHi }}>Total: {displayConfidence} / 100 (80+ green, 50-79 amber, below 50 red)</Typography>
+        </div>
+      )}
 
       <div className={classes.triad}>
         <div className={classes.col}>
