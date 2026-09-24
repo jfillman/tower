@@ -77,15 +77,16 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   // progress signal the bar duplicated.
   connector: {
     flex: '0 0 22px',
-    // Centered on the DOTS' own vertical midpoint (2026-09-24: "can the amber
-    // chevron arrows between stages be vertically centered? at the moment they
-    // seem to be top aligned") - node padding-top 4 + half the 30px dot = 19,
-    // minus half this connector's own 2px height. The old `center` + -27
-    // negative margin was a guess against the node's whole (label+meta) height
-    // and left the chevron riding above the dots.
-    alignSelf: 'flex-start',
+    // Centered on the whole stage NODE (icon + label + meta), the same panel
+    // that shows the selected-state highlight (2026-09-24: "should they be
+    // aligned with the DAG item's panel that includes the text below?"). The
+    // first fix (2026-09-24 earlier) centered on the dots alone (alignSelf
+    // flex-start + marginTop 18); switch back to `flex-start`/18 to revert.
+    // Nodes stretch to equal height in the rail, so this midpoint is the same
+    // for every connector.
+    alignSelf: 'center',
     height: 2,
-    marginTop: 18,
+    marginTop: 0,
     position: 'relative',
   },
   connectorArrow: {

@@ -6,6 +6,7 @@ import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { preventFocusScroll } from './preventFocusScroll';
+import type { PullRequestSummary } from '../pullRequests/usePullRequests';
 import { HangarMark } from '../brand/HangarMark';
 import { SupplyChainChips } from './SupplyChainChips';
 import { GateLedger, useSignalRailStyles } from './SignalRail';
@@ -265,6 +266,7 @@ export function ReleaseRecordDetail({
   record: liveRecord,
   appName,
   owner,
+  gitopsPrs,
   otherRecords,
   onCompare,
   onBack,
@@ -272,6 +274,7 @@ export function ReleaseRecordDetail({
   record: ReleaseRecord;
   appName?: string;
   owner?: string;
+  gitopsPrs?: PullRequestSummary[];
   otherRecords: ReleaseRecord[];
   onCompare: (id: string) => void;
   onBack: () => void;
@@ -294,6 +297,24 @@ export function ReleaseRecordDetail({
   const displayConfidence = applyApprovalBonus(record.confidence, persisted.data?.humanContext.approvals.length ?? 0);
   const [showScoreExplainer, setShowScoreExplainer] = useState(false);
   const scoreLines = confidenceBreakdown(record, persisted.data?.humanContext.approvals.length ?? 0);
+  // The auto-generated record's own PR (releaseRecordPoll -> generateReleaseRecord,
+  // title `Release Record: <app> @ <tag>`, NOT the `... - human context` edit PRs)
+  // - shown in the Human context panel while it's open or just merged (2026-09-24:
+  // "when an initial PR is created for the release record, the 'Human Context'
+  // panel should show a link to the PR").
+  const recordPr = (gitopsPrs ?? [])
+    .filter(pr => {
+      const m = pr.title.match(/^Release Record: (\S+) @ (\S+)$/);
+      return m && m[2].toLowerCase() === record.imageTag.toLowerCase();
+    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+  let recordNote =
+    'No Release Record has been committed yet for this image - Tower generates one automatically once a release like this reaches a Flight-tier environment and goes Healthy (usually within a few minutes). Human context can be added once that record exists.';
+  if (recordPr?.state === 'open') {
+    recordNote = "Tower has opened this release's Release Record PR - human context can be added once it's merged.";
+  } else if (recordPr) {
+    recordNote = 'The Release Record PR has merged - refresh in a moment for the committed record.';
+  }
   const submitContext = useSubmitHumanContext();
   const [form, setForm] = useState<ReleaseRecordHumanContext>({ approvals: [] });
   const [approvalRole, setApprovalRole] = useState('');
@@ -671,11 +692,18 @@ export function ReleaseRecordDetail({
         )}
         {persistTarget && persisted.loading && <Typography className={classes.humanNote}>Checking for a committed Release Record…</Typography>}
         {persistTarget && persisted.notFound && (
-          <Typography className={classes.humanNote}>
-            No Release Record has been committed yet for this image - Tower generates one automatically once a
-            release like this reaches a Flight-tier environment and goes Healthy (usually within a few minutes).
-            Human context can be added once that record exists.
-          </Typography>
+          <>
+            <Typography className={classes.humanNote}>
+              {recordNote}
+            </Typography>
+            {recordPr && (
+              <Typography className={classes.humanNote}>
+                <Link className={classes.humanResultLink} href={recordPr.url} target="_blank" rel="noopener noreferrer">
+                  Release Record PR #{recordPr.number} ({recordPr.state}) ↗
+                </Link>
+              </Typography>
+            )}
+          </>
         )}
         {persistTarget && persisted.error && (
           <Typography className={classes.humanNote}>Couldn't check for a committed record: {persisted.error}</Typography>

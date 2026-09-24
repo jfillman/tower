@@ -236,7 +236,13 @@ export function ReleasesTab() {
         )}
 
         {activeTab === 'record' && (
-          <ReleaseRecordPanel records={releaseRecords} totalKnown={releases.length} appName={appName} owner={owner} />
+          <ReleaseRecordPanel
+            records={releaseRecords}
+            totalKnown={releases.length}
+            appName={appName}
+            owner={owner}
+            gitopsPrs={gitopsPrs}
+          />
         )}
       </div>
 

@@ -1,5 +1,5 @@
-import { useMemo, useState, type ComponentType, type SVGProps } from 'react';
-import { preventFocusScroll } from './preventFocusScroll';
+import { useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import { preventFocusScroll, scrollPanelIntoView } from './preventFocusScroll';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -573,6 +573,7 @@ export function RecentActivityPanel({
   const isDark = useTheme().palette.type === 'dark';
   const [category, setCategory] = useState<Category>('all');
 
+  const panelRef = useRef<HTMLDivElement>(null);
   const filtered = useMemo(() => {
     return notifications
       .filter(n => n.payload.topic && KNOWN_TOPICS.has(n.payload.topic))
@@ -609,7 +610,7 @@ export function RecentActivityPanel({
   }
 
   return (
-    <div className={classes.card}>
+    <div className={classes.card} ref={panelRef} style={{ scrollMarginTop: 16, scrollMarginBottom: 16 }}>
       <div className={classes.headRow}>
         <Typography className={classes.title}>Recent activity</Typography>
         <button type="button" className={classes.viewAll} onClick={onViewAll}>
@@ -643,7 +644,15 @@ export function RecentActivityPanel({
               }`}
               style={style}
               onMouseDown={preventFocusScroll}
-              onClick={() => setCategory(c)}
+              onClick={() => {
+                setCategory(c);
+                // Keep the WHOLE panel in view after a filter change (2026-09-24: "don't
+                // fully focus on the entire panel when clicking on the filter label") -
+                // the row list re-renders at a different height, which used to leave the
+                // panel's bottom off-screen. 'nearest' only scrolls if it isn't already
+                // fully visible.
+                scrollPanelIntoView(() => panelRef.current, 60, 'nearest');
+              }}
             >
               {CategoryIcon && <CategoryIcon width={11} height={11} />}
               {meta.label}

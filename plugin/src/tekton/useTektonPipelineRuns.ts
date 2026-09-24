@@ -299,26 +299,64 @@ function chainIdOf(run: PipelineRunSummary): string | undefined {
 // the COMBINED set (not just the live-only list this hook itself builds) is
 // what lets an old, already-pruned build run's slug still show up on a
 // still-live downstream stage's chip, and vice versa.
+// Runs whose flowSlug was only DERIVED from their chain-id (chainSlug.ts) - the
+// weakest source, so a later pass that finds a real one (a sibling in the same
+// chain, or the build the run's git-revision points at) may replace it, unlike
+// every other slug source which is never overwritten.
+const derivedSlugRuns = new WeakSet<PipelineRunSummary>();
+
 export function linkFlowSlugsByChainId(runs: PipelineRunSummary[]): void {
   const slugByChainId = new Map<string, string>();
+  // sha -> slug of the NEWEST run carrying both, for the promotion-chain case
+  // below.
+  const slugBySha = new Map<string, { slug: string; at: number }>();
   runs.forEach(run => {
+    if (!run.flowSlug || derivedSlugRuns.has(run)) return;
     const chainId = chainIdOf(run);
-    if (chainId && run.flowSlug && !slugByChainId.has(chainId)) slugByChainId.set(chainId, run.flowSlug);
+    if (chainId && !slugByChainId.has(chainId)) slugByChainId.set(chainId, run.flowSlug);
+    if (run.sha) {
+      const at = new Date(run.startTime ?? 0).getTime();
+      const prev = slugBySha.get(run.sha.toLowerCase());
+      if (!prev || at > prev.at) slugBySha.set(run.sha.toLowerCase(), { slug: run.flowSlug, at });
+    }
   });
   runs.forEach(run => {
-    if (run.flowSlug) return;
+    if (run.flowSlug && !derivedSlugRuns.has(run)) return;
     const chainId = chainIdOf(run);
     const borrowed = chainId ? slugByChainId.get(chainId) : undefined;
     if (borrowed) {
       run.flowSlug = borrowed;
+      derivedSlugRuns.delete(run);
       return;
     }
-    // Last resort (2026-09-24): a promotion chain (Tower Promote mints a fresh
-    // chain-id) has no build/deploy/test sibling at all, so nothing to borrow
-    // from - derive the same deterministic slug the toolbox would have. See
-    // chainSlug.ts for why this is a fallback only.
+    // A Tower Promote to an upper env mints a FRESH chain-id (glidepathPromote.ts),
+    // so the release-progress/release-outcome notify runs it triggers share no
+    // chain with anything - but they DO carry the source commit they're
+    // releasing (`git-revision` param), which is exactly the sha of the build
+    // run that produced that image, and that build belongs to the flow the
+    // release is a continuation of (2026-09-24: "the latest pipelineruns should
+    // be part of the brave-fox flow" - a slug derived from the promotion's own
+    // fresh chain-id, jaunty-civet, was wrong).
+    const revision = run.params.find(p => p.name === 'git-revision')?.value?.toLowerCase();
+    if (revision) {
+      let match: { slug: string; at: number } | undefined;
+      slugBySha.forEach((v, sha) => {
+        if ((revision.startsWith(sha) || sha.startsWith(revision)) && (!match || v.at > match.at)) match = v;
+      });
+      if (match) {
+        run.flowSlug = match.slug;
+        derivedSlugRuns.delete(run);
+        return;
+      }
+    }
+    // Last resort (2026-09-24): derive the same deterministic slug the toolbox
+    // would have from the run's own chain-id. See chainSlug.ts for why this is a
+    // fallback only.
     const derived = chainId ? chainIdToSlug(chainId) : undefined;
-    if (derived) run.flowSlug = derived;
+    if (derived) {
+      run.flowSlug = derived;
+      derivedSlugRuns.add(run);
+    }
   });
 }
 

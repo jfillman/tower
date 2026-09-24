@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
+import type { PullRequestSummary } from '../pullRequests/usePullRequests';
 import type { ReleaseRecord } from './useReleaseRecords';
 
 // The Record sub-tab's own list<->detail<->compare state (ReleasesTab.tsx
@@ -18,11 +19,13 @@ export function ReleaseRecordPanel({
   totalKnown,
   appName,
   owner,
+  gitopsPrs,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
   appName?: string;
   owner?: string;
+  gitopsPrs?: PullRequestSummary[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -38,6 +41,7 @@ export function ReleaseRecordPanel({
         record={open}
         appName={appName}
         owner={owner}
+        gitopsPrs={gitopsPrs}
         otherRecords={records.filter(r => r.id !== open.id)}
         onCompare={setCompareId}
         onBack={() => setOpenId(null)}

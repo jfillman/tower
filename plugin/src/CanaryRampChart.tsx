@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { formatDateTime } from '../shared/format';
+import { preventFocusScroll } from './preventFocusScroll';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { useAnalysisRuns } from './useAnalysisRuns';
 import type { AnalysisRunSummary, CanaryProgress, CanaryStepDef } from './types';
@@ -63,7 +64,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // Fixed at its own basis and free to shrink on a narrow row (unchanged
   // from before - see the flexWrap comment above); `scroll` alone now
   // absorbs any extra width the row has.
-  backgroundAnalysis: { flex: '0 1 240px', minWidth: 220 },
+  // Wider (2026-09-24: "the background analysis panel... is a little squashed") -
+  // the card holds a full PromQL query and measurement rows, which need real
+  // horizontal room; the step ramp (`scroll`) scrolls sideways if it must.
+  backgroundAnalysis: { flex: '1 1 380px', minWidth: 320 },
   backgroundAnalysisTitle: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -202,7 +206,12 @@ export function CanaryRampChart({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const [openStepIndex, setOpenStepIndex] = useState<number | undefined>(undefined);
+  // Analysis-step results are shown inline by default and this only tracks the
+  // ones the user collapsed (2026-09-24: "analysis check steps still don't show
+  // their results" / "the first analysis job displayed results, but the second
+  // did not") - the old click-to-open model showed at most ONE step's result at
+  // a time and lost it whenever the tab re-rendered from its 20s refresh.
+  const [collapsedSteps, setCollapsedSteps] = useState<Set<number>>(new Set());
   const analysisRuns = useAnalysisRuns({ cluster, namespace, rolloutName, podHash });
 
   const steps = progress.steps;
@@ -285,8 +294,6 @@ export function CanaryRampChart({
   });
 
   const ticks = [0, 25, 50, 75, 100];
-  const openRun = openStepIndex !== undefined ? runByStepIndex.get(openStepIndex) : undefined;
-  const openStep = openStepIndex !== undefined ? steps[openStepIndex] : undefined;
 
   const backgroundTemplates = progress.backgroundAnalysisTemplates ?? [];
   const backgroundRun =
@@ -373,7 +380,13 @@ export function CanaryRampChart({
               const color = phaseColor(t, state);
               const parts = stepLabelParts(s);
               const clickable = s.kind === 'analysis' && Boolean(run);
-              const toggle = () => setOpenStepIndex(prev => (prev === i ? undefined : i));
+              const toggle = () =>
+                setCollapsedSteps(prev => {
+                  const next = new Set(prev);
+                  if (next.has(i)) next.delete(i);
+                  else next.add(i);
+                  return next;
+                });
               return (
                 <div style={{ display: 'contents' }} key={i}>
                   <div
@@ -431,8 +444,48 @@ export function CanaryRampChart({
         <span><i className={classes.legendDot} style={{ backgroundColor: t.bad }} />failed</span>
         <span><i className={classes.legendDot} style={{ backgroundColor: t.textFaint, opacity: 0.5 }} />pending</span>
       </div>
-      {openRun && openStep?.kind === 'analysis' && (
-        <AnalysisCard templateName={(openStep.analysisTemplates ?? []).join(', ') || openRun.name} run={openRun} classes={classes} t={t} />
+      {analysisStepIndices.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className={classes.backgroundAnalysisTitle}>Analysis checks</div>
+          {analysisStepIndices.map(i => {
+            const run = runByStepIndex.get(i);
+            const name = (steps[i].analysisTemplates ?? []).join(', ') || 'analysis';
+            const label = `Step ${i + 1} · ${name}`;
+            if (!run) {
+              return (
+                <Typography key={i} className={classes.note}>
+                  {label} - not started yet.
+                </Typography>
+              );
+            }
+            const collapsed = collapsedSteps.has(i);
+            return (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <button
+                  type="button"
+                  onMouseDown={preventFocusScroll}
+                  onClick={() =>
+                    setCollapsedSteps(prev => {
+                      const next = new Set(prev);
+                      if (next.has(i)) next.delete(i);
+                      else next.add(i);
+                      return next;
+                    })
+                  }
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: fontMono, fontSize: 11, color: t.textLo }}
+                >
+                  {collapsed ? '▸' : '▾'} {label} · {run.phase ?? 'Unknown'}
+                </button>
+                {!collapsed && <AnalysisCard templateName={name} run={run} classes={classes} t={t} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {analysisStepIndices.length > 0 && analysisRuns.runs.length === 0 && !analysisRuns.loading && !analysisRuns.error && (
+        <Typography className={classes.note}>
+          No AnalysisRuns found for this rollout{podHash ? ` (pod hash ${podHash})` : ''} yet.
+        </Typography>
       )}
       {analysisRuns.error && <Typography className={classes.note}>Couldn't load analysis results: {analysisRuns.error}</Typography>}
     </div>

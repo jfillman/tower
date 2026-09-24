@@ -50,8 +50,12 @@ export function keepScrollPosition(from: Element | null, change: () => void) {
 // down to the pipeline details panel", same for the Release Matrix) - the
 // delay is what lets the element have its real height first, otherwise a
 // Collapse that's still growing scrolls to the wrong offset.
-export function scrollPanelIntoView(getEl: () => Element | null | undefined, delayMs = 120) {
+export function scrollPanelIntoView(
+  getEl: () => Element | null | undefined,
+  delayMs = 120,
+  block: ScrollLogicalPosition = 'start',
+) {
   window.setTimeout(() => {
-    getEl()?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    getEl()?.scrollIntoView({ behavior: 'smooth', block });
   }, delayMs);
 }
