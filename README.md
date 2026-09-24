@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="brand/marks/hangar-tile.svg" width="88" height="88" alt="Hangar mark" />
+  <img src="brand/marks/tower-tile.svg" width="88" height="88" alt="Tower mark" />
   <h1>Tower</h1>
   <p><i>Release orchestration and operational intelligence for Backstage.</i></p>
 </div>
