@@ -234,6 +234,10 @@ function miniDotColor(t: HangarTokens, phase: TaskPhase): string {
   return t.textFaint;
 }
 
+function miniDotRadius(phase: TaskPhase | undefined): number {
+  return phase === 'running' ? 4 : 3.2;
+}
+
 function MiniDag({ run, maxCols, maxRows }: { run: PipelineRunSummary; maxCols: number; maxRows: number }) {
   const t = useHangarTokens();
   const layout = layoutPipelineGraph(run);
@@ -284,14 +288,19 @@ function MiniDag({ run, maxCols, maxRows }: { run: PipelineRunSummary; maxCols: 
         const a = pos.get(e.from);
         const b = pos.get(e.to);
         if (!a || !b) return null;
-        return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={t.line} strokeWidth={1} />;
+        // Side-to-side (2026-09-24), matching PipelineDag: leave the source dot's
+        // right edge, arrive at the target dot's left edge. Was center-to-center
+        // (see docs/pipeline-dag-edge-routing-before.md).
+        const ra = miniDotRadius(layout.nodes.find(n => n.id === e.from)?.phase);
+        const rb = miniDotRadius(layout.nodes.find(n => n.id === e.to)?.phase);
+        return <line key={i} x1={a.x + ra} y1={a.y} x2={b.x - rb} y2={b.y} stroke={t.line} strokeWidth={1} />;
       })}
       {layout.nodes.map(n => {
         const p = pos.get(n.id);
         if (!p) return null;
         const color = miniDotColor(t, n.phase);
         const opacity = n.phase === 'pending' || n.phase === 'skipped' ? 0.35 : 1;
-        return <circle key={n.id} cx={p.x} cy={p.y} r={n.phase === 'running' ? 4 : 3.2} fill={color} opacity={opacity} />;
+        return <circle key={n.id} cx={p.x} cy={p.y} r={miniDotRadius(n.phase)} fill={color} opacity={opacity} />;
       })}
     </svg>
   );

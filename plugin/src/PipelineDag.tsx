@@ -430,13 +430,19 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                     const a = pos.get(e.from);
                     const b = pos.get(e.to);
                     if (!a || !b) return null;
+                    // Attach to the middle of each node's SIDES (2026-09-24), not
+                    // its center: leave from the source's right edge, arrive at the
+                    // target's left edge. Previous center-to-center routing is saved
+                    // in docs/pipeline-dag-edge-routing-before.md.
+                    const sx = a.x + NODE_W / 2;
+                    const tx = b.x - NODE_W / 2;
                     let d: string;
                     if (e.finally && finallyElbowX !== undefined) {
-                      const mx = (finallyElbowX + b.x) / 2;
-                      d = `M ${a.x} ${a.y} L ${finallyElbowX} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;
+                      const mx = (finallyElbowX + tx) / 2;
+                      d = `M ${sx} ${a.y} L ${finallyElbowX} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${tx} ${b.y}`;
                     } else {
-                      const mx = (a.x + b.x) / 2;
-                      d = `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;
+                      const mx = (sx + tx) / 2;
+                      d = `M ${sx} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${tx} ${b.y}`;
                     }
                     return (
                       <path
