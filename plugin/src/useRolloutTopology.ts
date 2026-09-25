@@ -97,6 +97,7 @@ export function buildTopology(
   services: K8sObj[],
   ars: K8sObj[],
   jobs: K8sObj[],
+  stepWeight?: number,
 ): RolloutTopology {
   const name = rollout.metadata.name;
   const currentHash: string | undefined = rollout.status?.currentPodHash;
@@ -125,10 +126,13 @@ export function buildTopology(
     .filter(rs => rs.replicas > 0 || rs.pods.length > 0)
     .sort((a, b) => (Number(b.role === 'stable') - Number(a.role === 'stable')));
 
-  // The Rollout only has "canary" weight while a canary is actually in flight.
+  // status.canary.weights only exists with a trafficRouting provider; a plain
+// replica-based canary has no such field, so fall back to the current step's
+// setWeight (stepWeight, from the Rollout's spec steps) - otherwise the canary
+// edge read 0% for every non-traffic-routed rollout (2026-09-24 bug).
   const weights = rollout.status?.canary?.weights;
   const weight = inFlight
-    ? Number(weights?.canary?.weight ?? rollout.status?.canary?.currentStepWeight ?? 0)
+    ? Number(weights?.canary?.weight ?? stepWeight ?? 0)
     : 0;
 
   const stableSvc: string | undefined = rollout.spec?.strategy?.canary?.stableService;
@@ -150,7 +154,9 @@ export function buildTopology(
   return { rollout, service, replicaSets, analysisRuns, canaryWeight: Math.max(0, Math.min(100, weight)), canaryInFlight: inFlight };
 }
 
-export function useRolloutTopology(target: { cluster: string; namespace: string; rolloutName: string } | undefined): UseRolloutTopologyResult {
+export function useRolloutTopology(
+  target: { cluster: string; namespace: string; rolloutName: string; stepWeight?: number } | undefined,
+): UseRolloutTopologyResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [state, setState] = useState<UseRolloutTopologyResult>({ loading: Boolean(target) });
@@ -162,7 +168,7 @@ export function useRolloutTopology(target: { cluster: string; namespace: string;
     }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const { cluster, namespace, rolloutName } = target;
+    const { cluster, namespace, rolloutName, stepWeight } = target;
 
     async function tick() {
       const get = <T,>(path: string) => k8sProxyGet<T>(discoveryApi, fetchApi, cluster, path);
@@ -183,6 +189,7 @@ export function useRolloutTopology(target: { cluster: string; namespace: string;
             stamp(svcs.items, 'v1', 'Service'),
             stamp(ars.items, 'argoproj.io/v1alpha1', 'AnalysisRun'),
             stamp(jobs.items, 'batch/v1', 'Job'),
+            stepWeight,
           ) });
       } catch (e) {
         if (!cancelled) setState(prev => ({ loading: false, topology: prev.topology, error: String(e) }));
@@ -194,7 +201,7 @@ export function useRolloutTopology(target: { cluster: string; namespace: string;
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [target?.cluster, target?.namespace, target?.rolloutName, discoveryApi, fetchApi]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [target?.cluster, target?.namespace, target?.rolloutName, target?.stepWeight, discoveryApi, fetchApi]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;
 }

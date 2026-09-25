@@ -518,7 +518,7 @@ export function StageDetail({
               podHash={env.workload!.currentPodHash}
               progress={rolloutProgress}
             />
-            <RolloutTopologyDag cluster={env.cluster} namespace={env.namespace} rolloutName={env.workload!.name} />
+            <RolloutTopologyDag cluster={env.cluster} namespace={env.namespace} rolloutName={env.workload!.name} stepWeight={rolloutProgress.currentWeight} />
           </>
         ) : (
           <Typography className={classes.note}>

@@ -21,6 +21,8 @@ import {
   useValuesSchema,
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
+import { PrResultDialog } from '../PrResultDialog';
+import { preventFocusScroll } from '../preventFocusScroll';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
 import { validateAgainstSchema, type JsonSchema, type SchemaIssue } from '../schemaValidate';
 import { deepEqual } from '../deepEqual';
@@ -1348,6 +1350,7 @@ function EnvXrPanel({ owner, appName, env, classes }: { owner: string; appName: 
       <Typography className={classes.hint}>
         The only editable field on this XR - appName/cluster/env are this resource's own identity, not a setting.
       </Typography>
+      <PrResultDialog result={submitXr.result} error={submitXr.error} onClose={() => submitXr.reset()} />
       {submitXr.result && (
         <Typography className={classes.note} style={{ marginTop: 10 }}>
           {submitXr.result.alreadyOpen ? 'A PR for this change is already open: ' : 'PR opened: '}
@@ -1367,6 +1370,7 @@ function EnvXrPanel({ owner, appName, env, classes }: { owner: string; appName: 
           className={classes.btn}
           style={{ marginTop: 12 }}
           disabled={submitXr.loading}
+          onMouseDown={preventFocusScroll}
           onClick={() => submitXr.submit({ owner, appName, env, configMapGenerator: draft })}
         >
           {submitXr.loading ? 'Opening PR…' : 'Open PR for this change'}
@@ -1500,12 +1504,13 @@ function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }: { owner:
             ) : (
               <button type="button" className={classes.discardBtn} onClick={discard} disabled={submitFiles.loading}>Discard</button>
             )}
-            <button type="button" className={classes.btn} disabled={errors.length > 0 || submitFiles.loading} onClick={onSubmit}>
+            <button type="button" className={classes.btn} disabled={errors.length > 0 || submitFiles.loading} onMouseDown={preventFocusScroll} onClick={onSubmit}>
               {submitFiles.loading ? 'Opening PR…' : 'Open PR for these files'}
             </button>
           </div>
         </>
       )}
+      <PrResultDialog result={submitFiles.result} error={submitFiles.error} onClose={() => submitFiles.reset()} />
       {submitFiles.result && (
         <Typography className={classes.note} style={{ marginTop: 10 }}>
           {submitFiles.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
@@ -2328,7 +2333,7 @@ function ConfigEditor({
                   Discard
                 </button>
               )}
-              <button type="button" className={classes.btn} disabled={!canSubmit} onClick={onSubmit}>
+              <button type="button" className={classes.btn} disabled={!canSubmit} onMouseDown={preventFocusScroll} onClick={onSubmit}>
                 {submitCfg.loading ? 'Opening PR…' : 'Open PR'}
               </button>
             </div>
@@ -2371,6 +2376,7 @@ function ConfigEditor({
               Couldn't load the chart's values.schema.json for extra validation ({schema.error}) - the built-in checks above still apply.
             </Typography>
           )}
+          <PrResultDialog result={submitCfg.result} error={submitCfg.error} onClose={() => submitCfg.reset()} />
           {submitCfg.result && (
             <Typography className={classes.note}>
               {submitCfg.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}

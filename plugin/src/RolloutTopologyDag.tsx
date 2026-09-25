@@ -214,11 +214,11 @@ function kvRows(node: TNode, topo: RolloutTopology): Array<[string, string]> {
   return rows;
 }
 
-export function RolloutTopologyDag({ cluster, namespace, rolloutName }: { cluster: string; namespace: string; rolloutName: string }) {
+export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }: { cluster: string; namespace: string; rolloutName: string; stepWeight?: number }) {
   const t = useHangarTokens();
   const dag = usePipelineDagStyles({ t });
   const classes = useStyles({ t });
-  const target = useMemo(() => ({ cluster, namespace, rolloutName }), [cluster, namespace, rolloutName]);
+  const target = useMemo(() => ({ cluster, namespace, rolloutName, stepWeight }), [cluster, namespace, rolloutName, stepWeight]);
   const { loading, error, topology } = useRolloutTopology(target);
 
   const [zoom, setZoom] = useState(1);
