@@ -182,6 +182,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   trackRow: {
     position: 'relative',
+    // Shrink-wrap to THIS row's own cards (the track is a stretching flex column, so
+    // without this a shorter last row takes the widest row's width and its label -
+    // centered on the row - lands off-center over its cards, 2026-09-24).
+    alignSelf: 'flex-start',
     display: 'flex',
     columnGap: 16,
     paddingTop: 44,

@@ -1897,10 +1897,6 @@ function ConfigEditor({
         <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
       </div>
 
-      {(Object.keys(ADVANCED_META) as AdvancedKey[])
-        .filter(key => ADVANCED_META[key].promoted)
-        .map(key => renderAdvancedSection(key))}
-
       <button type="button" className={classes.advancedToggle} onClick={() => setShowRawFile(v => !v)}>
         {showRawFile ? '▾ Hide full committed YAML' : '▸ View full committed YAML'}
       </button>
@@ -2294,6 +2290,11 @@ function ConfigEditor({
       <Section title="Secrets" dirty={dirty.has('secrets')} classes={classes}>
         <SecretsSection rows={form.secrets} onChange={rows => setF('secrets', rows)} classes={classes} />
       </Section>
+
+      {/* Below Secrets, above the advanced (raw YAML) fields - see ADVANCED_META's `promoted`. */}
+      {(Object.keys(ADVANCED_META) as AdvancedKey[])
+        .filter(key => ADVANCED_META[key].promoted)
+        .map(key => renderAdvancedSection(key))}
 
       <button type="button" className={classes.advancedToggle} onClick={() => setShowAdvanced(v => !v)}>
         {showAdvanced ? '▾ Hide advanced (raw YAML) fields' : '▸ Show advanced (raw YAML) fields'}
