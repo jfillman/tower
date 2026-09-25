@@ -925,7 +925,15 @@ interface FormState {
   serviceAccountImagePullSecrets: Array<{ name: string }>;
 }
 
-type AdvancedKey = 'rolloutAdvanced' | 'analysisTemplates' | 'volumes' | 'cronJobs' | 'jobs' | 'extraManifests';
+type AdvancedKey =
+  | 'rolloutAdvanced'
+  | 'analysisTemplates'
+  | 'volumes'
+  | 'cronJobs'
+  | 'jobs'
+  | 'components'
+  | 'slos'
+  | 'extraManifests';
 
 const VOLUMES_EXAMPLE = `- name: uploads
   size: 10Gi
@@ -972,7 +980,44 @@ const EXTRA_MANIFESTS_EXAMPLE = `- apiVersion: v1
   data:
     key: value`;
 
-const ADVANCED_META: Record<AdvancedKey, { title: string; hint: string; example?: string; field: ConfigTopLevelField | 'rollout' }> = {
+const COMPONENTS_EXAMPLE = `# Attached-tier components (backing services this app runs alongside). Each entry
+# renders one XR per environment; spec.environmentRef is stamped automatically -
+# don't set it by hand.
+- type: redis          # kinds: redis (installed), oauth-server, database, queue (declared, not yet available)
+  name: cache
+  spec:
+    size: small        # small | medium | large
+    persistence: false # true = survive a pod restart (a real PVC)`;
+
+const SLOS_EXAMPLE = `# Service level objectives (rendered via Sloth into multi-window burn-rate alerts).
+- name: checkout-api-liveness-availability
+  service: checkout-api
+  objective: 99          # percent
+  indicator:
+    type: availability   # or: latency (needs latencyThreshold + a histogram with that le bucket)
+    metric: prober_probe_total
+    totalFilter: 'namespace="app-checkout-api-prod",container="checkout-api",probe_type="Liveness"'
+    errorFilter: 'result!="successful"'`;
+
+const ADVANCED_META: Record<
+  AdvancedKey,
+  { title: string; hint: string; example?: string; field: ConfigTopLevelField | 'rollout'; promoted?: boolean }
+> = {
+  // `promoted` sections render as regular sections, not behind the "Show advanced" toggle.
+  components: {
+    title: 'Attached components',
+    hint: 'Backing services provisioned alongside this app in this environment (Redis today; OAuth server, database and queue are declared kinds without an installed composition yet). Each entry needs a type and a name; spec is the kind\'s own settings.',
+    example: COMPONENTS_EXAMPLE,
+    field: 'components',
+    promoted: true,
+  },
+  slos: {
+    title: 'SLOs',
+    hint: 'Service level objectives for this environment. Availability SLOs are the portable choice - latency SLOs need a histogram exposing the exact threshold bucket.',
+    example: SLOS_EXAMPLE,
+    field: 'slos',
+    promoted: true,
+  },
   rolloutAdvanced: {
     title: 'Rollout strategy & pod template',
     hint: 'strategy, canaryAnalysis, blueGreen, command/args, security contexts, extraContainers, podSpec. Canary steps, probes, replicas, resources, and the Service\'s ports have their own fields above and are merged back in on submit.',
@@ -1115,6 +1160,8 @@ function buildAdvancedYaml(values: Partial<Record<ConfigTopLevelField, unknown>>
     volumes: dumpOrBlank(values.volumes),
     cronJobs: dumpOrBlank(values.cronJobs),
     jobs: dumpOrBlank(values.jobs),
+    components: dumpOrBlank(values.components),
+    slos: dumpOrBlank(values.slos),
     extraManifests: dumpOrBlank(values.extraManifests),
   };
 }
@@ -1532,7 +1579,7 @@ function ConfigEditor({
       // empty, object), only `rollout: null`/absent is falsy - matching the
       // chart's own `{{- if .Values.rollout }}` gate exactly, not just
       // "does asRecord give me something to read fields from".
-      const rolloutIsSet = cfg.data.values.rollout != null;
+      const rolloutIsSet = (cfg.data.values.rollout !== undefined && cfg.data.values.rollout !== null);
       setRolloutEnabled(rolloutIsSet);
       setOriginalRolloutEnabled(rolloutIsSet);
       const rollout = asRecord(cfg.data.values.rollout);
@@ -1607,7 +1654,7 @@ function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
-    const rolloutIsSet = cfg.data!.values.rollout != null;
+    const rolloutIsSet = (cfg.data!.values.rollout !== undefined && cfg.data!.values.rollout !== null);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
     const rollout = asRecord(cfg.data!.values.rollout);
@@ -1816,12 +1863,43 @@ function ConfigEditor({
     submitCfg.submit({ owner, appName, cluster, env, patch, summary });
   };
 
+  const renderAdvancedSection = (key: AdvancedKey) => {
+          const meta = ADVANCED_META[key];
+          const isDirty = dirty.has(meta.field as ConfigTopLevelField) && (key !== 'rolloutAdvanced' ? true : dirty.has('rollout'));
+          return (
+            <Section title={meta.title} dirty={isDirty} classes={classes} key={key}>
+              <YamlBlockEditor label={meta.title} hint={meta.hint} value={advanced[key]} onChange={text => setAdv(key, text)} />
+              {meta.example && (
+                <>
+                  <button type="button" className={classes.linkBtn} style={{ marginTop: 8 }} onClick={() => toggleExample(key)}>
+                    {exampleOpen.has(key) ? 'Hide example' : 'Show example'}
+                  </button>
+                  {exampleOpen.has(key) && (
+                    <>
+                      <pre className={classes.example}>{meta.example}</pre>
+                      {!advanced[key].trim() && (
+                        <button type="button" className={classes.linkBtn} style={{ marginTop: 4 }} onClick={() => setAdv(key, meta.example!)}>
+                          Use this as a starting point
+                        </button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </Section>
+          );
+  };
+
   return (
     <div className={classes.columns}>
       <div className={classes.sectionTitleRow} style={{ marginBottom: 0 }}>
         <Typography className={classes.note}>Live values from GitHub - not polled, use refresh for the latest commit.</Typography>
         <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
       </div>
+
+      {(Object.keys(ADVANCED_META) as AdvancedKey[])
+        .filter(key => ADVANCED_META[key].promoted)
+        .map(key => renderAdvancedSection(key))}
 
       <button type="button" className={classes.advancedToggle} onClick={() => setShowRawFile(v => !v)}>
         {showRawFile ? '▾ Hide full committed YAML' : '▸ View full committed YAML'}
@@ -2222,32 +2300,9 @@ function ConfigEditor({
       </button>
 
       {showAdvanced &&
-        (Object.keys(ADVANCED_META) as AdvancedKey[]).map(key => {
-          const meta = ADVANCED_META[key];
-          const isDirty = dirty.has(meta.field as ConfigTopLevelField) && (key !== 'rolloutAdvanced' ? true : dirty.has('rollout'));
-          return (
-            <Section title={meta.title} dirty={isDirty} classes={classes} key={key}>
-              <YamlBlockEditor label={meta.title} hint={meta.hint} value={advanced[key]} onChange={text => setAdv(key, text)} />
-              {meta.example && (
-                <>
-                  <button type="button" className={classes.linkBtn} style={{ marginTop: 8 }} onClick={() => toggleExample(key)}>
-                    {exampleOpen.has(key) ? 'Hide example' : 'Show example'}
-                  </button>
-                  {exampleOpen.has(key) && (
-                    <>
-                      <pre className={classes.example}>{meta.example}</pre>
-                      {!advanced[key].trim() && (
-                        <button type="button" className={classes.linkBtn} style={{ marginTop: 4 }} onClick={() => setAdv(key, meta.example!)}>
-                          Use this as a starting point
-                        </button>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-            </Section>
-          );
-        })}
+        (Object.keys(ADVANCED_META) as AdvancedKey[])
+          .filter(key => !ADVANCED_META[key].promoted)
+          .map(key => renderAdvancedSection(key))}
 
       {dirty.size > 0 && (
         <div className={`${classes.reviewBar} ${prod ? classes.reviewBarProd : classes.reviewBarOther}`}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -70,6 +70,11 @@ const HEALTH_LABEL: Record<Health, string> = {
   degraded: 'Degraded',
   unknown: 'Unknown',
 };
+
+// Card basis inside a release track, and the gap between cards - shared by the CSS above and
+// the rows-per-track calculation in OverviewTab so the two can't drift apart.
+const TRACK_CARD_W = 260;
+const TRACK_GAP = 16;
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   monitoringCard: {
@@ -161,15 +166,24 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // row gets its own correctly-positioned band, instead of one track-wide band
   // whose percentage-positioned dots no longer lined up with the cards once
   // they broke across lines.
+  // A track is a column of ROWS (2026-09-24: "if you have to break a rail up into
+  // two or more rows, the image info needs to be present on the rail for each
+  // row"). The row split is computed in JS from the grid's measured width (see
+  // trackRows below) rather than left to CSS flex-wrap, precisely so each row
+  // can carry its own image label + band, and so widening the window pulls the
+  // cards back onto one row instead of stranding a stretched card or two.
   track: {
-    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
     flex: '0 1 auto',
     minWidth: 0,
     maxWidth: '100%',
+    rowGap: 8,
+  },
+  trackRow: {
+    position: 'relative',
     display: 'flex',
-    flexWrap: 'wrap',
     columnGap: 16,
-    rowGap: 32,
     paddingTop: 44,
   },
   trackLabel: {
@@ -197,10 +211,14 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 8,
     border: '1px solid',
   },
+  // Fixed-ish width, never grown (2026-09-24: "the cards should have a max width so
+  // that if you stretch the browser window... it should try and fit all the cards
+  // back on the same row") - a card wants TRACK_CARD_W, may shrink to its
+  // minWidth on a very narrow screen, and never stretches past it.
   trackCard: {
-    flex: '1 1 200px',
+    flex: `0 1 ${TRACK_CARD_W}px`,
     minWidth: 175,
-    maxWidth: 'none',
+    maxWidth: TRACK_CARD_W,
     position: 'relative',
     // Band segment + node above THIS card; the -8px overhang on each side meets
     // the neighbouring card's segment across the 16px column gap.
@@ -377,9 +395,32 @@ const STATUS_SOFT: Record<Health, keyof HangarTokens> = {
   unknown: 'panelAlt',
 };
 
+// Splits a release track's envs into rows that fit `gridWidth` - each row then gets its own
+// image label and band. Before the grid has been measured (width 0) everything stays on one
+// row, which is also what a wide-enough window gets.
+function trackRows<T>(envs: T[], gridWidth: number): T[][] {
+  if (gridWidth <= 0) return [envs];
+  const perRow = Math.max(1, Math.floor((gridWidth + TRACK_GAP) / (TRACK_CARD_W + TRACK_GAP)));
+  const rows: T[][] = [];
+  for (let i = 0; i < envs.length; i += perRow) rows.push(envs.slice(i, i + perRow));
+  return rows;
+}
+
 export function OverviewTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
+  // Width of the environment grid, for splitting a release track into rows (see
+  // trackRows). A callback-ref state, not useRef, because the grid only mounts after
+  // the loading/empty early returns below.
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+  useEffect(() => {
+    if (!gridEl) return undefined;
+    setGridWidth(gridEl.clientWidth);
+    const ro = new ResizeObserver(entries => setGridWidth(entries[0].contentRect.width));
+    ro.observe(gridEl);
+    return () => ro.disconnect();
+  }, [gridEl]);
   const {
     entity,
     environments,
@@ -666,7 +707,7 @@ export function OverviewTab() {
           description="This app hasn't shipped its first build to any environment yet - Tower reads Rollouts, Deployments and Pods live from each configured cluster, so there's nothing to show here until it has. This is expected for a freshly onboarded app, not an error."
         />
       ) : (
-      <div className={classes.grid}>
+      <div className={classes.grid} ref={setGridEl}>
         {computeReleaseTracks(pipelineEnvs).map(run => {
           // A track band's whole point is naming the image tag that's live
           // here - meaningless for an ungroupable env (no image at all,
@@ -685,28 +726,32 @@ export function OverviewTab() {
           const nickname = nicknameForImageTag(imageTag(run.image), pipelineRuns);
           return (
             <div key={run.envs[0].key} className={classes.track}>
-              <button
-                type="button"
-                className={classes.trackLabel}
-                title={`View ${imageTag(run.image)} in the Images tab`}
-                onClick={() => goToImage(imageTag(run.image))}
-              >
-                {imageTag(run.image)}
-                {nickname && (
-                  <span
-                    className={classes.trackNickname}
-                    style={{
-                      color: `hsl(${slugHue(nickname)}, 65%, 60%)`,
-                      borderColor: `hsl(${slugHue(nickname)}, 65%, 60%)`,
-                      backgroundColor: `hsla(${slugHue(nickname)}, 65%, 60%, 0.12)`,
-                    }}
-                  >
-                    {nickname}
-                  </span>
-                )}
-                {' '}· live in {n} env{n === 1 ? '' : 's'}
-              </button>
-              {run.envs.map(env => renderEnvCard(env, { skipImage: true }))}
+              {trackRows(run.envs, gridWidth).map(rowEnvs => (
+                <div key={rowEnvs[0].key} className={classes.trackRow}>
+                <button
+                  type="button"
+                  className={classes.trackLabel}
+                  title={`View ${imageTag(run.image)} in the Images tab`}
+                  onClick={() => goToImage(imageTag(run.image))}
+                >
+                  {imageTag(run.image)}
+                  {nickname && (
+                    <span
+                      className={classes.trackNickname}
+                      style={{
+                        color: `hsl(${slugHue(nickname)}, 65%, 60%)`,
+                        borderColor: `hsl(${slugHue(nickname)}, 65%, 60%)`,
+                        backgroundColor: `hsla(${slugHue(nickname)}, 65%, 60%, 0.12)`,
+                      }}
+                    >
+                      {nickname}
+                    </span>
+                  )}
+                  {' '}· live in {n} env{n === 1 ? '' : 's'}
+                </button>
+                  {rowEnvs.map(env => renderEnvCard(env, { skipImage: true }))}
+                </div>
+              ))}
             </div>
           );
         })}

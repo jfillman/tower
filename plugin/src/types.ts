@@ -678,6 +678,10 @@ export const CONFIG_TOP_LEVEL_FIELDS = [
   'httpRoute',
   'serviceMonitor',
   'networkPolicy',
+  // Attached-tier (2026-09-24): a Config tab section for `components:` (Redis, ...) and
+  // `slos:` - previously not editable here at all.
+  'components',
+  'slos',
   'extraManifests',
 ] as const;
 export type ConfigTopLevelField = (typeof CONFIG_TOP_LEVEL_FIELDS)[number];
