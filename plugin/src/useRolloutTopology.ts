@@ -83,6 +83,13 @@ function toPod(obj: K8sObj, rsName: string): TopoPod {
   };
 }
 
+// A Kubernetes LIST response strips apiVersion/kind from each item (only the
+// list itself carries them), so the YAML view would omit both for everything
+// but the singly-GET Rollout. Stamp them back on.
+function stamp(items: K8sObj[], apiVersion: string, kind: string): K8sObj[] {
+  return items.map(o => ({ apiVersion, kind, ...o }));
+}
+
 export function buildTopology(
   rollout: K8sObj,
   rss: K8sObj[],
@@ -169,7 +176,14 @@ export function useRolloutTopology(target: { cluster: string; namespace: string;
           get<{ items: K8sObj[] }>(`/apis/batch/v1/namespaces/${namespace}/jobs`).catch(() => ({ items: [] as K8sObj[] })),
         ]);
         if (cancelled) return;
-        setState({ loading: false, topology: buildTopology(rollout, rss.items, pods.items, svcs.items, ars.items, jobs.items) });
+        setState({ loading: false, topology: buildTopology(
+            rollout,
+            stamp(rss.items, 'apps/v1', 'ReplicaSet'),
+            stamp(pods.items, 'v1', 'Pod'),
+            stamp(svcs.items, 'v1', 'Service'),
+            stamp(ars.items, 'argoproj.io/v1alpha1', 'AnalysisRun'),
+            stamp(jobs.items, 'batch/v1', 'Job'),
+          ) });
       } catch (e) {
         if (!cancelled) setState(prev => ({ loading: false, topology: prev.topology, error: String(e) }));
       }

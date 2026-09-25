@@ -277,7 +277,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName }: { cluste
         {topology && graph && geom && (
           <>
             <div className={dag.scroll} ref={scrollRef}>
-              <div className={dag.sizer} style={{ width: geom.width * zoom, height: geom.height * zoom }}>
+              <div className={dag.sizer} style={{ width: geom.width * zoom, height: geom.height * zoom, margin: '0 auto' }}>
                 <div className={dag.inner} style={{ width: geom.width, height: geom.height, transform: `scale(${zoom})` }}>
                   <svg width={geom.width} height={geom.height} style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}>
                     {graph.edges.map(e => {
