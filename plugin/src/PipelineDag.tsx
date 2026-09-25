@@ -25,11 +25,11 @@ import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/typ
 // Hangar tokens instead of the stock Tekton dashboard's own palette, with
 // live per-task status/logs instead of a static diagram.
 
-const NODE_W = 150;
-const NODE_H = 56;
-const COL_GAP = 90;
-const ROW_GAP = 24;
-const PAD = 32;
+export const NODE_W = 150;
+export const NODE_H = 56;
+export const COL_GAP = 90;
+export const ROW_GAP = 24;
+export const PAD = 32;
 const FINALLY_EXTRA = 50;
 const ELBOW_GAP = 18;
 const ZOOM_MIN = 0.5;
@@ -66,7 +66,9 @@ function layoutPixels(run: PipelineRunSummary) {
   return { layout, pos, width, height, finallyDividerX };
 }
 
-const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
+// Exported so the Deployment tab's rollout topology DAG (RolloutTopologyDag.tsx)
+// wears the exact same node/edge/detail styling as this one (2026-09-24).
+export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, backgroundColor: ({ t }) => t.panelAlt },
   head: {
     display: 'flex',
@@ -311,7 +313,7 @@ function taskDuration(startTime?: string, completionTime?: string): string {
 
 export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; expandSignal?: number }) {
   const t = useHangarTokens();
-  const classes = useStyles({ t });
+  const classes = usePipelineDagStyles({ t });
   const { layout, pos, width, height, finallyDividerX } = useMemo(() => layoutPixels(run), [run]);
 
   const [zoom, setZoom] = useState(1);

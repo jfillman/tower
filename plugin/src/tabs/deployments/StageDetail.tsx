@@ -11,6 +11,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../..
 import { GateLedger, GitPrIcon, useSignalRailStyles } from '../../SignalRail';
 import { CanaryRampChart } from '../../CanaryRampChart';
 import { PodLogsView } from '../../PodLogsView';
+import { RolloutTopologyDag } from '../../RolloutTopologyDag';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary, PodSummary } from '../../types';
 import type { PullRequestSummary } from '../../../pullRequests/usePullRequests';
@@ -86,7 +87,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   chipAmber: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
   '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
   // Amber + pulsing while the canary is live (2026-09-23 feedback).
-  progressBig: { fontFamily: fontMono, fontSize: 20, fontWeight: 700, color: ({ t }) => t.amberInk, animation: '$livePulse 1.6s ease-in-out infinite' },
   resourceList: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 },
   resourceRow: { display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11.5 },
   resourceRowPinned: { border: ({ t }) => `1px solid ${t.skyLine}` },
@@ -95,7 +95,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   resourceName: { color: ({ t }) => t.textHi, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   resourceStatus: { color: ({ t }) => t.textFaint, flexShrink: 0 },
   resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 },
-  rolloutActions: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 4, paddingTop: 12, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
+  rolloutActions: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingBottom: 12, borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
   btnRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   btn: {
     fontFamily: fontMono,
@@ -267,12 +267,6 @@ function MergedBody({
   return <Typography className={classes.note}>Not merged yet.</Typography>;
 }
 
-function progressingNote(step: CdDelivery['steps'][number] | undefined): string {
-  if (step?.status === 'good') return `Rollout began ${timeText(step.at)} - see Rollout completes for its current health.`;
-  if (step?.status === 'bad') return 'ArgoCD reports this degraded - see the banner above for detail.';
-  return 'Waiting for Application sync to finish.';
-}
-
 function healthyNote(step: CdDelivery['steps'][number] | undefined): string {
   if (step?.status === 'good') return `Healthy since ${timeText(step.at)}.`;
   if (step?.status === 'bad') return 'ArgoCD reports this degraded - see the banner above for detail.';
@@ -363,7 +357,6 @@ export function StageDetail({
   argoOperationMessage,
   argoResources,
   targetImageTag,
-  liveProgress,
   env,
   rolloutProgress,
   onSelectStage,
@@ -379,7 +372,6 @@ export function StageDetail({
   argoOperationMessage?: string;
   argoResources?: ArgoResourceNode[];
   targetImageTag?: string;
-  liveProgress?: string;
   // The env's own live workload - only consulted by the 'progressing'
   // branch, to render the canary ramp chart (2026-09-16: "I want the canary
   // panel to be part of the 'Rollout Starts' stage").
@@ -505,20 +497,8 @@ export function StageDetail({
           </span>
           <Typography className={classes.title}>Rollout starts</Typography>
         </div>
-        {liveProgress ? (
-          <Typography className={classes.progressBig}>{liveProgress}</Typography>
-        ) : (
-          <Typography className={classes.note}>{progressingNote(step)}</Typography>
-        )}
         {rolloutProgress ? (
           <>
-            <CanaryRampChart
-              cluster={env.cluster}
-              namespace={env.namespace}
-              rolloutName={env.workload!.name}
-              podHash={env.workload!.currentPodHash}
-              progress={rolloutProgress}
-            />
             <div className={classes.rolloutActions}>
               <div className={classes.btnRow}>
                 {TIER2_ACTIONS.map(label => (
@@ -531,6 +511,14 @@ export function StageDetail({
                 Tier 2 — UI-ready, backend route not yet built (see HANDOFF-tower-write-actions.md)
               </span>
             </div>
+            <CanaryRampChart
+              cluster={env.cluster}
+              namespace={env.namespace}
+              rolloutName={env.workload!.name}
+              podHash={env.workload!.currentPodHash}
+              progress={rolloutProgress}
+            />
+            <RolloutTopologyDag cluster={env.cluster} namespace={env.namespace} rolloutName={env.workload!.name} />
           </>
         ) : (
           <Typography className={classes.note}>

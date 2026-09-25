@@ -397,7 +397,6 @@ export function DeploymentsTab() {
                 argoOperationMessage={env.argoOperationMessage}
                 argoResources={env.argoResources}
                 targetImageTag={deliveryTag(activeDelivery)}
-                liveProgress={liveProgress}
                 env={env}
                 rolloutProgress={rolloutProgress}
                 onSelectStage={setSelectedStepKey}
