@@ -6,16 +6,18 @@
 
 Tower is a Backstage plugin that brings visibility and control to cloud-native platforms built on Crossplane, ArgoCD, and Tekton. It provides release orchestration, promotion workflows, and operational dashboards for managing infrastructure-as-code deployments.
 
-Part of the [Hangar](https://github.com/jfillman/hangar) Internal Developer Platform ecosystem.
+Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: [docs/brand/](docs/brand/README.md).
 
 ## Features
 
-- **Release Records** — structured, queryable release history with deployment promotion workflows
-- **Pipeline Execution** — visibility into Tekton pipeline runs, task logs, and execution timeline  
-- **Operational Dashboards** — fleet-wide environment status, SLO tracking, and deployment health
-- **ArgoCD Integration** — sync status, application health, and manual sync controls
-- **Promotion Workflows** — tier-aware environment promotion with approval gates
-- **Real-time Events** — namespace events, activity feeds, and live updates
+Tabs, in the order of a change's lifecycle: Overview, Pull Requests, Pipelines, Deployments, Releases, Topology,
+Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards (Fleet Grid, Ops Wall).
+
+- **Release Records**: structured release history, persisted as git commits, with compare and export
+- **Release matrix**: which release is live in which environment, along the app's real promotion order
+- **Deployments ("Ground Control")**: pipeline DAG per environment, rollout topology, ArgoCD Refresh and Sync, Tekton Re-run and Cancel
+- **App Configuration and Glidepath**: edit environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
+- **SLOs, topology, images, notifications**: burn rate, live objects, artifact catalog, a time-sliced event feed
 
 ## Installation
 

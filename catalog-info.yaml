@@ -3,14 +3,20 @@ kind: Component
 metadata:
   name: tower
   title: Tower
-  description: Release orchestration and operational intelligence for Backstage
+  description: >-
+    Release orchestration and operational intelligence for Backstage: the Hangar command centre for what shipped,
+    where it runs and how it performs. Ships as a Backstage frontend module.
+  annotations:
+    github.com/project-slug: jfillman/tower
+    backstage.io/techdocs-ref: dir:.
   links:
     - url: https://github.com/jfillman/tower
       title: GitHub Repository
 spec:
   type: plugin
   lifecycle: experimental
-  owner: jfillman
+  owner: crossfader@gmail.com
+  system: hangar
   dependsOn:
     - component:default/hangar
     - component:default/glidepath

@@ -42,7 +42,7 @@ Tekton pipeline execution visibility:
 
 **Key exports:** `PipelinesTab`, `PipelineFlow`, `PipelineRunList`
 
-### Config
+### Config ("App Configuration")
 
 Cluster configuration inspection:
 - Current cluster context and API endpoint
@@ -52,6 +52,34 @@ Cluster configuration inspection:
 - Raw YAML viewer for cluster resources
 
 **Key exports:** `ConfigTab`
+
+### Deployments ("Ground Control")
+The CI/CD view of one environment: an env picker grouped Ground and Flight, an always-visible ArgoCD command
+panel (sync and health, Refresh and Sync), a notification banner, and the pipeline DAG. Clicking a DAG node drives
+the stage detail below it. The Rollout starts/completes steps carry real timestamps, and a rollout topology DAG shows
+the Rollout's objects. Tier 1 write actions live here: Tekton **Re-run** and **Cancel**, ArgoCD Refresh and plain
+Sync (no prune, no force). Verified against real failed and running PipelineRuns on 2026-09-27.
+
+### Topology
+One environment at a time (the same tiered picker as Deployments): the Kubernetes objects an environment runs and
+how they relate.
+
+### Images
+The artifact catalog: the app's images and versions from the registry, with supply-chain chips.
+
+### SLOs
+Sloth-backed SLO burn rate, queried from Prometheus, for every environment of an app (Ground and Flight).
+
+### Notifications
+Time-based, not read/unread: "New" (last hour) and "Earlier". No dismissing; a notification ages between the two
+on its own.
+
+### Glidepath
+Manages the app's own `cicd.yaml` and its `platform/` folder (`pr-env.yaml`, `platform/envs/<env>.yaml`) with a curated
+form plus a raw-YAML fallback. Never commits directly: it opens a GitOps PR, like the Config tab.
+
+### Fleet dashboards
+A top-level `/tower` dashboard with two views: a **Fleet Grid** and an **Ops Wall**.
 
 ## Shared Components
 

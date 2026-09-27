@@ -22,7 +22,7 @@ Every product gets two renderings of the same mark — not two different logos, 
 
 ## Family vocabulary
 
-All five marks share the same ring + 8 ticks + heading bug. Only the center glyph and
+All six marks share the same ring + 8 ticks + heading bug. Only the center glyph and
 its color change:
 
 | Product | Glyph | Color |
@@ -32,6 +32,7 @@ its color change:
 | Glidepath | Descent diagonal + dot | Sky `#6FB2D9` |
 | Airframe | Spar + rivets | Sky `#6FB2D9` |
 | Apron | 2×2 parking grid | Gray `#96A2AC` |
+| Autopilot | Nose held between brackets (heading hold) | Amber `#E8A33D` |
 
 Amber marks the two products that need attention (home base, command console); sky
 marks the informational/structural ones; gray marks ground infrastructure at rest —
