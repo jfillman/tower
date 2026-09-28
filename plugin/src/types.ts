@@ -334,6 +334,18 @@ export interface EnvironmentSummary {
   env: string;
   cluster: string;
   namespace: string;
+  // false only for a synthetic entry useReleaseContext.ts adds for an
+  // environment cicd.yaml declares (deploy.lowerEnvironments/
+  // upperEnvironments) but that has never had a live Rollout/Deployment
+  // discovered for it - useTowerEnvironments.ts's own buildEnvironments()
+  // builds entirely from live K8s resource presence, so a declared-but-
+  // never-deployed env (a fresh `rollout: null` upper env, or an app that's
+  // only ever reached dev) otherwise never appears anywhere in Tower at all
+  // (TODO tower-undeployed-env-gap, found 2026-09-27/28). Every real,
+  // live-derived entry sets this explicitly true; absent (old call sites,
+  // if any survive a refactor) should be treated the same as true, never as
+  // false - `env.deployed === false` is this field's only safe read.
+  deployed?: boolean;
   appName?: string;
   argoAppName?: string;
   // Real ArgoCD Application status for this environment, when it resolved

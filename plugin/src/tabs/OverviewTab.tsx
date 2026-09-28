@@ -539,6 +539,32 @@ export function OverviewTab() {
   // label already shows the shared image once, so repeating it per card
   // would be exactly the redundancy this whole feature exists to remove.
   const renderEnvCard = (env: EnvironmentSummary, opts?: { skipImage?: boolean }) => {
+    // Declared in cicd.yaml but never deployed (TODO tower-undeployed-env-gap,
+    // useReleaseContext.ts's own undeployedEnvironment) - every other field
+    // below is meaningless placeholder data for this env (no image, no
+    // replicas, no health signal), so this short-circuits to a distinct card
+    // rather than rendering a live-looking card full of dashes that reads
+    // like a fetch failure instead of an honest "nothing here yet".
+    if (env.deployed === false) {
+      return (
+        <div key={env.key} className={`${classes.card} ${opts?.skipImage ? classes.trackCard : ''}`}>
+          <div className={classes.cardHead}>
+            <span className={classes.envName}>{env.env}</span>
+          </div>
+          <span
+            className={classes.pill}
+            style={{ backgroundColor: t[STATUS_SOFT.unknown] as string, color: t[STATUS_COLOR.unknown] as string }}
+          >
+            <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR.unknown] as string }} />
+            Not yet deployed
+          </span>
+          <div className={classes.kv} style={{ borderBottom: 'none' }}>
+            <span className={classes.kvLabel}>Cluster</span>
+            <span className={classes.kvValue}>{env.cluster || '—'}</span>
+          </div>
+        </div>
+      );
+    }
     const h = health(env);
     const provenance = env.image ? provenanceByImage[env.image] : undefined;
     const scStages = buildSupplyChainStages(provenance?.data, Boolean(provenance?.loading));

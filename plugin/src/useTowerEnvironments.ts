@@ -688,6 +688,7 @@ function buildEnvironments(
         env: envLabel,
         cluster: item.cluster.name,
         namespace,
+        deployed: true,
         appName,
         argoAppName: appName ? `${appName}-${envLabel}` : undefined,
         image: container?.image,

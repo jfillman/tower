@@ -25,6 +25,31 @@ import {
   type SlsaProvenanceV02Predicate,
 } from './types';
 
+// A placeholder EnvironmentSummary for a declared-but-never-deployed env -
+// see declaredEnvironments' own comment inside useReleaseContext below for
+// why this exists and why it's built here rather than inside
+// useTowerEnvironments.ts. Every field a real live entry would have real
+// data for is left undefined/empty here on purpose: health() already
+// degrades an all-undefined workload to 'unknown' (rolloutHealthOf's
+// `desiredReplicas === undefined` branch, types.ts), imageTag(undefined)
+// already renders 'no image', and every Matrix/Record consumer keys off
+// row.cells[env.env] (built from deployHistory, never from env.image
+// directly) - so a consumer reading this entry sees an honest "nothing here
+// yet" rather than a fabricated live-looking state.
+function undeployedEnvironment(env: string, cluster: string): EnvironmentSummary {
+  return {
+    key: `declared/${cluster || 'unassigned'}/${env}`,
+    env,
+    cluster,
+    namespace: '',
+    deployed: false,
+    drift: false,
+    pods: [],
+    services: [],
+    resources: [],
+  };
+}
+
 // Shared release context for every Tower tab that needs "this app's real
 // environments, correctly ordered, plus the data tied to them" - Overview,
 // Releases, and (eventually) Topology/Images/SLOs all need the exact same
@@ -115,12 +140,52 @@ export function useReleaseContext() {
     refreshNonce,
   );
 
+  // TODO tower-undeployed-env-gap (found 2026-09-27/28, fixed 2026-09-28):
+  // rawEnvironments comes entirely from live K8s resource presence
+  // (useTowerEnvironments' own buildEnvironments), so an env cicd.yaml
+  // declares (deploy.lowerEnvironments/upperEnvironments) but that has never
+  // had a Rollout/Deployment deployed to it - a fresh `rollout: null` upper
+  // env, or an app that's only ever reached dev - never appeared anywhere in
+  // Tower: not in the Matrix, not targetable for a first promotion. Built
+  // here, not inside useTowerEnvironments itself, deliberately: that hook's
+  // rawEnvironments also feeds Topology/Pods/ResourceInspector/Prometheus/
+  // ClusterRbac - tabs that need a real namespace/cluster to query against
+  // and would break on a placeholder entry with none. This merge is scoped
+  // to exactly the "app's declared environments" consumers that already read
+  // `environments` from this hook (Matrix, Overview, Record) - the same
+  // scope ConfigTab.tsx's own flightEnvs already carved out for its env
+  // picker (see that component's 2026-09-16 comment on the identical
+  // `rollout: null` gap for its own, narrower purpose).
+  //
+  // Cluster for a declared-but-undeployed LOWER env is inferred from any
+  // other live environment on this app - Ground is single-cluster per app on
+  // this platform today, so any live env's cluster is a safe stand-in, not a
+  // guess at a genuinely unknown value. An upper env's cluster is never
+  // inferred - pipelineOrder.upperClusters already carries cicd.yaml's own
+  // explicit per-env declaration (empty string for the "same-cluster
+  // default", handled the same way ConfigTab.tsx's flightEnvs already does).
+  const declaredEnvironments = useMemo(() => {
+    const liveNames = new Set(rawEnvironments.map(e => e.env.toLowerCase()));
+    const fallbackCluster = rawEnvironments[0]?.cluster ?? '';
+    const result: EnvironmentSummary[] = [];
+    (pipelineOrder.lower ?? []).forEach(name => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, fallbackCluster));
+    });
+    (pipelineOrder.upper ?? []).forEach(name => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
+    });
+    return result;
+  }, [rawEnvironments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
+
   // THE fix: pipelineOrder.data is now actually passed through.
   const environments = useMemo(
     () =>
-      rawEnvironments
-        .map(e => ({
+      [
+        ...rawEnvironments.map(e => ({
           ...e,
+          deployed: true,
           argoHealthStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthStatus : undefined,
           argoSyncStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncStatus : undefined,
           argoOperationStartedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationStartedAt : undefined,
@@ -134,13 +199,14 @@ export function useReleaseContext() {
           argoReconciledAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.reconciledAt : undefined,
           argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : undefined,
           argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : undefined,
-        }))
-        .sort(
-          (a, b) =>
-            envStageRank(a.env, pipelineOrder.data) - envStageRank(b.env, pipelineOrder.data) ||
-            a.env.localeCompare(b.env),
-        ),
-    [rawEnvironments, pipelineOrder.data, argoStatusRaw],
+        })),
+        ...declaredEnvironments,
+      ].sort(
+        (a, b) =>
+          envStageRank(a.env, pipelineOrder.data) - envStageRank(b.env, pipelineOrder.data) ||
+          a.env.localeCompare(b.env),
+      ),
+    [rawEnvironments, declaredEnvironments, pipelineOrder.data, argoStatusRaw],
   );
 
   const prs = usePullRequests(owner && appName ? { owner, appName } : undefined, refreshNonce);
