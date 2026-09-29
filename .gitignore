@@ -1,5 +1,9 @@
 node_modules/
-dist/
+.yarn/install-state.gz
+# dist/ is intentionally NOT ignored: this is a git-tag dependency (no npm
+# registry), so the tree at each release tag must already contain the built
+# output - see RELEASING.md.
+dist-types/
 *.log
 .DS_Store
 .env.local

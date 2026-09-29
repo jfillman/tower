@@ -1,0 +1,41 @@
+name: CI
+
+# Build/lint/test validation for the standalone @jfillman/tower package - this
+# repo has no npm registry publish step (see RELEASING.md: it's consumed by
+# backstage as a git-tag dependency, with dist/ committed at each tag), so
+# this workflow's only job is to catch a broken commit BEFORE it's ever
+# tagged and pulled into backstage.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Type-check
+        run: yarn tsc
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test --ci
+
+      - name: Build
+        run: yarn build

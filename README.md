@@ -23,7 +23,9 @@ Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards
 
 ### Prerequisites
 
-- Backstage 1.17+
+- Backstage 1.17+, using the **new frontend system** (`@backstage/frontend-defaults`'s
+  `createApp({ features: [...] })` — Tower's own `index.ts` exports a `createFrontendPlugin`
+  instance, not a legacy `<Route>`/plugin-router pair)
 - Access to a Kubernetes cluster running:
   - ArgoCD (for sync/promotion controls)
   - Tekton Pipelines (for CI/CD visibility)
@@ -32,41 +34,29 @@ Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards
 
 ### Install Tower into Backstage
 
-1. **Copy the plugin into your Backstage app**
+Tower is a real, independently-versioned package, not a source folder to copy in. There's no npm
+registry - install it straight from a tagged commit on this repo (see `RELEASING.md` for how tags
+get cut):
 
 ```bash
-# From your Backstage app directory:
-cp -r tower/plugin/src/tower packages/app/src/modules/
+yarn workspace app add "@jfillman/tower@jfillman/tower#v0.1.0"
 ```
 
-2. **Import Tower into your app module**
-
-Edit `packages/app/src/App.tsx`:
+Then register it as a feature in `packages/app/src/App.tsx`:
 
 ```typescript
-import { towerRoutes } from './modules/tower';
+import { towerPlugin } from '@jfillman/tower';
 
-// Add to your routes
-<Route path="/tower/*" element={<towerRoutes />} />
+export default createApp({
+  features: [
+    // ...your other features
+    towerPlugin,
+  ],
+});
 ```
 
-3. **Add Tower to your navigation**
-
-Edit `packages/app/src/modules/nav/Nav.tsx` (or your nav component):
-
-```typescript
-<NavLink to="/tower" label="Tower">
-  <TowerIcon />
-</NavLink>
-```
-
-4. **Update dependencies**
-
-Tower requires these Backstage packages:
-
-```bash
-yarn workspace app add @backstage/core-components @backstage/core-plugin-api
-```
+That's it - `towerPlugin` declares its own route (`/tower`), sidebar icon, and title; there's no
+separate nav-wiring step.
 
 ### Configuration
 
@@ -85,44 +75,39 @@ CLUSTER_NAME=prod
 
 ## Development
 
-### Local Setup
+### Working on Tower itself
+
+This repo builds and tests standalone - it has its own `yarn.lock` and doesn't need a Backstage
+app checked out to develop against:
 
 ```bash
-# Install dependencies
 yarn install
-
-# Run Backstage in dev mode
-yarn dev
-
-# Tower plugin will be available at http://localhost:3000/tower
+yarn tsc      # type-check
+yarn lint
+yarn test
+yarn build    # produces dist/, same output shape backstage-cli's package build gives any plugin
 ```
 
-### Building the Backstage App
+### Seeing changes in a real Backstage app
 
-```bash
-# From your Backstage app root
-yarn build
-
-# Plugin will be included in the built app
-```
+There's no live-link/watch mode against a consumer app today - iterate here, then cut a release
+(`RELEASING.md`) and bump the pin in the consuming app's `package.json` to try it live.
 
 ## Architecture
 
-Tower is built as a Backstage **frontend module** and consists of:
+Tower is a Backstage **frontend plugin** (new frontend system - `createFrontendPlugin` +
+`PageBlueprint`, see `src/plugin.tsx`) and consists of:
 
-- **Core Tabs** — Overview, Releases, Pull Requests, Pipelines, Config
-- **Components** — Release Record UI, Pipeline flow visualization, ArgoCD sync controls
-- **Hooks** — Data fetching (Kubernetes API, ArgoCD), release persistence, environment caching
+- **Core Tabs** — Overview, Pull Requests, Pipelines, Deployments, Releases, Topology, Images,
+  SLOs, Notifications, App Configuration, Glidepath
+- **Components** — Release Record UI, pipeline flow visualization, ArgoCD sync controls
+- **Hooks** — Data fetching (Kubernetes API, ArgoCD, Tekton), release persistence, environment
+  caching
 - **Utilities** — YAML editing, log parsing, schema validation
+- **Brand** (`src/brand/`) and **shared/pullRequests** — small, self-contained pieces this plugin
+  owns outright rather than depending on host-app internals, so it builds and versions on its own
 
 See `docs/` for detailed architecture and implementation notes.
-
-## Patches & Customization
-
-Tower may include patches or customizations to Backstage core components:
-
-- See `docs/patches.md` for applied Backstage patches
-- UI customizations documented in `docs/ui-customizations.md`
 
 ## Related Repos
 

@@ -1,0 +1,81 @@
+{
+  "name": "@jfillman/tower",
+  "version": "0.1.0",
+  "description": "Release orchestration and operational intelligence for Backstage, part of the Hangar platform.",
+  "license": "UNLICENSED",
+  "packageManager": "yarn@4.13.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jfillman/tower"
+  },
+  "main": "dist/index.esm.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "tower"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "backstage-cli package build",
+    "clean": "backstage-cli package clean",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "test": "backstage-cli package test",
+    "tsc": "tsc"
+  },
+  "dependencies": {
+    "@backstage/catalog-model": "^1.10.0",
+    "@backstage/core-components": "^0.18.13",
+    "@backstage/core-plugin-api": "^1.12.9",
+    "@backstage/frontend-plugin-api": "^0.18.0",
+    "@backstage/plugin-catalog-react": "^3.2.2",
+    "@backstage/plugin-kubernetes": "^0.12.22",
+    "@backstage/plugin-kubernetes-common": "^0.9.12",
+    "@backstage/plugin-kubernetes-react": "^0.5.23",
+    "@backstage/plugin-notifications": "^0.5.20",
+    "@backstage/plugin-notifications-common": "^0.2.3",
+    "@kubernetes/client-node": "^1.4.0",
+    "@material-ui/core": "^4.12.2",
+    "@material-ui/icons": "^4.9.1",
+    "js-yaml": "^4.3.0"
+  },
+  "peerDependencies": {
+    "@types/react": "^17.0.0 || ^18.0.0",
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0",
+    "react-router-dom": "^6.30.2"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.5",
+    "@backstage/cli-defaults": "^0.1.5",
+    "@jest/environment-jsdom-abstract": "~30.2.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.1",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "jest": "~30.2.0",
+    "jsdom": "^27.1.0",
+    "react": "^18.0.2",
+    "react-dom": "^18.0.2",
+    "react-router-dom": "^6.30.2",
+    "typescript": "~5.8.0"
+  }
+}
