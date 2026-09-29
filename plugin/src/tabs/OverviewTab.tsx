@@ -190,11 +190,22 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     columnGap: 16,
     paddingTop: 44,
   },
+  // maxWidth caps the pill to its own trackRow's width (position: relative,
+  // set below) so a single narrow card's tag - which can render wider than
+  // the card itself, e.g. a long semver plus a nickname chip - truncates
+  // with an ellipsis instead of overflowing past the card and overlapping a
+  // neighboring track's pill when two single-env tracks sit side by side
+  // (confirmed live 2026-09-29: boarding-api's two solo-env release tracks
+  // overlapped their image-tag chips). The button's own `title` (below)
+  // still carries the untruncated tag on hover.
   trackLabel: {
     position: 'absolute',
     top: 0,
     left: '50%',
     transform: 'translateX(-50%)',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     fontFamily: fontMono,
     fontSize: 11,
@@ -204,6 +215,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 100,
     padding: '3px 12px',
     cursor: 'pointer',
+    boxSizing: 'border-box',
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
   },
   trackNickname: {

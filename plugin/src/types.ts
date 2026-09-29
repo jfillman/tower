@@ -516,6 +516,19 @@ export function classifyGhcrVersion(tags: string[]): GhcrVersionKind {
   if (tags.some(t => GHCR_PROVENANCE_TAG.test(t))) return 'provenance';
   if (tags.some(t => GHCR_SIGNATURE_TAG.test(t))) return 'signature';
   if (tags.some(t => GHCR_ATTESTATIONS_TAG.test(t))) return 'attestations';
+  // The SBOM's actual cyclonedx content lives one hop past the tagged
+  // `sha256-<digest>` referrers index above: that index's own `subject`
+  // points at an OCI-1.1 referrer manifest that GHCR lists as its own
+  // package "version" with an empty tags array (confirmed live 2026-09-29
+  // by inspecting a real manifest: `dev.sigstore.bundle.predicateType:
+  // "https://cyclonedx.org/bom"`, reached only via that untagged digest -
+  // this platform's ImagesTab never fetches it directly, it only checks for
+  // the tagged index as a sibling hint). No tags at all matches none of the
+  // three regexes above, so this fell through to the 'image' default and
+  // rendered as a stray untagged "image" row instead of being folded away
+  // like every other attestation/signature version - the exact bug this
+  // module's imageEntries filter exists to prevent (see the .sig fix above).
+  if (tags.length === 0) return 'attestations';
   return 'image';
 }
 
