@@ -3,6 +3,7 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { useCustomResources } from '@backstage/plugin-kubernetes-react';
 
 const SLO_MATCHER = { group: "catalog.idp.io", apiVersion: "v1alpha1", plural: "slos" };
+const SLO_MATCHER_HANGAR = { group: "catalog.hangar.io", apiVersion: "v1alpha1", plural: "slos" };
 const ENV_LABEL = "hangar.io/env";
 function toSloSummary(raw, cluster) {
   return {
@@ -27,17 +28,22 @@ function toSloSummary(raw, cluster) {
 }
 function useSlos() {
   const { entity } = useEntity();
-  const { kubernetesObjects, loading, error } = useCustomResources(entity, [SLO_MATCHER]);
+  const { kubernetesObjects: idpObjects, loading: idpLoading, error: idpError } = useCustomResources(entity, [SLO_MATCHER]);
+  const { kubernetesObjects: hangarObjects, loading: hangarLoading, error: hangarError } = useCustomResources(entity, [SLO_MATCHER_HANGAR]);
+  const loading = idpLoading || hangarLoading;
+  const error = idpError && hangarError ? idpError : void 0;
   const slos = useMemo(() => {
     const result = [];
-    (kubernetesObjects?.items ?? []).forEach((item) => {
-      const raws = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-      raws.forEach((raw) => result.push(toSloSummary(raw, item.cluster.name)));
+    [idpObjects, hangarObjects].forEach((objects) => {
+      (objects?.items ?? []).forEach((item) => {
+        const raws = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
+        raws.forEach((raw) => result.push(toSloSummary(raw, item.cluster.name)));
+      });
     });
     return result.sort(
       (a, b) => a.name.localeCompare(b.name) || (a.env ?? "").localeCompare(b.env ?? "")
     );
-  }, [kubernetesObjects]);
+  }, [idpObjects, hangarObjects]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   useEffect(() => {
     if (!loading) setHasLoadedOnce(true);
