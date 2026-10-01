@@ -1,0 +1,397 @@
+import { makeStyles } from '@material-ui/core/styles';
+import type { Theme } from '@material-ui/core/styles';
+import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import type { ProvisioningStep } from './deriveProvisioning';
+import { SegmentBar } from './ProvisioningStrip';
+import { fmtDuration, type ProvisioningItem } from './shared';
+
+// Bar scale: the longest typical step (the first build) fits with headroom.
+const SCALE_SEC = 180;
+
+const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  root: { display: 'flex', flexDirection: 'column', gap: 14 },
+  pills: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  pill: {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    padding: '5px 12px',
+    borderRadius: 16,
+    fontSize: 13,
+    cursor: 'pointer',
+    backgroundColor: ({ t }) => t.panel,
+    color: ({ t }) => t.textHi,
+    border: ({ t }) => `1px solid ${t.line}`,
+  },
+  pillOn: { borderColor: ({ t }) => t.amber },
+  mono: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  panel: {
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    backgroundColor: ({ t }) => t.panel,
+    padding: 16,
+    minWidth: 0,
+  },
+  title: {
+    fontFamily: fontDisplay,
+    fontWeight: 700,
+    fontSize: 22,
+    color: ({ t }) => t.textHi,
+  },
+  crumb: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
+  kv: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+    gap: 14,
+    margin: '14px 0',
+  },
+  k: {
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color: ({ t }) => t.textFaint,
+  },
+  v: {
+    fontFamily: fontDisplay,
+    fontWeight: 500,
+    fontSize: 20,
+    color: ({ t }) => t.textHi,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  head: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    color: ({ t }) => t.textFaint,
+    marginBottom: 12,
+  },
+  segs: { display: 'flex', gap: 4, height: 10 },
+  seg: {
+    flex: 1,
+    borderRadius: 1,
+    overflow: 'hidden',
+    backgroundColor: ({ t }) => t.line,
+  },
+  list: { listStyle: 'none', margin: 0, padding: 0 },
+  li: {
+    display: 'grid',
+    gridTemplateColumns: '22px minmax(0, 1fr) 150px 112px',
+    columnGap: 12,
+    position: 'relative',
+    paddingBottom: 14,
+    alignItems: 'start',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: 10,
+      top: 22,
+      bottom: 0,
+      width: 2,
+      backgroundColor: ({ t }) => t.line,
+    },
+    '&:last-child::before': { display: 'none' },
+    '@media (max-width: 700px)': {
+      gridTemplateColumns: '22px minmax(0, 1fr) auto',
+    },
+  },
+  liDone: { '&::before': { backgroundColor: ({ t }) => t.good } },
+  name: {
+    fontWeight: 600,
+    fontSize: 14,
+    lineHeight: '22px',
+    color: ({ t }) => t.textHi,
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  nameMuted: { color: ({ t }) => t.textFaint, fontWeight: 500 },
+  nameRun: { color: ({ t }) => t.sky },
+  nameFail: { color: ({ t }) => t.bad },
+  desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
+  detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
+  tag: {
+    fontFamily: fontMono,
+    fontSize: 10,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: ({ t }) => t.textFaint,
+    border: ({ t }) => `1px solid ${t.line}`,
+    padding: '2px 5px',
+    borderRadius: 3,
+  },
+  bars: {
+    position: 'relative',
+    height: 20,
+    marginTop: 2,
+    '@media (max-width: 700px)': { gridColumn: '2 / 4', order: 5 },
+  },
+  typical: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: 6,
+    border: ({ t }) => `1px dashed ${t.textFaint}`,
+    borderRadius: 1,
+  },
+  actual: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 11,
+    borderRadius: 2,
+  },
+  time: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    lineHeight: 1.3,
+    paddingTop: 2,
+    fontFamily: fontMono,
+    fontSize: 12,
+    color: ({ t }) => t.textLo,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  timeSub: { fontSize: 11, color: ({ t }) => t.textFaint },
+  timeSlow: { color: ({ t }) => t.amber },
+  legend: {
+    display: 'flex',
+    gap: 16,
+    flexWrap: 'wrap',
+    fontSize: 12,
+    color: ({ t }) => t.textFaint,
+    marginTop: 14,
+  },
+  swatch: {
+    display: 'inline-block',
+    width: 18,
+    height: 8,
+    borderRadius: 2,
+    marginRight: 6,
+    verticalAlign: 'middle',
+  },
+  empty: {
+    border: ({ t }) => `1px dashed ${t.line}`,
+    borderRadius: 5,
+    padding: 24,
+    textAlign: 'center',
+    color: ({ t }) => t.textLo,
+    fontSize: 13,
+  },
+}));
+
+function StepIcon({ state, t }: { state: ProvisioningStep['state']; t: HangarTokens }) {
+  if (state === 'done') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" role="img" aria-label="done">
+        <circle cx="10" cy="10" r="9" fill={t.good} />
+        <path
+          d="M6 10.3l2.8 2.7L14 7.6"
+          stroke={t.panel}
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (state === 'fail') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" role="img" aria-label="failed">
+        <circle cx="10" cy="10" r="9" fill={t.bad} />
+        <path d="M7 7l6 6M13 7l-6 6" stroke={t.panel} strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (state === 'run') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 20 20" role="img" aria-label="in progress">
+        <circle cx="10" cy="10" r="8" fill="none" stroke={t.line} strokeWidth="2.5" />
+        <circle
+          cx="10"
+          cy="10"
+          r="8"
+          fill="none"
+          stroke={t.sky}
+          strokeWidth="2.5"
+          strokeDasharray="14 40"
+          strokeLinecap="round"
+        >
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0 10 10"
+            to="360 10 10"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      </svg>
+    );
+  }
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" role="img" aria-label="waiting">
+      <circle cx="10" cy="10" r="8" fill="none" stroke={t.line} strokeWidth="2" />
+    </svg>
+  );
+}
+
+function Step({
+  step,
+  classes,
+  t,
+}: {
+  step: ProvisioningStep;
+  classes: ReturnType<typeof useStyles>;
+  t: HangarTokens;
+}) {
+  const pct = (sec: number) => `${Math.min(100, (sec / SCALE_SEC) * 100).toFixed(1)}%`;
+  const slow = step.state === 'done' && step.seconds !== undefined && step.seconds > step.typicalSec * 1.1 + 1;
+  let fill = t.good;
+  if (step.state === 'run') fill = t.sky;
+  else if (step.state === 'fail') fill = t.bad;
+  else if (slow) fill = t.amber;
+  const delta = step.seconds !== undefined ? Math.round(step.seconds - step.typicalSec) : 0;
+  let nameCls = classes.name;
+  if (step.state === 'pend') nameCls += ` ${classes.nameMuted}`;
+  else if (step.state === 'run') nameCls += ` ${classes.nameRun}`;
+  else if (step.state === 'fail') nameCls += ` ${classes.nameFail}`;
+  return (
+    <li className={`${classes.li} ${step.state === 'done' ? classes.liDone : ''}`}>
+      <span>
+        <StepIcon state={step.state} t={t} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className={nameCls}>
+          {step.title}
+          {step.parallel && <span className={classes.tag}>parallel</span>}
+        </div>
+        <div className={classes.desc}>{step.desc}</div>
+        {step.detail && <div className={classes.detail}>{step.detail}</div>}
+      </div>
+      <div
+        className={classes.bars}
+        role="img"
+        aria-label={`This run ${step.seconds ?? 0} seconds, typical ${step.typicalSec} seconds`}
+      >
+        <i className={classes.typical} style={{ width: pct(step.typicalSec) }} />
+        {step.seconds !== undefined && step.seconds > 0 && step.state !== 'pend' && (
+          <b className={classes.actual} style={{ width: pct(step.seconds), backgroundColor: fill }} />
+        )}
+      </div>
+      <div className={classes.time}>
+        <span>
+          {step.seconds !== undefined && step.state !== 'pend'
+            ? fmtDuration(step.seconds)
+            : `~${fmtDuration(step.typicalSec)}`}
+        </span>
+        {step.state === 'done' && step.seconds !== undefined && (
+          <span className={`${classes.timeSub} ${slow ? classes.timeSlow : ''}`}>
+            typical {fmtDuration(step.typicalSec)} · {delta > 0 ? '+' : '−'}
+            {fmtDuration(Math.abs(delta))}
+          </span>
+        )}
+        {step.state === 'run' && <span className={classes.timeSub}>typical {fmtDuration(step.typicalSec)}</span>}
+      </div>
+    </li>
+  );
+}
+
+export function ProvisioningView({
+  items,
+  selected,
+  onSelect,
+  error,
+  loading,
+}: {
+  items: ProvisioningItem[];
+  selected?: string;
+  onSelect: (name: string) => void;
+  error?: string;
+  loading: boolean;
+}) {
+  const t = useHangarTokens();
+  const classes = useStyles({ t });
+  if (error) {
+    return <div className={classes.empty}>Provisioning status could not be read from the dev cluster: {error}</div>;
+  }
+  if (items.length === 0) {
+    return (
+      <div className={classes.empty}>
+        {loading
+          ? 'Reading provisioning status…'
+          : 'Nothing is provisioning. A new service appears here as soon as you create it.'}
+      </div>
+    );
+  }
+  const item = items.find(i => i.inputs.xr.name === selected) ?? items[0];
+  const { derived, inputs } = item;
+  return (
+    <div className={classes.root}>
+      <div className={classes.pills}>
+        {items.map(i => (
+          <button
+            key={i.inputs.xr.name}
+            type="button"
+            aria-pressed={i === item}
+            className={`${classes.pill} ${i === item ? classes.pillOn : ''}`}
+            onClick={() => onSelect(i.inputs.xr.name)}
+          >
+            <b>{i.inputs.xr.name}</b>
+            <span className={classes.mono}>{i.derived.percent}%</span>
+          </button>
+        ))}
+      </div>
+      <div className={classes.panel}>
+        <div className={classes.title}>{inputs.xr.name}</div>
+        <div className={classes.crumb}>
+          {inputs.xr.kind} · {inputs.xr.cluster}
+        </div>
+        <div className={classes.kv}>
+          <div>
+            <div className={classes.k}>Progress</div>
+            <div className={classes.v}>{derived.percent}%</div>
+          </div>
+          <div>
+            <div className={classes.k}>Elapsed</div>
+            <div className={classes.v}>{fmtDuration(derived.elapsedSec)}</div>
+          </div>
+          <div>
+            <div className={classes.k}>Remaining</div>
+            <div className={classes.v}>{derived.complete ? 'Ready' : fmtDuration(derived.etaSec)}</div>
+          </div>
+        </div>
+        <SegmentBar item={item} classes={classes} t={t} />
+      </div>
+      <div className={classes.panel}>
+        <div className={classes.head}>Steps</div>
+        <ol className={classes.list}>
+          {derived.steps.map(s => (
+            <Step key={s.id} step={s} classes={classes} t={t} />
+          ))}
+        </ol>
+        <div className={classes.legend}>
+          <span>
+            <i className={classes.swatch} style={{ backgroundColor: t.good }} />
+            This run
+          </span>
+          <span>
+            <i className={classes.swatch} style={{ backgroundColor: t.amber }} />
+            Over typical
+          </span>
+          <span>
+            <i className={classes.swatch} style={{ border: `1px dashed ${t.textFaint}`, height: 5 }} />
+            Typical (estimate)
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

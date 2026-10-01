@@ -15,6 +15,11 @@ import type { Entity } from '@backstage/catalog-model';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { HangarMark } from './brand/HangarMark';
+import { useSearchParams } from 'react-router-dom';
+import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
+import { ProvisioningView } from './provisioning/ProvisioningView';
+import { toItems, useNow } from './provisioning/shared';
+import { useProvisioning } from './provisioning/useProvisioning';
 import { WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR, workloadTypeOf, type WorkloadType } from './workloadType';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
@@ -91,8 +96,20 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textFaint,
     marginBottom: 10,
   },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 32, color: ({ t }) => t.textHi, marginBottom: 6 },
-  titleRow: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  title: {
+    fontFamily: fontDisplay,
+    fontWeight: 700,
+    fontSize: 32,
+    color: ({ t }) => t.textHi,
+    marginBottom: 6,
+  },
+  titleRow: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
   dashboardLink: {
     fontFamily: fontMono,
     fontSize: 12,
@@ -106,7 +123,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
-  list: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: 'hidden', backgroundColor: ({ t }) => t.panel },
+  list: {
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: ({ t }) => t.panel,
+  },
   row: {
     display: 'flex',
     alignItems: 'center',
@@ -117,9 +139,19 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:last-child': { borderBottom: 'none' },
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
   },
-  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 15, color: ({ t }) => t.textHi },
+  name: {
+    fontFamily: fontDisplay,
+    fontWeight: 600,
+    fontSize: 15,
+    color: ({ t }) => t.textHi,
+  },
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
-  empty: { padding: '24px 18px', fontSize: 13, color: ({ t }) => t.textLo, fontStyle: 'italic' },
+  empty: {
+    padding: '24px 18px',
+    fontSize: 13,
+    color: ({ t }) => t.textLo,
+    fontStyle: 'italic',
+  },
   rowMain: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -146,7 +178,45 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { color: ({ t }) => t.amberInk },
   },
   starBtnActive: { color: ({ t }) => t.amberInk },
-  toolbar: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 },
+  tabs: {
+    display: 'flex',
+    gap: 2,
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    marginBottom: 20,
+  },
+  tab: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '9px 16px',
+    background: 'none',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    marginBottom: -1,
+    cursor: 'pointer',
+    fontFamily: fontDisplay,
+    fontWeight: 600,
+    fontSize: 14,
+    color: ({ t }) => t.textLo,
+    '&:hover': { color: ({ t }) => t.textHi },
+  },
+  tabOn: { color: ({ t }) => t.textHi, borderBottomColor: ({ t }) => t.amber },
+  tabBadge: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '1px 7px',
+    borderRadius: 10,
+    backgroundColor: ({ t }) => t.amber,
+    color: ({ t }) => t.bg,
+  },
+  toolbar: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
   searchGrow: { flex: '1 1 240px', minWidth: 200 },
   segment: {
     display: 'inline-flex',
@@ -175,7 +245,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panelAlt,
     boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`,
   },
-  segCount: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  segCount: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.textFaint,
+  },
   sectionHead: {
     display: 'flex',
     alignItems: 'center',
@@ -191,7 +265,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
   },
-  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
+  cards: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+    gap: 12,
+  },
   card: {
     display: 'flex',
     flexDirection: 'column',
@@ -204,7 +282,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 5,
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
   },
-  cardTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  cardTop: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   cardDesc: {
     fontSize: 12.5,
     color: ({ t }) => t.textLo,
@@ -214,7 +297,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     overflow: 'hidden',
     minHeight: 36,
   },
-  cardFoot: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  cardFoot: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   typeChip: {
     display: 'inline-flex',
     fontFamily: fontMono,
@@ -226,7 +314,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textLo,
   },
   typeChipAi: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
-  tableWrap: { overflowX: 'auto', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, backgroundColor: ({ t }) => t.panel },
+  tableWrap: {
+    overflowX: 'auto',
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    backgroundColor: ({ t }) => t.panel,
+  },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: {
     textAlign: 'left',
@@ -245,8 +338,18 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
     '&:last-child td': { borderBottom: 'none' },
   },
-  td: { padding: '10px 12px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, verticalAlign: 'middle', color: ({ t }) => t.textLo },
-  tdDesc: { maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  td: {
+    padding: '10px 12px',
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    verticalAlign: 'middle',
+    color: ({ t }) => t.textLo,
+  },
+  tdDesc: {
+    maxWidth: 360,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
 }));
 
 export function AppPicker({
@@ -262,6 +365,15 @@ export function AppPicker({
   const [entities, setEntities] = useState<Entity[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const provisioning = useProvisioning();
+  const now = useNow();
+  const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  const view = searchParams.get('view') === 'provisioning' ? 'provisioning' : 'services';
+  const selectedService = searchParams.get('service') ?? undefined;
+  const openProvisioning = (name?: string) =>
+    setSearchParams(name ? { view: 'provisioning', service: name } : { view: 'provisioning' });
+  const openServices = () => setSearchParams({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [viewMode, setViewModeState] = useState<ViewMode>(() => loadViewMode());
 
@@ -452,69 +564,103 @@ export function AppPicker({
       <Typography className={classes.sub}>
         Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot.
       </Typography>
-      <div className={classes.toolbar}>
-        <div className={classes.segment} role="group" aria-label="Workload type">
-          {FILTERS.map(f => (
-            <button
-              key={f.id}
-              type="button"
-              aria-pressed={typeFilter === f.id}
-              className={`${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ''}`}
-              onClick={() => setTypeFilter(f.id)}
-            >
-              {f.label}
-              <span className={classes.segCount}>{entities ? counts[f.id] : ''}</span>
-            </button>
-          ))}
-        </div>
-        <TextField
-          className={classes.searchGrow}
-          variant="outlined"
-          size="small"
-          placeholder="Search services…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" style={{ color: t.textFaint }} />
-              </InputAdornment>
-            ),
-          }}
-        />
+      <div className={classes.tabs} role="tablist" aria-label="Services sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'services'}
+          className={`${classes.tab} ${view === 'services' ? classes.tabOn : ''}`}
+          onClick={openServices}
+        >
+          Services
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'provisioning'}
+          className={`${classes.tab} ${view === 'provisioning' ? classes.tabOn : ''}`}
+          onClick={() => openProvisioning()}
+        >
+          Provisioning
+          {provItems.length > 0 && <span className={classes.tabBadge}>{provItems.length}</span>}
+        </button>
       </div>
-      {!entities ? (
-        <Progress />
+      {view === 'provisioning' ? (
+        <ProvisioningView
+          items={provItems}
+          selected={selectedService}
+          onSelect={openProvisioning}
+          error={provisioning.error}
+          loading={provisioning.loading}
+        />
       ) : (
         <>
-          {starredEntities.length > 0 && (
-            <div className={classes.starredSection}>
-              <div className={classes.starredLabel}>Starred</div>
-              {renderCollection(starredEntities)}
-            </div>
-          )}
-          <div className={classes.sectionHead}>
-            <span className={classes.sectionLabel}>All services · {filteredMinusStarred.length}</span>
-            <div className={classes.segment} role="group" aria-label="View">
-              {(['cards', 'list'] as const).map(mode => (
+          <ProvisioningStrip items={provItems} onOpen={openProvisioning} />
+          <div className={classes.toolbar}>
+            <div className={classes.segment} role="group" aria-label="Workload type">
+              {FILTERS.map(f => (
                 <button
-                  key={mode}
+                  key={f.id}
                   type="button"
-                  aria-pressed={viewMode === mode}
-                  className={`${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ''}`}
-                  onClick={() => setViewMode(mode)}
+                  aria-pressed={typeFilter === f.id}
+                  className={`${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ''}`}
+                  onClick={() => setTypeFilter(f.id)}
                 >
-                  {mode === 'cards' ? 'Cards' : 'List'}
+                  {f.label}
+                  <span className={classes.segCount}>{entities ? counts[f.id] : ''}</span>
                 </button>
               ))}
             </div>
+            <TextField
+              className={classes.searchGrow}
+              variant="outlined"
+              size="small"
+              placeholder="Search services…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" style={{ color: t.textFaint }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </div>
-          {filteredMinusStarred.length === 0 ? (
-            <div className={classes.list}>
-              <div className={classes.empty}>{emptyMessage}</div>
-            </div>
+          {!entities ? (
+            <Progress />
           ) : (
-            renderCollection(filteredMinusStarred)
+            <>
+              {starredEntities.length > 0 && (
+                <div className={classes.starredSection}>
+                  <div className={classes.starredLabel}>Starred</div>
+                  {renderCollection(starredEntities)}
+                </div>
+              )}
+              <div className={classes.sectionHead}>
+                <span className={classes.sectionLabel}>All services · {filteredMinusStarred.length}</span>
+                <div className={classes.segment} role="group" aria-label="View">
+                  {(['cards', 'list'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={viewMode === mode}
+                      className={`${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ''}`}
+                      onClick={() => setViewMode(mode)}
+                    >
+                      {mode === 'cards' ? 'Cards' : 'List'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {filteredMinusStarred.length === 0 ? (
+                <div className={classes.list}>
+                  <div className={classes.empty}>{emptyMessage}</div>
+                </div>
+              ) : (
+                renderCollection(filteredMinusStarred)
+              )}
+            </>
           )}
         </>
       )}

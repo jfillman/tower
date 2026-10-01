@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AppPicker } from './AppPicker';
 
 const entities = [
@@ -16,15 +17,25 @@ jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useApi: () => ({ getEntities: async () => ({ items: entities }) }),
 }));
+const mockProvisioning = { items: [] as any[], loading: false };
+jest.mock('./provisioning/useProvisioning', () => ({ useProvisioning: () => mockProvisioning }));
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
 
-const pressed = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) }).getAttribute('aria-pressed');
+const pressed = (name: string) =>
+  screen.getByRole('button', { name: new RegExp(`^${name}`) }).getAttribute('aria-pressed');
 
 describe('AppPicker home', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    mockProvisioning.items = [];
+  });
 
   it('filters by workload type and shows counts', async () => {
-    render(<AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />);
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
     await screen.findByText('baggage-api');
     expect(screen.getByRole('button', { name: /^All\s*3$/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Container apps\s*2$/ })).toBeTruthy();
@@ -36,7 +47,11 @@ describe('AppPicker home', () => {
   });
 
   it('keeps starred services visible through the filter and search, and persists stars', async () => {
-    render(<AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />);
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
     await screen.findByText('baggage-api');
     fireEvent.click(screen.getByRole('button', { name: /^Star component:default\/baggage-api/ }));
     expect(JSON.parse(localStorage.getItem('tower.starredApps')!)).toEqual(['component:default/baggage-api']);
@@ -47,7 +62,11 @@ describe('AppPicker home', () => {
   });
 
   it('toggles cards and list and remembers the choice', async () => {
-    const { unmount } = render(<AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />);
+    const { unmount } = render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
     await screen.findByText('baggage-api');
     expect(screen.queryByRole('table')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
@@ -56,14 +75,51 @@ describe('AppPicker home', () => {
     expect(pressed('List')).toBe('true');
     unmount();
 
-    render(<AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />);
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByRole('table')).toBeTruthy());
   });
 
   it('selects a service when its row is clicked', async () => {
     const onSelect = jest.fn();
-    render(<AppPicker onSelect={onSelect} onOpenDashboard={jest.fn()} />);
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={onSelect} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
     fireEvent.click(await screen.findByText('gate-assign-svc'));
     expect(onSelect).toHaveBeenCalledWith('component:default/gate-assign-svc');
+  });
+
+  it('shows the in-flight strip and opens the Provisioning tab for a service', async () => {
+    const created = Date.now() - 30000;
+    mockProvisioning.items = [
+      {
+        xr: {
+          kind: 'NodeJSApplication',
+          name: 'fare-quote-api',
+          namespace: 'x',
+          cluster: 'kind-dev',
+          createdAt: created,
+          conditions: [],
+        },
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
+    await screen.findByText('baggage-api');
+    expect(screen.getByRole('region', { name: 'Provisioning in flight' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /Provisioning\s*1/ })).toBeTruthy();
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Provisioning in flight' })).getByText('fare-quote-api'));
+    expect(await screen.findByText('Request accepted')).toBeTruthy();
+    expect(screen.getByText('First build and checks')).toBeTruthy();
+    expect(screen.queryByText('baggage-api')).toBeNull();
   });
 });
