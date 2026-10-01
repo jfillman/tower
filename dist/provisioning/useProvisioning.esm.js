@@ -28,6 +28,17 @@ function toBuild(run) {
     tasksTotal: total
   };
 }
+const GITHUB_KINDS = /* @__PURE__ */ new Set(["Repository", "RepositoryFile"]);
+function toManaged(refs, found) {
+  const byName = new Map(found.map((m) => [m.metadata.name, m]));
+  const expected = (refs ?? []).filter((r) => GITHUB_KINDS.has(r.kind)).map((r) => r.name);
+  const names = expected.length > 0 ? expected : found.map((m) => m.metadata.name);
+  if (names.length === 0 || found.length === 0) return void 0;
+  return names.map((name) => {
+    const ready = byName.get(name)?.status?.conditions?.find((c) => c.type === "Ready");
+    return { name, ready: ready?.status === "True", readyAt: epoch(ready?.lastTransitionTime) };
+  });
+}
 function toRollout(r) {
   return {
     phase: r.status?.phase,
@@ -78,9 +89,13 @@ function useProvisioning() {
       const items = await Promise.all(
         xrs.map(async (x) => {
           const name = x.metadata.name;
-          const [runs, rollouts] = await Promise.all([
+          const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
+          const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
+          const [runs, rollouts, repos, files] = await Promise.all([
             optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
-            optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`)
+            optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+            optional(`${mrBase}/repositories?${selector}`),
+            optional(`${mrBase}/repositoryfiles?${selector}`)
           ]);
           const first = [...runs?.items ?? []].sort(
             (a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp)
@@ -95,7 +110,8 @@ function useProvisioning() {
               conditions: x.status?.conditions ?? []
             },
             build: first ? toBuild(first) : void 0,
-            rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0
+            rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0,
+            managed: toManaged(x.spec?.crossplane?.resourceRefs, [...repos?.items ?? [], ...files?.items ?? []])
           };
         })
       );
@@ -117,5 +133,5 @@ function useProvisioning() {
   return state;
 }
 
-export { toBuild, toRollout, useProvisioning };
+export { toBuild, toManaged, toRollout, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map
