@@ -3,13 +3,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { AppPicker } from './AppPicker';
 
 const entities = [
-  { name: 'baggage-api', type: 'service' },
-  { name: 'gate-assign-svc', type: 'service' },
-  { name: 'ops-copilot', type: 'ai-agent' },
+  { name: 'baggage-api', type: 'service', tags: ['kind:nodejsapplication'] },
+  { name: 'gate-assign-svc', type: 'service', tags: ['kind:goapplication'] },
+  { name: 'gate-assign-svc-kind-prod-proofing', type: 'service', tags: ['kind:applicationenvironment'] },
+  { name: 'ops-copilot', type: 'ai-agent', tags: [] },
 ].map(e => ({
   apiVersion: 'backstage.io/v1alpha1',
   kind: 'Component',
-  metadata: { name: e.name, namespace: 'default', description: `${e.name} description` },
+  metadata: { name: e.name, namespace: 'default', description: `${e.name} description`, tags: e.tags },
   spec: { type: e.type, owner: 'team-a' },
 }));
 
@@ -93,6 +94,17 @@ describe('AppPicker home', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByRole('table')).toBeTruthy());
+  });
+
+  it('hides application environments from the list and the counts', async () => {
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
+    await screen.findByText('baggage-api');
+    expect(screen.queryByText('gate-assign-svc-kind-prod-proofing')).toBeNull();
+    expect(screen.getByRole('button', { name: /^All\s*3$/ })).toBeTruthy();
   });
 
   it('selects a service when its row is clicked', async () => {

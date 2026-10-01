@@ -3,6 +3,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import type { Entity } from '@backstage/catalog-model';
+import { isAppTierEntity } from './workloadType';
 
 // The fleet dashboards (Fleet Grid / Ops Wall) exist to show real
 // application services, not the platform/infra Components kubernetes-
@@ -28,16 +29,8 @@ import type { Entity } from '@backstage/catalog-model';
 // application itself (see [[idp_session_applicationenvironment_xrd]]
 // memory), and the 4 auto-derived XRDs (TektonCICD/SecretStore/SLO/
 // RolloutWatch) - all real Airframe plumbing, none of them "an app" either.
-const APP_TIER_KIND_TAGS = new Set([
-  'kind:nodejsapplication',
-  'kind:springbootapplication',
-  'kind:pythonapplication',
-  'kind:goapplication',
-]);
-
-function isAppTierEntity(entity: Entity): boolean {
-  return (entity.metadata.tags ?? []).some(t => APP_TIER_KIND_TAGS.has(t));
-}
+// The app-tier tag set and the predicate live in workloadType.ts, shared with
+// Tower's Services list.
 
 // Every app the fleet dashboard (Fleet Grid / Ops Wall) aggregates across -
 // the same catalog query + isKubernetesAvailable filter AppPicker.tsx uses

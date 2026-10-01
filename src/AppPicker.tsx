@@ -20,7 +20,13 @@ import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
 import { ProvisioningView } from './provisioning/ProvisioningView';
 import { toItems, useNow } from './provisioning/shared';
 import { useProvisioning } from './provisioning/useProvisioning';
-import { WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR, workloadTypeOf, type WorkloadType } from './workloadType';
+import {
+  WORKLOAD_LABELS,
+  WORKLOAD_LABEL_SINGULAR,
+  isTowerService,
+  workloadTypeOf,
+  type WorkloadType,
+} from './workloadType';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -389,7 +395,7 @@ export function AppPicker({
         // someone select it and then hit an empty/error state, keeps
         // "single pane of glass for managing applications" honest (real
         // deployed apps, not every catalog record).
-        if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable));
+        if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable).filter(isTowerService));
       })
       .catch(e => {
         if (!cancelled) setError(String(e));

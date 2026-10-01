@@ -28,3 +28,27 @@ export function workloadTypeOf(entity: Entity): WorkloadType {
   if (entity.spec?.type === 'ai-agent') return 'ai';
   return 'container';
 }
+
+// The four Airframe application XRDs: the services Tower's tabs (releases, pull
+// requests, images, SLOs) actually apply to. Every Component the ingestor makes
+// from an XR carries `kind:<xr kind>`. Deliberately excludes
+// applicationenvironment (the per-environment record of an app, with no source
+// repo of its own) and the auto-derived plumbing XRs (TektonCICD, SecretStore,
+// SLO, RolloutWatch).
+const APP_TIER_KIND_TAGS = new Set([
+  'kind:nodejsapplication',
+  'kind:springbootapplication',
+  'kind:pythonapplication',
+  'kind:goapplication',
+]);
+
+export function isAppTierEntity(entity: Entity): boolean {
+  return (entity.metadata.tags ?? []).some(t => APP_TIER_KIND_TAGS.has(t));
+}
+
+// What Tower's Services list shows: an allow-list, so a new XRD added to
+// Airframe stays out of Tower until someone decides it belongs there. Anything
+// registered by hand in the catalog is out too; Tower manages Airframe services.
+export function isTowerService(entity: Entity): boolean {
+  return isAppTierEntity(entity) || workloadTypeOf(entity) === 'ai';
+}
