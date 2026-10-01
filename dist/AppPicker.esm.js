@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import TextField from '@material-ui/core/TextField';
 import InputAdornment from '@material-ui/core/InputAdornment';
@@ -14,6 +14,11 @@ import { useApi } from '@backstage/core-plugin-api';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
+import { useSearchParams } from 'react-router-dom';
+import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
+import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
+import { useNow, toItems } from './provisioning/shared.esm.js';
+import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { workloadTypeOf, WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR } from './workloadType.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
@@ -71,8 +76,20 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textFaint,
     marginBottom: 10
   },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 32, color: ({ t }) => t.textHi, marginBottom: 6 },
-  titleRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" },
+  title: {
+    fontFamily: fontDisplay,
+    fontWeight: 700,
+    fontSize: 32,
+    color: ({ t }) => t.textHi,
+    marginBottom: 6
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap"
+  },
   dashboardLink: {
     fontFamily: fontMono,
     fontSize: 12,
@@ -86,7 +103,12 @@ const useStyles = makeStyles(() => ({
   },
   sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
-  list: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: "hidden", backgroundColor: ({ t }) => t.panel },
+  list: {
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    overflow: "hidden",
+    backgroundColor: ({ t }) => t.panel
+  },
   row: {
     display: "flex",
     alignItems: "center",
@@ -97,9 +119,19 @@ const useStyles = makeStyles(() => ({
     "&:last-child": { borderBottom: "none" },
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
-  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 15, color: ({ t }) => t.textHi },
+  name: {
+    fontFamily: fontDisplay,
+    fontWeight: 600,
+    fontSize: 15,
+    color: ({ t }) => t.textHi
+  },
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
-  empty: { padding: "24px 18px", fontSize: 13, color: ({ t }) => t.textLo, fontStyle: "italic" },
+  empty: {
+    padding: "24px 18px",
+    fontSize: 13,
+    color: ({ t }) => t.textLo,
+    fontStyle: "italic"
+  },
   rowMain: { display: "flex", alignItems: "center", gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -126,7 +158,45 @@ const useStyles = makeStyles(() => ({
     "&:hover": { color: ({ t }) => t.amberInk }
   },
   starBtnActive: { color: ({ t }) => t.amberInk },
-  toolbar: { display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 },
+  tabs: {
+    display: "flex",
+    gap: 2,
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    marginBottom: 20
+  },
+  tab: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "9px 16px",
+    background: "none",
+    border: "none",
+    borderBottom: "2px solid transparent",
+    marginBottom: -1,
+    cursor: "pointer",
+    fontFamily: fontDisplay,
+    fontWeight: 600,
+    fontSize: 14,
+    color: ({ t }) => t.textLo,
+    "&:hover": { color: ({ t }) => t.textHi }
+  },
+  tabOn: { color: ({ t }) => t.textHi, borderBottomColor: ({ t }) => t.amber },
+  tabBadge: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "1px 7px",
+    borderRadius: 10,
+    backgroundColor: ({ t }) => t.amber,
+    color: ({ t }) => t.bg
+  },
+  toolbar: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: 20
+  },
   searchGrow: { flex: "1 1 240px", minWidth: 200 },
   segment: {
     display: "inline-flex",
@@ -155,7 +225,11 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.panelAlt,
     boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`
   },
-  segCount: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  segCount: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.textFaint
+  },
   sectionHead: {
     display: "flex",
     alignItems: "center",
@@ -171,7 +245,11 @@ const useStyles = makeStyles(() => ({
     letterSpacing: "0.08em",
     color: ({ t }) => t.textFaint
   },
-  cards: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 },
+  cards: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    gap: 12
+  },
   card: {
     display: "flex",
     flexDirection: "column",
@@ -184,7 +262,12 @@ const useStyles = makeStyles(() => ({
     borderRadius: 5,
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
-  cardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+  cardTop: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8
+  },
   cardDesc: {
     fontSize: 12.5,
     color: ({ t }) => t.textLo,
@@ -194,7 +277,12 @@ const useStyles = makeStyles(() => ({
     overflow: "hidden",
     minHeight: 36
   },
-  cardFoot: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  cardFoot: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8
+  },
   typeChip: {
     display: "inline-flex",
     fontFamily: fontMono,
@@ -206,7 +294,12 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textLo
   },
   typeChipAi: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
-  tableWrap: { overflowX: "auto", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, backgroundColor: ({ t }) => t.panel },
+  tableWrap: {
+    overflowX: "auto",
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    backgroundColor: ({ t }) => t.panel
+  },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
   th: {
     textAlign: "left",
@@ -225,8 +318,18 @@ const useStyles = makeStyles(() => ({
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt },
     "&:last-child td": { borderBottom: "none" }
   },
-  td: { padding: "10px 12px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, verticalAlign: "middle", color: ({ t }) => t.textLo },
-  tdDesc: { maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+  td: {
+    padding: "10px 12px",
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    verticalAlign: "middle",
+    color: ({ t }) => t.textLo
+  },
+  tdDesc: {
+    maxWidth: 360,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  }
 }));
 function AppPicker({
   onSelect,
@@ -238,6 +341,14 @@ function AppPicker({
   const [entities, setEntities] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [query, setQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const provisioning = useProvisioning();
+  const now = useNow();
+  const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  const view = searchParams.get("view") === "provisioning" ? "provisioning" : "services";
+  const selectedService = searchParams.get("service") ?? void 0;
+  const openProvisioning = (name) => setSearchParams(name ? { view: "provisioning", service: name } : { view: "provisioning" });
+  const openServices = () => setSearchParams({});
   const [typeFilter, setTypeFilter] = useState("all");
   const [viewMode, setViewModeState] = useState(() => loadViewMode());
   useEffect(() => {
@@ -366,59 +477,98 @@ function AppPicker({
       /* @__PURE__ */ jsx("button", { className: classes.dashboardLink, onClick: onOpenDashboard, type: "button", children: "Fleet Dashboard \u2192" })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot." }),
-    /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-      /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: FILTERS.map((f) => /* @__PURE__ */ jsxs(
+    /* @__PURE__ */ jsxs("div", { className: classes.tabs, role: "tablist", "aria-label": "Services sections", children: [
+      /* @__PURE__ */ jsx(
         "button",
         {
           type: "button",
-          "aria-pressed": typeFilter === f.id,
-          className: `${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ""}`,
-          onClick: () => setTypeFilter(f.id),
-          children: [
-            f.label,
-            /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? counts[f.id] : "" })
-          ]
-        },
-        f.id
-      )) }),
-      /* @__PURE__ */ jsx(
-        TextField,
+          role: "tab",
+          "aria-selected": view === "services",
+          className: `${classes.tab} ${view === "services" ? classes.tabOn : ""}`,
+          onClick: openServices,
+          children: "Services"
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        "button",
         {
-          className: classes.searchGrow,
-          variant: "outlined",
-          size: "small",
-          placeholder: "Search services\u2026",
-          value: query,
-          onChange: (e) => setQuery(e.target.value),
-          InputProps: {
-            startAdornment: /* @__PURE__ */ jsx(InputAdornment, { position: "start", children: /* @__PURE__ */ jsx(SearchIcon, { fontSize: "small", style: { color: t.textFaint } }) })
-          }
+          type: "button",
+          role: "tab",
+          "aria-selected": view === "provisioning",
+          className: `${classes.tab} ${view === "provisioning" ? classes.tabOn : ""}`,
+          onClick: () => openProvisioning(),
+          children: [
+            "Provisioning",
+            provItems.length > 0 && /* @__PURE__ */ jsx("span", { className: classes.tabBadge, children: provItems.length })
+          ]
         }
       )
     ] }),
-    !entities ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
-      starredEntities.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.starredSection, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.starredLabel, children: "Starred" }),
-        renderCollection(starredEntities)
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionLabel, children: [
-          "All services \xB7 ",
-          filteredMinusStarred.length
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "View", children: ["cards", "list"].map((mode) => /* @__PURE__ */ jsx(
+    view === "provisioning" ? /* @__PURE__ */ jsx(
+      ProvisioningView,
+      {
+        items: provItems,
+        selected: selectedService,
+        onSelect: openProvisioning,
+        error: provisioning.error,
+        loading: provisioning.loading
+      }
+    ) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx(ProvisioningStrip, { items: provItems, onOpen: openProvisioning }),
+      /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: FILTERS.map((f) => /* @__PURE__ */ jsxs(
           "button",
           {
             type: "button",
-            "aria-pressed": viewMode === mode,
-            className: `${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ""}`,
-            onClick: () => setViewMode(mode),
-            children: mode === "cards" ? "Cards" : "List"
+            "aria-pressed": typeFilter === f.id,
+            className: `${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ""}`,
+            onClick: () => setTypeFilter(f.id),
+            children: [
+              f.label,
+              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? counts[f.id] : "" })
+            ]
           },
-          mode
-        )) })
+          f.id
+        )) }),
+        /* @__PURE__ */ jsx(
+          TextField,
+          {
+            className: classes.searchGrow,
+            variant: "outlined",
+            size: "small",
+            placeholder: "Search services\u2026",
+            value: query,
+            onChange: (e) => setQuery(e.target.value),
+            InputProps: {
+              startAdornment: /* @__PURE__ */ jsx(InputAdornment, { position: "start", children: /* @__PURE__ */ jsx(SearchIcon, { fontSize: "small", style: { color: t.textFaint } }) })
+            }
+          }
+        )
       ] }),
-      filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx("div", { className: classes.empty, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
+      !entities ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
+        starredEntities.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.starredSection, children: [
+          /* @__PURE__ */ jsx("div", { className: classes.starredLabel, children: "Starred" }),
+          renderCollection(starredEntities)
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
+          /* @__PURE__ */ jsxs("span", { className: classes.sectionLabel, children: [
+            "All services \xB7 ",
+            filteredMinusStarred.length
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "View", children: ["cards", "list"].map((mode) => /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              "aria-pressed": viewMode === mode,
+              className: `${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ""}`,
+              onClick: () => setViewMode(mode),
+              children: mode === "cards" ? "Cards" : "List"
+            },
+            mode
+          )) })
+        ] }),
+        filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx("div", { className: classes.empty, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
+      ] })
     ] })
   ] });
 }
