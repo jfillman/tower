@@ -340,7 +340,7 @@ function SlosTab() {
       TowerEmptyState,
       {
         title: "No SLOs declared",
-        description: "Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.idp.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
+        description: "Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
       }
     );
   }

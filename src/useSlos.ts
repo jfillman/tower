@@ -3,17 +3,14 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { useCustomResources } from '@backstage/plugin-kubernetes-react';
 import type { SloIndicator, SloSummary } from './types';
 
-// SLOs (catalog.idp.io/v1alpha1) are chart-templated with the same
+// SLOs (catalog.hangar.io/v1alpha1) are chart-templated with the same
 // airframe-application.labels helper every other Attached-tier resource
 // gets (see airframe/charts/airframe-application/templates/attached/
 // slos.yaml) - so, unlike AnalysisRun/PipelineRun (controller-generated
 // children with no hangar.io/app label, see useAnalysisRuns.ts's own
 // comment), useCustomResources(entity, [...])'s label-selector match works
 // here directly, same as ROLLOUT_MATCHER in useTowerEnvironments.ts.
-// Tier 2 domain rename: SLOs migrate from catalog.idp.io to catalog.hangar.io one environment at a
-// time, so both groups are queried and merged until the old group is retired.
-const SLO_MATCHER = { group: 'catalog.idp.io', apiVersion: 'v1alpha1', plural: 'slos' };
-const SLO_MATCHER_HANGAR = { group: 'catalog.hangar.io', apiVersion: 'v1alpha1', plural: 'slos' };
+const SLO_MATCHER = { group: 'catalog.hangar.io', apiVersion: 'v1alpha1', plural: 'slos' };
 
 interface RawSlo {
   metadata: { name: string; namespace: string; labels?: Record<string, string> };
@@ -66,22 +63,14 @@ export interface UseSlosResult {
 
 export function useSlos(): UseSlosResult {
   const { entity } = useEntity();
-  const { kubernetesObjects: idpObjects, loading: idpLoading, error: idpError } =
-    useCustomResources(entity, [SLO_MATCHER]);
-  const { kubernetesObjects: hangarObjects, loading: hangarLoading, error: hangarError } =
-    useCustomResources(entity, [SLO_MATCHER_HANGAR]);
-  const loading = idpLoading || hangarLoading;
-  // A cluster without one group's XRD fails only that matcher; surface an error only if both fail.
-  const error = idpError && hangarError ? idpError : undefined;
+  const { kubernetesObjects, loading, error } = useCustomResources(entity, [SLO_MATCHER]);
 
   const slos = useMemo(() => {
     const result: SloSummary[] = [];
-    [idpObjects, hangarObjects].forEach(objects => {
-      (objects?.items ?? []).forEach(item => {
-        const raws = (item.resources.find(r => r.type === 'customresources')?.resources ??
-          []) as RawSlo[];
-        raws.forEach(raw => result.push(toSloSummary(raw, item.cluster.name)));
-      });
+    (kubernetesObjects?.items ?? []).forEach(item => {
+      const raws = (item.resources.find(r => r.type === 'customresources')?.resources ??
+        []) as RawSlo[];
+      raws.forEach(raw => result.push(toSloSummary(raw, item.cluster.name)));
     });
     // Secondary sort by env (2026-09-15) - name alone now commonly ties
     // (the same SLO promoted to more than one environment), so without this
@@ -90,7 +79,7 @@ export function useSlos(): UseSlosResult {
     return result.sort(
       (a, b) => a.name.localeCompare(b.name) || (a.env ?? '').localeCompare(b.env ?? ''),
     );
-  }, [idpObjects, hangarObjects]);
+  }, [kubernetesObjects]);
 
   // Same "only the first load blocks" fix as useTowerEnvironments.ts -
   // useCustomResources flips loading back to true on every background poll

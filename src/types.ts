@@ -841,7 +841,7 @@ export interface PlatformEnvsResponse {
   envs: string[];
 }
 
-// Mirrors airframe's slos.catalog.idp.io v1alpha1 XRD schema exactly (see
+// Mirrors airframe's slos.catalog.hangar.io v1alpha1 XRD schema exactly (see
 // airframe/xrds/slo.yaml) - this platform's SLO XR wraps Sloth
 // (prometheusservicelevels.sloth.slok.dev), which is what actually computes
 // the multi-window-multi-burn-rate PromQL from just `objective`.
