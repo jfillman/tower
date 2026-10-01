@@ -29,11 +29,16 @@ describe('isTowerService', () => {
       expect(isTowerService(entity({ type: 'service' }, undefined, ['cluster:kind-dev', `kind:${k}`]))).toBe(true);
     }
   });
+  it('shows InfraService', () => {
+    expect(isTowerService(entity({ type: 'service' }, undefined, ['cluster:kind-dev', 'kind:infraservice']))).toBe(
+      true,
+    );
+  });
   it('shows AI workloads', () => {
     expect(isTowerService(entity({ type: 'ai-agent' }))).toBe(true);
     expect(isTowerService(entity({ type: 'service' }, { 'hangar.io/workload-type': 'ai' }))).toBe(true);
   });
-  it('hides app environments, plumbing XRs, infra XRs and hand-registered Components', () => {
+  it('hides app environments, plumbing XRs, backing-service XRs and hand-registered Components', () => {
     for (const k of [
       'applicationenvironment',
       'tektoncicd',
@@ -41,7 +46,8 @@ describe('isTowerService', () => {
       'slo',
       'rolloutwatch',
       'redis',
-      'infraservice',
+      'postgresql',
+      'rabbitmq',
     ]) {
       expect(isTowerService(entity({ type: 'service' }, undefined, ['cluster:kind-dev', `kind:${k}`]))).toBe(false);
     }
