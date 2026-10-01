@@ -15,6 +15,7 @@ import type { Entity } from '@backstage/catalog-model';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { HangarMark } from './brand/HangarMark';
+import { WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR, workloadTypeOf, type WorkloadType } from './workloadType';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -58,8 +59,27 @@ function useStarredApps() {
   return { starred, toggle };
 }
 
+type ViewMode = 'cards' | 'list';
+const VIEW_MODE_KEY = 'tower.viewMode';
+
+function loadViewMode(): ViewMode {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY);
+    return raw === 'list' ? 'list' : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
+
+type TypeFilter = 'all' | WorkloadType;
+const FILTERS: { id: TypeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'container', label: WORKLOAD_LABELS.container },
+  { id: 'ai', label: WORKLOAD_LABELS.ai },
+];
+
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  wrap: { maxWidth: 720, margin: '0 auto' },
+  wrap: { maxWidth: 1080, margin: '0 auto' },
   eyebrow: {
     display: 'flex',
     alignItems: 'center',
@@ -126,6 +146,107 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { color: ({ t }) => t.amberInk },
   },
   starBtnActive: { color: ({ t }) => t.amberInk },
+  toolbar: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 },
+  searchGrow: { flex: '1 1 240px', minWidth: 200 },
+  segment: {
+    display: 'inline-flex',
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: ({ t }) => t.panel,
+    flexShrink: 0,
+  },
+  segBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    background: 'none',
+    border: 'none',
+    borderRight: ({ t }) => `1px solid ${t.line}`,
+    padding: '8px 14px',
+    cursor: 'pointer',
+    fontSize: 13,
+    color: ({ t }) => t.textLo,
+    '&:last-child': { borderRight: 'none' },
+    '&:hover': { color: ({ t }) => t.textHi },
+  },
+  segBtnActive: {
+    color: ({ t }) => t.textHi,
+    backgroundColor: ({ t }) => t.panelAlt,
+    boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`,
+  },
+  segCount: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  sectionHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  sectionLabel: {
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: ({ t }) => t.textFaint,
+  },
+  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 },
+  card: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    padding: 14,
+    minWidth: 0,
+    cursor: 'pointer',
+    backgroundColor: ({ t }) => t.panel,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
+  },
+  cardTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  cardDesc: {
+    fontSize: 12.5,
+    color: ({ t }) => t.textLo,
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    minHeight: 36,
+  },
+  cardFoot: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  typeChip: {
+    display: 'inline-flex',
+    fontFamily: fontMono,
+    fontSize: 11,
+    padding: '3px 7px',
+    borderRadius: 4,
+    whiteSpace: 'nowrap',
+    border: ({ t }) => `1px solid ${t.line}`,
+    color: ({ t }) => t.textLo,
+  },
+  typeChipAi: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
+  tableWrap: { overflowX: 'auto', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, backgroundColor: ({ t }) => t.panel },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: {
+    textAlign: 'left',
+    padding: '8px 12px',
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: ({ t }) => t.textFaint,
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    whiteSpace: 'nowrap',
+  },
+  tr: {
+    cursor: 'pointer',
+    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
+    '&:last-child td': { borderBottom: 'none' },
+  },
+  td: { padding: '10px 12px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, verticalAlign: 'middle', color: ({ t }) => t.textLo },
+  tdDesc: { maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 }));
 
 export function AppPicker({
@@ -141,6 +262,8 @@ export function AppPicker({
   const [entities, setEntities] = useState<Entity[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => loadViewMode());
 
   useEffect(() => {
     let cancelled = false;
@@ -166,24 +289,44 @@ export function AppPicker({
 
   const { starred, toggle: toggleStarred } = useStarredApps();
 
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+      // best-effort, same as stars: the choice just won't survive a reload.
+    }
+  };
+
+  const counts = useMemo(() => {
+    const c: Record<TypeFilter, number> = { all: 0, container: 0, ai: 0 };
+    for (const e of entities ?? []) {
+      c.all += 1;
+      c[workloadTypeOf(e)] += 1;
+    }
+    return c;
+  }, [entities]);
+
   const filtered = useMemo(() => {
     if (!entities) return [];
     const q = query.trim().toLowerCase();
-    const list = q
-      ? entities.filter(
-          e =>
-            e.metadata.name.toLowerCase().includes(q) ||
-            (e.metadata.title ?? '').toLowerCase().includes(q) ||
-            (e.metadata.description ?? '').toLowerCase().includes(q),
-        )
-      : entities;
+    const list = entities.filter(e => {
+      if (typeFilter !== 'all' && workloadTypeOf(e) !== typeFilter) return false;
+      if (!q) return true;
+      return (
+        e.metadata.name.toLowerCase().includes(q) ||
+        (e.metadata.title ?? '').toLowerCase().includes(q) ||
+        (e.metadata.description ?? '').toLowerCase().includes(q)
+      );
+    });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query]);
+  }, [entities, query, typeFilter]);
 
-  // Independent of `query`/`filtered` - stays visible and selectable no
-  // matter what's typed into search (2026-09-12: "stared resources are
-  // always fixed and visible to select"). Excluded from the list below so a
-  // starred app isn't shown twice.
+  // Independent of `query`, `typeFilter` and `filtered` - stays visible and
+  // selectable no matter what's typed into search or which workload type is
+  // chosen (2026-09-12: "stared resources are always fixed and visible to
+  // select"). Excluded from the list below so a starred app isn't shown
+  // twice.
   const starredEntities = useMemo(
     () =>
       (entities ?? [])
@@ -195,44 +338,104 @@ export function AppPicker({
 
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
 
-  const renderRow = (e: Entity) => {
-    const ref = stringifyEntityRef(e);
+  const activate = (ref: string) => ({
+    role: 'button' as const,
+    tabIndex: 0,
+    onClick: () => onSelect(ref),
+    onKeyDown: (ev: React.KeyboardEvent) => {
+      if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) {
+        ev.preventDefault();
+        onSelect(ref);
+      }
+    },
+  });
+
+  const renderStar = (ref: string) => {
     const isStarred = starred.has(ref);
     return (
-      <div
-        key={ref}
-        className={classes.row}
-        role="button"
-        tabIndex={0}
-        onClick={() => onSelect(ref)}
-        onKeyDown={ev => {
-          if (ev.key === 'Enter' || ev.key === ' ') {
-            ev.preventDefault();
-            onSelect(ref);
-          }
+      <button
+        type="button"
+        className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
+        title={isStarred ? 'Unstar' : 'Star'}
+        aria-pressed={isStarred}
+        aria-label={`${isStarred ? 'Unstar' : 'Star'} ${ref}`}
+        onClick={ev => {
+          ev.stopPropagation();
+          toggleStarred(ref);
         }}
       >
-        <div className={classes.rowMain}>
-          <button
-            type="button"
-            className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
-            title={isStarred ? 'Unstar' : 'Star'}
-            onClick={ev => {
-              ev.stopPropagation();
-              toggleStarred(ref);
-            }}
-          >
-            {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
-          </button>
-          <div>
-            <div className={classes.name}>{e.metadata.title ?? e.metadata.name}</div>
-            {e.metadata.description && <div className={classes.meta}>{e.metadata.description}</div>}
-          </div>
+        {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+      </button>
+    );
+  };
+
+  const renderTypeChip = (e: Entity) => {
+    const type = workloadTypeOf(e);
+    return (
+      <span className={`${classes.typeChip} ${type === 'ai' ? classes.typeChipAi : ''}`}>
+        {WORKLOAD_LABEL_SINGULAR[type]}
+      </span>
+    );
+  };
+
+  const renderCard = (e: Entity) => {
+    const ref = stringifyEntityRef(e);
+    return (
+      <div key={ref} className={classes.card} {...activate(ref)}>
+        <div className={classes.cardTop}>
+          <div className={classes.name}>{e.metadata.title ?? e.metadata.name}</div>
+          {renderStar(ref)}
         </div>
-        <div className={classes.meta}>{e.spec?.owner as string | undefined}</div>
+        <div className={classes.cardDesc}>{e.metadata.description}</div>
+        <div className={classes.cardFoot}>
+          {renderTypeChip(e)}
+          <span className={classes.meta}>{e.spec?.owner as string | undefined}</span>
+        </div>
       </div>
     );
   };
+
+  const renderTable = (list: Entity[]) => (
+    <div className={classes.tableWrap}>
+      <table className={classes.table}>
+        <thead>
+          <tr>
+            <th className={classes.th} style={{ width: 40 }} aria-label="Starred" />
+            <th className={classes.th}>Service</th>
+            <th className={classes.th}>Type</th>
+            <th className={classes.th}>Owner</th>
+            <th className={classes.th}>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map(e => {
+            const ref = stringifyEntityRef(e);
+            return (
+              <tr key={ref} className={classes.tr} {...activate(ref)}>
+                <td className={classes.td}>{renderStar(ref)}</td>
+                <td className={classes.td}>
+                  <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
+                </td>
+                <td className={classes.td}>{renderTypeChip(e)}</td>
+                <td className={`${classes.td} ${classes.meta}`}>{e.spec?.owner as string | undefined}</td>
+                <td className={`${classes.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  let emptyMessage = 'Every match is already starred above.';
+  if (filtered.length === 0) {
+    if (query.trim()) emptyMessage = `No services match "${query}".`;
+    else if (typeFilter === 'all') emptyMessage = 'No services yet.';
+    else emptyMessage = `No ${WORKLOAD_LABELS[typeFilter].toLowerCase()} yet.`;
+  }
+
+  const renderCollection = (list: Entity[]) =>
+    viewMode === 'cards' ? <div className={classes.cards}>{list.map(renderCard)}</div> : renderTable(list);
 
   return (
     <div className={classes.wrap}>
@@ -241,30 +444,45 @@ export function AppPicker({
         Tower
       </Typography>
       <div className={classes.titleRow}>
-        <Typography className={classes.title}>Choose an application</Typography>
+        <Typography className={classes.title}>Services</Typography>
         <button className={classes.dashboardLink} onClick={onOpenDashboard} type="button">
           Fleet Dashboard →
         </button>
       </div>
       <Typography className={classes.sub}>
-        Releases, topology, pull requests, images, config and SLOs for one app, all in one place.
+        Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot.
       </Typography>
-      <TextField
-        className={classes.search}
-        fullWidth
-        variant="outlined"
-        size="small"
-        placeholder="Search applications…"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon fontSize="small" style={{ color: t.textFaint }} />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <div className={classes.toolbar}>
+        <div className={classes.segment} role="group" aria-label="Workload type">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={typeFilter === f.id}
+              className={`${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ''}`}
+              onClick={() => setTypeFilter(f.id)}
+            >
+              {f.label}
+              <span className={classes.segCount}>{entities ? counts[f.id] : ''}</span>
+            </button>
+          ))}
+        </div>
+        <TextField
+          className={classes.searchGrow}
+          variant="outlined"
+          size="small"
+          placeholder="Search services…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" style={{ color: t.textFaint }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </div>
       {!entities ? (
         <Progress />
       ) : (
@@ -272,20 +490,32 @@ export function AppPicker({
           {starredEntities.length > 0 && (
             <div className={classes.starredSection}>
               <div className={classes.starredLabel}>Starred</div>
-              <div className={classes.list}>{starredEntities.map(renderRow)}</div>
+              {renderCollection(starredEntities)}
             </div>
           )}
-          <div className={classes.list}>
-            {filteredMinusStarred.length === 0 ? (
-              <div className={classes.empty}>
-                {filtered.length === 0
-                  ? `No applications match "${query}".`
-                  : 'Every match is already starred above.'}
-              </div>
-            ) : (
-              filteredMinusStarred.map(renderRow)
-            )}
+          <div className={classes.sectionHead}>
+            <span className={classes.sectionLabel}>All services · {filteredMinusStarred.length}</span>
+            <div className={classes.segment} role="group" aria-label="View">
+              {(['cards', 'list'] as const).map(mode => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={viewMode === mode}
+                  className={`${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ''}`}
+                  onClick={() => setViewMode(mode)}
+                >
+                  {mode === 'cards' ? 'Cards' : 'List'}
+                </button>
+              ))}
+            </div>
           </div>
+          {filteredMinusStarred.length === 0 ? (
+            <div className={classes.list}>
+              <div className={classes.empty}>{emptyMessage}</div>
+            </div>
+          ) : (
+            renderCollection(filteredMinusStarred)
+          )}
         </>
       )}
     </div>

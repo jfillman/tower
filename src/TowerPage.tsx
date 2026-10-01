@@ -10,6 +10,8 @@ import type { Entity } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { HangarMark } from './brand/HangarMark';
 import { AppPicker } from './AppPicker';
+import { AutopilotPlaceholder } from './AutopilotPlaceholder';
+import { workloadTypeOf } from './workloadType';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
@@ -234,9 +236,11 @@ export function TowerPage() {
   } else if (!entity) {
     body = (
       <div style={{ padding: 24 }}>
-        <Typography>Application not found.</Typography>
+        <Typography>Service not found.</Typography>
       </div>
     );
+  } else if (workloadTypeOf(entity) === 'ai') {
+    body = <AutopilotPlaceholder entity={entity} onBack={clearApp} />;
   } else {
     body = (
       <TowerAppShell
