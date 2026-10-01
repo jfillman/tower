@@ -118,6 +118,7 @@ function useProvisioning() {
       if (cancelled) return;
       const kept = items.filter((i) => {
         const p = deriveProvisioning(i, now);
+        if (p.stalled) return false;
         return !p.complete || p.completedAt !== void 0 && now - p.completedAt < KEEP_DONE_MS;
       });
       kept.sort((a, b) => b.xr.createdAt - a.xr.createdAt);

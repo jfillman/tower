@@ -389,8 +389,8 @@ function AppPicker({
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
   }, [entities, query, typeFilter]);
   const starredEntities = useMemo(
-    () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e))).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
-    [entities, starred]
+    () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e)) && (typeFilter === "all" || workloadTypeOf(e) === typeFilter)).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
+    [entities, starred, typeFilter]
   );
   const filteredMinusStarred = filtered.filter((e) => !starred.has(stringifyEntityRef(e)));
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });

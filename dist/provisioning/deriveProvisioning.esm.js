@@ -1,3 +1,4 @@
+const STALL_AFTER_MS = 4 * 3600 * 1e3;
 const TYPICAL_SEC = {
   request: 2,
   cluster: 10,
@@ -146,8 +147,9 @@ function deriveProvisioning(input, now) {
     ].filter((x) => x !== void 0);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
-  return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt };
+  const stalled = !complete && !failed && !rollout && build?.phase === "succeeded" && now - created > STALL_AFTER_MS;
+  return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { TYPICAL_SEC, deriveProvisioning };
+export { STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning };
 //# sourceMappingURL=deriveProvisioning.esm.js.map
