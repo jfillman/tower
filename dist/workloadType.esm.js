@@ -12,6 +12,18 @@ function workloadTypeOf(entity) {
   if (entity.spec?.type === "ai-agent") return "ai";
   return "container";
 }
+const APP_TIER_KIND_TAGS = /* @__PURE__ */ new Set([
+  "kind:nodejsapplication",
+  "kind:springbootapplication",
+  "kind:pythonapplication",
+  "kind:goapplication"
+]);
+function isAppTierEntity(entity) {
+  return (entity.metadata.tags ?? []).some((t) => APP_TIER_KIND_TAGS.has(t));
+}
+function isTowerService(entity) {
+  return isAppTierEntity(entity) || workloadTypeOf(entity) === "ai";
+}
 
-export { WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR, WORKLOAD_TYPE_ANNOTATION, workloadTypeOf };
+export { WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR, WORKLOAD_TYPE_ANNOTATION, isAppTierEntity, isTowerService, workloadTypeOf };
 //# sourceMappingURL=workloadType.esm.js.map

@@ -2,16 +2,8 @@ import { useState, useEffect } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
+import { isAppTierEntity } from './workloadType.esm.js';
 
-const APP_TIER_KIND_TAGS = /* @__PURE__ */ new Set([
-  "kind:nodejsapplication",
-  "kind:springbootapplication",
-  "kind:pythonapplication",
-  "kind:goapplication"
-]);
-function isAppTierEntity(entity) {
-  return (entity.metadata.tags ?? []).some((t) => APP_TIER_KIND_TAGS.has(t));
-}
 function useFleetRoster() {
   const catalogApi = useApi(catalogApiRef);
   const [entities, setEntities] = useState(void 0);

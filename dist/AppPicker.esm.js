@@ -19,7 +19,7 @@ import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
-import { workloadTypeOf, WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR } from './workloadType.esm.js';
+import { isTowerService, workloadTypeOf, WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR } from './workloadType.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -354,7 +354,7 @@ function AppPicker({
   useEffect(() => {
     let cancelled = false;
     catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
-      if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable));
+      if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable).filter(isTowerService));
     }).catch((e) => {
       if (!cancelled) setError(String(e));
     });
