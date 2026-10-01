@@ -9,6 +9,8 @@ import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import { useHangarTokens, fontMono, fontDisplay } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { AppPicker } from './AppPicker.esm.js';
+import { AutopilotPlaceholder } from './AutopilotPlaceholder.esm.js';
+import { workloadTypeOf } from './workloadType.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
@@ -184,7 +186,9 @@ function TowerPage() {
   } else if (error) {
     body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) }) });
   } else if (!entity) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(Typography, { children: "Application not found." }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(Typography, { children: "Service not found." }) });
+  } else if (workloadTypeOf(entity) === "ai") {
+    body = /* @__PURE__ */ jsx(AutopilotPlaceholder, { entity, onBack: clearApp });
   } else {
     body = /* @__PURE__ */ jsx(
       TowerAppShell,

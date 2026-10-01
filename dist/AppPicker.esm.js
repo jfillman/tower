@@ -14,6 +14,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
+import { workloadTypeOf, WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR } from './workloadType.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -43,8 +44,22 @@ function useStarredApps() {
   }, []);
   return { starred, toggle };
 }
+const VIEW_MODE_KEY = "tower.viewMode";
+function loadViewMode() {
+  try {
+    const raw = localStorage.getItem(VIEW_MODE_KEY);
+    return raw === "list" ? "list" : "cards";
+  } catch {
+    return "cards";
+  }
+}
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "container", label: WORKLOAD_LABELS.container },
+  { id: "ai", label: WORKLOAD_LABELS.ai }
+];
 const useStyles = makeStyles(() => ({
-  wrap: { maxWidth: 720, margin: "0 auto" },
+  wrap: { maxWidth: 1080, margin: "0 auto" },
   eyebrow: {
     display: "flex",
     alignItems: "center",
@@ -110,7 +125,108 @@ const useStyles = makeStyles(() => ({
     flexShrink: 0,
     "&:hover": { color: ({ t }) => t.amberInk }
   },
-  starBtnActive: { color: ({ t }) => t.amberInk }
+  starBtnActive: { color: ({ t }) => t.amberInk },
+  toolbar: { display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 },
+  searchGrow: { flex: "1 1 240px", minWidth: 200 },
+  segment: {
+    display: "inline-flex",
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    overflow: "hidden",
+    backgroundColor: ({ t }) => t.panel,
+    flexShrink: 0
+  },
+  segBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    background: "none",
+    border: "none",
+    borderRight: ({ t }) => `1px solid ${t.line}`,
+    padding: "8px 14px",
+    cursor: "pointer",
+    fontSize: 13,
+    color: ({ t }) => t.textLo,
+    "&:last-child": { borderRight: "none" },
+    "&:hover": { color: ({ t }) => t.textHi }
+  },
+  segBtnActive: {
+    color: ({ t }) => t.textHi,
+    backgroundColor: ({ t }) => t.panelAlt,
+    boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`
+  },
+  segCount: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  sectionHead: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 8
+  },
+  sectionLabel: {
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: ({ t }) => t.textFaint
+  },
+  cards: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 },
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 14,
+    minWidth: 0,
+    cursor: "pointer",
+    backgroundColor: ({ t }) => t.panel,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
+  },
+  cardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+  cardDesc: {
+    fontSize: 12.5,
+    color: ({ t }) => t.textLo,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    minHeight: 36
+  },
+  cardFoot: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  typeChip: {
+    display: "inline-flex",
+    fontFamily: fontMono,
+    fontSize: 11,
+    padding: "3px 7px",
+    borderRadius: 4,
+    whiteSpace: "nowrap",
+    border: ({ t }) => `1px solid ${t.line}`,
+    color: ({ t }) => t.textLo
+  },
+  typeChipAi: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
+  tableWrap: { overflowX: "auto", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, backgroundColor: ({ t }) => t.panel },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: {
+    textAlign: "left",
+    padding: "8px 12px",
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    fontWeight: 500,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: ({ t }) => t.textFaint,
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    whiteSpace: "nowrap"
+  },
+  tr: {
+    cursor: "pointer",
+    "&:hover": { backgroundColor: ({ t }) => t.panelAlt },
+    "&:last-child td": { borderBottom: "none" }
+  },
+  td: { padding: "10px 12px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, verticalAlign: "middle", color: ({ t }) => t.textLo },
+  tdDesc: { maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
 }));
 function AppPicker({
   onSelect,
@@ -122,6 +238,8 @@ function AppPicker({
   const [entities, setEntities] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [viewMode, setViewModeState] = useState(() => loadViewMode());
   useEffect(() => {
     let cancelled = false;
     catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
@@ -134,93 +252,173 @@ function AppPicker({
     };
   }, [catalogApi]);
   const { starred, toggle: toggleStarred } = useStarredApps();
+  const setViewMode = (mode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+    } catch {
+    }
+  };
+  const counts = useMemo(() => {
+    const c = { all: 0, container: 0, ai: 0 };
+    for (const e of entities ?? []) {
+      c.all += 1;
+      c[workloadTypeOf(e)] += 1;
+    }
+    return c;
+  }, [entities]);
   const filtered = useMemo(() => {
     if (!entities) return [];
     const q = query.trim().toLowerCase();
-    const list = q ? entities.filter(
-      (e) => e.metadata.name.toLowerCase().includes(q) || (e.metadata.title ?? "").toLowerCase().includes(q) || (e.metadata.description ?? "").toLowerCase().includes(q)
-    ) : entities;
+    const list = entities.filter((e) => {
+      if (typeFilter !== "all" && workloadTypeOf(e) !== typeFilter) return false;
+      if (!q) return true;
+      return e.metadata.name.toLowerCase().includes(q) || (e.metadata.title ?? "").toLowerCase().includes(q) || (e.metadata.description ?? "").toLowerCase().includes(q);
+    });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query]);
+  }, [entities, query, typeFilter]);
   const starredEntities = useMemo(
     () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e))).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
     [entities, starred]
   );
   const filteredMinusStarred = filtered.filter((e) => !starred.has(stringifyEntityRef(e)));
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
-  const renderRow = (e) => {
-    const ref = stringifyEntityRef(e);
+  const activate = (ref) => ({
+    role: "button",
+    tabIndex: 0,
+    onClick: () => onSelect(ref),
+    onKeyDown: (ev) => {
+      if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) {
+        ev.preventDefault();
+        onSelect(ref);
+      }
+    }
+  });
+  const renderStar = (ref) => {
     const isStarred = starred.has(ref);
-    return /* @__PURE__ */ jsxs(
-      "div",
+    return /* @__PURE__ */ jsx(
+      "button",
       {
-        className: classes.row,
-        role: "button",
-        tabIndex: 0,
-        onClick: () => onSelect(ref),
-        onKeyDown: (ev) => {
-          if (ev.key === "Enter" || ev.key === " ") {
-            ev.preventDefault();
-            onSelect(ref);
-          }
+        type: "button",
+        className: `${classes.starBtn} ${isStarred ? classes.starBtnActive : ""}`,
+        title: isStarred ? "Unstar" : "Star",
+        "aria-pressed": isStarred,
+        "aria-label": `${isStarred ? "Unstar" : "Star"} ${ref}`,
+        onClick: (ev) => {
+          ev.stopPropagation();
+          toggleStarred(ref);
         },
-        children: [
-          /* @__PURE__ */ jsxs("div", { className: classes.rowMain, children: [
-            /* @__PURE__ */ jsx(
-              "button",
-              {
-                type: "button",
-                className: `${classes.starBtn} ${isStarred ? classes.starBtnActive : ""}`,
-                title: isStarred ? "Unstar" : "Star",
-                onClick: (ev) => {
-                  ev.stopPropagation();
-                  toggleStarred(ref);
-                },
-                children: isStarred ? /* @__PURE__ */ jsx(StarIcon, { fontSize: "small" }) : /* @__PURE__ */ jsx(StarBorderIcon, { fontSize: "small" })
-              }
-            ),
-            /* @__PURE__ */ jsxs("div", { children: [
-              /* @__PURE__ */ jsx("div", { className: classes.name, children: e.metadata.title ?? e.metadata.name }),
-              e.metadata.description && /* @__PURE__ */ jsx("div", { className: classes.meta, children: e.metadata.description })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsx("div", { className: classes.meta, children: e.spec?.owner })
-        ]
-      },
-      ref
+        children: isStarred ? /* @__PURE__ */ jsx(StarIcon, { fontSize: "small" }) : /* @__PURE__ */ jsx(StarBorderIcon, { fontSize: "small" })
+      }
     );
   };
+  const renderTypeChip = (e) => {
+    const type = workloadTypeOf(e);
+    return /* @__PURE__ */ jsx("span", { className: `${classes.typeChip} ${type === "ai" ? classes.typeChipAi : ""}`, children: WORKLOAD_LABEL_SINGULAR[type] });
+  };
+  const renderCard = (e) => {
+    const ref = stringifyEntityRef(e);
+    return /* @__PURE__ */ jsxs("div", { className: classes.card, ...activate(ref), children: [
+      /* @__PURE__ */ jsxs("div", { className: classes.cardTop, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.name, children: e.metadata.title ?? e.metadata.name }),
+        renderStar(ref)
+      ] }),
+      /* @__PURE__ */ jsx("div", { className: classes.cardDesc, children: e.metadata.description }),
+      /* @__PURE__ */ jsxs("div", { className: classes.cardFoot, children: [
+        renderTypeChip(e),
+        /* @__PURE__ */ jsx("span", { className: classes.meta, children: e.spec?.owner })
+      ] })
+    ] }, ref);
+  };
+  const renderTable = (list) => /* @__PURE__ */ jsx("div", { className: classes.tableWrap, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+    /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
+      /* @__PURE__ */ jsx("th", { className: classes.th, style: { width: 40 }, "aria-label": "Starred" }),
+      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Service" }),
+      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Type" }),
+      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Owner" }),
+      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Description" })
+    ] }) }),
+    /* @__PURE__ */ jsx("tbody", { children: list.map((e) => {
+      const ref = stringifyEntityRef(e);
+      return /* @__PURE__ */ jsxs("tr", { className: classes.tr, ...activate(ref), children: [
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: renderStar(ref) }),
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: renderTypeChip(e) }),
+        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.meta}`, children: e.spec?.owner }),
+        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.tdDesc}`, children: e.metadata.description })
+      ] }, ref);
+    }) })
+  ] }) });
+  let emptyMessage = "Every match is already starred above.";
+  if (filtered.length === 0) {
+    if (query.trim()) emptyMessage = `No services match "${query}".`;
+    else if (typeFilter === "all") emptyMessage = "No services yet.";
+    else emptyMessage = `No ${WORKLOAD_LABELS[typeFilter].toLowerCase()} yet.`;
+  }
+  const renderCollection = (list) => viewMode === "cards" ? /* @__PURE__ */ jsx("div", { className: classes.cards, children: list.map(renderCard) }) : renderTable(list);
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs(Typography, { className: classes.eyebrow, children: [
       /* @__PURE__ */ jsx(HangarMark, { glyph: "tower", size: 16 }),
       "Tower"
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.titleRow, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Choose an application" }),
+      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Services" }),
       /* @__PURE__ */ jsx("button", { className: classes.dashboardLink, onClick: onOpenDashboard, type: "button", children: "Fleet Dashboard \u2192" })
     ] }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Releases, topology, pull requests, images, config and SLOs for one app, all in one place." }),
-    /* @__PURE__ */ jsx(
-      TextField,
-      {
-        className: classes.search,
-        fullWidth: true,
-        variant: "outlined",
-        size: "small",
-        placeholder: "Search applications\u2026",
-        value: query,
-        onChange: (e) => setQuery(e.target.value),
-        InputProps: {
-          startAdornment: /* @__PURE__ */ jsx(InputAdornment, { position: "start", children: /* @__PURE__ */ jsx(SearchIcon, { fontSize: "small", style: { color: t.textFaint } }) })
+    /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot." }),
+    /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
+      /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: FILTERS.map((f) => /* @__PURE__ */ jsxs(
+        "button",
+        {
+          type: "button",
+          "aria-pressed": typeFilter === f.id,
+          className: `${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ""}`,
+          onClick: () => setTypeFilter(f.id),
+          children: [
+            f.label,
+            /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? counts[f.id] : "" })
+          ]
+        },
+        f.id
+      )) }),
+      /* @__PURE__ */ jsx(
+        TextField,
+        {
+          className: classes.searchGrow,
+          variant: "outlined",
+          size: "small",
+          placeholder: "Search services\u2026",
+          value: query,
+          onChange: (e) => setQuery(e.target.value),
+          InputProps: {
+            startAdornment: /* @__PURE__ */ jsx(InputAdornment, { position: "start", children: /* @__PURE__ */ jsx(SearchIcon, { fontSize: "small", style: { color: t.textFaint } }) })
+          }
         }
-      }
-    ),
+      )
+    ] }),
     !entities ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
       starredEntities.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.starredSection, children: [
         /* @__PURE__ */ jsx("div", { className: classes.starredLabel, children: "Starred" }),
-        /* @__PURE__ */ jsx("div", { className: classes.list, children: starredEntities.map(renderRow) })
+        renderCollection(starredEntities)
       ] }),
-      /* @__PURE__ */ jsx("div", { className: classes.list, children: filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.empty, children: filtered.length === 0 ? `No applications match "${query}".` : "Every match is already starred above." }) : filteredMinusStarred.map(renderRow) })
+      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
+        /* @__PURE__ */ jsxs("span", { className: classes.sectionLabel, children: [
+          "All services \xB7 ",
+          filteredMinusStarred.length
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "View", children: ["cards", "list"].map((mode) => /* @__PURE__ */ jsx(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": viewMode === mode,
+            className: `${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ""}`,
+            onClick: () => setViewMode(mode),
+            children: mode === "cards" ? "Cards" : "List"
+          },
+          mode
+        )) })
+      ] }),
+      filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx("div", { className: classes.empty, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
     ] })
   ] });
 }
