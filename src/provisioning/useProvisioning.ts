@@ -5,6 +5,7 @@ import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
 import {
   deriveProvisioning,
   type BuildSnapshot,
+  type ManagedSnapshot,
   type ProvisioningInputs,
   type RolloutSnapshot,
   type XrCondition,
@@ -28,6 +29,12 @@ interface ListResponse<T> {
 interface RawXr {
   kind?: string;
   metadata: { name: string; namespace: string; creationTimestamp: string };
+  spec?: { crossplane?: { resourceRefs?: { kind: string; name: string }[] } };
+  status?: { conditions?: XrCondition[] };
+}
+interface RawManaged {
+  kind?: string;
+  metadata: { name: string };
   status?: { conditions?: XrCondition[] };
 }
 interface RawPipelineRun {
@@ -67,6 +74,28 @@ export function toBuild(run: RawPipelineRun): BuildSnapshot {
     tasksDone: done,
     tasksTotal: total,
   };
+}
+
+const GITHUB_KINDS = new Set(['Repository', 'RepositoryFile']);
+
+/**
+ * One entry per repository or file the XR composes. The XR's resourceRefs are
+ * the expected set, so one that has not been created yet counts as not ready
+ * instead of being left out. Undefined when nothing could be read, so the
+ * caller falls back to inferring from the XR itself.
+ */
+export function toManaged(
+  refs: { kind: string; name: string }[] | undefined,
+  found: RawManaged[],
+): ManagedSnapshot[] | undefined {
+  const byName = new Map(found.map(m => [m.metadata.name, m]));
+  const expected = (refs ?? []).filter(r => GITHUB_KINDS.has(r.kind)).map(r => r.name);
+  const names = expected.length > 0 ? expected : found.map(m => m.metadata.name);
+  if (names.length === 0 || found.length === 0) return undefined;
+  return names.map(name => {
+    const ready = byName.get(name)?.status?.conditions?.find(c => c.type === 'Ready');
+    return { name, ready: ready?.status === 'True', readyAt: epoch(ready?.lastTransitionTime) };
+  });
 }
 
 export function toRollout(r: RawRollout): RolloutSnapshot {
@@ -136,9 +165,13 @@ export function useProvisioning(): UseProvisioningResult {
       const items = await Promise.all(
         xrs.map(async (x): Promise<ProvisioningInputs> => {
           const name = x.metadata.name;
-          const [runs, rollouts] = await Promise.all([
+          const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
+          const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
+          const [runs, rollouts, repos, files] = await Promise.all([
             optional<ListResponse<RawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+            optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
+            optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
           ]);
           const first = [...(runs?.items ?? [])].sort((a, b) =>
             a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp),
@@ -154,6 +187,7 @@ export function useProvisioning(): UseProvisioningResult {
             },
             build: first ? toBuild(first) : undefined,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : undefined,
+            managed: toManaged(x.spec?.crossplane?.resourceRefs, [...(repos?.items ?? []), ...(files?.items ?? [])]),
           };
         }),
       );
