@@ -141,4 +141,25 @@ describe('deriveProvisioning', () => {
     );
     expect(p.steps[3]).toMatchObject({ state: 'run', fraction: 0.5 });
   });
+
+  it('stops counting a built service that never got a rollout once it is hours old', () => {
+    const build = {
+      name: 'b1',
+      phase: 'succeeded' as const,
+      startedAt: now - 9000000,
+      completedAt: now - 8900000,
+      tasksDone: 6,
+      tasksTotal: 6,
+    };
+    const old = { ...xr(live), createdAt: now - 5 * 3600 * 1000 };
+    expect(deriveProvisioning({ xr: old, build }, now).stalled).toBe(true);
+    // still new enough to be waiting on its first deploy
+    expect(deriveProvisioning({ xr: { ...old, createdAt: now - 3600 * 1000 }, build }, now).stalled).toBe(false);
+    // has a rollout, so it is deploying here
+    expect(
+      deriveProvisioning({ xr: old, build, rollout: { phase: 'Progressing', desired: 2, available: 0 } }, now).stalled,
+    ).toBe(false);
+    // a failed build is not stalled, it needs attention
+    expect(deriveProvisioning({ xr: old, build: { ...build, phase: 'failed' } }, now).stalled).toBe(false);
+  });
 });

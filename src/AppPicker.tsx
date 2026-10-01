@@ -434,17 +434,18 @@ export function AppPicker({
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
   }, [entities, query, typeFilter]);
 
-  // Independent of `query`, `typeFilter` and `filtered` - stays visible and
-  // selectable no matter what's typed into search or which workload type is
-  // chosen (2026-09-12: "stared resources are always fixed and visible to
-  // select"). Excluded from the list below so a starred app isn't shown
-  // twice.
+  // Follows the workload-type filter (it scopes the whole page, so starred
+  // container apps should not sit under "AI workloads") but not the text
+  // search, so a starred app stays one click away while you type to find
+  // something else (2026-09-12: "stared resources are always fixed and
+  // visible to select"). Excluded from the list below so a starred app isn't
+  // shown twice.
   const starredEntities = useMemo(
     () =>
       (entities ?? [])
-        .filter(e => starred.has(stringifyEntityRef(e)))
+        .filter(e => starred.has(stringifyEntityRef(e)) && (typeFilter === 'all' || workloadTypeOf(e) === typeFilter))
         .sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
-    [entities, starred],
+    [entities, starred, typeFilter],
   );
   const filteredMinusStarred = filtered.filter(e => !starred.has(stringifyEntityRef(e)));
 

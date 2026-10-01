@@ -46,7 +46,7 @@ describe('AppPicker home', () => {
     expect(screen.getByText('ops-copilot')).toBeTruthy();
   });
 
-  it('keeps starred services visible through the filter and search, and persists stars', async () => {
+  it('starred follows the workload filter but not the text search, and stars persist', async () => {
     render(
       <MemoryRouter>
         <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
@@ -54,11 +54,23 @@ describe('AppPicker home', () => {
     );
     await screen.findByText('baggage-api');
     fireEvent.click(screen.getByRole('button', { name: /^Star component:default\/baggage-api/ }));
-    expect(JSON.parse(localStorage.getItem('tower.starredApps')!)).toEqual(['component:default/baggage-api']);
-
-    fireEvent.click(screen.getByRole('button', { name: /^AI workloads/ }));
-    expect(screen.getByText('baggage-api')).toBeTruthy(); // pinned despite the AI filter
+    fireEvent.click(screen.getByRole('button', { name: /^Star component:default\/ops-copilot/ }));
+    expect(JSON.parse(localStorage.getItem('tower.starredApps')!).sort()).toEqual([
+      'component:default/baggage-api',
+      'component:default/ops-copilot',
+    ]);
     expect(screen.getByText('Starred')).toBeTruthy();
+
+    // A text search does not hide starred services.
+    fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: 'gate' } });
+    expect(screen.getByText('baggage-api')).toBeTruthy();
+    expect(screen.getByText('ops-copilot')).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: '' } });
+
+    // The workload filter does: starred container apps leave the AI view.
+    fireEvent.click(screen.getByRole('button', { name: /^AI workloads/ }));
+    expect(screen.queryByText('baggage-api')).toBeNull();
+    expect(screen.getByText('ops-copilot')).toBeTruthy();
   });
 
   it('toggles cards and list and remembers the choice', async () => {

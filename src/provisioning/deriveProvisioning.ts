@@ -88,7 +88,17 @@ export interface Provisioning {
   percent: number;
   /** Epoch ms of the last finished step, once complete. */
   completedAt?: number;
+  /**
+   * Built hours ago but never got a rollout on the dev cluster. Either it
+   * deploys somewhere else (Backstage itself deploys to kind-prod) or the
+   * deploy is stuck; either way it is not "being provisioned" any more.
+   */
+  stalled: boolean;
 }
+
+// How long a service may wait for its first rollout after the build before
+// it stops counting as in flight. A normal deploy appears within minutes.
+export const STALL_AFTER_MS = 4 * 3600 * 1000;
 
 // Estimates from watching real provisions, not recorded history. The UI
 // labels them "typical" until a history store replaces them.
@@ -276,5 +286,6 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     ].filter((x): x is number => x !== undefined);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
-  return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt };
+  const stalled = !complete && !failed && !rollout && build?.phase === 'succeeded' && now - created > STALL_AFTER_MS;
+  return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
