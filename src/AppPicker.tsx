@@ -20,13 +20,7 @@ import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
 import { ProvisioningView } from './provisioning/ProvisioningView';
 import { toItems, useNow } from './provisioning/shared';
 import { useProvisioning } from './provisioning/useProvisioning';
-import {
-  WORKLOAD_LABELS,
-  WORKLOAD_LABEL_SINGULAR,
-  isTowerService,
-  workloadTypeOf,
-  type WorkloadType,
-} from './workloadType';
+import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -82,12 +76,16 @@ function loadViewMode(): ViewMode {
   }
 }
 
-type TypeFilter = 'all' | WorkloadType;
-const FILTERS: { id: TypeFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'container', label: WORKLOAD_LABELS.container },
-  { id: 'ai', label: WORKLOAD_LABELS.ai },
-];
+// 'all' or a service-class id. The class chips are built from the services that
+// exist, not from a fixed list, so a new kind of service gets its own chip with no
+// change here.
+type TypeFilter = string;
+const ALL = 'all';
+
+// Cluster-backed services need a live workload to have anything to show, so they
+// are listed only when Kubernetes can see them. Anything else (a function, a bucket)
+// has no cluster to check and lists as soon as the catalog has it.
+const isListable = (e: Entity) => !hasCapabilities(e, [CAP.k8sRuntime]) || isKubernetesAvailable(e);
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { maxWidth: 1080, margin: '0 auto' },
@@ -382,7 +380,8 @@ export function AppPicker({
   const openProvisioning = (name?: string) =>
     setSearchParams(name ? { view: 'provisioning', service: name } : { view: 'provisioning' });
   const openServices = () => setSearchParams({});
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
+  const [providerFilter, setProviderFilter] = useState<string>(ALL);
   const [viewMode, setViewModeState] = useState<ViewMode>(() => loadViewMode());
 
   useEffect(() => {
@@ -397,7 +396,7 @@ export function AppPicker({
         // someone select it and then hit an empty/error state, keeps
         // "single pane of glass for managing applications" honest (real
         // deployed apps, not every catalog record).
-        if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable).filter(isTowerService));
+        if (!cancelled) setEntities(res.items.filter(isTowerService).filter(isListable));
       })
       .catch(e => {
         if (!cancelled) setError(String(e));
@@ -418,20 +417,41 @@ export function AppPicker({
     }
   };
 
-  const counts = useMemo(() => {
-    const c: Record<TypeFilter, number> = { all: 0, container: 0, ai: 0 };
+  // One chip per class present, most common first.
+  const classChips = useMemo(() => {
+    const byId = new Map<string, { id: string; label: string; count: number }>();
     for (const e of entities ?? []) {
-      c.all += 1;
-      c[workloadTypeOf(e)] += 1;
+      const c = serviceClassOf(e);
+      const chip = byId.get(c.id) ?? { id: c.id, label: c.labelPlural, count: 0 };
+      chip.count += 1;
+      byId.set(c.id, chip);
     }
-    return c;
+    return [...byId.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [entities]);
+
+  // Where services run (Kubernetes, AWS, Azure). Offered only when there is a real
+  // choice to make, so a Kubernetes-only fleet looks exactly as it did.
+  const providerChips = useMemo(() => {
+    const byId = new Map<string, number>();
+    for (const e of entities ?? []) {
+      const p = deployTargetOf(e)?.provider;
+      if (p) byId.set(p, (byId.get(p) ?? 0) + 1);
+    }
+    return byId.size > 1 ? [...byId.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])) : [];
+  }, [entities]);
+
+  const matchesFilters = useCallback(
+    (e: Entity) =>
+      (typeFilter === ALL || serviceClassOf(e).id === typeFilter) &&
+      (providerFilter === ALL || deployTargetOf(e)?.provider === providerFilter),
+    [typeFilter, providerFilter],
+  );
 
   const filtered = useMemo(() => {
     if (!entities) return [];
     const q = query.trim().toLowerCase();
     const list = entities.filter(e => {
-      if (typeFilter !== 'all' && workloadTypeOf(e) !== typeFilter) return false;
+      if (!matchesFilters(e)) return false;
       if (!q) return true;
       return (
         e.metadata.name.toLowerCase().includes(q) ||
@@ -440,7 +460,7 @@ export function AppPicker({
       );
     });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query, typeFilter]);
+  }, [entities, query, matchesFilters]);
 
   // Follows the workload-type filter (it scopes the whole page, so starred
   // container apps should not sit under "AI workloads") but not the text
@@ -451,9 +471,9 @@ export function AppPicker({
   const starredEntities = useMemo(
     () =>
       (entities ?? [])
-        .filter(e => starred.has(stringifyEntityRef(e)) && (typeFilter === 'all' || workloadTypeOf(e) === typeFilter))
+        .filter(e => starred.has(stringifyEntityRef(e)) && matchesFilters(e))
         .sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
-    [entities, starred, typeFilter],
+    [entities, starred, matchesFilters],
   );
   const filteredMinusStarred = filtered.filter(e => !starred.has(stringifyEntityRef(e)));
 
@@ -491,10 +511,12 @@ export function AppPicker({
   };
 
   const renderTypeChip = (e: Entity) => {
-    const type = workloadTypeOf(e);
+    const cls = serviceClassOf(e);
+    const target = deployTargetOf(e);
     return (
-      <span className={`${classes.typeChip} ${type === 'ai' ? classes.typeChipAi : ''}`}>
-        {WORKLOAD_LABEL_SINGULAR[type]}
+      <span className={`${classes.typeChip} ${cls.id === 'ai-workload' ? classes.typeChipAi : ''}`}>
+        {cls.label}
+        {target && target.id !== 'k8s-rollout' ? ` · ${target.label}` : ''}
       </span>
     );
   };
@@ -551,8 +573,8 @@ export function AppPicker({
   let emptyMessage = 'Every match is already starred above.';
   if (filtered.length === 0) {
     if (query.trim()) emptyMessage = `No services match "${query}".`;
-    else if (typeFilter === 'all') emptyMessage = 'No services yet.';
-    else emptyMessage = `No ${WORKLOAD_LABELS[typeFilter].toLowerCase()} yet.`;
+    else if (typeFilter === ALL && providerFilter === ALL) emptyMessage = 'No services yet.';
+    else emptyMessage = 'No services match these filters.';
   }
 
   const renderCollection = (list: Entity[]) =>
@@ -570,9 +592,7 @@ export function AppPicker({
           Fleet Dashboard →
         </button>
       </div>
-      <Typography className={classes.sub}>
-        Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot.
-      </Typography>
+      <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>
       <div className={classes.tabs} role="tablist" aria-label="Services sections">
         <button
           type="button"
@@ -607,7 +627,7 @@ export function AppPicker({
           <ProvisioningStrip items={inFlight} onOpen={openProvisioning} />
           <div className={classes.toolbar}>
             <div className={classes.segment} role="group" aria-label="Workload type">
-              {FILTERS.map(f => (
+              {[{ id: ALL, label: 'All', count: entities?.length }, ...classChips.map(c => ({ ...c }))].map(f => (
                 <button
                   key={f.id}
                   type="button"
@@ -616,10 +636,26 @@ export function AppPicker({
                   onClick={() => setTypeFilter(f.id)}
                 >
                   {f.label}
-                  <span className={classes.segCount}>{entities ? counts[f.id] : ''}</span>
+                  <span className={classes.segCount}>{entities ? f.count : ''}</span>
                 </button>
               ))}
             </div>
+            {providerChips.length > 0 && (
+              <div className={classes.segment} role="group" aria-label="Runs on">
+                {[[ALL, entities?.length ?? 0] as [string, number], ...providerChips].map(([id, count]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={providerFilter === id}
+                    className={`${classes.segBtn} ${providerFilter === id ? classes.segBtnActive : ''}`}
+                    onClick={() => setProviderFilter(id)}
+                  >
+                    {id === ALL ? 'Anywhere' : id}
+                    <span className={classes.segCount}>{count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <TextField
               className={classes.searchGrow}
               variant="outlined"
