@@ -116,6 +116,18 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   nameFail: { color: ({ t }) => t.bad },
   desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
   detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
+  links: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 },
+  link: {
+    fontFamily: fontMono,
+    fontSize: 11.5,
+    color: ({ t }) => t.sky,
+    textDecoration: 'none',
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 3,
+    padding: '2px 7px',
+    '&:hover': { borderColor: ({ t }) => t.sky },
+  },
+  linkState: { color: ({ t }) => t.textFaint, marginLeft: 6 },
   tag: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -275,6 +287,16 @@ function Step({
         </div>
         <div className={classes.desc}>{step.desc}</div>
         {step.detail && <div className={classes.detail}>{step.detail}</div>}
+        {step.links && step.links.length > 0 && (
+          <div className={classes.links}>
+            {step.links.map(l => (
+              <a key={l.url} className={classes.link} href={l.url} target="_blank" rel="noopener noreferrer">
+                {l.label}
+                {l.state && <span className={classes.linkState}>{l.state}</span>}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
       <div
         className={classes.bars}

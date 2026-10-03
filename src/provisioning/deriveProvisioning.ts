@@ -9,9 +9,11 @@
 //     which the composition writes with real transition timestamps;
 //   - the first Tekton PipelineRun in the app's `app-<name>-cicd` namespace;
 //   - the Argo Rollout in `app-<name>-dev`.
-// Tower's read-only identity cannot read the Crossplane managed resources
-// (Repository, RepositoryFile) or ArgoCD Applications, so "Repositories and
-// starter files" is inferred from the XR becoming Ready unless the caller
+//   - the two onboarding PRs (source repo + GitOps repo) and the request PR,
+//     which the caller looks up on GitHub and passes in `links`;
+//   - the app's SecretStore XR (Infisical project + identity).
+// Tower's read-only identity cannot read ArgoCD Applications, so "Repositories
+// and starter files" is inferred from the XR becoming Ready unless the caller
 // supplies per-resource readiness in `managed`.
 
 export type StepState = 'done' | 'run' | 'pend' | 'fail';
@@ -55,11 +57,49 @@ export interface ManagedSnapshot {
   readyAt?: number;
 }
 
+export interface PrSnapshot {
+  number: number;
+  url: string;
+  state: 'open' | 'merged' | 'closed';
+  mergedAt?: number;
+}
+
+export interface SecretsSnapshot {
+  /** The SecretStore XR exists. */
+  found: boolean;
+  ready: boolean;
+  readyAt?: number;
+  /** Set when the XR reports a failed sync. */
+  failed?: string;
+}
+
+export interface ProvisioningLinks {
+  /** The PR that requested the service (against the cluster's tenants repo). */
+  requestPr?: PrSnapshot;
+  sourceRepoUrl?: string;
+  gitopsRepoUrl?: string;
+  /**
+   * The onboarding PRs, one per repo. The object is undefined until the GitHub
+   * lookup has answered; a repo's entry is undefined when that PR was not found.
+   */
+  onboarding?: { source?: PrSnapshot; gitops?: PrSnapshot };
+  /** Infisical project id, when Tower can read the Project resource. */
+  infisicalProjectId?: string;
+}
+
 export interface ProvisioningInputs {
   xr: XrSnapshot;
   build?: BuildSnapshot;
   rollout?: RolloutSnapshot;
   managed?: ManagedSnapshot[];
+  secrets?: SecretsSnapshot;
+  links?: ProvisioningLinks;
+}
+
+export interface StepLink {
+  label: string;
+  url: string;
+  state?: PrSnapshot['state'];
 }
 
 export interface ProvisioningStep {
@@ -77,6 +117,8 @@ export interface ProvisioningStep {
   detail?: string;
   /** True when this step ran alongside the previous one. */
   parallel?: boolean;
+  /** Where to look at what this step made (PRs, repos, the Infisical project). */
+  links?: StepLink[];
 }
 
 export interface Provisioning {
@@ -107,9 +149,16 @@ export const TYPICAL_SEC: Record<string, number> = {
   cluster: 10,
   cicd: 30,
   repos: 45,
+  // A person merging two PRs, so this is a guess at a prompt human.
+  onboarding: 120,
+  secrets: 25,
   build: 150,
   running: 60,
 };
+
+// How long after a successful build the first rollout may take before the
+// step says it is not coming (the dev environment file or deploy stage is missing).
+const DEPLOY_GRACE_MS = 5 * 60 * 1000;
 
 const ts = (iso?: string) => (iso ? Date.parse(iso) : undefined);
 const secBetween = (a?: number, b?: number) =>
@@ -125,8 +174,20 @@ function cond(xr: XrSnapshot, type: string): XrCondition | undefined {
   return xr.conditions.find(c => c.type === type);
 }
 
+const prLink = (label: string, pr?: PrSnapshot): StepLink[] =>
+  pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
+
+// Same per-cluster hostname convention as Grafana's (kind-dev -> *.dev.kiac.local).
+const INFISICAL_HOST_BY_CLUSTER: Record<string, string> = { 'kind-dev': 'infisical.dev.kiac.local' };
+
+/** Public so the view and tests build the same URL. Infisical's UI is served over the gateway's http listener. */
+export const infisicalProjectUrl = (cluster: string, projectId: string): string | undefined => {
+  const host = INFISICAL_HOST_BY_CLUSTER[cluster];
+  return host ? `http://${host}/projects/secret-management/${projectId}/overview` : undefined;
+};
+
 export function deriveProvisioning(input: ProvisioningInputs, now: number): Provisioning {
-  const { xr, build, rollout, managed } = input;
+  const { xr, build, rollout, managed, secrets, links } = input;
   const created = xr.createdAt;
   const synced = cond(xr, 'Synced');
   const ready = cond(xr, 'Ready');
@@ -153,6 +214,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     desc: 'Claim validated against the Airframe schema',
     state: 'done',
     seconds: 0,
+    links: prLink('Request PR', links?.requestPr),
   });
 
   // 2. Dev cluster resolved.
@@ -201,11 +263,97 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     seconds: reposState === 'done' ? secBetween(created, reposEnd) : secBetween(created, now),
     detail: reposState === 'fail' ? synced?.message : undefined,
     parallel: true,
+    links: [
+      ...(links?.sourceRepoUrl ? [{ label: 'Source repo', url: links.sourceRepoUrl }] : []),
+      ...(links?.gitopsRepoUrl ? [{ label: 'GitOps repo', url: links.gitopsRepoUrl }] : []),
+    ],
   });
 
   const front = steps.slice(2, 4).every(s => s.state === 'done');
+  // A pipeline run or a rollout cannot exist before the source repo's onboarding
+  // PR merged (the .tekton files arrive with it), so either is proof of the step.
+  const builtOrDeployed = Boolean(build) || Boolean(rollout);
 
-  // 5. First build.
+  // 5. Application onboarding PRs: one against the source repo, one against the
+  // GitOps repo. Nothing builds until the source one is merged; Glidepath opens
+  // them but a person merges them.
+  const ob = links?.onboarding;
+  const obPrs = [ob?.source, ob?.gitops];
+  const merged = obPrs.filter(pr => pr?.state === 'merged');
+  let onboardingState: StepState = 'pend';
+  let onboardingFraction = 0;
+  let onboardingDetail: string | undefined;
+  let onboardingEnd: number | undefined;
+  if (builtOrDeployed || (ob && merged.length === 2)) {
+    onboardingState = 'done';
+    onboardingFraction = 1;
+    onboardingEnd = merged.length ? Math.max(...merged.map(pr => pr?.mergedAt ?? 0)) || undefined : undefined;
+  } else if (front) {
+    onboardingState = 'run';
+    if (!ob) {
+      onboardingDetail = 'Merge the two onboarding PRs to start the first build';
+    } else {
+      onboardingFraction = merged.length / 2;
+      const missing = obPrs.filter(pr => !pr).length;
+      if (missing === 2) onboardingDetail = 'Waiting for onboarding to open its two PRs';
+      else if (missing === 1) onboardingDetail = 'Waiting for onboarding to open the second PR';
+      else onboardingDetail = `Merge the two onboarding PRs to start the first build (${merged.length} of 2 merged)`;
+    }
+  }
+  const onboardingStart = Math.max(
+    ts(clusterC?.lastTransitionTime) ?? 0,
+    ts(cicdC?.lastTransitionTime) ?? 0,
+    reposState === 'done' ? (reposEnd ?? 0) : 0,
+  );
+  let onboardingSeconds: number | undefined;
+  if (onboardingState === 'done') onboardingSeconds = secBetween(onboardingStart || undefined, onboardingEnd);
+  else if (onboardingState === 'run') onboardingSeconds = secBetween(onboardingStart || undefined, now);
+  push({
+    id: 'onboarding',
+    title: 'Application onboarding PRs',
+    desc: 'Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build',
+    state: onboardingState,
+    fraction: onboardingFraction,
+    seconds: onboardingSeconds,
+    detail: onboardingDetail,
+    links: [...prLink('Source PR', ob?.source), ...prLink('GitOps PR', ob?.gitops)],
+  });
+
+  // 6. Infisical secrets resources: the app's SecretStore XR composes an
+  // Infisical project, identity and the in-cluster store that reads it.
+  let secretsState: StepState = 'pend';
+  let secretsDetail: string | undefined;
+  if (secrets?.ready) {
+    secretsState = 'done';
+  } else if (secrets?.failed) {
+    secretsState = 'fail';
+    secretsDetail = secrets.failed;
+  } else if (!secrets?.found && builtOrDeployed) {
+    // No SecretStore to wait for (unreadable, or an app that predates this step),
+    // and a build already ran, so do not hold the whole provision open on it.
+    secretsState = 'done';
+  } else if (cicdDone) {
+    secretsState = 'run';
+    secretsDetail = secrets?.found
+      ? 'Creating the Infisical project and identity'
+      : 'Waiting for the SecretStore to be created';
+  }
+  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(xr.cluster, links.infisicalProjectId) : undefined;
+  let secretsSeconds: number | undefined;
+  if (secretsState === 'done') secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), secrets?.readyAt);
+  else if (secretsState === 'run') secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), now);
+  push({
+    id: 'secrets',
+    title: 'Infisical secrets resources',
+    desc: 'Project, machine identity and the cluster secret store that reads it',
+    state: secretsState,
+    seconds: secretsSeconds,
+    detail: secretsDetail,
+    parallel: true,
+    links: projectUrl ? [{ label: 'Infisical project', url: projectUrl }] : [],
+  });
+
+  // 7. First build.
   let buildState: StepState = 'pend';
   let buildFraction = 0;
   let buildSec: number | undefined;
@@ -221,24 +369,26 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     // Pipeline runs get pruned, but a rollout cannot exist without a built
     // image, so a rollout is proof the build happened.
     buildState = 'done';
-  } else if (front) {
+  } else if (onboardingState === 'done') {
     buildState = 'run';
     buildDetail = 'Waiting for the first pipeline run to start';
   }
   push({
     id: 'build',
     title: 'First build and checks',
-    desc: 'Test, image build, scan, SBOM and signature',
+    desc: 'Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges',
     state: buildState,
     fraction: buildState === 'done' ? 1 : buildFraction,
     seconds: buildSec,
     detail: buildDetail,
   });
 
-  // 6. Running healthy in dev.
+  // 8. Running healthy in dev. New apps get platform/envs/dev.yaml and a deploy
+  // stage from onboarding, so this follows the build without anyone's help.
   let runState: StepState = 'pend';
   let runFraction = 0;
   let runSec: number | undefined;
+  let runDetail: string | undefined;
   if (rollout) {
     const healthy = rollout.phase === 'Healthy' && rollout.available >= rollout.desired && rollout.desired > 0;
     if (healthy) runState = 'done';
@@ -247,8 +397,13 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     runFraction = rollout.desired > 0 ? Math.min(1, rollout.available / rollout.desired) : 0;
     // No record of when a rollout turned healthy, so a finished step has no duration.
     runSec = healthy ? undefined : secBetween(build?.completedAt ?? rollout.createdAt, now);
+    if (runState === 'fail') runDetail = 'The rollout reports Degraded';
   } else if (buildState === 'done') {
     runState = 'run';
+    if (build?.completedAt !== undefined && now - build.completedAt > DEPLOY_GRACE_MS) {
+      runDetail =
+        'No rollout yet. The deploy stage needs a platform/envs/dev.yaml in the source repo and a deploy stage for dev in cicd.yaml';
+    }
   }
   push({
     id: 'running',
@@ -257,20 +412,25 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     state: runState,
     fraction: runState === 'done' ? 1 : runFraction,
     seconds: runSec,
-    detail: runState === 'fail' ? 'The rollout reports Degraded' : undefined,
+    detail: runDetail,
   });
 
   const complete = steps.every(s => s.state === 'done');
   const failed = steps.some(s => s.state === 'fail');
 
-  // Remaining time: the parallel pair counts as the slower of the two.
-  const remaining = (s: ProvisioningStep) => (s.state === 'done' ? 0 : s.typicalSec * (1 - s.fraction));
+  // Remaining time: parallel steps count as the slower of the pair.
+  const byId = Object.fromEntries(steps.map(s => [s.id, s]));
+  const remaining = (id: string) => {
+    const s = byId[id];
+    return s.state === 'done' ? 0 : s.typicalSec * (1 - s.fraction);
+  };
   const etaSec = Math.round(
-    remaining(steps[0]) +
-      remaining(steps[1]) +
-      Math.max(remaining(steps[2]), remaining(steps[3])) +
-      remaining(steps[4]) +
-      remaining(steps[5]),
+    remaining('request') +
+      remaining('cluster') +
+      Math.max(remaining('cicd'), remaining('repos')) +
+      Math.max(remaining('onboarding'), remaining('secrets')) +
+      remaining('build') +
+      remaining('running'),
   );
   const elapsedSec = Math.round((now - created) / 1000);
   const percent = complete ? 100 : Math.min(99, Math.round((100 * elapsedSec) / Math.max(1, elapsedSec + etaSec)));
@@ -281,6 +441,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       ts(clusterC?.lastTransitionTime),
       ts(cicdC?.lastTransitionTime),
       reposEnd,
+      onboardingEnd,
+      secrets?.readyAt,
       build?.completedAt,
       rollout?.createdAt,
     ].filter((x): x is number => x !== undefined);

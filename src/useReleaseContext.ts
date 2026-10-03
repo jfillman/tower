@@ -85,7 +85,7 @@ export function useReleaseContext() {
   // has already resolved a real source URL - see GlidepathPage.tsx's
   // identical reasoning, ported verbatim (order doesn't matter, any
   // environment with a resolved source is equally good evidence).
-  const repoRef = useMemo(() => {
+  const provenanceRef = useMemo(() => {
     for (const env of rawEnvironments) {
       const data = env.image ? provenanceByImage[env.image]?.data : undefined;
       const slsa = data?.attestations.find(
@@ -100,8 +100,16 @@ export function useReleaseContext() {
 
   const projectSlug = entity.metadata.annotations?.['github.com/project-slug'];
   const [slugOwner, slugAppName] = projectSlug ? projectSlug.split('/') : [undefined, undefined];
-  const owner = repoRef?.owner ?? slugOwner;
-  const appName = repoRef?.repo ?? slugAppName;
+  // The catalog entity's own project-slug wins over image provenance (2026-10-03,
+  // found on sky-marshall): a hand-copied release file made its dev env run
+  // another app's image, so provenance resolved to THAT app's repo and Tower
+  // showed its environments (a phantom "staging") and cicd.yaml (a stale Glidepath
+  // tab) on this one. What an entity says it is beats what its pods happen to run.
+  // Provenance remains the fallback for an entity with no slug.
+  const slugRef = slugOwner && slugAppName ? { owner: slugOwner, repo: slugAppName } : undefined;
+  const repoRef = slugRef ?? provenanceRef;
+  const owner = repoRef?.owner;
+  const appName = repoRef?.repo;
 
   // Falls back to the catalog's own github.com/project-slug annotation
   // (same fallback owner/appName below already use for everything else)
