@@ -10,7 +10,7 @@ import { useHangarTokens, fontMono, fontDisplay } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { AppPicker } from './AppPicker.esm.js';
 import { AutopilotPlaceholder } from './AutopilotPlaceholder.esm.js';
-import { workloadTypeOf } from './workloadType.esm.js';
+import { CAP, hasCapabilities } from './serviceClass.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
@@ -30,16 +30,17 @@ import { isRolloutActive } from './types.esm.js';
 
 const TABS = [
   { id: "overview", label: "Overview", Component: OverviewTab },
-  { id: "pull-requests", label: "Pull Requests", Component: PullRequestsTab },
-  { id: "pipelines", label: "Pipelines", Component: PipelinesTab },
-  { id: "deployments", label: "Deployments", Component: DeploymentsTab },
-  { id: "releases", label: "Releases", Component: ReleasesTab },
-  { id: "topology", label: "Topology", Component: TopologyTab },
-  { id: "images", label: "Images", Component: ImagesTab },
-  { id: "slos", label: "SLOs", Component: SlosTab },
-  { id: "notifications", label: "Notifications", Component: NotificationsTab },
-  { id: "config", label: "App Configuration", Component: ConfigTab },
-  { id: "glidepath", label: "Glidepath", Component: GlidepathTab }
+  { id: "autopilot", label: "Autopilot", Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
+  { id: "pull-requests", label: "Pull Requests", Component: PullRequestsTab, requires: [CAP.source] },
+  { id: "pipelines", label: "Pipelines", Component: PipelinesTab, requires: [CAP.ci] },
+  { id: "deployments", label: "Deployments", Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
+  { id: "releases", label: "Releases", Component: ReleasesTab, requires: [CAP.releases] },
+  { id: "topology", label: "Topology", Component: TopologyTab, requires: [CAP.k8sRuntime] },
+  { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
+  { id: "slos", label: "SLOs", Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
+  { id: "notifications", label: "Notifications", Component: NotificationsTab, requires: [CAP.source] },
+  { id: "config", label: "App Configuration", Component: ConfigTab, requires: [CAP.valuesConfig] },
+  { id: "glidepath", label: "Glidepath", Component: GlidepathTab, requires: [CAP.ci] }
 ];
 const useStyles = makeStyles(() => ({
   // minHeight: 100vh, not 100% - a percentage height only resolves once
@@ -187,8 +188,6 @@ function TowerPage() {
     body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) }) });
   } else if (!entity) {
     body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(Typography, { children: "Service not found." }) });
-  } else if (workloadTypeOf(entity) === "ai") {
-    body = /* @__PURE__ */ jsx(AutopilotPlaceholder, { entity, onBack: clearApp });
   } else {
     body = /* @__PURE__ */ jsx(
       TowerAppShell,
@@ -241,21 +240,22 @@ function TowerAppShellInner({
   const ciActive = ciPipelineRuns.runs.some((r) => r.phase === "running");
   const { environments } = useTowerEnvironments();
   const cdActive = environments.some(isRolloutActive);
-  const activeTab = TABS.find((tabDef) => tabDef.id === tabParam) ?? TABS[0];
+  const tabs = TABS.filter((tabDef) => hasCapabilities(entity, tabDef.requires));
+  const activeTab = tabs.find((tabDef) => tabDef.id === tabParam) ?? tabs[0];
   const { Component } = activeTab;
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx("div", { className: classes.header, children: /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx("button", { className: classes.backLink, onClick: clearApp, type: "button", children: "\u2190 All applications" }),
+      /* @__PURE__ */ jsx("button", { className: classes.backLink, onClick: clearApp, type: "button", children: "\u2190 All services" }),
       /* @__PURE__ */ jsxs("div", { className: classes.titleRow, children: [
         /* @__PURE__ */ jsx(HangarMark, { glyph: "tower", size: 22 }),
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: entity.metadata.title ?? entity.metadata.name })
       ] })
     ] }) }),
-    /* @__PURE__ */ jsx("div", { className: classes.tabbar, children: TABS.map((tabDef) => /* @__PURE__ */ jsxs(
+    /* @__PURE__ */ jsx("div", { className: classes.tabbar, children: tabs.map((tabDef) => /* @__PURE__ */ jsxs(
       "button",
       {
         type: "button",
-        className: `${classes.tab} ${tabParam === tabDef.id ? classes.tabActive : ""}`,
+        className: `${classes.tab} ${activeTab.id === tabDef.id ? classes.tabActive : ""}`,
         onClick: () => selectTab(tabDef.id),
         children: [
           tabDef.label,
@@ -266,7 +266,7 @@ function TowerAppShellInner({
       },
       tabDef.id
     )) }),
-    /* @__PURE__ */ jsx("div", { className: classes.body, children: /* @__PURE__ */ jsx(ErrorBoundary, { children: /* @__PURE__ */ jsx(Component, {}) }, `${entityRef}:${tabParam}`) })
+    /* @__PURE__ */ jsx("div", { className: classes.body, children: /* @__PURE__ */ jsx(ErrorBoundary, { children: /* @__PURE__ */ jsx(Component, {}) }, `${entityRef}:${activeTab.id}`) })
   ] });
 }
 

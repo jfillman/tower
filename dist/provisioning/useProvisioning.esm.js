@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns.esm.js';
 import { deriveProvisioning } from './deriveProvisioning.esm.js';
@@ -7,10 +8,17 @@ import { deriveProvisioning } from './deriveProvisioning.esm.js';
 const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = ["nodejsapplications", "springbootapplications", "pythonapplications", "goapplications"];
 const XR_KINDS = ["NodeJSApplication", "SpringBootApplication", "PythonApplication", "GoApplication"];
+const TENANTS_REPO_BY_CLUSTER = {
+  "kind-dev": { owner: "jfillman", repo: "gitops-cluster-dev-tenants" }
+};
 const POLL_MS = 6e3;
 const MAX_AGE_MS = 24 * 3600 * 1e3;
 const GITHUB_POLL_MS = 45e3;
 const KEEP_DONE_MS = 15 * 60 * 1e3;
+const BUILD_PIPELINE = "build";
+function pickFirstBuild(runs) {
+  return [...runs ?? []].filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === BUILD_PIPELINE).sort((a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp))[0];
+}
 const epoch = (iso) => iso ? Date.parse(iso) : void 0;
 function toBuild(run) {
   const succeeded = run.status?.conditions?.find((c) => c.type === "Succeeded");
@@ -101,9 +109,16 @@ function toRollout(r) {
     createdAt: epoch(r.metadata.creationTimestamp)
   };
 }
+function toPendingInputs(requests, haveXr, cluster, now) {
+  return requests.filter((r) => XR_KINDS.includes(r.kind) && !haveXr.has(r.name)).map((r) => ({ r, created: epoch(r.createdAt) ?? now })).filter(({ created }) => now - created < MAX_AGE_MS).map(({ r, created }) => ({
+    xr: { kind: r.kind, name: r.name, namespace: "", cluster, createdAt: created, conditions: [], pending: true },
+    links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } }
+  }));
+}
 function useProvisioning() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const catalogApi = useApi(catalogApiRef);
   const [state, setState] = useState({
     items: [],
     loading: true
@@ -146,9 +161,38 @@ function useProvisioning() {
         }
       })();
     };
+    const pendingCache = { at: 0, busy: false, list: [] };
+    const refreshPending = (tenants) => {
+      if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
+      pendingCache.busy = true;
+      (async () => {
+        try {
+          const prBase = await discoveryApi.getBaseUrl("pull-requests");
+          const res = await fetchApi.fetch(
+            `${prBase}/pending-requests?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo })}`
+          );
+          if (res.ok) pendingCache.list = (await res.json()).requests ?? [];
+        } catch {
+        } finally {
+          pendingCache.at = Date.now();
+          pendingCache.busy = false;
+        }
+      })();
+    };
     const optional = async (path) => {
       try {
         return await k8sProxyGet(discoveryApi, fetchApi, XR_CLUSTER, path);
+      } catch {
+        return void 0;
+      }
+    };
+    const inCatalog = async (name) => {
+      try {
+        const res = await catalogApi.getEntities({
+          filter: { kind: "Component", "metadata.name": name },
+          fields: ["metadata.name"]
+        });
+        return { found: res.items.length > 0 };
       } catch {
         return void 0;
       }
@@ -182,13 +226,14 @@ function useProvisioning() {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
             optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional(`${mrBase}/repositories?${selector}`),
             optional(`${mrBase}/repositoryfiles?${selector}`),
             optional(`${nsBase}/secretstores`),
-            optional(`${nsBase}/tektoncicds`)
+            optional(`${nsBase}/tektoncicds`),
+            inCatalog(name)
           ]);
           const store = stores?.items?.find((s) => s.spec?.appRef?.name === name);
           const project = store ? await optional(
@@ -199,9 +244,7 @@ function useProvisioning() {
           const tenants = parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"]);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
-          const first = [...runs?.items ?? []].sort(
-            (a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp)
-          )[0];
+          const first = pickFirstBuild(runs?.items);
           return {
             xr: {
               kind: x.kind ?? "",
@@ -223,6 +266,7 @@ function useProvisioning() {
               } : void 0
             ),
             secrets: toSecrets(store, stores !== void 0),
+            catalog,
             links: {
               requestPr: gh?.requestPr,
               sourceRepoUrl: repoLinks.sourceRepoUrl,
@@ -234,6 +278,10 @@ function useProvisioning() {
         })
       );
       if (cancelled) return;
+      refreshPending(
+        xrs.map((x) => parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"])).find(Boolean) ?? TENANTS_REPO_BY_CLUSTER[XR_CLUSTER]
+      );
+      items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map((x) => x.metadata.name)), XR_CLUSTER, now));
       const kept = items.filter((i) => {
         const p = deriveProvisioning(i, now);
         return !p.complete || p.completedAt !== void 0 && now - p.completedAt < KEEP_DONE_MS;
@@ -247,9 +295,9 @@ function useProvisioning() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi]);
+  }, [discoveryApi, fetchApi, catalogApi]);
   return state;
 }
 
-export { parseTenantsRepo, toBuild, toCreated, toManaged, toOnboardingPrs, toRepoLinks, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, parseTenantsRepo, pickFirstBuild, toBuild, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

@@ -19,7 +19,7 @@ import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
-import { isTowerService, workloadTypeOf, WORKLOAD_LABELS, WORKLOAD_LABEL_SINGULAR } from './workloadType.esm.js';
+import { isTowerService, serviceClassOf, deployTargetOf, hasCapabilities, CAP } from './serviceClass.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -58,11 +58,8 @@ function loadViewMode() {
     return "cards";
   }
 }
-const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "container", label: WORKLOAD_LABELS.container },
-  { id: "ai", label: WORKLOAD_LABELS.ai }
-];
+const ALL = "all";
+const isListable = (e) => !hasCapabilities(e, [CAP.k8sRuntime]) || isKubernetesAvailable(e);
 const useStyles = makeStyles(() => ({
   wrap: { maxWidth: 1080, margin: "0 auto" },
   eyebrow: {
@@ -350,12 +347,13 @@ function AppPicker({
   const selectedService = searchParams.get("service") ?? void 0;
   const openProvisioning = (name) => setSearchParams(name ? { view: "provisioning", service: name } : { view: "provisioning" });
   const openServices = () => setSearchParams({});
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(ALL);
+  const [providerFilter, setProviderFilter] = useState(ALL);
   const [viewMode, setViewModeState] = useState(() => loadViewMode());
   useEffect(() => {
     let cancelled = false;
     catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
-      if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable).filter(isTowerService));
+      if (!cancelled) setEntities(res.items.filter(isTowerService).filter(isListable));
     }).catch((e) => {
       if (!cancelled) setError(String(e));
     });
@@ -371,27 +369,41 @@ function AppPicker({
     } catch {
     }
   };
-  const counts = useMemo(() => {
-    const c = { all: 0, container: 0, ai: 0 };
+  const classChips = useMemo(() => {
+    const byId = /* @__PURE__ */ new Map();
     for (const e of entities ?? []) {
-      c.all += 1;
-      c[workloadTypeOf(e)] += 1;
+      const c = serviceClassOf(e);
+      const chip = byId.get(c.id) ?? { id: c.id, label: c.labelPlural, count: 0 };
+      chip.count += 1;
+      byId.set(c.id, chip);
     }
-    return c;
+    return [...byId.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [entities]);
+  const providerChips = useMemo(() => {
+    const byId = /* @__PURE__ */ new Map();
+    for (const e of entities ?? []) {
+      const p = deployTargetOf(e)?.provider;
+      if (p) byId.set(p, (byId.get(p) ?? 0) + 1);
+    }
+    return byId.size > 1 ? [...byId.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])) : [];
+  }, [entities]);
+  const matchesFilters = useCallback(
+    (e) => (typeFilter === ALL || serviceClassOf(e).id === typeFilter) && (providerFilter === ALL || deployTargetOf(e)?.provider === providerFilter),
+    [typeFilter, providerFilter]
+  );
   const filtered = useMemo(() => {
     if (!entities) return [];
     const q = query.trim().toLowerCase();
     const list = entities.filter((e) => {
-      if (typeFilter !== "all" && workloadTypeOf(e) !== typeFilter) return false;
+      if (!matchesFilters(e)) return false;
       if (!q) return true;
       return e.metadata.name.toLowerCase().includes(q) || (e.metadata.title ?? "").toLowerCase().includes(q) || (e.metadata.description ?? "").toLowerCase().includes(q);
     });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query, typeFilter]);
+  }, [entities, query, matchesFilters]);
   const starredEntities = useMemo(
-    () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e)) && (typeFilter === "all" || workloadTypeOf(e) === typeFilter)).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
-    [entities, starred, typeFilter]
+    () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e)) && matchesFilters(e)).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
+    [entities, starred, matchesFilters]
   );
   const filteredMinusStarred = filtered.filter((e) => !starred.has(stringifyEntityRef(e)));
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
@@ -425,8 +437,12 @@ function AppPicker({
     );
   };
   const renderTypeChip = (e) => {
-    const type = workloadTypeOf(e);
-    return /* @__PURE__ */ jsx("span", { className: `${classes.typeChip} ${type === "ai" ? classes.typeChipAi : ""}`, children: WORKLOAD_LABEL_SINGULAR[type] });
+    const cls = serviceClassOf(e);
+    const target = deployTargetOf(e);
+    return /* @__PURE__ */ jsxs("span", { className: `${classes.typeChip} ${cls.id === "ai-workload" ? classes.typeChipAi : ""}`, children: [
+      cls.label,
+      target && target.id !== "k8s-rollout" ? ` \xB7 ${target.label}` : ""
+    ] });
   };
   const renderCard = (e) => {
     const ref = stringifyEntityRef(e);
@@ -464,8 +480,8 @@ function AppPicker({
   let emptyMessage = "Every match is already starred above.";
   if (filtered.length === 0) {
     if (query.trim()) emptyMessage = `No services match "${query}".`;
-    else if (typeFilter === "all") emptyMessage = "No services yet.";
-    else emptyMessage = `No ${WORKLOAD_LABELS[typeFilter].toLowerCase()} yet.`;
+    else if (typeFilter === ALL && providerFilter === ALL) emptyMessage = "No services yet.";
+    else emptyMessage = "No services match these filters.";
   }
   const renderCollection = (list) => viewMode === "cards" ? /* @__PURE__ */ jsx("div", { className: classes.cards, children: list.map(renderCard) }) : renderTable(list);
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
@@ -477,7 +493,7 @@ function AppPicker({
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Services" }),
       /* @__PURE__ */ jsx("button", { className: classes.dashboardLink, onClick: onOpenDashboard, type: "button", children: "Fleet Dashboard \u2192" })
     ] }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Container apps open in Tower; AI workloads open in Autopilot." }),
+    /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Select a service to open its tabs." }),
     /* @__PURE__ */ jsxs("div", { className: classes.tabs, role: "tablist", "aria-label": "Services sections", children: [
       /* @__PURE__ */ jsx(
         "button",
@@ -517,7 +533,7 @@ function AppPicker({
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),
       /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: FILTERS.map((f) => /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: [{ id: ALL, label: "All", count: entities?.length }, ...classChips.map((c) => ({ ...c }))].map((f) => /* @__PURE__ */ jsxs(
           "button",
           {
             type: "button",
@@ -526,10 +542,24 @@ function AppPicker({
             onClick: () => setTypeFilter(f.id),
             children: [
               f.label,
-              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? counts[f.id] : "" })
+              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? f.count : "" })
             ]
           },
           f.id
+        )) }),
+        providerChips.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Runs on", children: [[ALL, entities?.length ?? 0], ...providerChips].map(([id, count]) => /* @__PURE__ */ jsxs(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": providerFilter === id,
+            className: `${classes.segBtn} ${providerFilter === id ? classes.segBtnActive : ""}`,
+            onClick: () => setProviderFilter(id),
+            children: [
+              id === ALL ? "Anywhere" : id,
+              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: count })
+            ]
+          },
+          id
         )) }),
         /* @__PURE__ */ jsx(
           TextField,

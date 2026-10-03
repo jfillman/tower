@@ -4,6 +4,8 @@ const TYPICAL_SEC = {
   cluster: 10,
   cicd: 30,
   repos: 45,
+  // The ingestor picks the new XR up on its next sync, so this is a guess at one cycle.
+  catalog: 60,
   // A person merging two PRs, so this is a guess at a prompt human.
   onboarding: 120,
   secrets: 25,
@@ -27,7 +29,7 @@ const infisicalProjectUrl = (cluster, projectId) => {
   return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
 };
 function deriveProvisioning(input, now) {
-  const { xr, build, rollout, managed, secrets, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, links } = input;
   const created = xr.createdAt;
   const synced = cond(xr, "Synced");
   const ready = cond(xr, "Ready");
@@ -40,23 +42,35 @@ function deriveProvisioning(input, now) {
     fraction: s.state === "done" ? 1 : 0,
     ...s
   });
+  const pending = Boolean(xr.pending);
+  const reqPr = links?.requestPr;
+  let requestState = "done";
+  let requestDetail;
+  if (pending) {
+    requestState = "run";
+    requestDetail = reqPr?.state === "merged" ? "Merged. Waiting for ArgoCD to create the resource" : "Merge the request PR to start provisioning";
+  }
   push({
     id: "request",
     title: "Request accepted",
     desc: "Claim validated against the Airframe schema",
-    state: "done",
-    seconds: 0,
-    links: prLink("Request PR", links?.requestPr)
+    state: requestState,
+    seconds: pending ? secBetween(created, now) : 0,
+    detail: requestDetail,
+    links: prLink("Request PR", reqPr)
   });
   const clusterDone = clusterC?.status === "True";
+  let clusterStepState = clusterDone ? "done" : "run";
+  if (pending) clusterStepState = "pend";
   push({
     id: "cluster",
     title: "Dev cluster chosen",
     desc: "A registered, ready dev cluster is selected for onboarding",
-    state: clusterDone ? "done" : "run",
-    seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : secBetween(created, now),
+    state: clusterStepState,
+    seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : void 0,
     detail: !clusterDone && clusterC?.message ? clusterC.message : void 0
   });
+  if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
   const cicdDone = cicdC?.status === "True";
   push({
     id: "cicd",
@@ -79,14 +93,18 @@ function deriveProvisioning(input, now) {
     reposEnd = ts(ready?.lastTransitionTime);
     reposFraction = reposState === "done" ? 1 : 0;
   }
+  if (pending) reposState = "pend";
   if (syncFailed && reposState !== "done") reposState = "fail";
+  let reposSeconds;
+  if (reposState === "done") reposSeconds = secBetween(created, reposEnd);
+  else if (reposState !== "pend") reposSeconds = secBetween(created, now);
   push({
     id: "repos",
     title: "Repositories and starter files",
     desc: "Source and GitOps repos created, starter files committed",
     state: reposState,
     fraction: reposFraction,
-    seconds: reposState === "done" ? secBetween(created, reposEnd) : secBetween(created, now),
+    seconds: reposSeconds,
     detail: reposState === "fail" ? synced?.message : void 0,
     parallel: true,
     links: [
@@ -96,6 +114,19 @@ function deriveProvisioning(input, now) {
   });
   const front = steps.slice(2, 4).every((s) => s.state === "done");
   const builtOrDeployed = Boolean(build) || Boolean(rollout);
+  let catalogState = "pend";
+  if (catalog?.found) catalogState = "done";
+  else if (catalog) catalogState = "run";
+  else if (builtOrDeployed) catalogState = "done";
+  push({
+    id: "catalog",
+    title: "Available in the Backstage catalog",
+    desc: "The catalog ingestor has picked the service up, so it can be opened in Tower",
+    state: catalogState,
+    seconds: catalogState === "run" ? secBetween(created, now) : void 0,
+    detail: catalogState === "run" ? "Waiting for the catalog ingestor's next sync" : void 0,
+    parallel: true
+  });
   const ob = links?.onboarding;
   const obPrs = [ob?.source, ob?.gitops];
   const merged = obPrs.filter((pr) => pr?.state === "merged");
@@ -225,7 +256,7 @@ function deriveProvisioning(input, now) {
     return s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
   };
   const etaSec = Math.round(
-    remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
+    remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos"), remaining("catalog")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
   );
   const elapsedSec = Math.round((now - created) / 1e3);
   const percent = complete ? 100 : Math.min(99, Math.round(100 * elapsedSec / Math.max(1, elapsedSec + etaSec)));
