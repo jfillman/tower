@@ -85,6 +85,14 @@ function toOnboardingPrs(prs) {
   };
   return { source: pick("source"), gitops: pick("gitops") };
 }
+function toCreated(refs, readable, store) {
+  const readyOf = new Map(
+    readable.map((m) => [m.metadata.name, m.status?.conditions?.find((c) => c.type === "Ready")?.status === "True"])
+  );
+  const out = (refs ?? []).map((r) => ({ kind: r.kind, name: r.name, ready: readyOf.get(r.name) }));
+  if (store) out.push({ kind: "SecretStore", name: store.name, ready: store.ready });
+  return out;
+}
 function toRollout(r) {
   return {
     phase: r.status?.phase,
@@ -174,12 +182,13 @@ function useProvisioning() {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds] = await Promise.all([
             optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional(`${mrBase}/repositories?${selector}`),
             optional(`${mrBase}/repositoryfiles?${selector}`),
-            optional(`${nsBase}/secretstores`)
+            optional(`${nsBase}/secretstores`),
+            optional(`${nsBase}/tektoncicds`)
           ]);
           const store = stores?.items?.find((s) => s.spec?.appRef?.name === name);
           const project = store ? await optional(
@@ -205,6 +214,14 @@ function useProvisioning() {
             build: first ? toBuild(first) : void 0,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0,
             managed: toManaged(x.spec?.crossplane?.resourceRefs, [...repos?.items ?? [], ...files?.items ?? []]),
+            created: toCreated(
+              x.spec?.crossplane?.resourceRefs,
+              [...repos?.items ?? [], ...files?.items ?? [], ...cicds?.items ?? []],
+              store ? {
+                name: store.metadata.name,
+                ready: store.status?.conditions?.some((c) => c.type === "Ready" && c.status === "True") ?? false
+              } : void 0
+            ),
             secrets: toSecrets(store, stores !== void 0),
             links: {
               requestPr: gh?.requestPr,
@@ -219,7 +236,6 @@ function useProvisioning() {
       if (cancelled) return;
       const kept = items.filter((i) => {
         const p = deriveProvisioning(i, now);
-        if (p.stalled) return false;
         return !p.complete || p.completedAt !== void 0 && now - p.completedAt < KEEP_DONE_MS;
       });
       kept.sort((a, b) => b.xr.createdAt - a.xr.createdAt);
@@ -235,5 +251,5 @@ function useProvisioning() {
   return state;
 }
 
-export { parseTenantsRepo, toBuild, toManaged, toOnboardingPrs, toRepoLinks, toRollout, toSecrets, useProvisioning };
+export { parseTenantsRepo, toBuild, toCreated, toManaged, toOnboardingPrs, toRepoLinks, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

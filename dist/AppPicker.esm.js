@@ -345,6 +345,7 @@ function AppPicker({
   const provisioning = useProvisioning();
   const now = useNow();
   const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  const inFlight = useMemo(() => provItems.filter((i) => !i.derived.stalled), [provItems]);
   const view = searchParams.get("view") === "provisioning" ? "provisioning" : "services";
   const selectedService = searchParams.get("service") ?? void 0;
   const openProvisioning = (name) => setSearchParams(name ? { view: "provisioning", service: name } : { view: "provisioning" });
@@ -499,7 +500,7 @@ function AppPicker({
           onClick: () => openProvisioning(),
           children: [
             "Provisioning",
-            provItems.length > 0 && /* @__PURE__ */ jsx("span", { className: classes.tabBadge, children: provItems.length })
+            inFlight.length > 0 && /* @__PURE__ */ jsx("span", { className: classes.tabBadge, children: inFlight.length })
           ]
         }
       )
@@ -514,7 +515,7 @@ function AppPicker({
         loading: provisioning.loading
       }
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx(ProvisioningStrip, { items: provItems, onOpen: openProvisioning }),
+      /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),
       /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
         /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: FILTERS.map((f) => /* @__PURE__ */ jsxs(
           "button",

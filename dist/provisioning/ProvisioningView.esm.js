@@ -124,6 +124,13 @@ const useStyles = makeStyles(() => ({
     padding: "2px 7px",
     "&:hover": { borderColor: ({ t }) => t.sky }
   },
+  created: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
+  createdRow: {
+    borderTop: ({ t }) => `1px solid ${t.line}`,
+    "& td": { padding: "5px 8px 5px 0", color: ({ t }) => t.textLo, verticalAlign: "middle" },
+    "& td:first-child": { fontFamily: fontMono, fontSize: 11.5, whiteSpace: "nowrap", color: ({ t }) => t.textFaint }
+  },
+  dot: { display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   linkState: { color: ({ t }) => t.textFaint, marginLeft: 6 },
   tag: {
     fontFamily: fontMono,
@@ -194,6 +201,14 @@ const useStyles = makeStyles(() => ({
     fontSize: 13
   }
 }));
+const createdLabel = (ready) => {
+  if (ready === void 0) return "not tracked";
+  return ready ? "ready" : "waiting";
+};
+const createdColor = (ready, t) => {
+  if (ready === void 0) return t.line;
+  return ready ? t.good : t.sky;
+};
 function StepIcon({ state, t }) {
   if (state === "done") {
     return /* @__PURE__ */ jsxs("svg", { width: "20", height: "20", viewBox: "0 0 20 20", role: "img", "aria-label": "done", children: [
@@ -324,26 +339,33 @@ function ProvisioningView({
   if (items.length === 0) {
     return /* @__PURE__ */ jsx("div", { className: classes.empty, children: loading ? "Reading provisioning status\u2026" : "Nothing is provisioning. A new service appears here as soon as you create it." });
   }
-  const item = items.find((i) => i.inputs.xr.name === selected) ?? items[0];
+  const inFlight = items.filter((i) => !i.derived.stalled);
+  const stalled = items.filter((i) => i.derived.stalled);
+  const item = items.find((i) => i.inputs.xr.name === selected) ?? inFlight[0] ?? items[0];
   const { derived, inputs } = item;
+  const pill = (i) => /* @__PURE__ */ jsxs(
+    "button",
+    {
+      type: "button",
+      "aria-pressed": i === item,
+      className: `${classes.pill} ${i === item ? classes.pillOn : ""}`,
+      onClick: () => onSelect(i.inputs.xr.name),
+      children: [
+        /* @__PURE__ */ jsx("b", { children: i.inputs.xr.name }),
+        /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+          i.derived.percent,
+          "%"
+        ] })
+      ]
+    },
+    i.inputs.xr.name
+  );
   return /* @__PURE__ */ jsxs("div", { className: classes.root, children: [
-    /* @__PURE__ */ jsx("div", { className: classes.pills, children: items.map((i) => /* @__PURE__ */ jsxs(
-      "button",
-      {
-        type: "button",
-        "aria-pressed": i === item,
-        className: `${classes.pill} ${i === item ? classes.pillOn : ""}`,
-        onClick: () => onSelect(i.inputs.xr.name),
-        children: [
-          /* @__PURE__ */ jsx("b", { children: i.inputs.xr.name }),
-          /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
-            i.derived.percent,
-            "%"
-          ] })
-        ]
-      },
-      i.inputs.xr.name
-    )) }),
+    /* @__PURE__ */ jsx("div", { className: classes.pills, children: inFlight.map((i) => pill(i)) }),
+    stalled.length > 0 && /* @__PURE__ */ jsxs("div", { children: [
+      /* @__PURE__ */ jsx("div", { className: classes.head, children: "Stalled \xB7 built hours ago but no rollout on the dev cluster. It either deploys elsewhere or the deploy is stuck" }),
+      /* @__PURE__ */ jsx("div", { className: classes.pills, children: stalled.map((i) => pill(i)) })
+    ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
       /* @__PURE__ */ jsx("div", { className: classes.title, children: inputs.xr.name }),
       /* @__PURE__ */ jsxs("div", { className: classes.crumb, children: [
@@ -387,6 +409,31 @@ function ProvisioningView({
           "Typical (estimate)"
         ] })
       ] })
+    ] }),
+    inputs.created && inputs.created.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
+      /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
+        "What gets created \xB7 ",
+        inputs.created.filter((c) => c.ready).length,
+        " of ",
+        inputs.created.length,
+        " ready"
+      ] }),
+      /* @__PURE__ */ jsx("table", { className: classes.created, children: /* @__PURE__ */ jsx("tbody", { children: inputs.created.map((c) => /* @__PURE__ */ jsxs("tr", { className: classes.createdRow, children: [
+        /* @__PURE__ */ jsx("td", { children: c.kind }),
+        /* @__PURE__ */ jsx("td", { children: c.name }),
+        /* @__PURE__ */ jsxs("td", { children: [
+          /* @__PURE__ */ jsx(
+            "i",
+            {
+              className: classes.dot,
+              style: { backgroundColor: createdColor(c.ready, t) },
+              role: "img",
+              "aria-label": createdLabel(c.ready)
+            }
+          ),
+          createdLabel(c.ready)
+        ] })
+      ] }, `${c.kind}/${c.name}`)) }) })
     ] })
   ] });
 }
