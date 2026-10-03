@@ -23,6 +23,11 @@ import {
 const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = ['nodejsapplications', 'springbootapplications', 'pythonapplications', 'goapplications'];
 const XR_KINDS = ['NodeJSApplication', 'SpringBootApplication', 'PythonApplication', 'GoApplication'];
+// The tenants repo each dev cluster's XR requests are opened against, used to find a request before
+// any XR exists to read it off (an existing XR names it in its source-info annotation, which wins).
+const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
+  'kind-dev': { owner: 'jfillman', repo: 'gitops-cluster-dev-tenants' },
+};
 const POLL_MS = 6000;
 // A service that was created long ago and never finished is a stuck or
 // abandoned XR, not something being provisioned right now.
@@ -229,6 +234,37 @@ export interface UseProvisioningResult {
   error?: string;
 }
 
+interface RawPending {
+  kind: string;
+  name: string;
+  number: number;
+  url: string;
+  state: 'open' | 'merged';
+  createdAt?: string;
+  mergedAt?: string;
+}
+
+/**
+ * Requests that have no XR yet, as provisioning inputs. A request shows from the moment its PR opens,
+ * which is the long stretch (a person merging, then Argo applying) the XR cannot cover. Skips kinds
+ * Tower does not provision, names that already have an XR, and old abandoned PRs.
+ */
+export function toPendingInputs(
+  requests: RawPending[],
+  haveXr: Set<string>,
+  cluster: string,
+  now: number,
+): ProvisioningInputs[] {
+  return requests
+    .filter(r => XR_KINDS.includes(r.kind) && !haveXr.has(r.name))
+    .map(r => ({ r, created: epoch(r.createdAt) ?? now }))
+    .filter(({ created }) => now - created < MAX_AGE_MS)
+    .map(({ r, created }) => ({
+      xr: { kind: r.kind, name: r.name, namespace: '', cluster, createdAt: created, conditions: [], pending: true },
+      links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } },
+    }));
+}
+
 export function useProvisioning(): UseProvisioningResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -294,6 +330,28 @@ export function useProvisioning(): UseProvisioningResult {
         } finally {
           entry.at = Date.now();
           entry.busy = false;
+        }
+      })();
+    };
+
+    // Pending requests come from GitHub through the backend, so they are asked at the GitHub cadence and
+    // the last answer is reused between polls.
+    const pendingCache: { at: number; busy: boolean; list: RawPending[] } = { at: 0, busy: false, list: [] };
+    const refreshPending = (tenants: { owner: string; repo: string } | undefined) => {
+      if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
+      pendingCache.busy = true;
+      (async () => {
+        try {
+          const prBase = await discoveryApi.getBaseUrl('pull-requests');
+          const res = await fetchApi.fetch(
+            `${prBase}/pending-requests?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo })}`,
+          );
+          if (res.ok) pendingCache.list = ((await res.json()) as { requests?: RawPending[] }).requests ?? [];
+        } catch {
+          // An extra: a failed lookup leaves the list as it was.
+        } finally {
+          pendingCache.at = Date.now();
+          pendingCache.busy = false;
         }
       })();
     };
@@ -415,6 +473,11 @@ export function useProvisioning(): UseProvisioningResult {
         }),
       );
       if (cancelled) return;
+      refreshPending(
+        xrs.map(x => parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info'])).find(Boolean) ??
+          TENANTS_REPO_BY_CLUSTER[XR_CLUSTER],
+      );
+      items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map(x => x.metadata.name)), XR_CLUSTER, now));
       const kept = items.filter(i => {
         const p = deriveProvisioning(i, now);
         // Stalled ones stay: the tab lists them apart from the in-flight ones, the strip hides them.

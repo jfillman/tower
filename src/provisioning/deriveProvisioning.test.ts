@@ -357,3 +357,39 @@ describe('catalog step', () => {
     expect(p.complete).toBe(false);
   });
 });
+
+describe('a request with no XR yet', () => {
+  const prCreated = Date.parse('2026-10-03T22:59:00Z');
+  const pendingXr = { ...xr([]), name: 'smoke-ecs', pending: true, createdAt: prCreated };
+  const open = {
+    requestPr: { number: 20, url: 'https://github.com/o/t/pull/20', state: 'open' as const },
+  };
+  const at = prCreated + 90_000;
+  it('shows only the request step running, with everything after it waiting', () => {
+    const p = deriveProvisioning({ xr: pendingXr, links: open }, at);
+    expect(states(p)).toBe('run,pend,pend,pend,pend,pend,pend,pend,pend');
+    expect(p.complete).toBe(false);
+    expect(p.failed).toBe(false);
+  });
+  it('tells the person to merge the request PR, with a link and the time since it was opened', () => {
+    const s = deriveProvisioning({ xr: pendingXr, links: open }, at).steps[REQUEST];
+    expect(s.detail).toMatch(/Merge the request PR/);
+    expect(s.seconds).toBe(90);
+    expect(s.links?.[0]).toMatchObject({ label: 'Request PR #20', state: 'open' });
+  });
+  it('says it is waiting for ArgoCD once the request merged', () => {
+    const merged = { requestPr: { ...open.requestPr, state: 'merged' as const } };
+    expect(deriveProvisioning({ xr: pendingXr, links: merged }, at).steps[REQUEST].detail).toMatch(/ArgoCD/);
+  });
+  it('does not show a cluster or repositories step as running before the XR exists', () => {
+    const p = deriveProvisioning({ xr: pendingXr, links: open }, at);
+    expect(p.steps[CLUSTER].state).toBe('pend');
+    expect(p.steps[REPOS].state).toBe('pend');
+    expect(p.steps[CLUSTER].seconds).toBeUndefined();
+  });
+  it('goes back to the normal sequence once the XR exists', () => {
+    const p = deriveProvisioning({ xr: xr([live[0]]), links: open }, now);
+    expect(p.steps[REQUEST].state).toBe('done');
+    expect(p.steps[CLUSTER].state).toBe('done');
+  });
+});

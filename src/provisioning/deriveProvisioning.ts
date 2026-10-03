@@ -33,6 +33,11 @@ export interface XrSnapshot {
   cluster: string;
   createdAt: number;
   conditions: XrCondition[];
+  /**
+   * No XR exists yet: this is a request PR that is open, or merged and not yet applied by Argo.
+   * `createdAt` is then the PR's own creation time, and the steps after "request" wait.
+   */
+  pending?: boolean;
 }
 
 export interface BuildSnapshot {
@@ -224,26 +229,42 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       ...s,
     });
 
-  // 1. The XR exists, so the request was accepted.
+  // 1. The request. Normally the XR exists, so the request was accepted. Before that, the request
+  // PR is the only thing there is to show: it waits for a person to merge it, then for Argo to apply it.
+  const pending = Boolean(xr.pending);
+  const reqPr = links?.requestPr;
+  let requestState: StepState = 'done';
+  let requestDetail: string | undefined;
+  if (pending) {
+    requestState = 'run';
+    requestDetail =
+      reqPr?.state === 'merged'
+        ? 'Merged. Waiting for ArgoCD to create the resource'
+        : 'Merge the request PR to start provisioning';
+  }
   push({
     id: 'request',
     title: 'Request accepted',
     desc: 'Claim validated against the Airframe schema',
-    state: 'done',
-    seconds: 0,
-    links: prLink('Request PR', links?.requestPr),
+    state: requestState,
+    seconds: pending ? secBetween(created, now) : 0,
+    detail: requestDetail,
+    links: prLink('Request PR', reqPr),
   });
 
-  // 2. Dev cluster resolved.
+  // 2. Dev cluster resolved. Nothing to resolve until the XR exists.
   const clusterDone = clusterC?.status === 'True';
+  let clusterStepState: StepState = clusterDone ? 'done' : 'run';
+  if (pending) clusterStepState = 'pend';
   push({
     id: 'cluster',
     title: 'Dev cluster chosen',
     desc: 'A registered, ready dev cluster is selected for onboarding',
-    state: clusterDone ? 'done' : 'run',
-    seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : secBetween(created, now),
+    state: clusterStepState,
+    seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : undefined,
     detail: !clusterDone && clusterC?.message ? clusterC.message : undefined,
   });
+  if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
 
   // 3. CI/CD onboarded (parallel with repositories).
   const cicdDone = cicdC?.status === 'True';
@@ -270,14 +291,18 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     reposEnd = ts(ready?.lastTransitionTime);
     reposFraction = reposState === 'done' ? 1 : 0;
   }
+  if (pending) reposState = 'pend';
   if (syncFailed && reposState !== 'done') reposState = 'fail';
+  let reposSeconds: number | undefined;
+  if (reposState === 'done') reposSeconds = secBetween(created, reposEnd);
+  else if (reposState !== 'pend') reposSeconds = secBetween(created, now);
   push({
     id: 'repos',
     title: 'Repositories and starter files',
     desc: 'Source and GitOps repos created, starter files committed',
     state: reposState,
     fraction: reposFraction,
-    seconds: reposState === 'done' ? secBetween(created, reposEnd) : secBetween(created, now),
+    seconds: reposSeconds,
     detail: reposState === 'fail' ? synced?.message : undefined,
     parallel: true,
     links: [

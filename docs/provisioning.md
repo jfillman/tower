@@ -37,3 +37,14 @@ The logic lives in `src/provisioning/deriveProvisioning.ts` and is pure, so it i
 - **"What gets created"** lists the XR's `resourceRefs` with readiness for the GitHub repositories/files and the CI/CD child XR, plus the app's SecretStore. Kinds Tower cannot read show as "not tracked".
 - **The scaffolder link comes from the Backstage app, not the template source.** The ingestor hardcodes the generated templates' success output, so a catalog processor (`towerProvisioningLink.ts` in the backstage repo) appends "Track provisioning in Tower" to the four application templates, pointing at the deep link above.
 - **Provisioning reads only the `kind-dev` cluster**, so XRs on kind-prod are not discovered.
+
+## Before the XR exists
+
+An XR appears only after the request PR is merged and Argo applies it, so for that stretch (a person
+merging, then Argo syncing) there is nothing on the cluster to read. Tower asks the backend's
+`GET /pending-requests?owner&repo` for open "Create <Kind> Resource <name>" PRs in the cluster's tenants
+repo, plus ones merged in the last 30 minutes, and lists each as a service whose only running step is
+"Request accepted" ("Merge the request PR to start provisioning", then "Merged. Waiting for ArgoCD to
+create the resource"). Every later step waits. When the XR appears it replaces the pending item under the
+same name. The tenants repo comes from an existing XR's `source-info` annotation, falling back to a
+per-cluster default in `useProvisioning.ts`. This needs the backend route, so Tower and the backend ship together.
