@@ -375,6 +375,8 @@ export function AppPicker({
   const provisioning = useProvisioning();
   const now = useNow();
   const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  // Built hours ago but never rolled out on the dev cluster: not "in flight", so off the strip and the badge.
+  const inFlight = useMemo(() => provItems.filter(i => !i.derived.stalled), [provItems]);
   const view = searchParams.get('view') === 'provisioning' ? 'provisioning' : 'services';
   const selectedService = searchParams.get('service') ?? undefined;
   const openProvisioning = (name?: string) =>
@@ -589,7 +591,7 @@ export function AppPicker({
           onClick={() => openProvisioning()}
         >
           Provisioning
-          {provItems.length > 0 && <span className={classes.tabBadge}>{provItems.length}</span>}
+          {inFlight.length > 0 && <span className={classes.tabBadge}>{inFlight.length}</span>}
         </button>
       </div>
       {view === 'provisioning' ? (
@@ -602,7 +604,7 @@ export function AppPicker({
         />
       ) : (
         <>
-          <ProvisioningStrip items={provItems} onOpen={openProvisioning} />
+          <ProvisioningStrip items={inFlight} onOpen={openProvisioning} />
           <div className={classes.toolbar}>
             <div className={classes.segment} role="group" aria-label="Workload type">
               {FILTERS.map(f => (

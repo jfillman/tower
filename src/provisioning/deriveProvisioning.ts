@@ -87,8 +87,16 @@ export interface ProvisioningLinks {
   infisicalProjectId?: string;
 }
 
+/** One object the XR composes, for the "What gets created" list. `ready` is undefined when Tower cannot read that kind. */
+export interface CreatedResource {
+  kind: string;
+  name: string;
+  ready?: boolean;
+}
+
 export interface ProvisioningInputs {
   xr: XrSnapshot;
+  created?: CreatedResource[];
   build?: BuildSnapshot;
   rollout?: RolloutSnapshot;
   managed?: ManagedSnapshot[];

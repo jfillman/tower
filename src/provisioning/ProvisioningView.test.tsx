@@ -7,6 +7,11 @@ import type { ProvisioningInputs } from './deriveProvisioning';
 // cluster + CI/CD + repos done, both onboarding PRs open, Infisical project created.
 const t = (iso: string) => Date.parse(iso);
 const inputs: ProvisioningInputs = {
+  created: [
+    { kind: 'Repository', name: 'sky-marshall-src', ready: true },
+    { kind: 'RepositoryFile', name: 'sky-marshall-src-index-js', ready: false },
+    { kind: 'Mystery', name: 'x' },
+  ],
   xr: {
     kind: 'NodeJSApplication',
     name: 'sky-marshall',
@@ -64,5 +69,34 @@ describe('ProvisioningView', () => {
       'http://infisical.dev.kiac.local/projects/secret-management/c6a39d3a-8aae-4630-b157-13c6cb4250b3/overview',
     );
     expect(screen.getByText(/Merge the two onboarding PRs to start the first build \(1 of 2 merged\)/)).toBeTruthy();
+  });
+
+  it('lists what gets created with readiness', () => {
+    const items = toItems([inputs], t('2026-10-01T17:55:00Z'));
+    render(<ProvisioningView items={items} onSelect={() => {}} loading={false} />);
+    expect(screen.getByText('What gets created · 1 of 3 ready')).toBeTruthy();
+    expect(screen.getByText('sky-marshall-src-index-js').closest('tr')?.textContent).toContain('waiting');
+    expect(screen.getByText('x').closest('tr')?.textContent).toContain('not tracked');
+  });
+
+  it('lists a stalled service apart from the in-flight ones', () => {
+    const late = t('2026-10-02T05:00:00Z');
+    const built = {
+      ...inputs,
+      xr: { ...inputs.xr, name: 'old-app' },
+      build: {
+        name: 'b1',
+        phase: 'succeeded' as const,
+        startedAt: t('2026-10-01T18:00:00Z'),
+        completedAt: t('2026-10-01T18:03:00Z'),
+        tasksDone: 6,
+        tasksTotal: 6,
+      },
+    };
+    const items = toItems([{ ...inputs, xr: { ...inputs.xr, createdAt: late - 60000 } }, built], late);
+    render(<ProvisioningView items={items} selected="sky-marshall" onSelect={() => {}} loading={false} />);
+    expect(screen.getByText(/^Stalled/)).toBeTruthy();
+    const pills = screen.getAllByRole('button');
+    expect(pills.map(b => b.querySelector('b')?.textContent)).toEqual(['sky-marshall', 'old-app']);
   });
 });

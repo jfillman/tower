@@ -5,6 +5,7 @@ import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
 import {
   deriveProvisioning,
   type BuildSnapshot,
+  type CreatedResource,
   type ManagedSnapshot,
   type PrSnapshot,
   type ProvisioningInputs,
@@ -180,6 +181,24 @@ export function toOnboardingPrs(prs: RawPr[]): NonNullable<ProvisioningLinks['on
   return { source: pick('source'), gitops: pick('gitops') };
 }
 
+/**
+ * Everything the XR composes (its resourceRefs), with readiness where Tower can read
+ * the kind: the GitHub repositories and files, the CI/CD child XR, and the SecretStore
+ * (added on its own, since it is a sibling XR rather than one of this XR's refs).
+ */
+export function toCreated(
+  refs: { kind: string; name: string }[] | undefined,
+  readable: RawManaged[],
+  store?: { name: string; ready: boolean },
+): CreatedResource[] {
+  const readyOf = new Map(
+    readable.map(m => [m.metadata.name, m.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True']),
+  );
+  const out: CreatedResource[] = (refs ?? []).map(r => ({ kind: r.kind, name: r.name, ready: readyOf.get(r.name) }));
+  if (store) out.push({ kind: 'SecretStore', name: store.name, ready: store.ready });
+  return out;
+}
+
 export function toRollout(r: RawRollout): RolloutSnapshot {
   return {
     phase: r.status?.phase,
@@ -307,12 +326,13 @@ export function useProvisioning(): UseProvisioningResult {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds] = await Promise.all([
             optional<ListResponse<RawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
+            optional<ListResponse<RawManaged>>(`${nsBase}/tektoncicds`),
           ]);
           const store = stores?.items?.find(s => s.spec?.appRef?.name === name);
           // The Infisical project id is the Project resource's external name. Needs a read
@@ -344,6 +364,16 @@ export function useProvisioning(): UseProvisioningResult {
             build: first ? toBuild(first) : undefined,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : undefined,
             managed: toManaged(x.spec?.crossplane?.resourceRefs, [...(repos?.items ?? []), ...(files?.items ?? [])]),
+            created: toCreated(
+              x.spec?.crossplane?.resourceRefs,
+              [...(repos?.items ?? []), ...(files?.items ?? []), ...(cicds?.items ?? [])],
+              store
+                ? {
+                    name: store.metadata.name,
+                    ready: store.status?.conditions?.some(c => c.type === 'Ready' && c.status === 'True') ?? false,
+                  }
+                : undefined,
+            ),
             secrets: toSecrets(store, stores !== undefined),
             links: {
               requestPr: gh?.requestPr,
@@ -358,7 +388,7 @@ export function useProvisioning(): UseProvisioningResult {
       if (cancelled) return;
       const kept = items.filter(i => {
         const p = deriveProvisioning(i, now);
-        if (p.stalled) return false;
+        // Stalled ones stay: the tab lists them apart from the in-flight ones, the strip hides them.
         return !p.complete || (p.completedAt !== undefined && now - p.completedAt < KEEP_DONE_MS);
       });
       kept.sort((a, b) => b.xr.createdAt - a.xr.createdAt);

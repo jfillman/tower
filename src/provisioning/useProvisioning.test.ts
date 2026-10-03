@@ -1,4 +1,4 @@
-import { parseTenantsRepo, toManaged, toOnboardingPrs, toRepoLinks, toSecrets } from './useProvisioning';
+import { parseTenantsRepo, toCreated, toManaged, toOnboardingPrs, toRepoLinks, toSecrets } from './useProvisioning';
 
 const mr = (name: string, status: 'True' | 'False' | null, at = '2026-09-30T14:12:35Z') => ({
   metadata: { name },
@@ -127,5 +127,30 @@ describe('toOnboardingPrs', () => {
       source: undefined,
       gitops: undefined,
     });
+  });
+});
+
+describe('toCreated', () => {
+  it('lists every ref with readiness where readable, and appends the SecretStore', () => {
+    const out = toCreated(
+      [
+        { kind: 'TektonCICD', name: 'a-tektoncicd' },
+        { kind: 'Repository', name: 'a-src' },
+        { kind: 'RepositoryFile', name: 'a-readme' },
+        { kind: 'Mystery', name: 'a-other' },
+      ],
+      [mr('a-tektoncicd', 'True'), mr('a-src', 'True'), mr('a-readme', 'False')],
+      { name: 'a-kind-dev', ready: true },
+    );
+    expect(out).toEqual([
+      { kind: 'TektonCICD', name: 'a-tektoncicd', ready: true },
+      { kind: 'Repository', name: 'a-src', ready: true },
+      { kind: 'RepositoryFile', name: 'a-readme', ready: false },
+      { kind: 'Mystery', name: 'a-other', ready: undefined },
+      { kind: 'SecretStore', name: 'a-kind-dev', ready: true },
+    ]);
+  });
+  it('is empty with no refs and no store', () => {
+    expect(toCreated(undefined, [])).toEqual([]);
   });
 });

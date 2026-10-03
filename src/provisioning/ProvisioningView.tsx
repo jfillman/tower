@@ -127,6 +127,13 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '2px 7px',
     '&:hover': { borderColor: ({ t }) => t.sky },
   },
+  created: { width: '100%', borderCollapse: 'collapse', fontSize: 12.5 },
+  createdRow: {
+    borderTop: ({ t }) => `1px solid ${t.line}`,
+    '& td': { padding: '5px 8px 5px 0', color: ({ t }) => t.textLo, verticalAlign: 'middle' },
+    '& td:first-child': { fontFamily: fontMono, fontSize: 11.5, whiteSpace: 'nowrap', color: ({ t }) => t.textFaint },
+  },
+  dot: { display: 'inline-block', width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   linkState: { color: ({ t }) => t.textFaint, marginLeft: 6 },
   tag: {
     fontFamily: fontMono,
@@ -197,6 +204,15 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 13,
   },
 }));
+
+const createdLabel = (ready?: boolean) => {
+  if (ready === undefined) return 'not tracked';
+  return ready ? 'ready' : 'waiting';
+};
+const createdColor = (ready: boolean | undefined, t: HangarTokens) => {
+  if (ready === undefined) return t.line;
+  return ready ? t.good : t.sky;
+};
 
 function StepIcon({ state, t }: { state: ProvisioningStep['state']; t: HangarTokens }) {
   if (state === 'done') {
@@ -353,24 +369,34 @@ export function ProvisioningView({
       </div>
     );
   }
-  const item = items.find(i => i.inputs.xr.name === selected) ?? items[0];
+  const inFlight = items.filter(i => !i.derived.stalled);
+  const stalled = items.filter(i => i.derived.stalled);
+  const item = items.find(i => i.inputs.xr.name === selected) ?? inFlight[0] ?? items[0];
   const { derived, inputs } = item;
+  const pill = (i: ProvisioningItem) => (
+    <button
+      key={i.inputs.xr.name}
+      type="button"
+      aria-pressed={i === item}
+      className={`${classes.pill} ${i === item ? classes.pillOn : ''}`}
+      onClick={() => onSelect(i.inputs.xr.name)}
+    >
+      <b>{i.inputs.xr.name}</b>
+      <span className={classes.mono}>{i.derived.percent}%</span>
+    </button>
+  );
   return (
     <div className={classes.root}>
-      <div className={classes.pills}>
-        {items.map(i => (
-          <button
-            key={i.inputs.xr.name}
-            type="button"
-            aria-pressed={i === item}
-            className={`${classes.pill} ${i === item ? classes.pillOn : ''}`}
-            onClick={() => onSelect(i.inputs.xr.name)}
-          >
-            <b>{i.inputs.xr.name}</b>
-            <span className={classes.mono}>{i.derived.percent}%</span>
-          </button>
-        ))}
-      </div>
+      <div className={classes.pills}>{inFlight.map(i => pill(i))}</div>
+      {stalled.length > 0 && (
+        <div>
+          <div className={classes.head}>
+            Stalled · built hours ago but no rollout on the dev cluster. It either deploys elsewhere or the deploy is
+            stuck
+          </div>
+          <div className={classes.pills}>{stalled.map(i => pill(i))}</div>
+        </div>
+      )}
       <div className={classes.panel}>
         <div className={classes.title}>{inputs.xr.name}</div>
         <div className={classes.crumb}>
@@ -414,6 +440,32 @@ export function ProvisioningView({
           </span>
         </div>
       </div>
+      {inputs.created && inputs.created.length > 0 && (
+        <div className={classes.panel}>
+          <div className={classes.head}>
+            What gets created · {inputs.created.filter(c => c.ready).length} of {inputs.created.length} ready
+          </div>
+          <table className={classes.created}>
+            <tbody>
+              {inputs.created.map(c => (
+                <tr key={`${c.kind}/${c.name}`} className={classes.createdRow}>
+                  <td>{c.kind}</td>
+                  <td>{c.name}</td>
+                  <td>
+                    <i
+                      className={classes.dot}
+                      style={{ backgroundColor: createdColor(c.ready, t) }}
+                      role="img"
+                      aria-label={createdLabel(c.ready)}
+                    />
+                    {createdLabel(c.ready)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
