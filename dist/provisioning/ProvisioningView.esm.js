@@ -113,6 +113,18 @@ const useStyles = makeStyles(() => ({
   nameFail: { color: ({ t }) => t.bad },
   desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
   detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
+  links: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 },
+  link: {
+    fontFamily: fontMono,
+    fontSize: 11.5,
+    color: ({ t }) => t.sky,
+    textDecoration: "none",
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 3,
+    padding: "2px 7px",
+    "&:hover": { borderColor: ({ t }) => t.sky }
+  },
+  linkState: { color: ({ t }) => t.textFaint, marginLeft: 6 },
   tag: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -260,7 +272,11 @@ function Step({
         step.parallel && /* @__PURE__ */ jsx("span", { className: classes.tag, children: "parallel" })
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.desc, children: step.desc }),
-      step.detail && /* @__PURE__ */ jsx("div", { className: classes.detail, children: step.detail })
+      step.detail && /* @__PURE__ */ jsx("div", { className: classes.detail, children: step.detail }),
+      step.links && step.links.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.links, children: step.links.map((l) => /* @__PURE__ */ jsxs("a", { className: classes.link, href: l.url, target: "_blank", rel: "noopener noreferrer", children: [
+        l.label,
+        l.state && /* @__PURE__ */ jsx("span", { className: classes.linkState, children: l.state })
+      ] }, l.url)) })
     ] }),
     /* @__PURE__ */ jsxs(
       "div",

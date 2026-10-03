@@ -4,9 +4,13 @@ const TYPICAL_SEC = {
   cluster: 10,
   cicd: 30,
   repos: 45,
+  // A person merging two PRs, so this is a guess at a prompt human.
+  onboarding: 120,
+  secrets: 25,
   build: 150,
   running: 60
 };
+const DEPLOY_GRACE_MS = 5 * 60 * 1e3;
 const ts = (iso) => iso ? Date.parse(iso) : void 0;
 const secBetween = (a, b) => a !== void 0 && b !== void 0 ? Math.max(0, Math.round((b - a) / 1e3)) : void 0;
 const stateOf = (done, ready) => {
@@ -16,8 +20,14 @@ const stateOf = (done, ready) => {
 function cond(xr, type) {
   return xr.conditions.find((c) => c.type === type);
 }
+const prLink = (label, pr) => pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
+const INFISICAL_HOST_BY_CLUSTER = { "kind-dev": "infisical.dev.kiac.local" };
+const infisicalProjectUrl = (cluster, projectId) => {
+  const host = INFISICAL_HOST_BY_CLUSTER[cluster];
+  return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
+};
 function deriveProvisioning(input, now) {
-  const { xr, build, rollout, managed } = input;
+  const { xr, build, rollout, managed, secrets, links } = input;
   const created = xr.createdAt;
   const synced = cond(xr, "Synced");
   const ready = cond(xr, "Ready");
@@ -35,7 +45,8 @@ function deriveProvisioning(input, now) {
     title: "Request accepted",
     desc: "Claim validated against the Airframe schema",
     state: "done",
-    seconds: 0
+    seconds: 0,
+    links: prLink("Request PR", links?.requestPr)
   });
   const clusterDone = clusterC?.status === "True";
   push({
@@ -77,9 +88,82 @@ function deriveProvisioning(input, now) {
     fraction: reposFraction,
     seconds: reposState === "done" ? secBetween(created, reposEnd) : secBetween(created, now),
     detail: reposState === "fail" ? synced?.message : void 0,
-    parallel: true
+    parallel: true,
+    links: [
+      ...links?.sourceRepoUrl ? [{ label: "Source repo", url: links.sourceRepoUrl }] : [],
+      ...links?.gitopsRepoUrl ? [{ label: "GitOps repo", url: links.gitopsRepoUrl }] : []
+    ]
   });
   const front = steps.slice(2, 4).every((s) => s.state === "done");
+  const builtOrDeployed = Boolean(build) || Boolean(rollout);
+  const ob = links?.onboarding;
+  const obPrs = [ob?.source, ob?.gitops];
+  const merged = obPrs.filter((pr) => pr?.state === "merged");
+  let onboardingState = "pend";
+  let onboardingFraction = 0;
+  let onboardingDetail;
+  let onboardingEnd;
+  if (builtOrDeployed || ob && merged.length === 2) {
+    onboardingState = "done";
+    onboardingFraction = 1;
+    onboardingEnd = merged.length ? Math.max(...merged.map((pr) => pr?.mergedAt ?? 0)) || void 0 : void 0;
+  } else if (front) {
+    onboardingState = "run";
+    if (!ob) {
+      onboardingDetail = "Merge the two onboarding PRs to start the first build";
+    } else {
+      onboardingFraction = merged.length / 2;
+      const missing = obPrs.filter((pr) => !pr).length;
+      if (missing === 2) onboardingDetail = "Waiting for onboarding to open its two PRs";
+      else if (missing === 1) onboardingDetail = "Waiting for onboarding to open the second PR";
+      else onboardingDetail = `Merge the two onboarding PRs to start the first build (${merged.length} of 2 merged)`;
+    }
+  }
+  const onboardingStart = Math.max(
+    ts(clusterC?.lastTransitionTime) ?? 0,
+    ts(cicdC?.lastTransitionTime) ?? 0,
+    reposState === "done" ? reposEnd ?? 0 : 0
+  );
+  let onboardingSeconds;
+  if (onboardingState === "done") onboardingSeconds = secBetween(onboardingStart || void 0, onboardingEnd);
+  else if (onboardingState === "run") onboardingSeconds = secBetween(onboardingStart || void 0, now);
+  push({
+    id: "onboarding",
+    title: "Application onboarding PRs",
+    desc: "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
+    state: onboardingState,
+    fraction: onboardingFraction,
+    seconds: onboardingSeconds,
+    detail: onboardingDetail,
+    links: [...prLink("Source PR", ob?.source), ...prLink("GitOps PR", ob?.gitops)]
+  });
+  let secretsState = "pend";
+  let secretsDetail;
+  if (secrets?.ready) {
+    secretsState = "done";
+  } else if (secrets?.failed) {
+    secretsState = "fail";
+    secretsDetail = secrets.failed;
+  } else if (!secrets?.found && builtOrDeployed) {
+    secretsState = "done";
+  } else if (cicdDone) {
+    secretsState = "run";
+    secretsDetail = secrets?.found ? "Creating the Infisical project and identity" : "Waiting for the SecretStore to be created";
+  }
+  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(xr.cluster, links.infisicalProjectId) : void 0;
+  let secretsSeconds;
+  if (secretsState === "done") secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), secrets?.readyAt);
+  else if (secretsState === "run") secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), now);
+  push({
+    id: "secrets",
+    title: "Infisical secrets resources",
+    desc: "Project, machine identity and the cluster secret store that reads it",
+    state: secretsState,
+    seconds: secretsSeconds,
+    detail: secretsDetail,
+    parallel: true,
+    links: projectUrl ? [{ label: "Infisical project", url: projectUrl }] : []
+  });
   let buildState = "pend";
   let buildFraction = 0;
   let buildSec;
@@ -93,14 +177,14 @@ function deriveProvisioning(input, now) {
     if (buildState === "fail") buildDetail = `${build.name} failed`;
   } else if (rollout) {
     buildState = "done";
-  } else if (front) {
+  } else if (onboardingState === "done") {
     buildState = "run";
     buildDetail = "Waiting for the first pipeline run to start";
   }
   push({
     id: "build",
     title: "First build and checks",
-    desc: "Test, image build, scan, SBOM and signature",
+    desc: "Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges",
     state: buildState,
     fraction: buildState === "done" ? 1 : buildFraction,
     seconds: buildSec,
@@ -109,6 +193,7 @@ function deriveProvisioning(input, now) {
   let runState = "pend";
   let runFraction = 0;
   let runSec;
+  let runDetail;
   if (rollout) {
     const healthy = rollout.phase === "Healthy" && rollout.available >= rollout.desired && rollout.desired > 0;
     if (healthy) runState = "done";
@@ -116,8 +201,12 @@ function deriveProvisioning(input, now) {
     else runState = "run";
     runFraction = rollout.desired > 0 ? Math.min(1, rollout.available / rollout.desired) : 0;
     runSec = healthy ? void 0 : secBetween(build?.completedAt ?? rollout.createdAt, now);
+    if (runState === "fail") runDetail = "The rollout reports Degraded";
   } else if (buildState === "done") {
     runState = "run";
+    if (build?.completedAt !== void 0 && now - build.completedAt > DEPLOY_GRACE_MS) {
+      runDetail = "No rollout yet. The deploy stage needs a platform/envs/dev.yaml in the source repo and a deploy stage for dev in cicd.yaml";
+    }
   }
   push({
     id: "running",
@@ -126,13 +215,17 @@ function deriveProvisioning(input, now) {
     state: runState,
     fraction: runState === "done" ? 1 : runFraction,
     seconds: runSec,
-    detail: runState === "fail" ? "The rollout reports Degraded" : void 0
+    detail: runDetail
   });
   const complete = steps.every((s) => s.state === "done");
   const failed = steps.some((s) => s.state === "fail");
-  const remaining = (s) => s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
+  const byId = Object.fromEntries(steps.map((s) => [s.id, s]));
+  const remaining = (id) => {
+    const s = byId[id];
+    return s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
+  };
   const etaSec = Math.round(
-    remaining(steps[0]) + remaining(steps[1]) + Math.max(remaining(steps[2]), remaining(steps[3])) + remaining(steps[4]) + remaining(steps[5])
+    remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
   );
   const elapsedSec = Math.round((now - created) / 1e3);
   const percent = complete ? 100 : Math.min(99, Math.round(100 * elapsedSec / Math.max(1, elapsedSec + etaSec)));
@@ -142,6 +235,8 @@ function deriveProvisioning(input, now) {
       ts(clusterC?.lastTransitionTime),
       ts(cicdC?.lastTransitionTime),
       reposEnd,
+      onboardingEnd,
+      secrets?.readyAt,
       build?.completedAt,
       rollout?.createdAt
     ].filter((x) => x !== void 0);
@@ -151,5 +246,5 @@ function deriveProvisioning(input, now) {
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning };
+export { STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
 //# sourceMappingURL=deriveProvisioning.esm.js.map

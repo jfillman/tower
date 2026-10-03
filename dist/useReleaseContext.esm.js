@@ -31,7 +31,7 @@ function useReleaseContext() {
     [rawEnvironments]
   );
   const provenanceByImage = useProvenanceMap(images, refreshNonce);
-  const repoRef = useMemo(() => {
+  const provenanceRef = useMemo(() => {
     for (const env of rawEnvironments) {
       const data = env.image ? provenanceByImage[env.image]?.data : void 0;
       const slsa = data?.attestations.find(
@@ -45,8 +45,10 @@ function useReleaseContext() {
   }, [rawEnvironments, provenanceByImage]);
   const projectSlug = entity.metadata.annotations?.["github.com/project-slug"];
   const [slugOwner, slugAppName] = projectSlug ? projectSlug.split("/") : [void 0, void 0];
-  const owner = repoRef?.owner ?? slugOwner;
-  const appName = repoRef?.repo ?? slugAppName;
+  const slugRef = slugOwner && slugAppName ? { owner: slugOwner, repo: slugAppName } : void 0;
+  const repoRef = slugRef ?? provenanceRef;
+  const owner = repoRef?.owner;
+  const appName = repoRef?.repo;
   const pipelineOwnerRepo = useMemo(
     () => owner && appName ? { owner, repo: appName } : void 0,
     [owner, appName]

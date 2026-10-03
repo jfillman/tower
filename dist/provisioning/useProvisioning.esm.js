@@ -6,8 +6,10 @@ import { deriveProvisioning } from './deriveProvisioning.esm.js';
 
 const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = ["nodejsapplications", "springbootapplications", "pythonapplications", "goapplications"];
+const XR_KINDS = ["NodeJSApplication", "SpringBootApplication", "PythonApplication", "GoApplication"];
 const POLL_MS = 6e3;
 const MAX_AGE_MS = 24 * 3600 * 1e3;
+const GITHUB_POLL_MS = 45e3;
 const KEEP_DONE_MS = 15 * 60 * 1e3;
 const epoch = (iso) => iso ? Date.parse(iso) : void 0;
 function toBuild(run) {
@@ -39,6 +41,50 @@ function toManaged(refs, found) {
     return { name, ready: ready?.status === "True", readyAt: epoch(ready?.lastTransitionTime) };
   });
 }
+function parseTenantsRepo(sourceInfo) {
+  if (!sourceInfo) return void 0;
+  try {
+    const gitRepo = JSON.parse(sourceInfo).gitRepo;
+    const params = new URLSearchParams(gitRepo?.split("?")[1] ?? "");
+    const owner = params.get("owner");
+    const repo = params.get("repo");
+    return owner && repo ? { owner, repo } : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function toRepoLinks(name, repos) {
+  const urlOf = (suffix) => repos.find((r) => r.metadata.name === `${name}-${suffix}`)?.status?.atProvider;
+  const src = urlOf("src");
+  const gitops = urlOf("gitops");
+  const fullName = src?.fullName ?? gitops?.fullName;
+  return {
+    owner: fullName?.split("/")[0],
+    sourceRepoUrl: src?.htmlUrl,
+    gitopsRepoUrl: gitops?.htmlUrl
+  };
+}
+function toSecrets(store, missing) {
+  if (!store) return missing ? { found: false, ready: false } : void 0;
+  const cond = (type) => store.status?.conditions?.find((c) => c.type === type);
+  const ready = cond("Ready");
+  const synced = cond("Synced");
+  return {
+    found: true,
+    ready: ready?.status === "True",
+    readyAt: epoch(ready?.lastTransitionTime),
+    failed: synced?.status === "False" ? synced.message ?? synced.reason ?? "sync failed" : void 0
+  };
+}
+function toOnboardingPrs(prs) {
+  const pick = (repo) => {
+    const mine = prs.filter((p) => p.repo === repo && p.title.startsWith("Onboarding:"));
+    const merged = mine.filter((p) => p.state === "merged").sort((a, b) => (a.mergedAt ?? "").localeCompare(b.mergedAt ?? ""))[0];
+    const hit = merged ?? mine.find((p) => p.state === "open");
+    return hit && { number: hit.number, url: hit.url, state: hit.state, mergedAt: epoch(hit.mergedAt) };
+  };
+  return { source: pick("source"), gitops: pick("gitops") };
+}
 function toRollout(r) {
   return {
     phase: r.status?.phase,
@@ -56,6 +102,42 @@ function useProvisioning() {
   });
   useEffect(() => {
     let cancelled = false;
+    const github = /* @__PURE__ */ new Map();
+    const refreshGithub = (x, owner, tenants) => {
+      const name = x.metadata.name;
+      const entry = github.get(name) ?? { at: 0, busy: false, requestTries: 0 };
+      github.set(name, entry);
+      const bothMerged = entry.onboarding?.source?.state === "merged" && entry.onboarding.gitops?.state === "merged";
+      const wantsRequest = !entry.requestPr && entry.requestTries < 3 && Boolean(tenants);
+      if (entry.busy || Date.now() - entry.at < GITHUB_POLL_MS || bothMerged && !wantsRequest) return;
+      entry.busy = true;
+      (async () => {
+        try {
+          const prBase = await discoveryApi.getBaseUrl("pull-requests");
+          const get = async (url) => {
+            try {
+              const res = await fetchApi.fetch(url);
+              return res.ok ? await res.json() : void 0;
+            } catch {
+              return void 0;
+            }
+          };
+          const [request, prs] = await Promise.all([
+            wantsRequest && tenants ? get(
+              `${prBase}/request-pr?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo, kind: x.kind ?? "", name })}`
+            ) : void 0,
+            owner && !bothMerged ? get(`${prBase}/pull-requests?${new URLSearchParams({ owner, appName: name })}`) : void 0
+          ]);
+          if (request) entry.requestTries += 1;
+          if (request?.pr) entry.requestPr = request.pr;
+          if (prs) entry.onboarding = toOnboardingPrs(prs);
+        } catch {
+        } finally {
+          entry.at = Date.now();
+          entry.busy = false;
+        }
+      })();
+    };
     const optional = async (path) => {
       try {
         return await k8sProxyGet(discoveryApi, fetchApi, XR_CLUSTER, path);
@@ -83,7 +165,7 @@ function useProvisioning() {
       const xrs = lists.flatMap(
         (l, i) => l.status === "fulfilled" ? (l.value.items ?? []).map((x) => ({
           ...x,
-          kind: x.kind ?? XR_PLURALS[i]
+          kind: x.kind ?? XR_KINDS[i]
         })) : []
       ).filter((x) => now - Date.parse(x.metadata.creationTimestamp) < MAX_AGE_MS);
       const items = await Promise.all(
@@ -91,12 +173,23 @@ function useProvisioning() {
           const name = x.metadata.name;
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files] = await Promise.all([
+          const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
+          const [runs, rollouts, repos, files, stores] = await Promise.all([
             optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional(`${mrBase}/repositories?${selector}`),
-            optional(`${mrBase}/repositoryfiles?${selector}`)
+            optional(`${mrBase}/repositoryfiles?${selector}`),
+            optional(`${nsBase}/secretstores`)
           ]);
+          const store = stores?.items?.find((s) => s.spec?.appRef?.name === name);
+          const project = store ? await optional(
+            `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}/projects`
+          ) : void 0;
+          const projectId = project?.items?.find((p) => p.metadata.name === store?.metadata.name)?.metadata.annotations?.["crossplane.io/external-name"];
+          const repoLinks = toRepoLinks(name, repos?.items ?? []);
+          const tenants = parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"]);
+          refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
+          const gh = github.get(name);
           const first = [...runs?.items ?? []].sort(
             (a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp)
           )[0];
@@ -111,7 +204,15 @@ function useProvisioning() {
             },
             build: first ? toBuild(first) : void 0,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0,
-            managed: toManaged(x.spec?.crossplane?.resourceRefs, [...repos?.items ?? [], ...files?.items ?? []])
+            managed: toManaged(x.spec?.crossplane?.resourceRefs, [...repos?.items ?? [], ...files?.items ?? []]),
+            secrets: toSecrets(store, stores !== void 0),
+            links: {
+              requestPr: gh?.requestPr,
+              sourceRepoUrl: repoLinks.sourceRepoUrl,
+              gitopsRepoUrl: repoLinks.gitopsRepoUrl,
+              onboarding: gh?.onboarding,
+              infisicalProjectId: projectId
+            }
           };
         })
       );
@@ -134,5 +235,5 @@ function useProvisioning() {
   return state;
 }
 
-export { toBuild, toManaged, toRollout, useProvisioning };
+export { parseTenantsRepo, toBuild, toManaged, toOnboardingPrs, toRepoLinks, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map
