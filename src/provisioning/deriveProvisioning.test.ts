@@ -43,8 +43,8 @@ const xr = (conditions: XrCondition[]): ProvisioningInputs['xr'] => ({
   conditions,
 });
 const now = Date.parse('2026-10-01T02:00:00Z');
-// Steps, in order: request, cluster, cicd, repos, onboarding, secrets, build, running.
-const [REQUEST, CLUSTER, CICD, REPOS, ONBOARDING, SECRETS, BUILD, RUNNING] = [0, 1, 2, 3, 4, 5, 6, 7];
+// Steps, in order: request, cluster, cicd, repos, catalog, onboarding, secrets, build, running.
+const [REQUEST, CLUSTER, CICD, REPOS, CATALOG, ONBOARDING, SECRETS, BUILD, RUNNING] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 const secretsReady = { found: true, ready: true, readyAt: Date.parse('2026-09-30T15:03:00Z') };
 // Both onboarding PRs merged, as on sky-marshall (jfillman/sky-marshall#1, gitops-sky-marshall#1).
 const mergedLinks: ProvisioningLinks = {
@@ -68,14 +68,14 @@ const states = (p: ReturnType<typeof deriveProvisioning>) => p.steps.map(s => s.
 describe('deriveProvisioning', () => {
   it('a brand new XR with no conditions is only accepted', () => {
     const p = deriveProvisioning({ xr: xr([]) }, created + 5000);
-    expect(states(p)).toBe('done,run,pend,run,pend,pend,pend,pend');
+    expect(states(p)).toBe('done,run,pend,run,pend,pend,pend,pend,pend');
     expect(p.complete).toBe(false);
     expect(p.percent).toBeLessThan(10);
   });
 
   it('marks cluster and CI/CD onboarding done from their conditions, with durations', () => {
     const p = deriveProvisioning({ xr: xr(live.slice(0, 2).concat({ type: 'Ready', status: 'False' })) }, now);
-    expect(states(p)).toBe('done,done,done,run,pend,run,pend,pend');
+    expect(states(p)).toBe('done,done,done,run,pend,pend,run,pend,pend');
     expect(p.steps[CLUSTER].state).toBe('done');
     expect(p.steps[CICD].seconds).toBe(26);
   });
@@ -323,5 +323,37 @@ describe('deriveProvisioning', () => {
     ).toBe(false);
     // a failed build is not stalled, it needs attention
     expect(deriveProvisioning({ xr: old, build: { ...build, phase: 'failed' } }, now).stalled).toBe(false);
+  });
+});
+
+describe('catalog step', () => {
+  const base = (over: Partial<ProvisioningInputs>) =>
+    deriveProvisioning({ xr: xr([live[0]]), ...over }, created + 30_000).steps[CATALOG];
+  it('waits for the ingestor once the XR exists and the catalog has no Component yet', () => {
+    const s = base({ catalog: { found: false } });
+    expect(s.id).toBe('catalog');
+    expect(s.state).toBe('run');
+    expect(s.detail).toMatch(/ingestor/);
+    expect(s.seconds).toBe(30);
+  });
+  it('is done once the Component is in the catalog', () => {
+    expect(base({ catalog: { found: true } }).state).toBe('done');
+  });
+  it('stays pending while the lookup has not answered', () => {
+    expect(base({}).state).toBe('pend');
+  });
+  it('does not hold the provision open on an unanswered lookup once a build has run', () => {
+    const build = {
+      name: 'ci-0-build-x',
+      phase: 'succeeded' as const,
+      tasksDone: 3,
+      tasksTotal: 3,
+      completedAt: created + 20_000,
+    };
+    expect(base({ build }).state).toBe('done');
+  });
+  it('is in the ETA, so a service missing from the catalog is not reported as nearly done', () => {
+    const p = deriveProvisioning({ xr: xr(live), secrets: secretsReady, catalog: { found: false } }, now);
+    expect(p.complete).toBe(false);
   });
 });

@@ -1,4 +1,12 @@
-import { parseTenantsRepo, toCreated, toManaged, toOnboardingPrs, toRepoLinks, toSecrets } from './useProvisioning';
+import {
+  parseTenantsRepo,
+  pickFirstBuild,
+  toCreated,
+  toManaged,
+  toOnboardingPrs,
+  toRepoLinks,
+  toSecrets,
+} from './useProvisioning';
 
 const mr = (name: string, status: 'True' | 'False' | null, at = '2026-09-30T14:12:35Z') => ({
   metadata: { name },
@@ -152,5 +160,31 @@ describe('toCreated', () => {
   });
   it('is empty with no refs and no store', () => {
     expect(toCreated(undefined, [])).toEqual([]);
+  });
+});
+
+describe('pickFirstBuild', () => {
+  const run = (name: string, pipeline: string, at: string) => ({
+    metadata: { name, creationTimestamp: at, labels: { 'tekton.dev/pipeline': pipeline } },
+  });
+  // The three runs smoke-ecs had, with their real pipeline labels and times.
+  const smokeEcs = [
+    run('onboarding-resync-bootstrap-tkqp8', 'onboarding-resync', '2026-10-03T23:03:47Z'),
+    run('values-49l5g', 'values-check', '2026-10-03T23:04:27Z'),
+    run('ci-0-build-7wp2b', 'build', '2026-10-03T23:05:35Z'),
+  ];
+  it('skips Glidepath onboarding and values-check runs, which finish before any build', () => {
+    expect(pickFirstBuild(smokeEcs)?.metadata.name).toBe('ci-0-build-7wp2b');
+  });
+  it('is undefined while only those runs exist, so the build step stays pending', () => {
+    expect(pickFirstBuild(smokeEcs.slice(0, 2))).toBeUndefined();
+  });
+  it('picks the earliest build when several exist', () => {
+    const more = [...smokeEcs, run('ci-0-build-later', 'build', '2026-10-03T23:30:00Z')];
+    expect(pickFirstBuild(more)?.metadata.name).toBe('ci-0-build-7wp2b');
+  });
+  it('tolerates a missing list and runs with no labels', () => {
+    expect(pickFirstBuild(undefined)).toBeUndefined();
+    expect(pickFirstBuild([{ metadata: { name: 'x', creationTimestamp: '2026-10-03T23:00:00Z' } }])).toBeUndefined();
   });
 });

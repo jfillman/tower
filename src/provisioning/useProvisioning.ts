@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy';
 import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
 import {
@@ -13,6 +14,7 @@ import {
   type RolloutSnapshot,
   type SecretsSnapshot,
   type XrCondition,
+  type CatalogSnapshot,
 } from './deriveProvisioning';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
@@ -47,7 +49,7 @@ interface RawManaged {
   status?: { conditions?: XrCondition[]; atProvider?: { htmlUrl?: string; fullName?: string } };
 }
 interface RawPipelineRun {
-  metadata: { name: string; creationTimestamp: string };
+  metadata: { name: string; creationTimestamp: string; labels?: Record<string, string> };
   status?: {
     conditions?: { type: string; status: string; reason?: string }[];
     startTime?: string;
@@ -60,6 +62,18 @@ interface RawRollout {
   metadata: { creationTimestamp: string };
   spec?: { replicas?: number };
   status?: { phase?: string; availableReplicas?: number };
+}
+
+// The app's own build pipeline, as Pipelines-as-Code runs it on a push. The namespace also holds
+// Glidepath's own runs (the onboarding-resync that delivers the .tekton files, the values check on
+// GitOps PRs), which finish before any build exists. Counting one of those as "the first build"
+// marked the step done and, through it, the onboarding step too, while the real build had not started.
+export const BUILD_PIPELINE = 'build';
+
+export function pickFirstBuild<T extends RawPipelineRun>(runs: T[] | undefined): T | undefined {
+  return [...(runs ?? [])]
+    .filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === BUILD_PIPELINE)
+    .sort((a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp))[0];
 }
 
 const epoch = (iso?: string) => (iso ? Date.parse(iso) : undefined);
@@ -218,6 +232,7 @@ export interface UseProvisioningResult {
 export function useProvisioning(): UseProvisioningResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const catalogApi = useApi(catalogApiRef);
   const [state, setState] = useState<UseProvisioningResult>({
     items: [],
     loading: true,
@@ -292,6 +307,20 @@ export function useProvisioning(): UseProvisioningResult {
       }
     };
 
+    // Whether the catalog has a Component for this service yet. Undefined when the lookup fails, so
+    // the step waits rather than guessing.
+    const inCatalog = async (name: string): Promise<CatalogSnapshot | undefined> => {
+      try {
+        const res = await catalogApi.getEntities({
+          filter: { kind: 'Component', 'metadata.name': name },
+          fields: ['metadata.name'],
+        });
+        return { found: res.items.length > 0 };
+      } catch {
+        return undefined;
+      }
+    };
+
     const load = async () => {
       const lists = await Promise.allSettled(
         XR_PLURALS.map(p =>
@@ -326,13 +355,14 @@ export function useProvisioning(): UseProvisioningResult {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
             optional<ListResponse<RawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
             optional<ListResponse<RawManaged>>(`${nsBase}/tektoncicds`),
+            inCatalog(name),
           ]);
           const store = stores?.items?.find(s => s.spec?.appRef?.name === name);
           // The Infisical project id is the Project resource's external name. Needs a read
@@ -349,9 +379,7 @@ export function useProvisioning(): UseProvisioningResult {
           const tenants = parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info']);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
-          const first = [...(runs?.items ?? [])].sort((a, b) =>
-            a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp),
-          )[0];
+          const first = pickFirstBuild(runs?.items);
           return {
             xr: {
               kind: x.kind ?? '',
@@ -375,6 +403,7 @@ export function useProvisioning(): UseProvisioningResult {
                 : undefined,
             ),
             secrets: toSecrets(store, stores !== undefined),
+            catalog,
             links: {
               requestPr: gh?.requestPr,
               sourceRepoUrl: repoLinks.sourceRepoUrl,
@@ -401,7 +430,7 @@ export function useProvisioning(): UseProvisioningResult {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi]);
+  }, [discoveryApi, fetchApi, catalogApi]);
 
   return state;
 }

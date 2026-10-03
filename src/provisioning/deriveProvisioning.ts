@@ -73,6 +73,11 @@ export interface SecretsSnapshot {
   failed?: string;
 }
 
+export interface CatalogSnapshot {
+  /** A Component named after the service exists in the Backstage catalog. */
+  found: boolean;
+}
+
 export interface ProvisioningLinks {
   /** The PR that requested the service (against the cluster's tenants repo). */
   requestPr?: PrSnapshot;
@@ -101,6 +106,8 @@ export interface ProvisioningInputs {
   rollout?: RolloutSnapshot;
   managed?: ManagedSnapshot[];
   secrets?: SecretsSnapshot;
+  /** Undefined until the catalog lookup has answered (or when it could not). */
+  catalog?: CatalogSnapshot;
   links?: ProvisioningLinks;
 }
 
@@ -157,6 +164,8 @@ export const TYPICAL_SEC: Record<string, number> = {
   cluster: 10,
   cicd: 30,
   repos: 45,
+  // The ingestor picks the new XR up on its next sync, so this is a guess at one cycle.
+  catalog: 60,
   // A person merging two PRs, so this is a guess at a prompt human.
   onboarding: 120,
   secrets: 25,
@@ -195,7 +204,7 @@ export const infisicalProjectUrl = (cluster: string, projectId: string): string 
 };
 
 export function deriveProvisioning(input: ProvisioningInputs, now: number): Provisioning {
-  const { xr, build, rollout, managed, secrets, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, links } = input;
   const created = xr.createdAt;
   const synced = cond(xr, 'Synced');
   const ready = cond(xr, 'Ready');
@@ -278,9 +287,29 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   });
 
   const front = steps.slice(2, 4).every(s => s.state === 'done');
-  // A pipeline run or a rollout cannot exist before the source repo's onboarding
-  // PR merged (the .tekton files arrive with it), so either is proof of the step.
+  // The app's own build run (not Glidepath's onboarding runs, see pickFirstBuild) or a rollout
+  // cannot exist before the source repo's onboarding PR merged (the .tekton files arrive with
+  // it), so either is proof of the step.
   const builtOrDeployed = Boolean(build) || Boolean(rollout);
+
+  // 4b. Visible in the Backstage catalog. The catalog ingestor turns the XR into a Component on
+  // its next sync; until then Tower's other tabs have no entity to open. Runs alongside the
+  // steps above, since it only needs the XR.
+  let catalogState: StepState = 'pend';
+  if (catalog?.found) catalogState = 'done';
+  else if (catalog) catalogState = 'run';
+  // The lookup never answered (no catalog access) and a build already ran: do not hold the
+  // whole provision open on something Tower cannot see.
+  else if (builtOrDeployed) catalogState = 'done';
+  push({
+    id: 'catalog',
+    title: 'Available in the Backstage catalog',
+    desc: 'The catalog ingestor has picked the service up, so it can be opened in Tower',
+    state: catalogState,
+    seconds: catalogState === 'run' ? secBetween(created, now) : undefined,
+    detail: catalogState === 'run' ? "Waiting for the catalog ingestor's next sync" : undefined,
+    parallel: true,
+  });
 
   // 5. Application onboarding PRs: one against the source repo, one against the
   // GitOps repo. Nothing builds until the source one is merged; Glidepath opens
@@ -435,7 +464,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   const etaSec = Math.round(
     remaining('request') +
       remaining('cluster') +
-      Math.max(remaining('cicd'), remaining('repos')) +
+      Math.max(remaining('cicd'), remaining('repos'), remaining('catalog')) +
       Math.max(remaining('onboarding'), remaining('secrets')) +
       remaining('build') +
       remaining('running'),
