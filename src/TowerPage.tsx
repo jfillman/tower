@@ -11,7 +11,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { HangarMark } from './brand/HangarMark';
 import { AppPicker } from './AppPicker';
 import { AutopilotPlaceholder } from './AutopilotPlaceholder';
-import { workloadTypeOf } from './workloadType';
+import { CAP, hasCapabilities, type Capability } from './serviceClass';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
@@ -55,22 +55,35 @@ import { isRolloutActive } from './types';
 // Glidepath name/logo lives on this tab instead. Config itself relabeled to
 // "App Configuration" the same day, once "Config" became ambiguous between
 // the two.
-const TABS = [
+//
+// 2026-10-03: a tab shows only when the service has every capability it
+// `requires` (serviceClass.ts). A tab with no `requires` always shows, so any
+// service Tower lists gets at least Overview. Tabs the cloud targets cannot use
+// (Deployments and Topology read Argo Rollouts, App Configuration edits Helm values)
+// require k8s-runtime/values-config, which an ECS or Lambda service is not granted.
+interface TabDef {
+  id: string;
+  label: string;
+  Component: () => JSX.Element | null;
+  requires?: readonly Capability[];
+}
+
+const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
-  { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab },
-  { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab },
-  { id: 'deployments', label: 'Deployments', Component: DeploymentsTab },
-  { id: 'releases', label: 'Releases', Component: ReleasesTab },
-  { id: 'topology', label: 'Topology', Component: TopologyTab },
-  { id: 'images', label: 'Images', Component: ImagesTab },
-  { id: 'slos', label: 'SLOs', Component: SlosTab },
-  { id: 'notifications', label: 'Notifications', Component: NotificationsTab },
-  { id: 'config', label: 'App Configuration', Component: ConfigTab },
-  { id: 'glidepath', label: 'Glidepath', Component: GlidepathTab },
-] as const;
+  { id: 'autopilot', label: 'Autopilot', Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
+  { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab, requires: [CAP.source] },
+  { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci] },
+  { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
+  { id: 'releases', label: 'Releases', Component: ReleasesTab, requires: [CAP.releases] },
+  { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
+  { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
+  { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
+  { id: 'notifications', label: 'Notifications', Component: NotificationsTab, requires: [CAP.source] },
+  { id: 'config', label: 'App Configuration', Component: ConfigTab, requires: [CAP.valuesConfig] },
+  { id: 'glidepath', label: 'Glidepath', Component: GlidepathTab, requires: [CAP.ci] },
+];
 
-type TabId = (typeof TABS)[number]['id'];
-
+type TabId = string;
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // minHeight: 100vh, not 100% - a percentage height only resolves once
@@ -239,8 +252,6 @@ export function TowerPage() {
         <Typography>Service not found.</Typography>
       </div>
     );
-  } else if (workloadTypeOf(entity) === 'ai') {
-    body = <AutopilotPlaceholder entity={entity} onBack={clearApp} />;
   } else {
     body = (
       <TowerAppShell
@@ -334,14 +345,15 @@ function TowerAppShellInner({
   const { environments } = useTowerEnvironments();
   const cdActive = environments.some(isRolloutActive);
 
-  const activeTab = TABS.find(tabDef => tabDef.id === tabParam) ?? TABS[0];
+  const tabs = TABS.filter(tabDef => hasCapabilities(entity, tabDef.requires));
+  const activeTab = tabs.find(tabDef => tabDef.id === tabParam) ?? tabs[0];
   const { Component } = activeTab;
   return (
     <>
       <div className={classes.header}>
         <div>
           <button className={classes.backLink} onClick={clearApp} type="button">
-            ← All applications
+            ← All services
           </button>
           <div className={classes.titleRow}>
             <HangarMark glyph="tower" size={22} />
@@ -350,11 +362,11 @@ function TowerAppShellInner({
         </div>
       </div>
       <div className={classes.tabbar}>
-        {TABS.map(tabDef => (
+        {tabs.map(tabDef => (
           <button
             key={tabDef.id}
             type="button"
-            className={`${classes.tab} ${tabParam === tabDef.id ? classes.tabActive : ''}`}
+            className={`${classes.tab} ${activeTab.id === tabDef.id ? classes.tabActive : ''}`}
             onClick={() => selectTab(tabDef.id)}
           >
             {tabDef.label}
@@ -375,7 +387,7 @@ function TowerAppShellInner({
         ))}
       </div>
       <div className={classes.body}>
-        <ErrorBoundary key={`${entityRef}:${tabParam}`}>
+        <ErrorBoundary key={`${entityRef}:${activeTab.id}`}>
           <Component />
         </ErrorBoundary>
       </div>

@@ -147,3 +147,47 @@ describe('AppPicker home', () => {
     expect(screen.queryByText('baggage-api')).toBeNull();
   });
 });
+
+describe('AppPicker with classes Tower has never heard of', () => {
+  const extra = [
+    { name: 'resize-fn', ann: { 'hangar.io/service-class': 'function', 'hangar.io/deploy-target': 'aws-lambda' } },
+    { name: 'lake-raw', ann: { 'hangar.io/service-class': 'data-lake', 'hangar.io/deploy-target': 'aws-s3' } },
+    { name: 'checkout-ecs', ann: { 'hangar.io/service-class': 'container-app', 'hangar.io/deploy-target': 'aws-ecs' } },
+  ].map(e => ({
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: { name: e.name, namespace: 'default', annotations: e.ann },
+    spec: { type: 'service', owner: 'team-a' },
+  }));
+
+  beforeAll(() => {
+    entities.push(...(extra as any[]));
+  });
+  afterAll(() => {
+    entities.splice(entities.length - extra.length, extra.length);
+  });
+  beforeEach(() => localStorage.clear());
+
+  it('builds a chip per class from the data and filters by where services run', async () => {
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
+    await screen.findByText('resize-fn');
+    expect(screen.getByRole('button', { name: /^Functions\s*1$/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Data lakes\s*1$/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Container apps\s*3$/ })).toBeTruthy();
+
+    // Second filter appears because services run on more than one provider.
+    fireEvent.click(screen.getByRole('button', { name: /^AWS\s*3$/ }));
+    expect(screen.queryByText('baggage-api')).toBeNull();
+    expect(screen.getByText('resize-fn')).toBeTruthy();
+    expect(screen.getByText('checkout-ecs')).toBeTruthy();
+
+    // The two filters combine.
+    fireEvent.click(screen.getByRole('button', { name: /^Container apps/ }));
+    expect(screen.queryByText('resize-fn')).toBeNull();
+    expect(screen.getByText('checkout-ecs')).toBeTruthy();
+  });
+});
