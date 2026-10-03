@@ -13,7 +13,7 @@ import type { Entity } from '@backstage/catalog-model';
 //                             ai-workload, storage, secret-store, data-lake, ...
 //                             Any slug. Free-form on purpose.
 //   hangar.io/deploy-target   WHERE it runs: k8s-rollout, aws-ecs, aws-lambda,
-//                             azure-container-apps, azure-functions, ... Optional.
+//                             azure-container-apps, ... Optional.
 //                             Mirrors cicd.yaml's deploy.target, written once at
 //                             onboarding by the same XRD parameter. cicd.yaml stays
 //                             the source of truth; the Glidepath tab shows it.
@@ -79,7 +79,6 @@ export const DEPLOY_TARGETS: Record<string, DeployTargetDef> = {
     provider: 'Azure',
     ...CLOUD_TARGET,
   },
-  'azure-functions': { id: 'azure-functions', label: 'Azure Functions', provider: 'Azure', ...CLOUD_TARGET },
 };
 
 export const SERVICE_CLASSES: Record<string, ServiceClassDef> = {
@@ -104,14 +103,26 @@ export const SERVICE_CLASSES: Record<string, ServiceClassDef> = {
   },
 };
 
-// Entities with these kind tags were Tower services before service-class existed.
-// The class is inferred, so no catalog change is needed for them.
-const LEGACY_KIND_CLASS: Record<string, string> = {
-  'kind:nodejsapplication': 'container-app',
-  'kind:springbootapplication': 'container-app',
-  'kind:pythonapplication': 'container-app',
-  'kind:goapplication': 'container-app',
-  'kind:infraservice': 'container-app',
+// Entities with these kind tags are classified without any catalog annotation: the original
+// application kinds, which predate service-class, and the function XRDs, so those work before
+// anyone has taught the catalog ingestor to emit the annotations. An explicit annotation
+// always wins over this table.
+const KIND_DEFAULTS: Record<string, { cls: string; target?: string }> = {
+  'kind:nodejsapplication': { cls: 'container-app' },
+  'kind:springbootapplication': { cls: 'container-app' },
+  'kind:pythonapplication': { cls: 'container-app' },
+  'kind:goapplication': { cls: 'container-app' },
+  'kind:infraservice': { cls: 'container-app' },
+  'kind:lambdafunction': { cls: 'function', target: 'aws-lambda' },
+  // Azure Functions are hosted on Container Apps, so that is the deploy target.
+  'kind:azurefunction': { cls: 'function', target: 'azure-container-apps' },
+};
+
+const kindDefaultsOf = (entity: Entity) => {
+  for (const tag of entity.metadata.tags ?? []) {
+    if (KIND_DEFAULTS[tag]) return KIND_DEFAULTS[tag];
+  }
+  return undefined;
 };
 
 const titleCase = (slug: string) => {
@@ -132,10 +143,7 @@ function classIdOf(entity: Entity): string | undefined {
   if (entity.metadata.annotations?.[WORKLOAD_TYPE_ANNOTATION] === 'ai' || entity.spec?.type === 'ai-agent') {
     return 'ai-workload';
   }
-  for (const tag of entity.metadata.tags ?? []) {
-    if (LEGACY_KIND_CLASS[tag]) return LEGACY_KIND_CLASS[tag];
-  }
-  return undefined;
+  return kindDefaultsOf(entity)?.cls;
 }
 
 // Tower's Services list is an allow-list: a Component has to declare a class (or
@@ -156,7 +164,10 @@ export function serviceClassOf(entity: Entity): ServiceClassDef {
 
 export function deployTargetOf(entity: Entity): DeployTargetDef | undefined {
   const cls = serviceClassOf(entity);
-  const id = entity.metadata.annotations?.[DEPLOY_TARGET_ANNOTATION]?.trim() || cls.defaultDeployTarget;
+  const id =
+    entity.metadata.annotations?.[DEPLOY_TARGET_ANNOTATION]?.trim() ||
+    kindDefaultsOf(entity)?.target ||
+    cls.defaultDeployTarget;
   if (!id) return undefined;
   return (
     DEPLOY_TARGETS[id] ?? {

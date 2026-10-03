@@ -68,6 +68,27 @@ describe('serviceClassOf', () => {
   });
 });
 
+describe('function XRD kinds', () => {
+  it('classifies the Lambda and Azure function kinds and their targets with no annotation', () => {
+    const l = entity({}, undefined, kind('lambdafunction'));
+    expect(isTowerService(l)).toBe(true);
+    expect(serviceClassOf(l).id).toBe('function');
+    expect(deployTargetOf(l)?.id).toBe('aws-lambda');
+    const a = entity({}, undefined, kind('azurefunction'));
+    expect(serviceClassOf(a).id).toBe('function');
+    expect(deployTargetOf(a)).toMatchObject({ id: 'azure-container-apps', provider: 'Azure' });
+  });
+  it('lets an explicit annotation override the kind default', () => {
+    const e = entity({}, { 'hangar.io/deploy-target': 'aws-ecs' }, kind('lambdafunction'));
+    expect(deployTargetOf(e)?.id).toBe('aws-ecs');
+  });
+  it('gives a function no cluster tabs and keeps its pipeline and release tabs', () => {
+    const caps = capabilitiesOf(entity({}, undefined, kind('lambdafunction')));
+    expect(caps.has(CAP.k8sRuntime)).toBe(false);
+    expect(caps.has(CAP.ci) && caps.has(CAP.releases)).toBe(true);
+  });
+});
+
 describe('deployTargetOf', () => {
   it('defaults a container app to Kubernetes, so existing services are unchanged', () => {
     expect(deployTargetOf(entity({}, undefined, kind('nodejsapplication')))?.id).toBe('k8s-rollout');

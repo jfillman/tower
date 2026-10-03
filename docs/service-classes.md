@@ -6,14 +6,17 @@ with two annotations on its catalog Component, and Tower works out the rest.
 | Annotation | Meaning | Example values |
 |---|---|---|
 | `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `ai-workload`, `storage`, `secret-store`, `data-lake` |
-| `hangar.io/deploy-target` | where it runs. Optional. | `k8s-rollout`, `aws-ecs`, `aws-lambda`, `azure-container-apps`, `azure-functions` |
+| `hangar.io/deploy-target` | where it runs. Optional. | `k8s-rollout`, `aws-ecs`, `aws-lambda`, `azure-container-apps` |
 
 `deploy-target` mirrors `deploy.target` in the service's `cicd.yaml`. The XRD writes both
 from one parameter at onboarding. `cicd.yaml` stays the source of truth; Tower reads the
 annotation because the tab bar needs it before any file is fetched.
 
 Services that predate these annotations keep working. The four application kinds and
-InfraService are inferred as `container-app` on `k8s-rollout`. The older
+InfraService are inferred as `container-app` on `k8s-rollout`. `LambdaFunction` and
+`AzureFunction` are inferred as `function` on `aws-lambda` and `azure-container-apps`
+(Azure Functions are hosted on Container Apps), so they work before the catalog ingestor
+emits the annotations. An explicit annotation always wins. The older
 `hangar.io/workload-type: ai` and `spec.type: ai-agent` markers are inferred as
 `ai-workload`.
 
