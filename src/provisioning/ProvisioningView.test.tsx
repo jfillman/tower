@@ -39,7 +39,7 @@ const inputs: ProvisioningInputs = {
 };
 
 describe('ProvisioningView', () => {
-  it('lists the eight steps in order with their links', () => {
+  it('lists the nine steps in order with their links', () => {
     const items = toItems([inputs], t('2026-10-01T17:55:00Z'));
     render(<ProvisioningView items={items} onSelect={() => {}} loading={false} />);
 
@@ -51,6 +51,7 @@ describe('ProvisioningView', () => {
       'Dev cluster chosen',
       'CI/CD onboarded',
       'Repositories and starter files',
+      'Available in the Backstage catalog',
       'Application onboarding PRs',
       'Infisical secrets resources',
       'First build and checks',

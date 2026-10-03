@@ -1,4 +1,13 @@
-import { parseTenantsRepo, toCreated, toManaged, toOnboardingPrs, toRepoLinks, toSecrets } from './useProvisioning';
+import {
+  parseTenantsRepo,
+  pickFirstBuild,
+  toCreated,
+  toManaged,
+  toOnboardingPrs,
+  toPendingInputs,
+  toRepoLinks,
+  toSecrets,
+} from './useProvisioning';
 
 const mr = (name: string, status: 'True' | 'False' | null, at = '2026-09-30T14:12:35Z') => ({
   metadata: { name },
@@ -152,5 +161,66 @@ describe('toCreated', () => {
   });
   it('is empty with no refs and no store', () => {
     expect(toCreated(undefined, [])).toEqual([]);
+  });
+});
+
+describe('pickFirstBuild', () => {
+  const run = (name: string, pipeline: string, at: string) => ({
+    metadata: { name, creationTimestamp: at, labels: { 'tekton.dev/pipeline': pipeline } },
+  });
+  // The three runs smoke-ecs had, with their real pipeline labels and times.
+  const smokeEcs = [
+    run('onboarding-resync-bootstrap-tkqp8', 'onboarding-resync', '2026-10-03T23:03:47Z'),
+    run('values-49l5g', 'values-check', '2026-10-03T23:04:27Z'),
+    run('ci-0-build-7wp2b', 'build', '2026-10-03T23:05:35Z'),
+  ];
+  it('skips Glidepath onboarding and values-check runs, which finish before any build', () => {
+    expect(pickFirstBuild(smokeEcs)?.metadata.name).toBe('ci-0-build-7wp2b');
+  });
+  it('is undefined while only those runs exist, so the build step stays pending', () => {
+    expect(pickFirstBuild(smokeEcs.slice(0, 2))).toBeUndefined();
+  });
+  it('picks the earliest build when several exist', () => {
+    const more = [...smokeEcs, run('ci-0-build-later', 'build', '2026-10-03T23:30:00Z')];
+    expect(pickFirstBuild(more)?.metadata.name).toBe('ci-0-build-7wp2b');
+  });
+  it('tolerates a missing list and runs with no labels', () => {
+    expect(pickFirstBuild(undefined)).toBeUndefined();
+    expect(pickFirstBuild([{ metadata: { name: 'x', creationTimestamp: '2026-10-03T23:00:00Z' } }])).toBeUndefined();
+  });
+});
+
+describe('toPendingInputs', () => {
+  const now = Date.parse('2026-10-03T23:30:00Z');
+  const req = (over: Record<string, unknown> = {}) => ({
+    kind: 'GoApplication',
+    name: 'smoke-ecs',
+    number: 20,
+    url: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/20',
+    state: 'open' as const,
+    createdAt: '2026-10-03T22:59:00Z',
+    ...over,
+  });
+  it('turns an open request into a pending provisioning input timed from the PR', () => {
+    const [i] = toPendingInputs([req()], new Set(), 'kind-dev', now);
+    expect(i.xr).toMatchObject({ name: 'smoke-ecs', kind: 'GoApplication', pending: true, conditions: [] });
+    expect(i.xr.createdAt).toBe(Date.parse('2026-10-03T22:59:00Z'));
+    expect(i.links?.requestPr).toMatchObject({ number: 20, state: 'open' });
+  });
+  it('carries the merge time of a merged request', () => {
+    const [i] = toPendingInputs(
+      [req({ state: 'merged', mergedAt: '2026-10-03T23:20:00Z' })],
+      new Set(),
+      'kind-dev',
+      now,
+    );
+    expect(i.links?.requestPr?.mergedAt).toBe(Date.parse('2026-10-03T23:20:00Z'));
+  });
+  it('drops a request once its XR exists, so the XR item takes over', () => {
+    expect(toPendingInputs([req()], new Set(['smoke-ecs']), 'kind-dev', now)).toEqual([]);
+  });
+  it('drops kinds Tower does not provision and abandoned old PRs', () => {
+    expect(toPendingInputs([req({ kind: 'ApplicationEnvironment' })], new Set(), 'kind-dev', now)).toEqual([]);
+    expect(toPendingInputs([req({ createdAt: '2026-09-01T00:00:00Z' })], new Set(), 'kind-dev', now)).toEqual([]);
   });
 });

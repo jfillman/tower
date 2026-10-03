@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy';
 import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
 import {
@@ -13,6 +14,7 @@ import {
   type RolloutSnapshot,
   type SecretsSnapshot,
   type XrCondition,
+  type CatalogSnapshot,
 } from './deriveProvisioning';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
@@ -21,6 +23,11 @@ import {
 const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = ['nodejsapplications', 'springbootapplications', 'pythonapplications', 'goapplications'];
 const XR_KINDS = ['NodeJSApplication', 'SpringBootApplication', 'PythonApplication', 'GoApplication'];
+// The tenants repo each dev cluster's XR requests are opened against, used to find a request before
+// any XR exists to read it off (an existing XR names it in its source-info annotation, which wins).
+const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
+  'kind-dev': { owner: 'jfillman', repo: 'gitops-cluster-dev-tenants' },
+};
 const POLL_MS = 6000;
 // A service that was created long ago and never finished is a stuck or
 // abandoned XR, not something being provisioned right now.
@@ -47,7 +54,7 @@ interface RawManaged {
   status?: { conditions?: XrCondition[]; atProvider?: { htmlUrl?: string; fullName?: string } };
 }
 interface RawPipelineRun {
-  metadata: { name: string; creationTimestamp: string };
+  metadata: { name: string; creationTimestamp: string; labels?: Record<string, string> };
   status?: {
     conditions?: { type: string; status: string; reason?: string }[];
     startTime?: string;
@@ -60,6 +67,18 @@ interface RawRollout {
   metadata: { creationTimestamp: string };
   spec?: { replicas?: number };
   status?: { phase?: string; availableReplicas?: number };
+}
+
+// The app's own build pipeline, as Pipelines-as-Code runs it on a push. The namespace also holds
+// Glidepath's own runs (the onboarding-resync that delivers the .tekton files, the values check on
+// GitOps PRs), which finish before any build exists. Counting one of those as "the first build"
+// marked the step done and, through it, the onboarding step too, while the real build had not started.
+export const BUILD_PIPELINE = 'build';
+
+export function pickFirstBuild<T extends RawPipelineRun>(runs: T[] | undefined): T | undefined {
+  return [...(runs ?? [])]
+    .filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === BUILD_PIPELINE)
+    .sort((a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp))[0];
 }
 
 const epoch = (iso?: string) => (iso ? Date.parse(iso) : undefined);
@@ -215,9 +234,41 @@ export interface UseProvisioningResult {
   error?: string;
 }
 
+interface RawPending {
+  kind: string;
+  name: string;
+  number: number;
+  url: string;
+  state: 'open' | 'merged';
+  createdAt?: string;
+  mergedAt?: string;
+}
+
+/**
+ * Requests that have no XR yet, as provisioning inputs. A request shows from the moment its PR opens,
+ * which is the long stretch (a person merging, then Argo applying) the XR cannot cover. Skips kinds
+ * Tower does not provision, names that already have an XR, and old abandoned PRs.
+ */
+export function toPendingInputs(
+  requests: RawPending[],
+  haveXr: Set<string>,
+  cluster: string,
+  now: number,
+): ProvisioningInputs[] {
+  return requests
+    .filter(r => XR_KINDS.includes(r.kind) && !haveXr.has(r.name))
+    .map(r => ({ r, created: epoch(r.createdAt) ?? now }))
+    .filter(({ created }) => now - created < MAX_AGE_MS)
+    .map(({ r, created }) => ({
+      xr: { kind: r.kind, name: r.name, namespace: '', cluster, createdAt: created, conditions: [], pending: true },
+      links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } },
+    }));
+}
+
 export function useProvisioning(): UseProvisioningResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const catalogApi = useApi(catalogApiRef);
   const [state, setState] = useState<UseProvisioningResult>({
     items: [],
     loading: true,
@@ -283,11 +334,47 @@ export function useProvisioning(): UseProvisioningResult {
       })();
     };
 
+    // Pending requests come from GitHub through the backend, so they are asked at the GitHub cadence and
+    // the last answer is reused between polls.
+    const pendingCache: { at: number; busy: boolean; list: RawPending[] } = { at: 0, busy: false, list: [] };
+    const refreshPending = (tenants: { owner: string; repo: string } | undefined) => {
+      if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
+      pendingCache.busy = true;
+      (async () => {
+        try {
+          const prBase = await discoveryApi.getBaseUrl('pull-requests');
+          const res = await fetchApi.fetch(
+            `${prBase}/pending-requests?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo })}`,
+          );
+          if (res.ok) pendingCache.list = ((await res.json()) as { requests?: RawPending[] }).requests ?? [];
+        } catch {
+          // An extra: a failed lookup leaves the list as it was.
+        } finally {
+          pendingCache.at = Date.now();
+          pendingCache.busy = false;
+        }
+      })();
+    };
+
     const optional = async <T>(path: string): Promise<T | undefined> => {
       try {
         return await k8sProxyGet<T>(discoveryApi, fetchApi, XR_CLUSTER, path);
       } catch {
         // Missing namespace or no read grant: the step just stays pending.
+        return undefined;
+      }
+    };
+
+    // Whether the catalog has a Component for this service yet. Undefined when the lookup fails, so
+    // the step waits rather than guessing.
+    const inCatalog = async (name: string): Promise<CatalogSnapshot | undefined> => {
+      try {
+        const res = await catalogApi.getEntities({
+          filter: { kind: 'Component', 'metadata.name': name },
+          fields: ['metadata.name'],
+        });
+        return { found: res.items.length > 0 };
+      } catch {
         return undefined;
       }
     };
@@ -326,13 +413,14 @@ export function useProvisioning(): UseProvisioningResult {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
             optional<ListResponse<RawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
             optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
             optional<ListResponse<RawManaged>>(`${nsBase}/tektoncicds`),
+            inCatalog(name),
           ]);
           const store = stores?.items?.find(s => s.spec?.appRef?.name === name);
           // The Infisical project id is the Project resource's external name. Needs a read
@@ -349,9 +437,7 @@ export function useProvisioning(): UseProvisioningResult {
           const tenants = parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info']);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
-          const first = [...(runs?.items ?? [])].sort((a, b) =>
-            a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp),
-          )[0];
+          const first = pickFirstBuild(runs?.items);
           return {
             xr: {
               kind: x.kind ?? '',
@@ -375,6 +461,7 @@ export function useProvisioning(): UseProvisioningResult {
                 : undefined,
             ),
             secrets: toSecrets(store, stores !== undefined),
+            catalog,
             links: {
               requestPr: gh?.requestPr,
               sourceRepoUrl: repoLinks.sourceRepoUrl,
@@ -386,6 +473,11 @@ export function useProvisioning(): UseProvisioningResult {
         }),
       );
       if (cancelled) return;
+      refreshPending(
+        xrs.map(x => parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info'])).find(Boolean) ??
+          TENANTS_REPO_BY_CLUSTER[XR_CLUSTER],
+      );
+      items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map(x => x.metadata.name)), XR_CLUSTER, now));
       const kept = items.filter(i => {
         const p = deriveProvisioning(i, now);
         // Stalled ones stay: the tab lists them apart from the in-flight ones, the strip hides them.
@@ -401,7 +493,7 @@ export function useProvisioning(): UseProvisioningResult {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi]);
+  }, [discoveryApi, fetchApi, catalogApi]);
 
   return state;
 }
