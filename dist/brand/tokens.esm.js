@@ -12,6 +12,7 @@ const light = {
   textFaint: "#88919A",
   amber: "#B9791F",
   amberInk: "#7A5115",
+  onAmber: "#1A1204",
   amberSoft: "#F4E6C9",
   amberLine: "#E0BE84",
   sky: "#2E7BA6",
@@ -34,6 +35,7 @@ const dark = {
   textFaint: "#66717B",
   amber: "#E8A33D",
   amberInk: "#F4C67D",
+  onAmber: "#1A1204",
   amberSoft: "#3A2C15",
   amberLine: "#5C4520",
   sky: "#6FB2D9",
@@ -49,7 +51,8 @@ function useHangarTokens() {
   return theme.palette.type === "dark" ? dark : light;
 }
 const fontDisplay = '"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif';
+const fontBody = '"IBM Plex Sans", -apple-system, "Segoe UI", sans-serif';
 const fontMono = '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace';
 
-export { fontDisplay, fontMono, useHangarTokens };
+export { fontBody, fontDisplay, fontMono, useHangarTokens };
 //# sourceMappingURL=tokens.esm.js.map

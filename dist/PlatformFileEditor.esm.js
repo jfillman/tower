@@ -8,6 +8,7 @@ import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { usePlatformFile, useSubmitPlatformFileChange } from './useConfigData.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from './YamlBlockEditor.esm.js';
+import { Button } from './ui/index.esm.js';
 import { deepEqual } from './deepEqual.esm.js';
 import { CONFIG_TOP_LEVEL_FIELDS } from './types.esm.js';
 
@@ -28,18 +29,6 @@ function safeYamlLoad(text) {
 }
 const useStyles = makeStyles({
   submitBar: { display: "flex", alignItems: "center", gap: 12, marginTop: 8 },
-  submitBtn: {
-    fontFamily: "inherit",
-    fontSize: 13,
-    fontWeight: 600,
-    padding: "6px 14px",
-    borderRadius: 4,
-    border: "none",
-    cursor: "pointer",
-    backgroundColor: ({ t }) => t.amber,
-    color: ({ t }) => t.amberInk,
-    "&:disabled": { opacity: 0.45, cursor: "default" }
-  },
   resultLink: { fontFamily: fontMono, fontSize: 12 }
 });
 function PlatformFileEditor({
@@ -92,7 +81,7 @@ rollout: null
   if (file.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(file.error) });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx(YamlBlockEditor, { label: file.data?.path ?? "platform file", value: raw, onChange: setRaw, rows: 12 }),
-    /* @__PURE__ */ jsx("div", { className: classes.submitBar, children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.submitBtn, disabled: !dirty || !valid || submit.loading, onClick: handleSubmit, children: submit.loading ? "Opening PR\u2026" : "Open PR for this file" }) }),
+    /* @__PURE__ */ jsx("div", { className: classes.submitBar, children: /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: !dirty || !valid || submit.loading, onClick: handleSubmit, children: submit.loading ? "Opening PR\u2026" : "Open PR for this file" }) }),
     submit.result && /* @__PURE__ */ jsxs(Typography, { children: [
       submit.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
       /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submit.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submit.result.prUrl })

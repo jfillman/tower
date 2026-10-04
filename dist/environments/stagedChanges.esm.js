@@ -211,7 +211,7 @@ function followUps(before, after, target, appName) {
     if (had.has(e.name)) continue;
     if (e.tier === "flight" && !cloud) {
       out.push(
-        `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application. The release step in the pipeline that deploys to ${e.name} is not added: edit the pipeline in the Glidepath tab.`
+        `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application.`
       );
     }
     if (e.tier === "ground" && !cloud) {
