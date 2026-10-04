@@ -19,6 +19,8 @@ import { TopologyTab } from './tabs/TopologyTab';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
 import { DeploymentsTab } from './tabs/DeploymentsTab';
+import { CloudDeploymentsTab } from './tabs/CloudDeploymentsTab';
+import { hasCloudDeployInFlight } from './cloudDeploy';
 import { ImagesTab } from './tabs/ImagesTab';
 import { ConfigTab } from './tabs/ConfigTab';
 import { GlidepathTab } from './tabs/GlidepathTab';
@@ -68,12 +70,15 @@ interface TabDef {
   requires?: readonly Capability[];
 }
 
-const TABS: readonly TabDef[] = [
+export const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
   { id: 'autopilot', label: 'Autopilot', Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
   { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab, requires: [CAP.source] },
   { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci] },
   { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
+  // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
+  // exactly one deploy target, so only one of the two ever passes the capability filter.
+  { id: 'deployments', label: 'Deployments', Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: 'releases', label: 'Releases', Component: ReleasesTab, requires: [CAP.releases] },
   { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
@@ -343,7 +348,7 @@ function TowerAppShellInner({
   // longer lights up the Deployments tab you're not looking at, and vice
   // versa, now that there's a real place for each signal to point to.
   const { environments } = useTowerEnvironments();
-  const cdActive = environments.some(isRolloutActive);
+  const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
 
   const tabs = TABS.filter(tabDef => hasCapabilities(entity, tabDef.requires));
   const activeTab = tabs.find(tabDef => tabDef.id === tabParam) ?? tabs[0];
