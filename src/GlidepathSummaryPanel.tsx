@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { envListsOf } from './environmentRows';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -94,8 +95,7 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
   else if (!cicd.data) statusNote = 'no cicd.yaml found yet for this app';
 
   const deploy = (cicd.data?.values.deploy ?? {}) as Record<string, unknown>;
-  const lowerEnvironments = Array.isArray(deploy.lowerEnvironments) ? (deploy.lowerEnvironments as string[]) : ['dev'];
-  const promotionOrder = Array.isArray(deploy.promotionOrder) ? (deploy.promotionOrder as string[]) : [];
+  const { lower: lowerEnvironments, order: promotionOrder } = envListsOf(deploy);
   const strategy = deploy.strategy === 'rollout' ? 'rollout' : 'deployment';
   const configuredEnvs = new Set(envs.data?.envs ?? []);
   const pipelines = (cicd.data?.values.pipelines ?? {}) as Record<string, unknown>;

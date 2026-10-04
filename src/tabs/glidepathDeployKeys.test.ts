@@ -37,3 +37,43 @@ describe('saving the Glidepath form', () => {
     expect(out.ecs).toEqual({ cluster: 'c', service: 's' });
   });
 });
+
+// A file that declares deploy.environments (ADR-0019) must never get lowerEnvironments,
+// upperEnvironments or promotionOrder written next to it: the schema refuses both together.
+describe('saving the Glidepath form for an app that uses deploy.environments', () => {
+  const withEnvironments = {
+    build: { agent: 'nodejs-22' },
+    deploy: {
+      target: 'aws-lambda',
+      lambda: { functionName: 'fn', region: 'us-east-1' },
+      environments: [
+        { name: 'dev', tier: 'ground' },
+        { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+      ],
+      strategy: 'rollout',
+    },
+  };
+
+  it('knows the file uses deploy.environments', () => {
+    expect(buildFormFromValues(withEnvironments).usesEnvironments).toBe(true);
+    expect(buildFormFromValues(original).usesEnvironments).toBe(false);
+  });
+
+  it('writes back exactly what was there: no old fields appear, and nothing is dirty', () => {
+    const out = buildCandidateValues(buildFormFromValues(withEnvironments), withEnvironments).deploy as Record<
+      string,
+      unknown
+    >;
+    expect(out).toEqual(withEnvironments.deploy);
+    expect('lowerEnvironments' in out).toBe(false);
+    expect('upperEnvironments' in out).toBe(false);
+    expect('promotionOrder' in out).toBe(false);
+  });
+
+  it('keeps writing the old fields for an app that has not moved to the new shape', () => {
+    const out = buildCandidateValues(buildFormFromValues(original), original).deploy as Record<string, unknown>;
+    expect(out.lowerEnvironments).toEqual(['dev']);
+    expect(out.promotionOrder).toEqual(['dev']);
+    expect('environments' in out).toBe(false);
+  });
+});

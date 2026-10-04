@@ -91,6 +91,9 @@ function safeYamlLoad(text: string): unknown {
 }
 
 interface CicdFormState {
+  // The file declares deploy.environments (ADR-0019). Then the three older fields are not this
+  // form's to write: the schema refuses them alongside it.
+  usesEnvironments: boolean;
   lowerEnvironments: string;
   upperEnvironmentsRaw: string;
   promotionOrder: string;
@@ -142,6 +145,7 @@ export function buildFormFromValues(values: Partial<Record<CicdTopLevelField, un
   const secrets = Array.isArray(values.secrets) ? (values.secrets as Array<{ name?: string; key?: string }>) : [];
 
   return {
+    usesEnvironments: Array.isArray(deploy.environments) && deploy.environments.length > 0,
     lowerEnvironments: joinCsv(deploy.lowerEnvironments ?? ['dev']),
     upperEnvironmentsRaw: safeYamlDump(deploy.upperEnvironments ?? []),
     promotionOrder: joinCsv(deploy.promotionOrder ?? []),
@@ -243,6 +247,7 @@ export function buildCandidateValues(
   const { dockerfile: _legacyDockerfile, script: _script, ...originalBuild } =
     (originalValues.build as Record<string, unknown> | undefined) ?? {};
   const originalDeploy = (originalValues.deploy as Record<string, unknown> | undefined) ?? {};
+  const usesEnvironments = Array.isArray(originalDeploy.environments) && originalDeploy.environments.length > 0;
   return {
     build: {
       ...originalBuild,
@@ -255,16 +260,21 @@ export function buildCandidateValues(
       sourceVolume: { size: form.buildSourceVolumeSize },
     },
     test: { enabled: form.testEnabled, ...(form.testName.trim() ? { name: form.testName.trim() } : {}) },
-    deploy: {
-      // The whole `deploy` section is replaced on save, so keep keys this form has no field for:
-      // `target` and the per-target blocks (`lambda`, `ecs`, `azureContainerApps`). Dropping them
-      // silently moved a function back to the Kubernetes target.
-      ...originalDeploy,
-      lowerEnvironments: splitCsv(form.lowerEnvironments),
-      upperEnvironments: safeYamlLoad(form.upperEnvironmentsRaw) ?? [],
-      strategy: form.strategy,
-      promotionOrder: splitCsv(form.promotionOrder),
-    },
+    deploy: usesEnvironments
+      ? // deploy.environments owns the environment list. Writing lowerEnvironments/upperEnvironments/
+        // promotionOrder next to it would make the cicd.yaml fail the schema ("not both"), so only
+        // the fields this form still edits are written.
+        { ...originalDeploy, strategy: form.strategy }
+      : {
+          // The whole `deploy` section is replaced on save, so keep keys this form has no field for:
+          // `target` and the per-target blocks (`lambda`, `ecs`, `azureContainerApps`). Dropping them
+          // silently moved a function back to the Kubernetes target.
+          ...originalDeploy,
+          lowerEnvironments: splitCsv(form.lowerEnvironments),
+          upperEnvironments: safeYamlLoad(form.upperEnvironmentsRaw) ?? [],
+          strategy: form.strategy,
+          promotionOrder: splitCsv(form.promotionOrder),
+        },
     ephemeralEnvironments: {
       branch: { enabled: form.branchEnabled, patterns: splitCsv(form.branchPatterns) },
       pullRequest: { enabled: form.prEnabled, labels: splitCsv(form.prLabels) },
@@ -550,25 +560,35 @@ export function GlidepathTab() {
 
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Deploy</Typography>
-        <div className={classes.row}>
-          <TextField
-            label="Lower environments (comma-separated)"
-            value={form.lowerEnvironments}
-            onChange={e => setForm(f => (f ? { ...f, lowerEnvironments: e.target.value } : f))}
-            fullWidth
-            size="small"
-          />
-        </div>
-        <div className={classes.row}>
-          <TextField
-            label="Promotion order (comma-separated, in order)"
-            helperText="Pure metadata - Tower's own Release Matrix reads this back; no Glidepath Task enforces it."
-            value={form.promotionOrder}
-            onChange={e => setForm(f => (f ? { ...f, promotionOrder: e.target.value } : f))}
-            fullWidth
-            size="small"
-          />
-        </div>
+        {form.usesEnvironments ? (
+          <Typography className={classes.govCaption}>
+            This app declares its environments in deploy.environments, so the lists below are not used. See the
+            Environments tab; editing them from Tower comes next. Until then change deploy.environments in cicd.yaml
+            directly.
+          </Typography>
+        ) : (
+          <>
+            <div className={classes.row}>
+              <TextField
+                label="Lower environments (comma-separated)"
+                value={form.lowerEnvironments}
+                onChange={e => setForm(f => (f ? { ...f, lowerEnvironments: e.target.value } : f))}
+                fullWidth
+                size="small"
+              />
+            </div>
+            <div className={classes.row}>
+              <TextField
+                label="Promotion order (comma-separated, in order)"
+                helperText="Pure metadata - Tower's own Release Matrix reads this back; no Glidepath Task enforces it."
+                value={form.promotionOrder}
+                onChange={e => setForm(f => (f ? { ...f, promotionOrder: e.target.value } : f))}
+                fullWidth
+                size="small"
+              />
+            </div>
+          </>
+        )}
         <div className={classes.row}>
           <Select value={form.strategy} disabled>
             <MenuItem value="rollout">rollout</MenuItem>
@@ -577,12 +597,14 @@ export function GlidepathTab() {
             Argo Rollouts is the only supported deploy strategy.
           </Typography>
         </div>
-        <YamlBlockEditor
-          label="upperEnvironments (name, or {name, cluster})"
-          value={form.upperEnvironmentsRaw}
-          onChange={text => setForm(f => (f ? { ...f, upperEnvironmentsRaw: text } : f))}
-          rows={4}
-        />
+        {!form.usesEnvironments && (
+          <YamlBlockEditor
+            label="upperEnvironments (name, or {name, cluster})"
+            value={form.upperEnvironmentsRaw}
+            onChange={text => setForm(f => (f ? { ...f, upperEnvironmentsRaw: text } : f))}
+            rows={4}
+          />
+        )}
       </div>
 
       {/* --- Ephemeral Environments ------------------------------------- */}
