@@ -514,7 +514,10 @@ function OverviewTab() {
         /* @__PURE__ */ jsx("span", { className: classes.previewPrLabel, children: "Pull request" }),
         /* @__PURE__ */ jsx(PrButton, { pr: previewPr })
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+      env.cloud ? /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: env.cloud.resource?.kind ?? env.cloud.targetLabel }),
+        /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cloud.resource ? `${env.cloud.resource.name} \xB7 ${env.cloud.resource.region ?? env.cloud.targetLabel}` : env.cloud.targetLabel })
+      ] }) : /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
         /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster / namespace" }),
         /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
           env.cluster,
@@ -526,17 +529,22 @@ function OverviewTab() {
         /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Image" }),
         /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: imageTag(env.image) })
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Replicas" }),
-        /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
-          env.availableReplicas ?? "\u2014",
-          " / ",
-          env.desiredReplicas ?? "\u2014"
+      env.cloud ? env.cloud.consoleUrl && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Console" }),
+        /* @__PURE__ */ jsx("a", { className: classes.kvLink, href: env.cloud.consoleUrl, target: "_blank", rel: "noopener noreferrer", children: env.cloud.targetLabel })
+      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Replicas" }),
+          /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
+            env.availableReplicas ?? "\u2014",
+            " / ",
+            env.desiredReplicas ?? "\u2014"
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Strategy" }),
+          /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.strategy ?? "\u2014" })
         ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Strategy" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.strategy ?? "\u2014" })
       ] }),
       env.ingressUrl && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
         /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Route" }),

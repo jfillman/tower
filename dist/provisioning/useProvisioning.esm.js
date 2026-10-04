@@ -149,6 +149,7 @@ function toPendingInputs(requests, haveXr, cluster, now) {
     links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } }
   }));
 }
+const CATALOG_RECHECK_MS = 3e4;
 function useProvisioning() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -220,13 +221,30 @@ function useProvisioning() {
         return void 0;
       }
     };
+    const catalogSeen = /* @__PURE__ */ new Map();
     const inCatalog = async (name) => {
+      const seen = catalogSeen.get(name);
+      if (seen && (seen.found || Date.now() - seen.at < CATALOG_RECHECK_MS)) return { found: seen.found };
       try {
         const res = await catalogApi.getEntities({
           filter: { kind: "Component", "metadata.name": name },
           fields: ["metadata.name"]
         });
+        catalogSeen.set(name, { found: res.items.length > 0, at: Date.now() });
         return { found: res.items.length > 0 };
+      } catch {
+        return void 0;
+      }
+    };
+    const cicdApp = async (name) => {
+      const appName = `${name}-cicd`;
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl("argocd");
+        const res = await fetchApi.fetch(`${baseUrl}/find/name/${encodeURIComponent(appName)}?expand=applications`);
+        if (!res.ok) return void 0;
+        const instances = await res.json();
+        const app = instances.flatMap((i) => i.applications ?? [])[0];
+        return { name: appName, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
       } catch {
         return void 0;
       }
@@ -260,7 +278,7 @@ function useProvisioning() {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo] = await Promise.all([
             optional(
               `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`
             ),
@@ -269,7 +287,8 @@ function useProvisioning() {
             optional(`${mrBase}/repositoryfiles?${selector}`),
             optional(`${nsBase}/secretstores`),
             optional(`${nsBase}/tektoncicds`),
-            inCatalog(name)
+            inCatalog(name),
+            cicdApp(name)
           ]);
           const store = stores?.items?.find((s) => s.spec?.appRef?.name === name);
           const project = store ? await optional(
@@ -308,6 +327,7 @@ function useProvisioning() {
             ),
             secrets: toSecrets(store, stores !== void 0),
             catalog,
+            cicdApp: cicdArgo,
             cloudDeploy,
             links: {
               requestPr: gh?.requestPr,

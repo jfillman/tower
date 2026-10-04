@@ -5,6 +5,7 @@ import { useProvenanceMap, usePipelineOrder, useArgoStatusMap, useDeployHistory,
 import { usePullRequests } from './pullRequests/usePullRequests.esm.js';
 import { useTektonPipelineRuns, linkFlowSlugsByChainId } from './tekton/useTektonPipelineRuns.esm.js';
 import { useTektonResultsRuns } from './tekton/useTektonResultsRuns.esm.js';
+import { cloudEnvironmentsFromRuns } from './cloudEnvironments.esm.js';
 import { rememberNickname, recallNickname } from './nicknameCache.esm.js';
 import { extractSource, parseGithubUrl, envStageRank, isPreviewEnvName, extractShortShaFromImageTag, imageTag } from './types.esm.js';
 
@@ -30,10 +31,10 @@ function useReleaseContext() {
     () => rawEnvironments.map((e) => e.image).filter((i) => Boolean(i)),
     [rawEnvironments]
   );
-  const provenanceByImage = useProvenanceMap(images, refreshNonce);
+  const clusterProvenance = useProvenanceMap(images, refreshNonce);
   const provenanceRef = useMemo(() => {
     for (const env of rawEnvironments) {
-      const data = env.image ? provenanceByImage[env.image]?.data : void 0;
+      const data = env.image ? clusterProvenance[env.image]?.data : void 0;
       const slsa = data?.attestations.find(
         (a) => a.predicateType === "https://slsa.dev/provenance/v0.2"
       );
@@ -42,7 +43,7 @@ function useReleaseContext() {
       if (parsed) return parsed;
     }
     return void 0;
-  }, [rawEnvironments, provenanceByImage]);
+  }, [rawEnvironments, clusterProvenance]);
   const projectSlug = entity.metadata.annotations?.["github.com/project-slug"];
   const [slugOwner, slugAppName] = projectSlug ? projectSlug.split("/") : [void 0, void 0];
   const slugRef = slugOwner && slugAppName ? { owner: slugOwner, repo: slugAppName } : void 0;
@@ -72,6 +73,28 @@ function useReleaseContext() {
     });
     return result;
   }, [rawEnvironments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
+  const pipelineRuns = useTektonPipelineRuns(appName, refreshNonce);
+  const archivedPipelineRuns = useTektonResultsRuns(appName, refreshNonce);
+  const mergedPipelineRuns = useMemo(() => {
+    const byName = /* @__PURE__ */ new Map();
+    archivedPipelineRuns.runs.forEach((run) => byName.set(run.name, run));
+    pipelineRuns.runs.forEach((run) => byName.set(run.name, run));
+    const merged = [...byName.values()].sort(
+      (a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime()
+    );
+    linkFlowSlugsByChainId(merged);
+    return merged;
+  }, [pipelineRuns.runs, archivedPipelineRuns.runs]);
+  const cloud = useMemo(() => cloudEnvironmentsFromRuns(mergedPipelineRuns), [mergedPipelineRuns]);
+  const cloudImages = useMemo(
+    () => cloud.environments.map((e) => e.image).filter((i) => Boolean(i)),
+    [cloud.environments]
+  );
+  const cloudProvenance = useProvenanceMap(cloudImages, refreshNonce);
+  const provenanceByImage = useMemo(
+    () => ({ ...cloudProvenance, ...clusterProvenance }),
+    [cloudProvenance, clusterProvenance]
+  );
   const environments = useMemo(
     () => [
       ...rawEnvironments.map((e) => ({
@@ -91,32 +114,28 @@ function useReleaseContext() {
         argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : void 0,
         argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : void 0
       })),
-      ...declaredEnvironments
+      ...declaredEnvironments,
+      ...cloud.environments
     ].sort(
       (a, b) => envStageRank(a.env, pipelineOrder.data) - envStageRank(b.env, pipelineOrder.data) || a.env.localeCompare(b.env)
     ),
-    [rawEnvironments, declaredEnvironments, pipelineOrder.data, argoStatusRaw]
+    [rawEnvironments, declaredEnvironments, cloud.environments, pipelineOrder.data, argoStatusRaw]
   );
   const prs = usePullRequests(owner && appName ? { owner, appName } : void 0, refreshNonce);
   const gitopsPrs = useMemo(() => (prs.data ?? []).filter((pr) => pr.repo === "gitops"), [prs.data]);
   const sourcePrs = useMemo(() => (prs.data ?? []).filter((pr) => pr.repo === "source"), [prs.data]);
-  const deployHistory = useDeployHistory(
+  const clusterHistory = useDeployHistory(
     repoRef,
-    environments.map((e) => ({ env: e.env, cluster: e.cluster })),
+    environments.filter((e) => !e.cloud).map((e) => ({ env: e.env, cluster: e.cluster })),
     refreshNonce
   );
-  const pipelineRuns = useTektonPipelineRuns(appName, refreshNonce);
-  const archivedPipelineRuns = useTektonResultsRuns(appName, refreshNonce);
-  const mergedPipelineRuns = useMemo(() => {
-    const byName = /* @__PURE__ */ new Map();
-    archivedPipelineRuns.runs.forEach((run) => byName.set(run.name, run));
-    pipelineRuns.runs.forEach((run) => byName.set(run.name, run));
-    const merged = [...byName.values()].sort(
-      (a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime()
-    );
-    linkFlowSlugsByChainId(merged);
-    return merged;
-  }, [pipelineRuns.runs, archivedPipelineRuns.runs]);
+  const deployHistory = useMemo(
+    () => ({
+      ...clusterHistory,
+      data: clusterHistory.data || cloud.environments.length ? { ...clusterHistory.data, ...cloud.history } : void 0
+    }),
+    [clusterHistory, cloud.environments.length, cloud.history]
+  );
   const pipelineEnvironments = useMemo(
     () => environments.filter((e) => !isPreviewEnvName(e.env)),
     [environments]

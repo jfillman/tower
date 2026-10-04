@@ -19,7 +19,7 @@ import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
-import { isTowerService, serviceClassOf, deployTargetOf, hasCapabilities, CAP } from './serviceClass.esm.js';
+import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -59,6 +59,7 @@ function loadViewMode() {
   }
 }
 const ALL = "all";
+const CATALOG_REFRESH_MS = 3e4;
 const isListable = (e) => !hasCapabilities(e, [CAP.k8sRuntime]) || isKubernetesAvailable(e);
 const useStyles = makeStyles(() => ({
   wrap: { maxWidth: 1080, margin: "0 auto" },
@@ -352,13 +353,20 @@ function AppPicker({
   const [viewMode, setViewModeState] = useState(() => loadViewMode());
   useEffect(() => {
     let cancelled = false;
-    catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
-      if (!cancelled) setEntities(res.items.filter(isTowerService).filter(isListable));
+    let loaded = false;
+    const load = () => catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
+      if (cancelled) return;
+      loaded = true;
+      setError(void 0);
+      setEntities(res.items.filter(isTowerService).filter(isListable));
     }).catch((e) => {
-      if (!cancelled) setError(String(e));
+      if (!cancelled && !loaded) setError(String(e));
     });
+    load();
+    const id = setInterval(load, CATALOG_REFRESH_MS);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [catalogApi]);
   const { starred, toggle: toggleStarred } = useStarredApps();
@@ -604,5 +612,5 @@ function AppPicker({
   ] });
 }
 
-export { AppPicker };
+export { AppPicker, CATALOG_REFRESH_MS };
 //# sourceMappingURL=AppPicker.esm.js.map

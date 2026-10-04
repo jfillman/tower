@@ -30,7 +30,7 @@ const infisicalProjectUrl = (cluster, projectId) => {
   return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
 };
 function deriveProvisioning(input, now) {
-  const { xr, build, rollout, managed, secrets, catalog, cloudDeploy, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   const cloudFinal = isFunction || Boolean(cloudDeploy);
   const created = xr.createdAt;
@@ -51,7 +51,7 @@ function deriveProvisioning(input, now) {
   let requestDetail;
   if (pending) {
     requestState = "run";
-    requestDetail = reqPr?.state === "merged" ? "Merged. Waiting for ArgoCD to create the resource" : "Merge the request PR to start provisioning";
+    requestDetail = reqPr?.state === "merged" ? "Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource" : "Merge the request PR to start provisioning";
   }
   push({
     id: "request",
@@ -74,14 +74,17 @@ function deriveProvisioning(input, now) {
     detail: !clusterDone && clusterC?.message ? clusterC.message : void 0
   });
   if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
-  const cicdDone = cicdC?.status === "True";
+  const cicdCommitted = cicdC?.status === "True";
+  const cicdSettled = !cicdApp || cicdApp.sync === "Synced" && cicdApp.health === "Healthy";
+  const cicdDone = cicdCommitted && cicdSettled;
+  const cicdWaiting = cicdCommitted && cicdApp && !cicdSettled ? `Committed. ArgoCD app ${cicdApp.name} is ${cicdApp.sync ?? "unknown"} / ${cicdApp.health ?? "unknown"}${cicdApp.health === "Degraded" ? " (a sync hook failed; see the app in ArgoCD)" : ""}` : void 0;
   push({
     id: "cicd",
     title: "CI/CD onboarded",
     desc: "Tenant identity committed; the pipeline namespace is stood up",
     state: stateOf(cicdDone, clusterDone),
     seconds: cicdDone ? secBetween(ts(clusterC?.lastTransitionTime), ts(cicdC?.lastTransitionTime)) : void 0,
-    detail: !cicdDone && cicdC?.message ? cicdC.message : void 0
+    detail: cicdWaiting ?? (!cicdDone && cicdC?.message ? cicdC.message : void 0)
   });
   let reposState;
   let reposFraction = 0;
