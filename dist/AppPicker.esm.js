@@ -126,6 +126,8 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi
   },
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
+  // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
+  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   empty: {
     padding: "24px 18px",
     fontSize: 13,
@@ -281,10 +283,12 @@ const useStyles = makeStyles(() => ({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8
+    gap: 8,
+    minWidth: 0
   },
   typeChip: {
     display: "inline-flex",
+    flexShrink: 0,
     fontFamily: fontMono,
     fontSize: 11,
     padding: "3px 7px",
@@ -331,6 +335,9 @@ const useStyles = makeStyles(() => ({
     whiteSpace: "nowrap"
   }
 }));
+function ownerLabel(owner) {
+  return typeof owner === "string" ? owner.replace(/^group:default\//, "") : "";
+}
 function AppPicker({
   onSelect,
   onOpenDashboard
@@ -477,7 +484,7 @@ function AppPicker({
       /* @__PURE__ */ jsx("div", { className: classes.cardDesc, children: e.metadata.description }),
       /* @__PURE__ */ jsxs("div", { className: classes.cardFoot, children: [
         renderTypeChip(e),
-        /* @__PURE__ */ jsx("span", { className: classes.meta, children: e.spec?.owner })
+        /* @__PURE__ */ jsx("span", { className: classes.owner, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) })
       ] })
     ] }, ref);
   };
@@ -495,7 +502,7 @@ function AppPicker({
         /* @__PURE__ */ jsx("td", { className: classes.td, children: renderStar(ref) }),
         /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
         /* @__PURE__ */ jsx("td", { className: classes.td, children: renderTypeChip(e) }),
-        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.meta}`, children: e.spec?.owner }),
+        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.meta}`, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) }),
         /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.tdDesc}`, children: e.metadata.description })
       ] }, ref);
     }) })
@@ -630,5 +637,5 @@ function AppPicker({
   ] });
 }
 
-export { AppPicker, CATALOG_REFRESH_MS };
+export { AppPicker, CATALOG_REFRESH_MS, ownerLabel };
 //# sourceMappingURL=AppPicker.esm.js.map

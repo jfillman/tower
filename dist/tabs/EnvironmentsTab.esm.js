@@ -113,12 +113,17 @@ function EnvironmentsTab() {
     [releasePlan]
   );
   const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const flightOrderChanged = useMemo(() => {
+    const names = (envs) => envs.filter((e) => e.tier === "flight" && before.some((b) => b.name === e.name)).map((e) => e.name);
+    return !same(names(before), names(after));
+  }, [before, after]);
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No release step added for ${k.env}: ${k.reason}.`)
     ],
-    [before, after, targetId, appName, releasePlan]
+    [before, after, targetId, appName, releasePlan, flightOrderChanged]
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
   const rows = useMemo(() => {
@@ -179,7 +184,7 @@ function EnvironmentsTab() {
     return i !== -1 && Boolean(after[j]) && after[j].tier === after[i].tier;
   };
   const canEditRow = (r) => canEdit && Boolean(r.def);
-  const movable = (r) => canEditRow(r) && r.def?.tier === "ground" && r.state !== "removed" && (canMove(r.name, "up") || canMove(r.name, "down"));
+  const movable = (r) => canEditRow(r) && r.state !== "removed" && (canMove(r.name, "up") || canMove(r.name, "down"));
   const dropOn = (target) => {
     const from = dragging;
     setDragging(void 0);
@@ -258,6 +263,7 @@ function EnvironmentsTab() {
   const menuRow = menu ? rows.find((r) => r.name === menu.name) : void 0;
   const closeMenu = () => setMenu(void 0);
   const menuGround = menuRow?.def?.tier === "ground" && menuRow.state !== "removed";
+  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== "removed";
   return /* @__PURE__ */ jsxs("div", { className: c.wrap, children: [
     /* @__PURE__ */ jsx(
       PageHeader,
@@ -400,7 +406,7 @@ function EnvironmentsTab() {
           children: menuRow && open === menuRow.name ? "Close details" : "Edit details"
         }
       ),
-      menuGround && /* @__PURE__ */ jsx(
+      menuMovable && /* @__PURE__ */ jsx(
         MenuItem,
         {
           disabled: !menuRow || !canMove(menuRow.name, "up"),
@@ -411,7 +417,7 @@ function EnvironmentsTab() {
           children: "Move earlier"
         }
       ),
-      menuGround && /* @__PURE__ */ jsx(
+      menuMovable && /* @__PURE__ */ jsx(
         MenuItem,
         {
           disabled: !menuRow || !canMove(menuRow.name, "down"),

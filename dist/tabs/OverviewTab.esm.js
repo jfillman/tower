@@ -199,6 +199,9 @@ const useStyles = makeStyles(() => ({
   // that if you stretch the browser window... it should try and fit all the cards
   // back on the same row") - a card wants TRACK_CARD_W, may shrink to its
   // minWidth on a very narrow screen, and never stretches past it.
+  // A declared-but-undeployed environment has almost nothing to show, so it keeps its own height instead of
+  // stretching to its row's tallest sibling (which made it a tall, nearly empty box).
+  cardUndeployed: { alignSelf: "flex-start" },
   trackCard: {
     flex: `0 1 ${TRACK_CARD_W}px`,
     minWidth: 175,
@@ -464,7 +467,7 @@ function OverviewTab() {
   const pipelineEnvs = environments.filter((env) => !isPreviewEnvName(env.env));
   const renderEnvCard = (env, opts) => {
     if (env.deployed === false) {
-      return /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${opts?.skipImage ? classes.trackCard : ""}`, children: [
+      return /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ""}`, children: [
         /* @__PURE__ */ jsx("div", { className: classes.cardHead, children: /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }) }),
         /* @__PURE__ */ jsxs(
           "span",
