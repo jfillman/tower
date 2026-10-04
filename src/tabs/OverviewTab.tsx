@@ -620,28 +620,50 @@ export function OverviewTab() {
             <PrButton pr={previewPr} />
           </div>
         )}
-        <div className={classes.kv}>
-          <span className={classes.kvLabel}>Cluster / namespace</span>
-          <span className={classes.kvValue}>
-            {env.cluster} / {env.namespace}
-          </span>
-        </div>
+        {env.cloud ? (
+          <div className={classes.kv}>
+            <span className={classes.kvLabel}>{env.cloud.resource?.kind ?? env.cloud.targetLabel}</span>
+            <span className={classes.kvValue}>
+              {env.cloud.resource ? `${env.cloud.resource.name} · ${env.cloud.resource.region ?? env.cloud.targetLabel}` : env.cloud.targetLabel}
+            </span>
+          </div>
+        ) : (
+          <div className={classes.kv}>
+            <span className={classes.kvLabel}>Cluster / namespace</span>
+            <span className={classes.kvValue}>
+              {env.cluster} / {env.namespace}
+            </span>
+          </div>
+        )}
         {!opts?.skipImage && (
           <div className={classes.kv}>
             <span className={classes.kvLabel}>Image</span>
             <span className={classes.kvValue}>{imageTag(env.image)}</span>
           </div>
         )}
-        <div className={classes.kv}>
-          <span className={classes.kvLabel}>Replicas</span>
-          <span className={classes.kvValue}>
-            {env.availableReplicas ?? '—'} / {env.desiredReplicas ?? '—'}
-          </span>
-        </div>
-        <div className={classes.kv}>
-          <span className={classes.kvLabel}>Strategy</span>
-          <span className={classes.kvValue}>{env.strategy ?? '—'}</span>
-        </div>
+        {env.cloud ? (
+          env.cloud.consoleUrl && (
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Console</span>
+              <a className={classes.kvLink} href={env.cloud.consoleUrl} target="_blank" rel="noopener noreferrer">
+                {env.cloud.targetLabel}
+              </a>
+            </div>
+          )
+        ) : (
+          <>
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Replicas</span>
+              <span className={classes.kvValue}>
+                {env.availableReplicas ?? '—'} / {env.desiredReplicas ?? '—'}
+              </span>
+            </div>
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Strategy</span>
+              <span className={classes.kvValue}>{env.strategy ?? '—'}</span>
+            </div>
+          </>
+        )}
         {env.ingressUrl && (
           <div className={classes.kv}>
             <span className={classes.kvLabel}>Route</span>
