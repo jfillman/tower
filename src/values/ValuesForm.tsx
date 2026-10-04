@@ -7,7 +7,7 @@ import { dump as dumpYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Subtabs } from '../ui';
+import { Button, Subtabs } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
@@ -1525,6 +1525,23 @@ export function ConfigEditor({
       </Section>
       )}
         </>
+      )}
+
+      {!rolloutEnabled && (tab === 'workload' || tab === 'release') && (
+        <div className={ui.formSection}>
+          <div className={ui.note}>
+            {tab === 'workload'
+              ? 'Scaling, resources, the service and health checks configure a Rollout.'
+              : 'Canary steps configure a Rollout.'}{' '}
+            This environment has none yet (<code>rollout: null</code>), which is how a new environment starts so nothing broken deploys before
+            its first image exists. Turn on Deployment to configure it.
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Button small onClick={() => setRolloutEnabled(true)}>
+              Turn on Deployment
+            </Button>
+          </div>
+        </div>
       )}
 
       {tab === 'networking' && (
