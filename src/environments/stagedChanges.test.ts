@@ -7,6 +7,8 @@ import {
   envFilePaths,
   followUps,
   isUnchanged,
+  planReleaseSteps,
+  releaseStepEnvs,
   pipelinesNamingEnv,
   readEnvironments,
   removedEnvs,
@@ -332,5 +334,78 @@ describe('removing environments', () => {
     expect(k8s[0]).toMatch(/air-traffic-api-qa/);
     expect(k8s[0]).toMatch(/app-air-traffic-api-qa/);
     expect(followUps(before, after, 'aws-lambda', 'fn')[0]).toMatch(/not deleted/);
+  });
+});
+
+describe('release steps for new Flight environments', () => {
+  const envs = [ground('dev'), flight('staging', 'kind-prod'), flight('prod', 'kind-prod')];
+  const ci = { trigger: { branch: 'main' }, steps: [{ stage: 'build' }, { stage: 'deploy', env: 'dev' }, { stage: 'release', env: 'staging' }] };
+
+  it('inserts the step right after the step for the environment before it', () => {
+    const plan = planReleaseSteps({ ci }, envs, ['prod']);
+    expect((plan.pipelines as any).ci.steps).toEqual([...ci.steps, { stage: 'release', env: 'prod' }]);
+    expect(plan.added).toEqual([{ env: 'prod', pipeline: 'ci', after: 'staging' }]);
+  });
+
+  it('inserts mid-list when the previous environment is not last', () => {
+    const withTail = { ci: { ...ci, steps: [...ci.steps, { stage: 'gitops-image-bump', gitopsRepo: 'g', manifestPath: 'm' }] } };
+    const steps = (planReleaseSteps(withTail, envs, ['prod']).pipelines as any).ci.steps;
+    expect(steps.map((s: any) => s.env ?? s.stage)).toEqual(['build', 'dev', 'staging', 'prod', 'gitops-image-bump']);
+  });
+
+  it('puts it at the end, saying so, when the environment before it has no step', () => {
+    const plan = planReleaseSteps({ ci: { steps: [{ stage: 'build' }] } }, envs, ['staging']);
+    expect((plan.pipelines as any).ci.steps).toEqual([{ stage: 'build' }, { stage: 'release', env: 'staging' }]);
+    expect(plan.added[0]).toEqual({ env: 'staging', pipeline: 'ci' });
+  });
+
+  it('adds several in order, each after its predecessor', () => {
+    const plan = planReleaseSteps({ ci: { steps: [{ stage: 'build' }, { stage: 'deploy', env: 'dev' }] } }, envs, ['staging', 'prod']);
+    expect((plan.pipelines as any).ci.steps.map((s: any) => s.env ?? s.stage)).toEqual(['build', 'dev', 'staging', 'prod']);
+  });
+
+  it('chooses the pipeline with the most deploy and release steps', () => {
+    const small = { steps: [{ stage: 'build' }] };
+    const plan = planReleaseSteps({ other: small, ci }, envs, ['prod']);
+    expect(plan.added[0].pipeline).toBe('ci');
+    expect((plan.pipelines as any).other).toEqual(small);
+  });
+
+  it('works on the legacy list form and keeps its shape', () => {
+    const plan = planReleaseSteps([{ name: 'ci', ...ci }], envs, ['prod']);
+    expect(Array.isArray(plan.pipelines)).toBe(true);
+    expect((plan.pipelines as any)[0].steps.at(-1)).toEqual({ stage: 'release', env: 'prod' });
+  });
+
+  it('never changes its input', () => {
+    const input = { ci: JSON.parse(JSON.stringify(ci)) };
+    planReleaseSteps(input, envs, ['prod']);
+    expect(input.ci.steps).toHaveLength(3);
+  });
+
+  it('leaves an environment that already has a step alone, and says why', () => {
+    const plan = planReleaseSteps({ ci }, envs, ['staging']);
+    expect(plan.added).toEqual([]);
+    expect(plan.skipped).toEqual([{ env: 'staging', reason: 'a pipeline already has a step for it' }]);
+    expect(plan.pipelines).toEqual({ ci });
+  });
+
+  it('adds nothing, and says why, when there is no pipeline with steps', () => {
+    for (const none of [undefined, {}, { ci: { trigger: {} } }]) {
+      const plan = planReleaseSteps(none, envs, ['prod']);
+      expect(plan.added).toEqual([]);
+      expect(plan.skipped[0].env).toBe('prod');
+    }
+  });
+
+  it('only asks for environments staged with the step on and still present', () => {
+    const staged = [
+      { kind: 'add' as const, env: flight('dr', 'kind-prod'), releaseStep: true },
+      { kind: 'add' as const, env: flight('dr2', 'kind-prod') },
+      { kind: 'add' as const, env: ground('qa'), releaseStep: true },
+    ];
+    const after = applyStaged(envs, staged);
+    expect(releaseStepEnvs(staged, after)).toEqual(['dr']);
+    expect(releaseStepEnvs(staged, after.filter(e => e.name !== 'dr'))).toEqual([]);
   });
 });

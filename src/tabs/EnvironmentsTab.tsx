@@ -8,6 +8,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 import Button from '@material-ui/core/Button';
+import Checkbox from '@material-ui/core/Checkbox';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -27,7 +28,9 @@ import {
   describeChanges,
   followUps,
   pipelinesNamingEnv,
+  planReleaseSteps,
   readEnvironments,
+  releaseStepEnvs,
   stageSetBlock,
   validateAddedFlight,
   validateEnvironments,
@@ -243,7 +246,7 @@ export function EnvironmentsTab() {
 
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
-  const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
+  const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
     () => [
@@ -253,7 +256,28 @@ export function EnvironmentsTab() {
     ],
     [before, after, targetId, pipelines],
   );
-  const notes = useMemo(() => followUps(before, after, targetId, appName), [before, after, targetId, appName]);
+  const releasePlan = useMemo(
+    () => planReleaseSteps(pipelines, after, releaseStepEnvs(staged, after)),
+    [pipelines, after, staged],
+  );
+  const releaseLines = useMemo(
+    () => [
+      ...releasePlan.added.map(a => ({
+        kind: 'edit' as const,
+        title: `Add a release step for ${a.env}`,
+        detail: `pipeline ${a.pipeline}${a.after ? `, after the step for ${a.after}` : ', at the end'}`,
+      })),
+    ],
+    [releasePlan],
+  );
+  const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const notes = useMemo(
+    () => [
+      ...followUps(before, after, targetId, appName),
+      ...releasePlan.skipped.map(k => `No release step added for ${k.env}: ${k.reason}.`),
+    ],
+    [before, after, targetId, appName, releasePlan],
+  );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
 
   const rows: DisplayRow[] = useMemo(() => {
@@ -328,7 +352,7 @@ export function EnvironmentsTab() {
     }
     setLaunched(done);
     setPhase('submitting');
-    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) },
+    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after), ...(releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {}) },
       summary: changes.map(c => c.title),
       ...(deleteFiles.length > 0 ? { deleteFiles } : {}),
     });
@@ -346,6 +370,65 @@ export function EnvironmentsTab() {
       setLaunched({});
       setNonce(n => n + 1);
     }
+  };
+
+  // What a row's expansion shows: the cloud resource fields, a Ground environment's values file, or where a
+  // Flight environment's values live.
+  const valuesPanel = (r: DisplayRow & { def: EnvDef }) => {
+    if (cloudBlock) {
+      return (
+        <>
+                    <div className={classes.label}>This environment&apos;s {targetLabel} resource</div>
+                    <div className={classes.dialogNote}>
+                      Leave a field empty to use the app-level value shown as its hint.
+                    </div>
+                    <div className={classes.fields} style={{ marginTop: 10 }}>
+                      {BLOCK_FIELDS[cloudBlock].map(f => (
+                        <TextField
+                          key={f}
+                          id={`env-${r.name}-${f}`}
+                          size="small"
+                          label={f}
+                          value={String((r.def?.[cloudBlock] as Record<string, unknown> | undefined)?.[f] ?? '')}
+                          placeholder={String((deploy?.[cloudBlock] as Record<string, unknown> | undefined)?.[f] ?? '')}
+                          InputLabelProps={{ shrink: true }}
+                          onChange={e => setField(r.def as EnvDef, cloudBlock, f, e.target.value)}
+                        />
+                      ))}
+                    </div>
+                  </>
+      );
+    }
+    if (r.def.tier === 'ground' && r.state === 'new') {
+      return (
+        <div className={classes.dialogNote}>
+              Its values file, <span className={classes.mono}>platform/envs/{r.name}.yaml</span>, is created by a
+              second pull request after the cicd.yaml change merges. Edit its values here once that is merged.
+            </div>
+      );
+    }
+    if (r.def.tier === 'ground') {
+      return (
+        <>
+              <div className={classes.label}>Values: platform/envs/{r.name}.yaml</div>
+              <div className={classes.dialogNote} style={{ marginBottom: 8 }}>
+                The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file
+                has its own pull request: it is not part of the pending changes.
+              </div>
+              <PlatformFileEditor owner={owner as string} appName={appName as string} selector={{ kind: 'env', env: r.name }} />
+            </>
+      );
+    }
+    return (
+      <div className={classes.dialogNote}>
+          This Flight environment&apos;s values live in{' '}
+          <span className={classes.mono}>gitops-{appName}/{r.def.cluster ?? '<cluster>'}/{r.name}/values.yaml</span>.{' '}
+          <Link href={`?${new URLSearchParams({ entity: searchParams.get('entity') ?? '', tab: 'config', env: r.name })}`}>
+            Edit them in App Configuration
+          </Link>
+          , which keeps its own pull-request flow and prod warnings.
+        </div>
+    );
   };
 
   return (
@@ -457,53 +540,7 @@ export function EnvironmentsTab() {
                     isOpen && r.def && (
                       <tr key={`${r.name}-edit`}>
                         <td colSpan={8} className={classes.expanded}>
-                          {cloudBlock ? (
-                            <>
-                              <div className={classes.label}>This environment&apos;s {targetLabel} resource</div>
-                              <div className={classes.dialogNote}>
-                                Leave a field empty to use the app-level value shown as its hint.
-                              </div>
-                              <div className={classes.fields} style={{ marginTop: 10 }}>
-                                {BLOCK_FIELDS[cloudBlock].map(f => (
-                                  <TextField
-                                    key={f}
-                                    id={`env-${r.name}-${f}`}
-                                    size="small"
-                                    label={f}
-                                    value={String((r.def?.[cloudBlock] as Record<string, unknown> | undefined)?.[f] ?? '')}
-                                    placeholder={String((deploy?.[cloudBlock] as Record<string, unknown> | undefined)?.[f] ?? '')}
-                                    InputLabelProps={{ shrink: true }}
-                                    onChange={e => setField(r.def as EnvDef, cloudBlock, f, e.target.value)}
-                                  />
-                                ))}
-                              </div>
-                            </>
-                          ) : r.def.tier === 'ground' ? (
-                            r.state === 'new' ? (
-                              <div className={classes.dialogNote}>
-                                Its values file, <span className={classes.mono}>platform/envs/{r.name}.yaml</span>, is created by a
-                                second pull request after the cicd.yaml change merges. Edit its values here once that is merged.
-                              </div>
-                            ) : (
-                              <>
-                                <div className={classes.label}>Values: platform/envs/{r.name}.yaml</div>
-                                <div className={classes.dialogNote} style={{ marginBottom: 8 }}>
-                                  The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file
-                                  has its own pull request: it is not part of the pending changes.
-                                </div>
-                                <PlatformFileEditor owner={owner as string} appName={appName as string} selector={{ kind: 'env', env: r.name }} />
-                              </>
-                            )
-                          ) : (
-                            <div className={classes.dialogNote}>
-                              This Flight environment&apos;s values live in{' '}
-                              <span className={classes.mono}>gitops-{appName}/{r.def.cluster ?? '<cluster>'}/{r.name}/values.yaml</span>.{' '}
-                              <Link href={`?${new URLSearchParams({ entity: searchParams.get('entity') ?? '', tab: 'config', env: r.name })}`}>
-                                Edit them in App Configuration
-                              </Link>
-                              , which keeps its own pull-request flow and prod warnings.
-                            </div>
-                          )}
+                          {valuesPanel(r as DisplayRow & { def: EnvDef })}
                           {r.def.tier === 'flight' && (
                             <div className={classes.problem} style={{ marginTop: 14 }}>
                               <div className={classes.label}>Danger zone: removing a Flight environment</div>
@@ -601,8 +638,8 @@ export function EnvironmentsTab() {
         targetId={targetId}
         targetLabel={targetLabel}
         cloudBlock={cloudBlock}
-        onStage={env => {
-          setStaged(s => [...s, { kind: 'add', env }]);
+        onStage={(env, releaseStep) => {
+          setStaged(s => [...s, { kind: 'add', env, releaseStep }]);
           setAdding(false);
         }}
         classes={classes}
@@ -650,13 +687,14 @@ function AddEnvironmentDialog({
   targetId: string;
   targetLabel: string;
   cloudBlock?: CloudBlock;
-  onStage: (env: EnvDef) => void;
+  onStage: (env: EnvDef, releaseStep: boolean) => void;
   classes: ReturnType<typeof useStyles>;
 }) {
   const [name, setName] = useState('');
   const [tier, setTier] = useState<'ground' | 'flight'>('ground');
   const [cluster, setCluster] = useState('');
   const [override, setOverride] = useState('');
+  const [releaseStep, setReleaseStep] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
   // Flight needs a Kubernetes app: a cloud target has no approval path for it yet.
   const flightAllowed = !cloudBlock;
@@ -679,6 +717,7 @@ function AddEnvironmentDialog({
     setTier('ground');
     setCluster('');
     setOverride('');
+    setReleaseStep(true);
   };
   const close = () => {
     reset();
@@ -739,8 +778,15 @@ function AddEnvironmentDialog({
             </datalist>
             <div className={classes.dialogNote}>
               Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo,
-              then the cicd.yaml change. Merge the request first. The pipeline step that releases to it is not added; edit
-              the pipeline in the Glidepath tab.
+              then the cicd.yaml change. Merge the request first.
+            </div>
+            <FormControlLabel
+              control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
+              label="Also add a release step for it to the pipeline"
+            />
+            <div className={classes.dialogNote}>
+              Without a release step nothing in CI releases to this environment. It goes right after the step for the
+              environment before it. Untick to edit the pipeline yourself in the Glidepath tab.
             </div>
           </>
         )}
@@ -768,7 +814,7 @@ function AddEnvironmentDialog({
         <Button
           disabled={!ok}
           onClick={() => {
-            onStage(candidate);
+            onStage(candidate, tier === 'flight' && releaseStep);
             reset();
           }}
         >

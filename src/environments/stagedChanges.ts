@@ -78,7 +78,8 @@ export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; en
 }
 
 export type Staged =
-  | { kind: 'add'; env: EnvDef }
+  /** releaseStep: also add a `release` step for this (Flight) environment to the app's main pipeline. */
+  | { kind: 'add'; env: EnvDef; releaseStep?: boolean }
   | { kind: 'move'; name: string; direction: 'up' | 'down' }
   | { kind: 'setBlock'; name: string; block: CloudBlock; value: Block | undefined }
   | { kind: 'remove'; name: string };
@@ -340,4 +341,95 @@ export function validateAddedFlight(before: EnvDef[], after: EnvDef[], target: s
 /** True when staging changed nothing about the environment list. */
 export function isUnchanged(before: EnvDef[], after: EnvDef[]): boolean {
   return same(before, after);
+}
+
+// ---- release steps -------------------------------------------------------------------------------------------
+// A Flight environment only receives releases through a `release` step in a pipeline. Creating the environment
+// without one leaves it unreachable from CI, so adding a Flight environment can add the step too.
+
+export interface ReleaseStepPlan {
+  /** The `pipelines` value to write: the original with the steps inserted (the same object when nothing was added). */
+  pipelines: unknown;
+  added: Array<{ env: string; pipeline: string; after?: string }>;
+  skipped: Array<{ env: string; reason: string }>;
+}
+
+type Step = Record<string, unknown>;
+type PipelineSlot = { name: string; steps: Step[]; get: () => unknown; set: (steps: Step[]) => void };
+
+const isStage = (st: Step, ...stages: string[]) => stages.includes(String(st.stage));
+
+/** The pipelines of a cicd.yaml in map or legacy list form, as slots whose steps can be replaced on a copy. */
+function pipelineSlots(pipelines: unknown): { copy: unknown; slots: PipelineSlot[] } {
+  const clone = JSON.parse(JSON.stringify(pipelines ?? null));
+  const slots: PipelineSlot[] = [];
+  const add = (name: string, holder: Record<string, unknown>) => {
+    const steps = holder.steps;
+    if (!Array.isArray(steps)) return;
+    slots.push({
+      name,
+      steps: steps as Step[],
+      get: () => holder.steps,
+      set: next => {
+        holder.steps = next;
+      },
+    });
+  };
+  if (Array.isArray(clone)) {
+    clone.forEach((p, i) => {
+      if (p && typeof p === 'object' && !Array.isArray(p)) add(String((p as { name?: unknown }).name ?? i), p as Record<string, unknown>);
+    });
+  } else if (clone && typeof clone === 'object') {
+    for (const [name, p] of Object.entries(clone as Record<string, unknown>)) {
+      if (p && typeof p === 'object' && !Array.isArray(p)) add(name, p as Record<string, unknown>);
+    }
+  }
+  return { copy: clone, slots };
+}
+
+/**
+ * Adds a `release` step for each named environment to the app's main pipeline: the one with the most deploy and
+ * release steps (the same rule Tower uses to infer the promotion order), the first on a tie. The step goes right
+ * after the last step for the environment before it in promotion order, else at the end. An environment that
+ * already has a step in any pipeline is left alone.
+ */
+export function planReleaseSteps(pipelines: unknown, envs: EnvDef[], names: string[]): ReleaseStepPlan {
+  const { copy, slots } = pipelineSlots(pipelines);
+  const plan: ReleaseStepPlan = { pipelines, added: [], skipped: [] };
+  if (names.length === 0) return plan;
+  if (slots.length === 0) {
+    plan.skipped = names.map(env => ({ env, reason: 'the service has no pipeline with steps to add it to' }));
+    return plan;
+  }
+  const weight = (sl: PipelineSlot) => sl.steps.filter(st => isStage(st, 'deploy', 'release')).length;
+  const main = slots.reduce((best, sl) => (weight(sl) > weight(best) ? sl : best), slots[0]);
+  for (const env of names) {
+    if (slots.some(sl => sl.steps.some(st => st.env === env))) {
+      plan.skipped.push({ env, reason: 'a pipeline already has a step for it' });
+      continue;
+    }
+    const i = envs.findIndex(e => e.name === env);
+    const prev = i > 0 ? envs[i - 1].name : undefined;
+    const steps = [...(main.get() as Step[])];
+    let at = steps.length;
+    if (prev) {
+      for (let k = steps.length - 1; k >= 0; k--) {
+        if (steps[k].env === prev) {
+          at = k + 1;
+          break;
+        }
+      }
+    }
+    steps.splice(at, 0, { stage: 'release', env });
+    main.set(steps);
+    plan.added.push({ env, pipeline: main.name, ...(prev && at > 0 && steps[at - 1].env === prev ? { after: prev } : {}) });
+  }
+  if (plan.added.length > 0) plan.pipelines = copy;
+  return plan;
+}
+
+/** Flight environments whose add was staged with the release step switched on and that survive in `after`. */
+export function releaseStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
+  const alive = new Set(after.filter(e => e.tier === 'flight').map(e => e.name));
+  return staged.flatMap(s => (s.kind === 'add' && s.releaseStep && alive.has(s.env.name) ? [s.env.name] : []));
 }
