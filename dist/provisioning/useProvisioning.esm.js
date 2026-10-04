@@ -5,6 +5,7 @@ import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { TEKTON_CLUSTER, toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { deriveProvisioning } from './deriveProvisioning.esm.js';
+import { updateObservation } from './observed.esm.js';
 
 const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = [
@@ -213,6 +214,7 @@ function useProvisioning() {
     };
     const pendingCache = { at: 0, busy: false, list: [] };
     const requestMemo = /* @__PURE__ */ new Map();
+    const observedMemo = /* @__PURE__ */ new Map();
     const refreshPending = (tenants) => {
       if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
       pendingCache.busy = true;
@@ -362,7 +364,14 @@ function useProvisioning() {
         xrs.map((x) => parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"])).find(Boolean) ?? TENANTS_REPO_BY_CLUSTER[XR_CLUSTER]
       );
       items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map((x) => x.metadata.name)), XR_CLUSTER, now));
-      const kept = items.filter((i) => {
+      const withObserved = items.map((i) => {
+        const prior = observedMemo.get(i.xr.name);
+        const current = deriveProvisioning({ ...i, observed: prior }, now);
+        const next = updateObservation(prior, current.steps, now);
+        observedMemo.set(i.xr.name, next);
+        return { ...i, observed: next };
+      });
+      const kept = withObserved.filter((i) => {
         const p = deriveProvisioning(i, now);
         return !p.complete || p.completedAt !== void 0 && now - p.completedAt < KEEP_DONE_MS;
       });

@@ -31,8 +31,8 @@ const infisicalProjectUrl = (cluster, projectId) => {
   const host = INFISICAL_HOST_BY_CLUSTER[cluster];
   return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
 };
-function deriveProvisioning(input, now) {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links } = input;
+function deriveProvisioning(input, now, typical) {
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   const cloudFinal = isFunction || Boolean(cloudDeploy);
   const created = xr.createdAt;
@@ -42,11 +42,21 @@ function deriveProvisioning(input, now) {
   const cicdC = cond(xr, "CicdOnboarded");
   const syncFailed = synced?.status === "False";
   const steps = [];
-  const push = (s) => steps.push({
-    typicalSec: TYPICAL_SEC[s.id],
-    fraction: s.state === "done" ? 1 : 0,
-    ...s
-  });
+  const push = (s) => {
+    const obs = observed?.[s.id];
+    const trusted = obs?.sawRunning ? obs : void 0;
+    const startedAt = s.startedAt ?? trusted?.startedAt;
+    const endedAt = s.endedAt ?? (s.state === "done" ? trusted?.endedAt : void 0);
+    const seconds = s.seconds ?? (s.state === "done" && startedAt !== void 0 && endedAt !== void 0 ? secBetween(startedAt, endedAt) : void 0);
+    steps.push({
+      typicalSec: typical?.[s.id] ?? TYPICAL_SEC[s.id],
+      fraction: s.state === "done" ? 1 : 0,
+      ...s,
+      startedAt,
+      endedAt,
+      seconds
+    });
+  };
   const pending = Boolean(xr.pending);
   const reqPr = links?.requestPr;
   const requestMerged = !pending || reqPr?.state === "merged";
@@ -56,6 +66,8 @@ function deriveProvisioning(input, now) {
     title: "Request PR merged",
     desc: "A person merges the request PR in the tenants repo",
     state: requestMerged ? "done" : "run",
+    startedAt: reqPr?.createdAt,
+    endedAt: requestMerged ? reqPr?.mergedAt : void 0,
     seconds: requestMerged ? dur(reqPr?.createdAt, reqPr?.mergedAt) : secBetween(reqPr?.createdAt ?? created, now),
     detail: requestMerged ? void 0 : "Merge the request PR to start provisioning",
     links: prLink("Request PR", reqPr)
@@ -66,6 +78,8 @@ function deriveProvisioning(input, now) {
     title: "Request applied",
     desc: "ArgoCD applies the merged request, which creates the resource",
     state: appliedState,
+    startedAt: reqPr?.mergedAt,
+    endedAt: !pending ? created : void 0,
     seconds: !pending ? dur(reqPr?.mergedAt, created) : requestMerged ? dur(reqPr?.mergedAt, now) : void 0,
     detail: appliedState === "run" ? "Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource" : void 0
   });
@@ -77,6 +91,8 @@ function deriveProvisioning(input, now) {
     title: "Dev cluster chosen",
     desc: "A registered, ready dev cluster is selected for onboarding",
     state: clusterStepState,
+    startedAt: pending ? void 0 : created,
+    endedAt: clusterDone ? ts(clusterC?.lastTransitionTime) : void 0,
     seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : void 0,
     detail: !clusterDone && clusterC?.message ? clusterC.message : void 0
   });
@@ -90,6 +106,8 @@ function deriveProvisioning(input, now) {
     title: "CI/CD onboarded",
     desc: "Tenant identity committed; the pipeline namespace is stood up",
     state: stateOf(cicdDone, clusterDone),
+    startedAt: ts(clusterC?.lastTransitionTime),
+    endedAt: cicdDone ? ts(cicdC?.lastTransitionTime) : void 0,
     seconds: cicdDone ? secBetween(ts(clusterC?.lastTransitionTime), ts(cicdC?.lastTransitionTime)) : void 0,
     detail: cicdWaiting ?? (!cicdDone && cicdC?.message ? cicdC.message : void 0)
   });
@@ -117,6 +135,8 @@ function deriveProvisioning(input, now) {
     desc: isFunction ? "Source repo created, starter files committed" : "Source and GitOps repos created, starter files committed",
     state: reposState,
     fraction: reposFraction,
+    startedAt: pending ? void 0 : created,
+    endedAt: reposState === "done" ? reposEnd : void 0,
     seconds: reposSeconds,
     detail: reposState === "fail" ? synced?.message : void 0,
     parallel: true,
@@ -136,6 +156,7 @@ function deriveProvisioning(input, now) {
     title: "Available in the Backstage catalog",
     desc: "The catalog ingestor has picked the service up, so it can be opened in Tower",
     state: catalogState,
+    startedAt: pending ? void 0 : created,
     seconds: catalogState === "run" ? secBetween(created, now) : void 0,
     detail: catalogState === "run" ? "Waiting for the catalog ingestor's next sync" : void 0,
     parallel: true
@@ -182,6 +203,8 @@ function deriveProvisioning(input, now) {
     desc: isFunction ? "One PR on the source repo adds the pipeline files. Merging it starts the build" : "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
     state: onboardingState,
     fraction: onboardingFraction,
+    startedAt: onboardingStart || void 0,
+    endedAt: onboardingState === "done" ? onboardingEnd : void 0,
     seconds: onboardingSeconds,
     detail: onboardingDetail,
     links: [...prLink("Source PR", ob?.source), ...prLink("GitOps PR", ob?.gitops)]
@@ -208,6 +231,8 @@ function deriveProvisioning(input, now) {
     title: "Infisical secrets resources",
     desc: "Project, machine identity and the cluster secret store that reads it",
     state: secretsState,
+    startedAt: ts(cicdC?.lastTransitionTime),
+    endedAt: secretsState === "done" ? secrets?.readyAt : void 0,
     seconds: secretsSeconds,
     detail: secretsDetail,
     parallel: true,
@@ -236,6 +261,8 @@ function deriveProvisioning(input, now) {
     desc: "Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges",
     state: buildState,
     fraction: buildState === "done" ? 1 : buildFraction,
+    startedAt: build?.startedAt,
+    endedAt: buildState === "done" ? build?.completedAt : void 0,
     seconds: buildSec,
     detail: buildDetail
   });
@@ -285,6 +312,8 @@ function deriveProvisioning(input, now) {
     desc: runDesc,
     state: runState,
     fraction: runState === "done" ? 1 : runFraction,
+    startedAt: build?.completedAt ?? rollout?.createdAt,
+    endedAt: cloudFinal && runState === "done" ? cloudDeploy?.completedAt : void 0,
     seconds: runSec,
     detail: runDetail,
     links: runLinks

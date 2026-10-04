@@ -19,6 +19,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
+import { useProvisioningHistory, typicalFor } from './provisioning/provisioningHistory.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
 
@@ -345,10 +346,21 @@ function AppPicker({
   const [searchParams, setSearchParams] = useSearchParams();
   const provisioning = useProvisioning();
   const now = useNow();
-  const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  const history = useProvisioningHistory();
+  const provItems = useMemo(
+    () => toItems(provisioning.items, now, (kind) => typicalFor(history.typical, kind)),
+    [provisioning.items, now, history.typical]
+  );
+  useEffect(() => {
+    provItems.forEach((i) => {
+      if (i.derived.complete) history.record(i);
+    });
+  }, [provItems, history]);
   const inFlight = useMemo(() => provItems.filter((i) => !i.derived.stalled), [provItems]);
   const view = searchParams.get("view") === "provisioning" ? "provisioning" : "services";
   const selectedService = searchParams.get("service") ?? void 0;
+  const shownItem = provItems.find((i) => i.inputs.xr.name === selectedService) ?? inFlight[0] ?? provItems[0];
+  const typicalMeasured = Boolean(shownItem && typicalFor(history.typical, shownItem.inputs.xr.kind));
   const openProvisioning = (name) => setSearchParams(name ? { view: "provisioning", service: name } : { view: "provisioning" });
   const openServices = () => setSearchParams({});
   const [typeFilter, setTypeFilter] = useState(ALL);
@@ -540,7 +552,9 @@ function AppPicker({
         onSelect: openProvisioning,
         error: provisioning.error,
         loading: provisioning.loading,
-        onRefreshCatalog: () => triggerCatalogRefresh(discoveryApi, fetchApi)
+        onRefreshCatalog: () => triggerCatalogRefresh(discoveryApi, fetchApi),
+        runs: history.runs,
+        typicalMeasured
       }
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),

@@ -13,7 +13,7 @@ function useNow(intervalMs = 1e3) {
   }, [intervalMs]);
   return now;
 }
-const toItems = (inputs, now) => inputs.map((i) => ({ inputs: i, derived: deriveProvisioning(i, now) }));
+const toItems = (inputs, now, typicalByKind) => inputs.map((i) => ({ inputs: i, derived: deriveProvisioning(i, now, typicalByKind?.(i.xr.kind)) }));
 const stateLabel = {
   done: "done",
   run: "in progress",

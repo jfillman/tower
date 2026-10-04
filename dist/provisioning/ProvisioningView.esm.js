@@ -4,6 +4,8 @@ import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll } from '../preventFocusScroll.esm.js';
 import { SegmentBar } from './ProvisioningStrip.esm.js';
+import { buildEvents } from './events.esm.js';
+import { relativeTime } from '../shared/format.esm.js';
 import { fmtDuration } from './shared.esm.js';
 
 const SCALE_SEC = 180;
@@ -140,6 +142,18 @@ const useStyles = makeStyles(() => ({
     padding: "2px 7px",
     "&:hover": { borderColor: ({ t }) => t.sky }
   },
+  events: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    lineHeight: 1.7,
+    color: ({ t }) => t.textLo,
+    display: "flex",
+    flexDirection: "column",
+    overflowWrap: "anywhere"
+  },
+  eventDone: { color: ({ t }) => t.good },
+  eventStart: { color: ({ t }) => t.sky },
+  eventFail: { color: ({ t }) => t.bad },
   created: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
   createdRow: {
     borderTop: ({ t }) => `1px solid ${t.line}`,
@@ -367,13 +381,59 @@ function Step({
     ] })
   ] });
 }
+function LiveEvents({
+  steps,
+  classes
+}) {
+  const events = buildEvents(steps, Date.now());
+  const origin = events[0]?.at ?? 0;
+  const shown = events.slice(-14);
+  const mark = { start: "\u25B8", done: "\u2713", fail: "\u2717" };
+  const tone = { start: classes.eventStart, done: classes.eventDone, fail: classes.eventFail };
+  return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
+    /* @__PURE__ */ jsx("div", { className: classes.head, children: "Live events" }),
+    shown.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.desc, children: "Nothing has happened yet." }) : /* @__PURE__ */ jsx("div", { className: classes.events, "aria-label": "Live events", children: shown.map((e, i) => /* @__PURE__ */ jsxs("span", { children: [
+      "[",
+      fmtDuration((e.at - origin) / 1e3),
+      "] ",
+      /* @__PURE__ */ jsx("span", { className: tone[e.kind], children: mark[e.kind] }),
+      " ",
+      e.text
+    ] }, `${e.stepId}-${e.kind}-${i}`)) })
+  ] });
+}
+function RecentlyProvisioned({
+  runs,
+  classes
+}) {
+  if (runs.length === 0) return null;
+  return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
+    /* @__PURE__ */ jsx("div", { className: classes.head, children: "Recently provisioned" }),
+    /* @__PURE__ */ jsxs("table", { className: classes.created, children: [
+      /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { className: classes.createdRow, children: [
+        /* @__PURE__ */ jsx("td", { children: "Service" }),
+        /* @__PURE__ */ jsx("td", { children: "Type" }),
+        /* @__PURE__ */ jsx("td", { children: "Took" }),
+        /* @__PURE__ */ jsx("td", { children: "Finished" })
+      ] }) }),
+      /* @__PURE__ */ jsx("tbody", { children: runs.map((r) => /* @__PURE__ */ jsxs("tr", { className: classes.createdRow, children: [
+        /* @__PURE__ */ jsx("td", { children: r.service }),
+        /* @__PURE__ */ jsx("td", { children: r.kind }),
+        /* @__PURE__ */ jsx("td", { children: fmtDuration(r.totalSeconds) }),
+        /* @__PURE__ */ jsx("td", { children: relativeTime(new Date(r.completedAt)) })
+      ] }, `${r.service}-${r.startedAt}`)) })
+    ] })
+  ] });
+}
 function ProvisioningView({
   items,
   selected,
   onSelect,
   error,
   loading,
-  onRefreshCatalog
+  onRefreshCatalog,
+  runs = [],
+  typicalMeasured = false
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -384,7 +444,10 @@ function ProvisioningView({
     ] });
   }
   if (items.length === 0) {
-    return /* @__PURE__ */ jsx("div", { className: classes.empty, children: loading ? "Reading provisioning status\u2026" : "Nothing is provisioning. A new service appears here as soon as you create it." });
+    return /* @__PURE__ */ jsxs("div", { className: classes.root, children: [
+      /* @__PURE__ */ jsx("div", { className: classes.empty, children: loading ? "Reading provisioning status\u2026" : "Nothing is provisioning. A new service appears here as soon as you create it." }),
+      /* @__PURE__ */ jsx(RecentlyProvisioned, { runs, classes })
+    ] });
   }
   const inFlight = items.filter((i) => !i.derived.stalled);
   const stalled = items.filter((i) => i.derived.stalled);
@@ -453,10 +516,11 @@ function ProvisioningView({
         ] }),
         /* @__PURE__ */ jsxs("span", { children: [
           /* @__PURE__ */ jsx("i", { className: classes.swatch, style: { border: `1px dashed ${t.textFaint}`, height: 5 } }),
-          "Typical (estimate)"
+          typicalMeasured ? "Typical (median of recent provisions)" : "Typical (estimate)"
         ] })
       ] })
     ] }),
+    /* @__PURE__ */ jsx(LiveEvents, { steps: derived.steps, classes }),
     inputs.created && inputs.created.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         "What gets created \xB7 ",
@@ -481,7 +545,8 @@ function ProvisioningView({
           createdLabel(c.ready)
         ] })
       ] }, `${c.kind}/${c.name}`)) }) })
-    ] })
+    ] }),
+    /* @__PURE__ */ jsx(RecentlyProvisioned, { runs, classes })
   ] });
 }
 
