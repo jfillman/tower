@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Menu from '@material-ui/core/Menu';
@@ -7,8 +7,12 @@ import MenuItem from '@material-ui/core/MenuItem';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
+import { dump } from 'js-yaml';
+import { useEnvValuesLoader } from '../values/sources.esm.js';
+import { loadSubmitted, pendingFrom, saveSubmitted } from '../environments/submitted.esm.js';
+import { RefreshButton } from '../RefreshButton.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
@@ -17,6 +21,7 @@ import { PageHeader, Button, Segmented, Panel, ColumnLabel, Chip, TierChip, HEAL
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
 import { PendingChanges } from './environments/PendingChanges.esm.js';
 import { RowDetail } from './environments/RowDetail.esm.js';
+import { SubmittedPanel } from './environments/SubmittedPanel.esm.js';
 import { same, TARGET_BLOCK } from './environments/shared.esm.js';
 
 const COLUMNS = "20px 120px 80px 110px 100px 90px minmax(0, 1fr) 36px";
@@ -24,6 +29,7 @@ const useStyles = makeStyles(() => ({
   wrap: { padding: "20px 24px 40px", maxWidth: 1380 },
   layout: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 350px", gap: 18, alignItems: "start" },
   main: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
+  side: { display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" },
   toolbar: { display: "flex", gap: 10, alignItems: "center" },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
   headRow: { display: "grid", gridTemplateColumns: COLUMNS, gap: 10, padding: "9px 14px", borderLeft: "3px solid transparent" },
@@ -41,6 +47,7 @@ const useStyles = makeStyles(() => ({
   rowNew: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.good },
   rowEdited: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.amber },
   rowRemoved: { borderLeftColor: ({ t }) => t.bad },
+  rowPending: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.sky },
   rowDragOver: { boxShadow: ({ t }) => `inset 0 2px 0 ${t.amber}` },
   grip: {
     color: ({ t }) => t.textLo,
@@ -58,9 +65,9 @@ const useStyles = makeStyles(() => ({
   health: { display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 },
   empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: "center", fontSize: 13 }
 }));
-const STATE_CLASS = { new: "rowNew", edited: "rowEdited", removed: "rowRemoved" };
-const STATE_TONE = { new: "ok", edited: "flight", removed: "bad" };
-const STATE_LABEL = { new: "new", edited: "edit", removed: "remove" };
+const STATE_CLASS = { new: "rowNew", edited: "rowEdited", removed: "rowRemoved", "pr-open": "rowPending", "removal-pr": "rowRemoved" };
+const STATE_TONE = { new: "ok", edited: "flight", removed: "bad", "pr-open": "ground", "removal-pr": "bad" };
+const STATE_LABEL = { new: "staged: new", edited: "staged: edit", removed: "staged: remove", "pr-open": "PR open", "removal-pr": "removal PR open" };
 function EnvironmentsTab() {
   const t = useHangarTokens();
   const c = useStyles({ t });
@@ -70,6 +77,8 @@ function EnvironmentsTab() {
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
+  const loadValues = useEnvValuesLoader();
+  const [duplicating, setDuplicating] = useState();
   const [phase, setPhase] = useState("idle");
   const [launched, setLaunched] = useState({});
   const [failure, setFailure] = useState();
@@ -81,10 +90,14 @@ function EnvironmentsTab() {
   const [menu, setMenu] = useState();
   const [dragging, setDragging] = useState();
   const [dragOver, setDragOver] = useState();
+  const [submitted, setSubmitted] = useState([]);
   const liveRows = useMemo(
     () => buildEnvironmentRows(environments, { lower: pipelineOrder.lower, upper: pipelineOrder.upper }),
     [environments, pipelineOrder.lower, pipelineOrder.upper]
   );
+  useEffect(() => {
+    if (owner && appName) setSubmitted(loadSubmitted(owner, appName));
+  }, [owner, appName]);
   const deploy = cicd.data?.values.deploy;
   const pipelines = cicd.data?.values?.pipelines;
   const canEdit = Boolean(cicd.data && owner && appName);
@@ -93,6 +106,19 @@ function EnvironmentsTab() {
   const targetLabel = DEPLOY_TARGETS[targetId]?.label ?? targetId;
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
+  const pending = useMemo(() => canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }, [canEdit, submitted, before]);
+  useEffect(() => {
+    if (!canEdit || !owner || !appName) return;
+    if (pending.records.length !== submitted.length) {
+      setSubmitted(pending.records);
+      saveSubmitted(owner, appName, pending.records);
+    }
+  }, [canEdit, owner, appName, pending.records, submitted.length]);
+  useEffect(() => {
+    if (pending.records.length === 0) return void 0;
+    const id = setInterval(() => setNonce((n) => n + 1), 3e4);
+    return () => clearInterval(id);
+  }, [pending.records.length]);
   const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
@@ -120,10 +146,11 @@ function EnvironmentsTab() {
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No release step added for ${k.env}: ${k.reason}.`)
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged]
+    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged]
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
   const rows = useMemo(() => {
@@ -150,8 +177,16 @@ function EnvironmentsTab() {
       let state;
       if (!prior) state = "new";
       else if (!same(prior, def)) state = "edited";
+      else if (pending.removals.includes(def.name)) state = "removal-pr";
       return toRow(def, state);
     });
+    for (const { env } of pending.adds) {
+      if (out.some((r) => r.name === env.name)) continue;
+      const ghost = toRow(env, "pr-open");
+      const firstFlight = out.findIndex((r) => r.tier === "flight");
+      if (env.tier === "ground" && firstFlight !== -1) out.splice(firstFlight, 0, ghost);
+      else out.push(ghost);
+    }
     before.forEach((def, i) => {
       if (after.some((e) => e.name === def.name)) return;
       let at = 0;
@@ -166,7 +201,7 @@ function EnvironmentsTab() {
     });
     for (const r of liveRows) if (!out.some((o) => o.name === r.name)) out.push({ ...r });
     return out;
-  }, [canEdit, liveRows, before, after, targetLabel]);
+  }, [canEdit, liveRows, before, after, targetLabel, pending]);
   if (loading && rows.length === 0) return /* @__PURE__ */ jsx(Progress, {});
   if (error && rows.length === 0) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(String(error)) });
   const isCloudRow = (r) => r.target !== "Kubernetes" || Boolean(cloudBlock);
@@ -184,7 +219,7 @@ function EnvironmentsTab() {
     return i !== -1 && Boolean(after[j]) && after[j].tier === after[i].tier;
   };
   const canEditRow = (r) => canEdit && Boolean(r.def);
-  const movable = (r) => canEditRow(r) && r.state !== "removed" && (canMove(r.name, "up") || canMove(r.name, "down"));
+  const movable = (r) => canEditRow(r) && r.state !== "removed" && r.state !== "removal-pr" && r.state !== "pr-open" && (canMove(r.name, "up") || canMove(r.name, "down"));
   const dropOn = (target) => {
     const from = dragging;
     setDragging(void 0);
@@ -228,13 +263,30 @@ function EnvironmentsTab() {
       done[e.name] = r.prUrl;
     }
     setLaunched(done);
+    const createFiles = [];
+    if (!cloudBlock) {
+      for (const { env, from } of copiedEnvs(staged, after)) {
+        if (env.tier !== "ground") continue;
+        const source = before.find((b) => b.name === from);
+        if (!source) continue;
+        try {
+          const values = await loadValues({ owner, appName, env: from, tier: source.tier, cluster: source.cluster });
+          createFiles.push({ path: `platform/envs/${env.name}.yaml`, content: dump({ envName: env.name, ...values }, { lineWidth: -1 }) });
+        } catch (e) {
+          setPhase("idle");
+          setFailure(`Could not read the values of ${from} to copy them to ${env.name}: ${String(e)}. Nothing was changed in cicd.yaml.`);
+          return;
+        }
+      }
+    }
     setPhase("submitting");
     await submit.submit({
       owner,
       appName,
       patch: { deploy: buildDeploy(deploy, after), ...releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {} },
       summary: changes.map((l) => l.title),
-      ...deleteFiles.length > 0 ? { deleteFiles } : {}
+      ...deleteFiles.length > 0 ? { deleteFiles } : {},
+      ...createFiles.length > 0 ? { createFiles } : {}
     });
     setPhase("idle");
   };
@@ -242,6 +294,20 @@ function EnvironmentsTab() {
     const succeeded = Boolean(submit.result);
     submit.reset();
     setFailure(void 0);
+    if (succeeded && submit.result && owner && appName) {
+      const record = {
+        id: `${Date.now()}`,
+        at: Date.now(),
+        prUrl: submit.result.prUrl,
+        requests: { ...launched },
+        added: after.filter((e) => !before.some((b) => b.name === e.name)),
+        removed: before.filter((b) => !after.some((e) => e.name === b.name)).map((b) => b.name),
+        summary: changes.map((l) => l.title)
+      };
+      const next = [record, ...submitted];
+      setSubmitted(next);
+      saveSubmitted(owner, appName, next);
+    }
     if (succeeded) {
       setStaged([]);
       setLaunched({});
@@ -258,19 +324,27 @@ function EnvironmentsTab() {
     cloudBlock,
     onSetField: setField,
     onRemove: setRemoving,
-    onUndoRemove: undoRemove
+    onUndoRemove: undoRemove,
+    siblings: before,
+    pendingFor: (name) => {
+      const record = pending.records.find((r) => r.added.some((e) => e.name === name) || r.removed.includes(name));
+      return record && { prUrl: record.prUrl, requestUrl: record.requests[name] };
+    }
   };
   const menuRow = menu ? rows.find((r) => r.name === menu.name) : void 0;
   const closeMenu = () => setMenu(void 0);
-  const menuGround = menuRow?.def?.tier === "ground" && menuRow.state !== "removed";
-  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== "removed";
+  const menuGround = menuRow?.def?.tier === "ground" && menuRow.state !== "removed" && menuRow.state !== "removal-pr";
+  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== "removed" && menuRow?.state !== "removal-pr";
   return /* @__PURE__ */ jsxs("div", { className: c.wrap, children: [
     /* @__PURE__ */ jsx(
       PageHeader,
       {
         title: "Environments",
         subtitle: canEdit ? "Edit in the table. Changes stage on the right, then open together." : "Every environment of this service, in promotion order.",
-        actions: canEdit && /* @__PURE__ */ jsx(Button, { variant: "primary", onClick: () => setAdding(true), children: "Add environment" })
+        actions: /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setNonce((n) => n + 1) }),
+          canEdit && /* @__PURE__ */ jsx(Button, { variant: "primary", onClick: () => setAdding(true), children: "Add environment" })
+        ] })
       }
     ),
     !canEdit && /* @__PURE__ */ jsx("div", { className: c.hint, style: { marginBottom: 12 }, children: "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
@@ -342,10 +416,7 @@ function EnvironmentsTab() {
                     ) }),
                     /* @__PURE__ */ jsxs("span", { role: "cell", className: c.nameCell, children: [
                       /* @__PURE__ */ jsx("b", { className: `${c.name} ${r.state === "removed" ? c.nameRemoved : ""}`, children: r.name }),
-                      r.state && /* @__PURE__ */ jsxs(Chip, { tone: STATE_TONE[r.state], children: [
-                        "staged: ",
-                        STATE_LABEL[r.state]
-                      ] })
+                      r.state && /* @__PURE__ */ jsx(Chip, { tone: STATE_TONE[r.state], children: STATE_LABEL[r.state] })
                     ] }),
                     /* @__PURE__ */ jsx("span", { role: "cell", children: /* @__PURE__ */ jsx(TierChip, { tier: r.tier }) }),
                     /* @__PURE__ */ jsx("span", { role: "cell", children: r.target }),
@@ -361,7 +432,7 @@ function EnvironmentsTab() {
                         /* @__PURE__ */ jsx("span", { title: formatDateTime(r.deployedAt), children: relativeTime(r.deployedAt) })
                       ] })
                     ] }),
-                    /* @__PURE__ */ jsx("span", { role: "cell", onClick: (e) => e.stopPropagation(), children: editable && /* @__PURE__ */ jsx(
+                    /* @__PURE__ */ jsx("span", { role: "cell", onClick: (e) => e.stopPropagation(), children: editable && r.state !== "pr-open" && /* @__PURE__ */ jsx(
                       IconButton,
                       {
                         "aria-label": `Actions for ${r.name}`,
@@ -378,22 +449,36 @@ function EnvironmentsTab() {
           })
         ] }) }) })
       ] }),
-      canEdit && /* @__PURE__ */ jsx(
-        PendingChanges,
-        {
-          changes,
-          problems,
-          notes,
-          flightAdds,
-          launched,
-          owner,
-          appName,
-          deleteFiles,
-          phase,
-          onDiscard: () => setStaged([]),
-          onOpen: openPr
-        }
-      )
+      canEdit && /* @__PURE__ */ jsxs("div", { className: c.side, children: [
+        /* @__PURE__ */ jsx(
+          PendingChanges,
+          {
+            changes,
+            problems,
+            notes,
+            flightAdds,
+            launched,
+            owner,
+            appName,
+            deleteFiles,
+            phase,
+            onDiscard: () => setStaged([]),
+            onOpen: openPr
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          SubmittedPanel,
+          {
+            records: pending.records,
+            onCheck: () => setNonce((n) => n + 1),
+            onDismiss: (id) => {
+              const next = submitted.filter((r) => r.id !== id);
+              setSubmitted(next);
+              if (owner && appName) saveSubmitted(owner, appName, next);
+            }
+          }
+        )
+      ] })
     ] }),
     /* @__PURE__ */ jsxs(Menu, { anchorEl: menu?.el, open: Boolean(menu && menuRow), onClose: closeMenu, children: [
       /* @__PURE__ */ jsx(
@@ -428,6 +513,16 @@ function EnvironmentsTab() {
           children: "Move later"
         }
       ),
+      menuMovable && menuRow?.state !== "pr-open" && /* @__PURE__ */ jsx(
+        MenuItem,
+        {
+          onClick: () => {
+            if (menuRow?.def) setDuplicating(menuRow.def);
+            closeMenu();
+          },
+          children: "Duplicate\u2026"
+        }
+      ),
       menuRow?.state === "removed" && /* @__PURE__ */ jsx(
         MenuItem,
         {
@@ -452,18 +547,24 @@ function EnvironmentsTab() {
     /* @__PURE__ */ jsx(
       AddEnvironmentDialog,
       {
-        open: adding,
-        onClose: () => setAdding(false),
+        open: adding || Boolean(duplicating),
+        duplicateOf: duplicating,
+        onClose: () => {
+          setAdding(false);
+          setDuplicating(void 0);
+        },
         current: after,
         problems,
         targetId,
         targetLabel,
         cloudBlock,
-        onStage: (env, releaseStep) => {
-          setStaged((s) => [...s, { kind: "add", env, releaseStep }]);
+        onStage: (env, releaseStep, copyValuesFrom) => {
+          setStaged((s) => [...s, { kind: "add", env, releaseStep, ...copyValuesFrom ? { copyValuesFrom } : {} }]);
           setAdding(false);
+          setDuplicating(void 0);
         }
-      }
+      },
+      duplicating?.name ?? "new"
     ),
     removing && /* @__PURE__ */ jsx(
       RemoveEnvironmentDialog,

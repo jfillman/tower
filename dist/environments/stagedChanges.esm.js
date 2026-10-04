@@ -171,7 +171,9 @@ function envFilePaths(env) {
   return ["platform", "glidepath"].flatMap((dir) => [`${dir}/envs/${env}.yaml`, `${dir}/envs/${env}.release.yaml`]);
 }
 function pipelinesNamingEnv(pipelines, env) {
-  const entries = Array.isArray(pipelines) ? pipelines.map((p, i) => [String(p?.name ?? i), p]) : pipelines && typeof pipelines === "object" ? Object.entries(pipelines) : [];
+  let entries = [];
+  if (Array.isArray(pipelines)) entries = pipelines.map((p, i) => [String(p?.name ?? i), p]);
+  else if (pipelines && typeof pipelines === "object") entries = Object.entries(pipelines);
   return entries.filter(([, p]) => {
     const steps = Array.isArray(p) ? p : p?.steps;
     return Array.isArray(steps) && steps.some((st) => st?.env === env);
@@ -298,6 +300,13 @@ function releaseStepEnvs(staged, after) {
   const alive = new Set(after.filter((e) => e.tier === "flight").map((e) => e.name));
   return staged.flatMap((s) => s.kind === "add" && s.releaseStep && alive.has(s.env.name) ? [s.env.name] : []);
 }
+function copiedEnvs(staged, after) {
+  return staged.flatMap((s) => {
+    if (s.kind !== "add" || !s.copyValuesFrom) return [];
+    const env = after.find((e) => e.name === s.env.name);
+    return env ? [{ env, from: s.copyValuesFrom }] : [];
+  });
+}
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, planReleaseSteps, readEnvironments, releaseStepEnvs, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, planReleaseSteps, readEnvironments, releaseStepEnvs, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map

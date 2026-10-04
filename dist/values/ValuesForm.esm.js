@@ -719,7 +719,8 @@ function ConfigEditor({
   source,
   title,
   prod = false,
-  layout = "side"
+  layout = "side",
+  copyFrom
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -760,6 +761,33 @@ function ConfigEditor({
       submitCfg.reset();
     }
   }, [cfg.data]);
+  const [copyNote, setCopyNote] = useState();
+  const applyValues = (incoming) => {
+    const values = { ...incoming };
+    if (values.rollout && typeof values.rollout === "object") {
+      const { image: _image, ...rest } = values.rollout;
+      values.rollout = rest;
+    }
+    setForm(buildFormState(values));
+    setAdvanced(buildAdvancedYaml(values));
+    setRolloutEnabled(values.rollout !== void 0 && values.rollout !== null);
+    const rollout = asRecord(values.rollout);
+    const simple = parseStepsSimple(rollout.steps);
+    setStepsMode(simple ? "simple" : "raw");
+    setStepsSimple(simple ?? []);
+    setStepsRaw(dumpOrBlank(rollout.steps));
+  };
+  const copyValues = async (id) => {
+    if (!copyFrom || !id) return;
+    const label = copyFrom.options.find((o) => o.id === id)?.label ?? id;
+    setCopyNote({ text: `Loading the values of ${label}\u2026` });
+    try {
+      applyValues(await copyFrom.load(id));
+      setCopyNote({ text: `Copied the values of ${label}. Review them in the pending changes; Discard all undoes it.` });
+    } catch (e) {
+      setCopyNote({ text: `Could not load the values of ${label}: ${String(e)}`, bad: true });
+    }
+  };
   if (cfg.error && !cfg.data) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(cfg.error) });
   if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return /* @__PURE__ */ jsx(Progress, {});
   if (cfg.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(cfg.error) });
@@ -1026,6 +1054,13 @@ function ConfigEditor({
       /* @__PURE__ */ jsxs("div", { className: classes.sectionTitleRow, style: { marginBottom: 0 }, children: [
         /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Live values from GitHub - not polled, use refresh for the latest commit." }),
         /* @__PURE__ */ jsx(RefreshButton, { onClick: source.refresh })
+      ] }),
+      copyFrom && copyFrom.options.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
+        /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": "Copy values from", value: "", onChange: (e) => void copyValues(e.target.value), style: { maxWidth: 260 }, children: [
+          /* @__PURE__ */ jsx("option", { value: "", children: "Copy values from\u2026" }),
+          copyFrom.options.map((o) => /* @__PURE__ */ jsx("option", { value: o.id, children: o.label }, o.id))
+        ] }),
+        copyNote && /* @__PURE__ */ jsx("span", { className: copyNote.bad ? ui.problem : ui.note, children: copyNote.text })
       ] }),
       /* @__PURE__ */ jsx(Subtabs, { label: "Values sections", value: tab, onChange: setTab, tabs: VALUES_TABS.map((x) => ({ ...x, marked: tabDirty[x.id] })) }),
       tab === "advanced" && /* @__PURE__ */ jsxs(Fragment, { children: [

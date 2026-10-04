@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { useAppConfig, useSubmitConfigChange, usePlatformFile, useSubmitPlatformFileChange } from '../useConfigData.esm.js';
 
 function useFlightValuesSource(target) {
@@ -34,6 +35,28 @@ function useGroundValuesSource(target) {
     resetSubmit: sub.reset
   };
 }
+function useEnvValuesLoader() {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  return useCallback(
+    async (target) => {
+      const base = await discoveryApi.getBaseUrl("glidepath");
+      const params = new URLSearchParams({ owner: target.owner, appName: target.appName, env: target.env });
+      let url = `${base}/config/platform-env?${params}`;
+      if (target.tier === "flight") {
+        params.set("cluster", target.cluster ?? "");
+        url = `${base}/config?${params}`;
+      }
+      const res = await fetchApi.fetch(url);
+      if (!res.ok) {
+        const body = await res.json().catch(() => void 0);
+        throw new Error(body?.error ?? `request failed with ${res.status}`);
+      }
+      return (await res.json()).values ?? {};
+    },
+    [discoveryApi, fetchApi]
+  );
+}
 
-export { useFlightValuesSource, useGroundValuesSource };
+export { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource };
 //# sourceMappingURL=sources.esm.js.map

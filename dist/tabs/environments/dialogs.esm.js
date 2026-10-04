@@ -36,20 +36,27 @@ function AddEnvironmentDialog({
   targetId,
   targetLabel,
   cloudBlock,
+  duplicateOf,
   onStage
 }) {
   const { c } = useDialogStyles();
   const [name, setName] = useState("");
-  const [tier, setTier] = useState("ground");
-  const [cluster, setCluster] = useState("");
+  const [tier, setTier] = useState(duplicateOf?.tier ?? "ground");
+  const [cluster, setCluster] = useState(duplicateOf?.cluster ?? "");
   const [override, setOverride] = useState("");
   const [releaseStep, setReleaseStep] = useState(true);
+  const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
   const flightAllowed = !cloudBlock;
   const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
   const candidate = { name: name.trim(), tier };
   if (tier === "flight" && cluster.trim()) candidate.cluster = cluster.trim();
   if (tier === "ground" && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  if (duplicateOf && cloudBlock && duplicateOf[cloudBlock]) {
+    const { [mainField]: _own, ...rest } = duplicateOf[cloudBlock];
+    candidate[cloudBlock] = { ...rest, ...candidate[cloudBlock] ?? {} };
+    if (Object.keys(candidate[cloudBlock]).length === 0) delete candidate[cloudBlock];
+  }
   const withCandidate = applyStaged(current, [{ kind: "add", env: candidate }]);
   const fresh = name.trim() ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
     (p) => !problems.includes(p)
@@ -61,23 +68,24 @@ function AddEnvironmentDialog({
     setCluster("");
     setOverride("");
     setReleaseStep(true);
+    setCopyValues(true);
   };
   const close = () => {
     reset();
     onClose();
   };
   return /* @__PURE__ */ jsxs(Dialog, { open, onClose: close, PaperProps: { className: c.paper }, children: [
-    /* @__PURE__ */ jsx(DialogTitle, { children: "Add environment" }),
+    /* @__PURE__ */ jsx(DialogTitle, { children: duplicateOf ? `Duplicate ${duplicateOf.name}` : "Add environment" }),
     /* @__PURE__ */ jsx(DialogContent, { children: /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
       /* @__PURE__ */ jsx(Field, { id: "add-env-name", label: "Name", children: (p) => /* @__PURE__ */ jsx("input", { ...p, autoFocus: true, value: name, onChange: (e) => setName(e.target.value) }) }),
       /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Lowercase letters, digits and '-', for example qa." }),
       /* @__PURE__ */ jsxs(RadioGroup, { "aria-label": "Tier", value: tier, onChange: (e) => setTier(e.target.value), children: [
-        /* @__PURE__ */ jsx(FormControlLabel, { value: "ground", control: /* @__PURE__ */ jsx(Radio, { size: "small" }), label: "Ground: deploys on every push" }),
+        /* @__PURE__ */ jsx(FormControlLabel, { value: "ground", disabled: Boolean(duplicateOf), control: /* @__PURE__ */ jsx(Radio, { size: "small" }), label: "Ground: deploys on every push" }),
         /* @__PURE__ */ jsx(
           FormControlLabel,
           {
             value: "flight",
-            disabled: !flightAllowed,
+            disabled: !flightAllowed || Boolean(duplicateOf),
             control: /* @__PURE__ */ jsx(Radio, { size: "small" }),
             label: "Flight: deploys only through an approved release"
           }
@@ -106,6 +114,21 @@ function AddEnvironmentDialog({
         /* @__PURE__ */ jsx(Field, { id: "add-env-override", label: `${targetLabel} ${mainField} (optional)`, children: (p) => /* @__PURE__ */ jsx("input", { ...p, value: override, onChange: (e) => setOverride(e.target.value) }) }),
         /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Leave empty to use the app-level value." })
       ] }),
+      duplicateOf && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx(
+          FormControlLabel,
+          {
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: copyValues, onChange: (e) => setCopyValues(e.target.checked) }),
+            label: `Copy the values of ${duplicateOf.name}`
+          }
+        ),
+        /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: tier === "ground" ? `The new environment's values file is created in the same pull request, with the values of ${duplicateOf.name} (its own image excluded).` : `A Flight environment's values file is written by Crossplane after its request merges. When it exists, use "Copy values from" in its Values tab.` })
+      ] }),
+      duplicateOf && cloudBlock && mainField && /* @__PURE__ */ jsxs("div", { className: c.note, children: [
+        "Settings are copied except ",
+        mainField,
+        ": give it its own above, or both environments will deploy to the same resource."
+      ] }),
       fresh.map((p) => /* @__PURE__ */ jsx("div", { className: c.problem, style: { marginTop: 0 }, children: p }, p))
     ] }) }),
     /* @__PURE__ */ jsxs(DialogActions, { children: [
@@ -116,10 +139,10 @@ function AddEnvironmentDialog({
           variant: "primary",
           disabled: !ok,
           onClick: () => {
-            onStage(candidate, tier === "flight" && releaseStep);
+            onStage(candidate, tier === "flight" && releaseStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : void 0);
             reset();
           },
-          children: "Stage environment"
+          children: duplicateOf ? "Stage duplicate" : "Stage environment"
         }
       )
     ] })

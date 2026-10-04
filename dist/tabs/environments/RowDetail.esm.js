@@ -1,11 +1,13 @@
-import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
 import { ConfigEditor } from '../../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
-import { useGroundValuesSource, useFlightValuesSource } from '../../values/sources.esm.js';
+import { useFlightValuesSource, useGroundValuesSource, useEnvValuesLoader } from '../../values/sources.esm.js';
+import { useEnvLifecycle } from '../../environments/useEnvLifecycle.esm.js';
+import { EnvLifecycle } from './EnvLifecycle.esm.js';
 import { useStyles as useStyles$1 } from '../../values/styles.esm.js';
 import { Subtabs, Field, ColumnLabel, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
@@ -20,7 +22,24 @@ const useStyles = makeStyles(() => ({
   steps: { margin: "6px 0 0", paddingLeft: 20, lineHeight: 1.7 },
   foot: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12, color: ({ t }) => t.textLo, fontSize: 12.5 }
 }));
-function RowDetail({ row, ctx }) {
+function RowDetail(props) {
+  const { row, ctx } = props;
+  const hasFile = !ctx.cloudBlock && row.state !== "new" && row.state !== "pr-open" && Boolean(ctx.owner && ctx.appName);
+  if (!hasFile) return /* @__PURE__ */ jsx(RowDetailBody, { ...props });
+  if (row.def.tier === "flight") return /* @__PURE__ */ jsx(FlightRow, { ...props });
+  return /* @__PURE__ */ jsx(GroundRow, { ...props });
+}
+function FlightRow(props) {
+  const { row, ctx } = props;
+  const source = useFlightValuesSource({ owner: ctx.owner, appName: ctx.appName, cluster: row.def.cluster ?? row.where, env: row.name });
+  return /* @__PURE__ */ jsx(RowDetailBody, { ...props, source });
+}
+function GroundRow(props) {
+  const { row, ctx } = props;
+  const source = useGroundValuesSource({ owner: ctx.owner, appName: ctx.appName, env: row.name });
+  return /* @__PURE__ */ jsx(RowDetailBody, { ...props, source });
+}
+function RowDetailBody({ row, ctx, source }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
@@ -28,7 +47,33 @@ function RowDetail({ row, ctx }) {
   const [tab, setTab] = useState(ctx.cloudBlock ? "settings" : "values");
   const removed = row.state === "removed";
   const steps = pipelinesNamingEnv(ctx.pipelines, row.name);
+  const valuesFileExists = Boolean(source?.data?.raw?.trim());
+  const pending = ctx.pendingFor(row.name);
+  const ghost = row.state === "pr-open";
+  const lifecycle = useEnvLifecycle(
+    {
+      owner: ctx.owner ?? "",
+      appName: ctx.appName ?? "",
+      env: row.name,
+      tier: def.tier,
+      cluster: def.cluster ?? row.where,
+      declared: !ghost && row.state !== "new",
+      cicdPrUrl: pending?.prUrl,
+      knownRequestUrl: pending?.requestUrl,
+      deployed: row.deployed,
+      valuesFileExists
+    },
+    !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== "new" && row.state !== "removed"
+  );
+  const unfinished = lifecycle.steps.some((x) => x.state !== "done");
+  if (ghost) {
+    return /* @__PURE__ */ jsxs("div", { className: c.wrap, children: [
+      /* @__PURE__ */ jsx(EnvLifecycle, { steps: lifecycle.steps, initiallyOpen: true }),
+      /* @__PURE__ */ jsx("div", { className: ui.note, children: "Nothing here can be edited until the environment exists. It appears in the table as it is created." })
+    ] });
+  }
   return /* @__PURE__ */ jsxs("div", { className: c.wrap, children: [
+    !ctx.cloudBlock && unfinished && row.state !== "new" && /* @__PURE__ */ jsx(EnvLifecycle, { steps: lifecycle.steps }),
     /* @__PURE__ */ jsx(
       Subtabs,
       {
@@ -45,7 +90,7 @@ function RowDetail({ row, ctx }) {
     ),
     /* @__PURE__ */ jsxs("div", { className: c.body, children: [
       tab === "settings" && /* @__PURE__ */ jsx(Settings, { row, ctx }),
-      tab === "values" && /* @__PURE__ */ jsx(Values, { row, ctx }),
+      tab === "values" && /* @__PURE__ */ jsx(Values, { row, ctx, source }),
       tab === "promotion" && /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
         def.tier === "ground" ? /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx("b", { children: "Ground." }),
@@ -130,11 +175,16 @@ function Settings({ row, ctx }) {
     ] })
   ] });
 }
-function Values({ row, ctx }) {
+function Values({ row, ctx, source }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
   const { def } = row;
+  const gate = (src) => src && !src.loading && !src.error && src.data && !src.data.raw.trim() ? /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
+    "The values file ",
+    /* @__PURE__ */ jsx("span", { className: c.mono, children: src.data.path }),
+    " does not exist yet, so there is nothing to edit. The progress above shows what it is waiting on. It can be edited here as soon as it exists."
+  ] }) : void 0;
   if (ctx.cloudBlock) {
     return /* @__PURE__ */ jsx("div", { className: ui.note, children: "A cloud environment has no chart values. Its target resource is under Settings." });
   }
@@ -150,17 +200,39 @@ function Values({ row, ctx }) {
         ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
       ] });
     }
-    return /* @__PURE__ */ jsx(GroundValues, { owner: ctx.owner, appName: ctx.appName, env: row.name });
+    return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, source });
   }
-  return /* @__PURE__ */ jsx(FlightValues, { owner: ctx.owner, appName: ctx.appName, env: row.name, cluster: def.cluster ?? row.where });
+  return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source });
 }
-function GroundValues({ owner, appName, env }) {
-  const source = useGroundValuesSource({ owner, appName, env });
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: env.toUpperCase(), layout: "inline" });
+function useCopyFrom(ctx, env) {
+  const load = useEnvValuesLoader();
+  const others = ctx.siblings.filter((e) => e.name !== env);
+  return {
+    options: others.map((e) => ({ id: e.name, label: `${e.name} (${e.tier === "flight" ? "Flight" : "Ground"})` })),
+    load: (id) => {
+      const e = ctx.siblings.find((x) => x.name === id);
+      return load({ owner: ctx.owner, appName: ctx.appName, env: id, tier: e.tier, cluster: e.cluster });
+    }
+  };
 }
-function FlightValues({ owner, appName, env, cluster }) {
-  const source = useFlightValuesSource({ owner, appName, cluster, env });
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: `${env.toUpperCase()} (${cluster})`, prod: /^prod/i.test(env), layout: "inline" });
+function GroundValues({ ctx, env, source }) {
+  const copyFrom = useCopyFrom(ctx, env);
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner: ctx.owner, appName: ctx.appName, source, title: env.toUpperCase(), layout: "inline", copyFrom });
+}
+function FlightValues({ ctx, env, cluster, source }) {
+  const copyFrom = useCopyFrom(ctx, env);
+  return /* @__PURE__ */ jsx(
+    ConfigEditor,
+    {
+      owner: ctx.owner,
+      appName: ctx.appName,
+      source,
+      title: `${env.toUpperCase()} (${cluster})`,
+      prod: /^prod/i.test(env),
+      layout: "inline",
+      copyFrom
+    }
+  );
 }
 function Danger({ row, ctx, removed }) {
   const t = useHangarTokens();

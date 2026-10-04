@@ -388,5 +388,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map
