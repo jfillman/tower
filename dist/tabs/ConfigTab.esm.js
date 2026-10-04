@@ -1,5 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
@@ -897,7 +898,8 @@ function ConfigTab() {
       cluster: pipelineOrder.upperClusters?.[name] ?? ""
     }));
   }, [pipelineOrder.upper, pipelineOrder.upperClusters]);
-  const [selectedEnv, setSelectedEnv] = useState(void 0);
+  const [searchParams] = useSearchParams();
+  const [selectedEnv, setSelectedEnv] = useState(searchParams.get("env") ?? void 0);
   useEffect(() => {
     if (!selectedEnv && flightEnvs.length > 0) setSelectedEnv(flightEnvs[0].env);
   }, [flightEnvs, selectedEnv]);

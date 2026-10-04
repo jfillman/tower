@@ -16,11 +16,12 @@ import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { HangarMark } from '../brand/HangarMark.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
-import { useCicdConfig, useSubmitCicdConfigChange, usePlatformEnvs, usePlatformFile, useSubmitPlatformFileChange } from '../useConfigData.esm.js';
+import { useCicdConfig, useSubmitCicdConfigChange, usePlatformEnvs } from '../useConfigData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
+import { PlatformFileEditor } from '../PlatformFileEditor.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
-import { CICD_TOP_LEVEL_FIELDS, CONFIG_TOP_LEVEL_FIELDS } from '../types.esm.js';
+import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
 
 const BUILD_AGENTS = ["nodejs-18", "nodejs-20", "nodejs-22", "openjdk-17", "openjdk-21", "python-3.11", "go-1.22"];
 const VOLUME_SIZES = ["small", "medium", "large", "xlarge"];
@@ -688,43 +689,8 @@ function PlatformFilesSection({
   const classes = useStyles({ t });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const envs = usePlatformEnvs({ owner, appName }, refreshNonce);
-  const file = usePlatformFile({ owner, appName, selector }, refreshNonce);
-  const submit = useSubmitPlatformFileChange();
-  const [raw, setRaw] = useState("");
   const [newEnvName, setNewEnvName] = useState("");
   const [newEnvError, setNewEnvError] = useState(void 0);
-  useEffect(() => {
-    if (!file.data) return;
-    if (Object.keys(file.data.values).length === 0 && selector.kind === "env") {
-      setRaw(`envName: ${selector.env}
-rollout: null
-`);
-    } else {
-      setRaw(safeYamlDump(file.data.values));
-    }
-  }, [file.data, selector]);
-  const valid = validateYamlBlock(raw).valid;
-  const patch = useMemo(() => {
-    if (!file.data || !valid) return {};
-    const parsed = safeYamlLoad(raw) ?? {};
-    const result = {};
-    for (const key of CONFIG_TOP_LEVEL_FIELDS) {
-      if (!deepEqual(parsed[key], file.data.values[key])) result[key] = parsed[key];
-    }
-    return result;
-  }, [raw, valid, file.data]);
-  const dirty = Object.keys(patch).length > 0;
-  async function handleSubmit() {
-    if (!dirty || !valid) return;
-    await submit.submit({
-      owner,
-      appName,
-      selector,
-      patch,
-      summary: Object.keys(patch).map((k) => `updated \`${k}\``)
-    });
-    setRefreshNonce((n) => n + 1);
-  }
   return /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
     /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Platform files" }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "platform/pr-env.yaml (the PR-preview environment template) and platform/envs/<env>.yaml (one per lower/dev environment) - the same airframe-application chart values as App Configuration, minus rollout.image (owned by the ArgoCD ApplicationSet / deploy automation). platform/envs/<env>.yaml's own envName is set automatically to match whichever env is selected - never edited by hand." }),
@@ -778,26 +744,7 @@ rollout: null
       ] }),
       /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
     ] }),
-    file.loading && /* @__PURE__ */ jsx(Progress, {}),
-    file.error && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(file.error) }),
-    !file.loading && !file.error && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx(YamlBlockEditor, { label: file.data?.path ?? "platform file", value: raw, onChange: setRaw, rows: 12 }),
-      /* @__PURE__ */ jsx("div", { className: classes.submitBar, children: /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: classes.submitBtn,
-          disabled: !dirty || !valid || submit.loading,
-          onClick: handleSubmit,
-          children: submit.loading ? "Opening PR\u2026" : "Open PR for this file"
-        }
-      ) }),
-      submit.result && /* @__PURE__ */ jsxs(Typography, { children: [
-        submit.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
-        /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submit.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submit.result.prUrl })
-      ] }),
-      submit.error && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(submit.error) })
-    ] })
+    /* @__PURE__ */ jsx(PlatformFileEditor, { owner, appName, selector, refreshNonce })
   ] });
 }
 

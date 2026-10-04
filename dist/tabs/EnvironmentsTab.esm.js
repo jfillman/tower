@@ -1,5 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Dialog from '@material-ui/core/Dialog';
@@ -19,6 +20,7 @@ import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, followUps, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
+import { PlatformFileEditor } from '../PlatformFileEditor.esm.js';
 import { preventFocusScroll } from '../preventFocusScroll.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
@@ -158,6 +160,7 @@ function EnvironmentsTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { environments, pipelineOrder, loading, error, owner, appName } = useReleaseContext();
+  const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
   const submit = useSubmitCicdConfigChange();
@@ -284,7 +287,7 @@ function EnvironmentsTab() {
       ] }),
       canEdit && /* @__PURE__ */ jsx(Button, { variant: "outlined", size: "small", onMouseDown: preventFocusScroll, onClick: () => setAdding(true), children: "Add environment" })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.note, children: canEdit ? "Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment, and the values of a Kubernetes environment, are still done elsewhere." : "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
+    /* @__PURE__ */ jsx("div", { className: classes.note, children: canEdit ? "Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment is still done by hand. The values of a Ground environment are edited in its row, with their own pull request." : "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
     /* @__PURE__ */ jsxs("div", { className: canEdit ? classes.layout : void 0, children: [
       /* @__PURE__ */ jsx("div", { children: rows.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No environments yet. They appear here once the service declares or deploys to one." }) : /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: ["Environment", "Tier", "Target", "Where", "Health", "Live image", "Deployed", canEdit ? "Order" : ""].map((h) => /* @__PURE__ */ jsx("th", { className: classes.th, children: h }, h || "x")) }) }),
@@ -378,14 +381,38 @@ function EnvironmentsTab() {
                   },
                   f
                 )) })
-              ] }) : /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
-                "This environment's values live in ",
+              ] }) : r.def.tier === "ground" ? r.state === "new" ? /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+                "Its values file, ",
                 /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
                   "platform/envs/",
                   r.name,
                   ".yaml"
                 ] }),
-                " (Ground) or the gitops repo (Flight). Edit them in the Glidepath tab or App Configuration for now."
+                ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
+              ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
+                  "Values: platform/envs/",
+                  r.name,
+                  ".yaml"
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: classes.dialogNote, style: { marginBottom: 8 }, children: "The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file has its own pull request: it is not part of the pending changes." }),
+                /* @__PURE__ */ jsx(PlatformFileEditor, { owner, appName, selector: { kind: "env", env: r.name } })
+              ] }) : /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+                "This Flight environment's values live in",
+                " ",
+                /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+                  "gitops-",
+                  appName,
+                  "/",
+                  r.def.cluster ?? "<cluster>",
+                  "/",
+                  r.name,
+                  "/values.yaml"
+                ] }),
+                ".",
+                " ",
+                /* @__PURE__ */ jsx(Link, { href: `?${new URLSearchParams({ entity: searchParams.get("entity") ?? "", tab: "config", env: r.name })}`, children: "Edit them in App Configuration" }),
+                ", which keeps its own pull-request flow and prod warnings."
               ] }),
               r.def.tier === "flight" && /* @__PURE__ */ jsxs("div", { className: classes.problem, style: { marginTop: 14 }, children: [
                 /* @__PURE__ */ jsx("div", { className: classes.label, children: "Danger zone: removing a Flight environment" }),
