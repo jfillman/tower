@@ -10,7 +10,8 @@ import Typography from '@material-ui/core/Typography';
 import { ResponseErrorPanel, Progress } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
-import { useApi } from '@backstage/core-plugin-api';
+import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
+import { triggerCatalogRefresh } from './catalogRefresh.esm.js';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
@@ -336,6 +337,8 @@ function AppPicker({
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
   const [entities, setEntities] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [query, setQuery] = useState("");
@@ -536,7 +539,8 @@ function AppPicker({
         selected: selectedService,
         onSelect: openProvisioning,
         error: provisioning.error,
-        loading: provisioning.loading
+        loading: provisioning.loading,
+        onRefreshCatalog: () => triggerCatalogRefresh(discoveryApi, fetchApi)
       }
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),

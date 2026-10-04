@@ -146,8 +146,23 @@ function toRollout(r) {
 function toPendingInputs(requests, haveXr, cluster, now) {
   return requests.filter((r) => XR_KINDS.includes(r.kind) && !haveXr.has(r.name)).map((r) => ({ r, created: epoch(r.createdAt) ?? now })).filter(({ created }) => now - created < MAX_AGE_MS).map(({ r, created }) => ({
     xr: { kind: r.kind, name: r.name, namespace: "", cluster, createdAt: created, conditions: [], pending: true },
-    links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } }
+    links: { requestPr: toRequestPr(r) }
   }));
+}
+function toRequestPr(r) {
+  return { number: r.number, url: r.url, state: r.state, createdAt: epoch(r.createdAt), mergedAt: epoch(r.mergedAt) };
+}
+function mergeRequestPr(live, remembered) {
+  if (!live) return remembered;
+  if (!remembered) return live;
+  return {
+    ...live,
+    createdAt: live.createdAt ?? remembered.createdAt,
+    mergedAt: live.mergedAt ?? remembered.mergedAt
+  };
+}
+function toArgoSnapshot(name, app) {
+  return { name, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
 }
 const CATALOG_RECHECK_MS = 3e4;
 function useProvisioning() {
@@ -197,6 +212,7 @@ function useProvisioning() {
       })();
     };
     const pendingCache = { at: 0, busy: false, list: [] };
+    const requestMemo = /* @__PURE__ */ new Map();
     const refreshPending = (tenants) => {
       if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
       pendingCache.busy = true;
@@ -207,6 +223,7 @@ function useProvisioning() {
             `${prBase}/pending-requests?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo })}`
           );
           if (res.ok) pendingCache.list = (await res.json()).requests ?? [];
+          pendingCache.list.forEach((r) => requestMemo.set(r.name, toRequestPr(r)));
         } catch {
         } finally {
           pendingCache.at = Date.now();
@@ -239,14 +256,15 @@ function useProvisioning() {
     const cicdApp = async (name) => {
       const appName = `${name}-cicd`;
       try {
-        const baseUrl = await discoveryApi.getBaseUrl("argocd");
-        const res = await fetchApi.fetch(`${baseUrl}/find/name/${encodeURIComponent(appName)}?expand=applications`);
-        if (!res.ok) return void 0;
-        const instances = await res.json();
-        const app = instances.flatMap((i) => i.applications ?? [])[0];
-        return { name: appName, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
-      } catch {
-        return void 0;
+        const app = await k8sProxyGet(
+          discoveryApi,
+          fetchApi,
+          XR_CLUSTER,
+          `/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/${encodeURIComponent(appName)}`
+        );
+        return toArgoSnapshot(appName, app);
+      } catch (e) {
+        return /not found/i.test(String(e?.message)) ? toArgoSnapshot(appName, void 0) : void 0;
       }
     };
     const load = async () => {
@@ -330,7 +348,7 @@ function useProvisioning() {
             cicdApp: cicdArgo,
             cloudDeploy,
             links: {
-              requestPr: gh?.requestPr,
+              requestPr: mergeRequestPr(gh?.requestPr, requestMemo.get(name)),
               sourceRepoUrl: repoLinks.sourceRepoUrl,
               gitopsRepoUrl: repoLinks.gitopsRepoUrl,
               onboarding: gh?.onboarding,
@@ -361,5 +379,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, parseTenantsRepo, pickFirstBuild, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

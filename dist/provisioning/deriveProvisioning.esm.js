@@ -1,7 +1,9 @@
 const FUNCTION_KINDS = /* @__PURE__ */ new Set(["LambdaFunction", "AzureFunction"]);
 const STALL_AFTER_MS = 4 * 3600 * 1e3;
 const TYPICAL_SEC = {
-  request: 2,
+  // A person merging the request PR, then ArgoCD's repo poll (about every 3 minutes) applying it.
+  merge: 60,
+  request: 180,
   cluster: 10,
   cicd: 30,
   repos: 45,
@@ -47,20 +49,25 @@ function deriveProvisioning(input, now) {
   });
   const pending = Boolean(xr.pending);
   const reqPr = links?.requestPr;
-  let requestState = "done";
-  let requestDetail;
-  if (pending) {
-    requestState = "run";
-    requestDetail = reqPr?.state === "merged" ? "Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource" : "Merge the request PR to start provisioning";
-  }
+  const requestMerged = !pending || reqPr?.state === "merged";
+  const dur = (from, to) => from !== void 0 && to !== void 0 ? secBetween(from, to) : void 0;
+  push({
+    id: "merge",
+    title: "Request PR merged",
+    desc: "A person merges the request PR in the tenants repo",
+    state: requestMerged ? "done" : "run",
+    seconds: requestMerged ? dur(reqPr?.createdAt, reqPr?.mergedAt) : secBetween(reqPr?.createdAt ?? created, now),
+    detail: requestMerged ? void 0 : "Merge the request PR to start provisioning",
+    links: prLink("Request PR", reqPr)
+  });
+  const appliedState = !pending ? "done" : requestMerged ? "run" : "pend";
   push({
     id: "request",
-    title: "Request accepted",
-    desc: "Claim validated against the Airframe schema",
-    state: requestState,
-    seconds: pending ? secBetween(created, now) : 0,
-    detail: requestDetail,
-    links: prLink("Request PR", reqPr)
+    title: "Request applied",
+    desc: "ArgoCD applies the merged request, which creates the resource",
+    state: appliedState,
+    seconds: !pending ? dur(reqPr?.mergedAt, created) : requestMerged ? dur(reqPr?.mergedAt, now) : void 0,
+    detail: appliedState === "run" ? "Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource" : void 0
   });
   const clusterDone = clusterC?.status === "True";
   let clusterStepState = clusterDone ? "done" : "run";
@@ -73,7 +80,7 @@ function deriveProvisioning(input, now) {
     seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : void 0,
     detail: !clusterDone && clusterC?.message ? clusterC.message : void 0
   });
-  if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
+  if (!clusterDone && !pending) steps[steps.length - 1].seconds = secBetween(created, now);
   const cicdCommitted = cicdC?.status === "True";
   const cicdSettled = !cicdApp || cicdApp.sync === "Synced" && cicdApp.health === "Healthy";
   const cicdDone = cicdCommitted && cicdSettled;
@@ -118,7 +125,7 @@ function deriveProvisioning(input, now) {
       ...links?.gitopsRepoUrl ? [{ label: "GitOps repo", url: links.gitopsRepoUrl }] : []
     ]
   });
-  const front = steps.slice(2, 4).every((s) => s.state === "done");
+  const front = steps.filter((s) => s.id === "cicd" || s.id === "repos").every((s) => s.state === "done");
   const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy);
   let catalogState = "pend";
   if (catalog?.found) catalogState = "done";
@@ -290,7 +297,7 @@ function deriveProvisioning(input, now) {
     return s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
   };
   const etaSec = Math.round(
-    remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos"), remaining("catalog")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
+    remaining("merge") + remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos"), remaining("catalog")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
   );
   const elapsedSec = Math.round((now - created) / 1e3);
   const percent = complete ? 100 : Math.min(99, Math.round(100 * elapsedSec / Math.max(1, elapsedSec + etaSec)));

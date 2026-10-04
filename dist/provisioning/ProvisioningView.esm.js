@@ -1,6 +1,8 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
+import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { preventFocusScroll } from '../preventFocusScroll.esm.js';
 import { SegmentBar } from './ProvisioningStrip.esm.js';
 import { fmtDuration } from './shared.esm.js';
 
@@ -114,6 +116,20 @@ const useStyles = makeStyles(() => ({
   desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
   detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
   links: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 },
+  action: {
+    marginTop: 6,
+    fontFamily: fontMono,
+    fontSize: 11,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: ({ t }) => t.sky,
+    background: "none",
+    border: "1px solid currentColor",
+    borderRadius: 3,
+    padding: "2px 8px",
+    cursor: "pointer",
+    "&:disabled": { opacity: 0.6, cursor: "default" }
+  },
   link: {
     fontFamily: fontMono,
     fontSize: 11.5,
@@ -263,10 +279,39 @@ function StepIcon({ state, t }) {
   }
   return /* @__PURE__ */ jsx("svg", { width: "20", height: "20", viewBox: "0 0 20 20", role: "img", "aria-label": "waiting", children: /* @__PURE__ */ jsx("circle", { cx: "10", cy: "10", r: "8", fill: "none", stroke: t.line, strokeWidth: "2" }) });
 }
+function RefreshCatalogAction({
+  onRefresh,
+  className
+}) {
+  const [state, setState] = useState("idle");
+  const label = { idle: "Refresh catalog now", busy: "Asking\u2026", sent: "Requested, checking\u2026", error: "Could not refresh" }[state];
+  return /* @__PURE__ */ jsx(
+    "button",
+    {
+      type: "button",
+      className,
+      disabled: state === "busy" || state === "sent",
+      onMouseDown: preventFocusScroll,
+      onClick: async () => {
+        setState("busy");
+        try {
+          await onRefresh();
+          setState("sent");
+          setTimeout(() => setState("idle"), 2e4);
+        } catch {
+          setState("error");
+          setTimeout(() => setState("idle"), 5e3);
+        }
+      },
+      children: label
+    }
+  );
+}
 function Step({
   step,
   classes,
-  t
+  t,
+  onRefreshCatalog
 }) {
   const pct = (sec) => `${Math.min(100, sec / SCALE_SEC * 100).toFixed(1)}%`;
   const slow = step.state === "done" && step.seconds !== void 0 && step.seconds > step.typicalSec * 1.1 + 1;
@@ -288,6 +333,7 @@ function Step({
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.desc, children: step.desc }),
       step.detail && /* @__PURE__ */ jsx("div", { className: classes.detail, children: step.detail }),
+      step.id === "catalog" && step.state === "run" && onRefreshCatalog && /* @__PURE__ */ jsx(RefreshCatalogAction, { onRefresh: onRefreshCatalog, className: classes.action }),
       step.links && step.links.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.links, children: step.links.map((l) => /* @__PURE__ */ jsxs("a", { className: classes.link, href: l.url, target: "_blank", rel: "noopener noreferrer", children: [
         l.label,
         l.state && /* @__PURE__ */ jsx("span", { className: classes.linkState, children: l.state })
@@ -326,7 +372,8 @@ function ProvisioningView({
   selected,
   onSelect,
   error,
-  loading
+  loading,
+  onRefreshCatalog
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -394,7 +441,7 @@ function ProvisioningView({
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
       /* @__PURE__ */ jsx("div", { className: classes.head, children: "Steps" }),
-      /* @__PURE__ */ jsx("ol", { className: classes.list, children: derived.steps.map((s) => /* @__PURE__ */ jsx(Step, { step: s, classes, t }, s.id)) }),
+      /* @__PURE__ */ jsx("ol", { className: classes.list, children: derived.steps.map((s) => /* @__PURE__ */ jsx(Step, { step: s, classes, t, onRefreshCatalog }, s.id)) }),
       /* @__PURE__ */ jsxs("div", { className: classes.legend, children: [
         /* @__PURE__ */ jsxs("span", { children: [
           /* @__PURE__ */ jsx("i", { className: classes.swatch, style: { backgroundColor: t.good } }),
