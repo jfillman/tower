@@ -90,7 +90,7 @@ function Subtabs({
   onChange
 }) {
   const { ui } = useKit();
-  return /* @__PURE__ */ jsx("div", { className: ui.subtabs, role: "tablist", "aria-label": label, children: tabs.map((tab) => /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx("div", { className: ui.subtabs, role: "tablist", "aria-label": label, children: tabs.map((tab) => /* @__PURE__ */ jsxs(
     "button",
     {
       type: "button",
@@ -99,7 +99,10 @@ function Subtabs({
       onMouseDown: preventFocusScroll,
       className: cx(ui.subtab, tab.id === value && ui.subtabOn),
       onClick: () => onChange(tab.id),
-      children: tab.label
+      children: [
+        tab.label,
+        tab.marked && /* @__PURE__ */ jsx("i", { className: ui.marker, role: "img", "aria-label": "has staged changes" })
+      ]
     },
     tab.id
   )) });

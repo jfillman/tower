@@ -1,10 +1,12 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
-import { PlatformFileEditor } from '../../PlatformFileEditor.esm.js';
+import { ConfigEditor } from '../../values/ValuesForm.esm.js';
+import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
+import { useGroundValuesSource, useFlightValuesSource } from '../../values/sources.esm.js';
+import { useStyles as useStyles$1 } from '../../values/styles.esm.js';
 import { Subtabs, Field, ColumnLabel, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 import { BLOCK_FIELDS } from './shared.esm.js';
@@ -79,6 +81,7 @@ function RowDetail({ row, ctx }) {
 function Settings({ row, ctx }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
+  const vc = useStyles$1({ t });
   const ui = useUi({ t });
   const { def } = row;
   const block = ctx.cloudBlock;
@@ -120,7 +123,11 @@ function Settings({ row, ctx }) {
       /* @__PURE__ */ jsx(ColumnLabel, { children: "Target" }),
       /* @__PURE__ */ jsx("span", { children: row.target })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: ui.note, children: "Tier, cluster and target cannot change on an existing environment. Remove it and add it again." })
+    /* @__PURE__ */ jsx("div", { className: ui.note, children: "Tier, cluster and target cannot change on an existing environment. Remove it and add it again." }),
+    def.tier === "flight" && ctx.owner && ctx.appName && /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx(EnvXrPanel, { owner: ctx.owner, appName: ctx.appName, env: row.name, classes: vc }),
+      /* @__PURE__ */ jsx(ConfigMapFilesPanel, { owner: ctx.owner, appName: ctx.appName, cluster: def.cluster ?? row.where, env: row.name, classes: vc })
+    ] })
   ] });
 }
 function Values({ row, ctx }) {
@@ -143,33 +150,17 @@ function Values({ row, ctx }) {
         ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
       ] });
     }
-    return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs(ColumnLabel, { children: [
-        "Values: platform/envs/",
-        row.name,
-        ".yaml"
-      ] }),
-      /* @__PURE__ */ jsx("div", { className: ui.note, children: "The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file has its own pull request: it is not part of the pending changes." }),
-      /* @__PURE__ */ jsx(PlatformFileEditor, { owner: ctx.owner, appName: ctx.appName, selector: { kind: "env", env: row.name } })
-    ] });
+    return /* @__PURE__ */ jsx(GroundValues, { owner: ctx.owner, appName: ctx.appName, env: row.name });
   }
-  return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
-    "This Flight environment's values live in",
-    " ",
-    /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
-      "gitops-",
-      ctx.appName,
-      "/",
-      def.cluster ?? "<cluster>",
-      "/",
-      row.name,
-      "/values.yaml"
-    ] }),
-    ".",
-    " ",
-    /* @__PURE__ */ jsx(Link, { href: `?${new URLSearchParams({ entity: ctx.entity, tab: "config", env: row.name })}`, children: "Edit them in App Configuration" }),
-    ", which keeps its own pull-request flow and prod warnings."
-  ] });
+  return /* @__PURE__ */ jsx(FlightValues, { owner: ctx.owner, appName: ctx.appName, env: row.name, cluster: def.cluster ?? row.where });
+}
+function GroundValues({ owner, appName, env }) {
+  const source = useGroundValuesSource({ owner, appName, env });
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: env.toUpperCase(), layout: "inline" });
+}
+function FlightValues({ owner, appName, env, cluster }) {
+  const source = useFlightValuesSource({ owner, appName, cluster, env });
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: `${env.toUpperCase()} (${cluster})`, prod: /^prod/i.test(env), layout: "inline" });
 }
 function Danger({ row, ctx, removed }) {
   const t = useHangarTokens();

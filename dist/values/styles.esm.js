@@ -1,0 +1,217 @@
+import { makeStyles } from '@material-ui/core/styles';
+import { fontMono, fontDisplay } from '../brand/tokens.esm.js';
+
+const useStyles = makeStyles(() => ({
+  envBanner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    padding: "14px 18px",
+    borderRadius: 6,
+    marginBottom: 16,
+    border: "2px solid"
+  },
+  envBannerProd: { borderColor: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft },
+  envBannerOther: { borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
+  envBannerLeft: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  envBannerTitle: { fontFamily: fontDisplay, fontWeight: 800, fontSize: 18, letterSpacing: "0.02em" },
+  envBannerTitleProd: { color: ({ t }) => t.bad },
+  envBannerTitleOther: { color: ({ t }) => t.amberInk },
+  envBannerPath: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
+  select: {
+    fontFamily: fontMono,
+    fontSize: 12.5,
+    padding: "5px 10px",
+    borderRadius: 4,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.panel,
+    color: ({ t }) => t.textHi
+  },
+  columns: { display: "flex", flexDirection: "column", gap: 16 },
+  section: {
+    backgroundColor: ({ t }) => t.panel,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 5,
+    padding: "16px 18px"
+  },
+  sectionDirty: { borderColor: ({ t }) => t.amberLine },
+  sectionTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
+  dirtyDot: {
+    display: "inline-block",
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    marginLeft: 8,
+    backgroundColor: ({ t }) => t.amber,
+    verticalAlign: "middle"
+  },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 },
+  field: { display: "flex", flexDirection: "column", gap: 4 },
+  fieldLabel: { fontSize: 11.5, color: ({ t }) => t.textLo },
+  input: {
+    fontFamily: fontMono,
+    fontSize: 12.5,
+    padding: "6px 9px",
+    borderRadius: 4,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.bgRaised,
+    color: ({ t }) => t.textHi,
+    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky }
+  },
+  textarea: {
+    fontFamily: fontMono,
+    fontSize: 12.5,
+    padding: "6px 9px",
+    borderRadius: 4,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.bgRaised,
+    color: ({ t }) => t.textHi,
+    resize: "vertical",
+    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky }
+  },
+  switchRow: { display: "flex", alignItems: "center", gap: 8 },
+  switchLabel: { fontSize: 13, color: ({ t }) => t.textHi },
+  hint: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint, marginTop: 8 },
+  advancedToggle: {
+    fontFamily: fontMono,
+    fontSize: 11.5,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: ({ t }) => t.sky,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 0,
+    marginBottom: 12
+  },
+  linkBtn: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.sky,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 0,
+    "&:disabled": { color: ({ t }) => t.textFaint, cursor: "not-allowed" }
+  },
+  rowList: { display: "flex", flexDirection: "column", gap: 8 },
+  row: { display: "flex", gap: 8, alignItems: "center" },
+  stepCard: {
+    border: ({ t }) => `1px solid ${t.lineSoft}`,
+    borderRadius: 4,
+    padding: 8
+  },
+  rowCard: {
+    border: ({ t }) => `1px solid ${t.lineSoft}`,
+    borderRadius: 4,
+    padding: 10,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8
+  },
+  rowCardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  radioRow: { display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: ({ t }) => t.textHi },
+  stepNumber: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    color: ({ t }) => t.textFaint,
+    minWidth: 16,
+    textAlign: "right",
+    paddingTop: 6
+  },
+  stepOrderCol: { display: "flex", flexDirection: "column", gap: 2 },
+  orderBtn: {
+    fontFamily: fontMono,
+    fontSize: 10,
+    lineHeight: 1,
+    padding: "2px 5px",
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 3,
+    background: "none",
+    color: ({ t }) => t.textLo,
+    cursor: "pointer",
+    "&:disabled": { opacity: 0.35, cursor: "not-allowed" }
+  },
+  removeBtn: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.bad,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "4px 6px"
+  },
+  addBtn: {
+    alignSelf: "flex-start",
+    fontFamily: fontMono,
+    fontSize: 11.5,
+    color: ({ t }) => t.sky,
+    background: "none",
+    border: ({ t }) => `1px dashed ${t.skyLine}`,
+    borderRadius: 4,
+    cursor: "pointer",
+    padding: "5px 10px"
+  },
+  reviewBar: {
+    position: "sticky",
+    bottom: 0,
+    marginTop: 20,
+    padding: "14px 18px",
+    borderRadius: 6,
+    border: "2px solid",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10
+  },
+  reviewBarProd: { borderColor: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft },
+  reviewBarOther: { borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
+  reviewHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 },
+  reviewTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14 },
+  reviewTitleProd: { color: ({ t }) => t.bad },
+  reviewTitleOther: { color: ({ t }) => t.amberInk },
+  reviewList: { fontSize: 12.5, color: ({ t }) => t.textLo, margin: 0, paddingLeft: 18 },
+  errorList: { fontSize: 12.5, color: ({ t }) => t.bad, margin: 0, paddingLeft: 18 },
+  btn: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    letterSpacing: "0.03em",
+    padding: "7px 16px",
+    borderRadius: 4,
+    cursor: "pointer",
+    border: ({ t }) => `1px solid ${t.amberLine}`,
+    backgroundColor: "transparent",
+    color: ({ t }) => t.amberInk,
+    "&:disabled": { opacity: 0.5, cursor: "not-allowed" }
+  },
+  discardBtn: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    padding: "7px 16px",
+    borderRadius: 4,
+    cursor: "pointer",
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: "transparent",
+    color: ({ t }) => t.textLo
+  },
+  resultLink: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky },
+  note: { fontSize: 12.5, color: ({ t }) => t.textLo },
+  example: {
+    margin: "6px 0 0",
+    padding: "8px 10px",
+    fontFamily: fontMono,
+    fontSize: 11,
+    lineHeight: 1.5,
+    borderRadius: 4,
+    backgroundColor: ({ t }) => t.panelAlt,
+    border: ({ t }) => `1px dashed ${t.line}`,
+    color: ({ t }) => t.textLo,
+    whiteSpace: "pre",
+    overflowX: "auto"
+  }
+}));
+
+export { useStyles };
+//# sourceMappingURL=styles.esm.js.map

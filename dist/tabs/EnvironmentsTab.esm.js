@@ -26,8 +26,6 @@ const useStyles = makeStyles(() => ({
   main: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
   toolbar: { display: "flex", gap: 10, alignItems: "center" },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
-  scroll: { overflowX: "auto" },
-  table: { minWidth: 760 },
   headRow: { display: "grid", gridTemplateColumns: COLUMNS, gap: 10, padding: "9px 14px", borderLeft: "3px solid transparent" },
   row: {
     display: "grid",
@@ -290,7 +288,7 @@ function EnvironmentsTab() {
           /* @__PURE__ */ jsx("div", { style: { flex: 1 } }),
           canEdit && /* @__PURE__ */ jsx("span", { className: c.hint, children: "Drag the handle to reorder" })
         ] }),
-        /* @__PURE__ */ jsx(Panel, { children: shown.length === 0 ? /* @__PURE__ */ jsx("div", { className: c.empty, children: rows.length === 0 ? "No environments yet. They appear here once the service declares or deploys to one." : "No environments match this filter." }) : /* @__PURE__ */ jsx("div", { className: c.scroll, children: /* @__PURE__ */ jsxs("div", { className: c.table, role: "table", "aria-label": "Environments", children: [
+        /* @__PURE__ */ jsx(Panel, { children: shown.length === 0 ? /* @__PURE__ */ jsx("div", { className: c.empty, children: rows.length === 0 ? "No environments yet. They appear here once the service declares or deploys to one." : "No environments match this filter." }) : /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs("div", { role: "table", "aria-label": "Environments", children: [
           /* @__PURE__ */ jsxs("div", { className: c.headRow, role: "row", children: [
             /* @__PURE__ */ jsx("span", { role: "presentation" }),
             ["Environment", "Tier", "Target", "Where", "Health", "Live image"].map((h) => /* @__PURE__ */ jsx("span", { role: "columnheader", children: /* @__PURE__ */ jsx(ColumnLabel, { children: h }) }, h)),
