@@ -14,6 +14,7 @@ import { CAP, hasCapabilities } from './serviceClass.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
+import { EnvironmentsTab } from './tabs/EnvironmentsTab.esm.js';
 import { TopologyTab } from './tabs/TopologyTab.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
@@ -40,6 +41,8 @@ const TABS = [
   // exactly one deploy target, so only one of the two ever passes the capability filter.
   { id: "deployments", label: "Deployments", Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: "releases", label: "Releases", Component: ReleasesTab, requires: [CAP.releases] },
+  // Every environment of the service, whatever it deploys to (read-only; editing comes later).
+  { id: "environments", label: "Environments", Component: EnvironmentsTab, requires: [CAP.ci] },
   { id: "topology", label: "Topology", Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
   { id: "slos", label: "SLOs", Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },

@@ -1,6 +1,7 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { envListsOf } from './environmentRows.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { load } from 'js-yaml';
@@ -78,8 +79,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
   else if (cicd.error) statusNote = `couldn't load cicd.yaml: ${cicd.error}`;
   else if (!cicd.data) statusNote = "no cicd.yaml found yet for this app";
   const deploy = cicd.data?.values.deploy ?? {};
-  const lowerEnvironments = Array.isArray(deploy.lowerEnvironments) ? deploy.lowerEnvironments : ["dev"];
-  const promotionOrder = Array.isArray(deploy.promotionOrder) ? deploy.promotionOrder : [];
+  const { lower: lowerEnvironments, order: promotionOrder } = envListsOf(deploy);
   const strategy = deploy.strategy === "rollout" ? "rollout" : "deployment";
   const configuredEnvs = new Set(envs.data?.envs ?? []);
   const pipelines = cicd.data?.values.pipelines ?? {};
