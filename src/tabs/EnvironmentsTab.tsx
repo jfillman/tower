@@ -161,12 +161,19 @@ export function EnvironmentsTab() {
     [releasePlan],
   );
   const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const flightOrderChanged = useMemo(() => {
+    const names = (envs: EnvDef[]) => envs.filter(e => e.tier === 'flight' && before.some(b => b.name === e.name)).map(e => e.name);
+    return !same(names(before), names(after));
+  }, [before, after]);
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...(flightOrderChanged
+        ? ['This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too.']
+        : []),
       ...releasePlan.skipped.map(k => `No release step added for ${k.env}: ${k.reason}.`),
     ],
-    [before, after, targetId, appName, releasePlan],
+    [before, after, targetId, appName, releasePlan, flightOrderChanged],
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
 
@@ -234,7 +241,7 @@ export function EnvironmentsTab() {
   };
   const canEditRow = (r: DisplayRow) => canEdit && Boolean(r.def);
   const movable = (r: DisplayRow) =>
-    canEditRow(r) && r.def?.tier === 'ground' && r.state !== 'removed' && (canMove(r.name, 'up') || canMove(r.name, 'down'));
+    canEditRow(r) && r.state !== 'removed' && (canMove(r.name, 'up') || canMove(r.name, 'down'));
 
   // Dropping a row on another row of the same tier is the same as moving it one step at a time.
   const dropOn = (target: string) => {
@@ -325,6 +332,7 @@ export function EnvironmentsTab() {
   const menuRow = menu ? rows.find(r => r.name === menu.name) : undefined;
   const closeMenu = () => setMenu(undefined);
   const menuGround = menuRow?.def?.tier === 'ground' && menuRow.state !== 'removed';
+  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== 'removed';
 
   return (
     <div className={c.wrap}>
@@ -504,7 +512,7 @@ export function EnvironmentsTab() {
         >
           {menuRow && open === menuRow.name ? 'Close details' : 'Edit details'}
         </MenuItem>
-        {menuGround && (
+        {menuMovable && (
           <MenuItem
             disabled={!menuRow || !canMove(menuRow.name, 'up')}
             onClick={() => {
@@ -515,7 +523,7 @@ export function EnvironmentsTab() {
             Move earlier
           </MenuItem>
         )}
-        {menuGround && (
+        {menuMovable && (
           <MenuItem
             disabled={!menuRow || !canMove(menuRow.name, 'down')}
             onClick={() => {

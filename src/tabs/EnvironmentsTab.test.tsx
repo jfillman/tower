@@ -286,9 +286,26 @@ describe('EnvironmentsTab: reordering', () => {
     expect(disabled('Move later')).toBe(true);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    // Flight has no order controls yet
-    openMenu('staging');
-    expect(menuItem('Move earlier')).toBeNull();
+  });
+
+  it('reorders Flight environments too, and says the pipeline order is separate', async () => {
+    k8sOld();
+    cicdData.values.deploy.upperEnvironments = [{ name: 'staging', cluster: 'kind-prod' }, { name: 'prod', cluster: 'kind-prod' }];
+    cicdData.values.deploy.promotionOrder = ['dev', 'test', 'staging', 'prod'];
+    ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
+    ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
+    renderTab();
+    await chooseAction('prod', 'Move earlier');
+    expect(panel().getByText('dev to test to prod to staging')).toBeTruthy();
+    expect(panel().getByText(/declared promotion order only/)).toBeTruthy();
+    // a Flight environment never passes a Ground one
+    openMenu('prod');
+    expect(menuItem('Move earlier')!.getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Move later')!.getAttribute('aria-disabled')).toBe('false');
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    openMenu('test');
+    expect(menuItem('Move later')!.getAttribute('aria-disabled')).toBe('true');
   });
 
   const dragRow = (from: string, to: string) => {
@@ -312,10 +329,21 @@ describe('EnvironmentsTab: reordering', () => {
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
   });
 
-  it('has no drag handle on a Flight environment', () => {
+  it('has no drag handle on an environment that cannot move (the only one of its tier)', () => {
     k8sOld();
     renderTab();
     expect(screen.queryByRole('img', { name: 'Drag staging to reorder' })).toBeNull();
+  });
+
+  it('drags a Flight environment onto another Flight environment', () => {
+    k8sOld();
+    cicdData.values.deploy.upperEnvironments = [{ name: 'staging', cluster: 'kind-prod' }, { name: 'prod', cluster: 'kind-prod' }];
+    cicdData.values.deploy.promotionOrder = ['dev', 'test', 'staging', 'prod'];
+    ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
+    ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
+    renderTab();
+    dragRow('prod', 'staging');
+    expect(panel().getByText('dev to test to prod to staging')).toBeTruthy();
   });
 });
 

@@ -155,6 +155,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
   },
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
+  // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
+  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   empty: {
     padding: '24px 18px',
     fontSize: 13,
@@ -311,9 +313,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    minWidth: 0,
   },
   typeChip: {
     display: 'inline-flex',
+    flexShrink: 0,
     fontFamily: fontMono,
     fontSize: 11,
     padding: '3px 7px',
@@ -360,6 +364,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     whiteSpace: 'nowrap',
   },
 }));
+
+/** `group:default/jfillman` shown as `jfillman`: the default namespace and the group kind are noise on a card. */
+export function ownerLabel(owner: unknown): string {
+  return typeof owner === 'string' ? owner.replace(/^group:default\//, '') : '';
+}
 
 export function AppPicker({
   onSelect,
@@ -565,7 +574,9 @@ export function AppPicker({
         <div className={classes.cardDesc}>{e.metadata.description}</div>
         <div className={classes.cardFoot}>
           {renderTypeChip(e)}
-          <span className={classes.meta}>{e.spec?.owner as string | undefined}</span>
+          <span className={classes.owner} title={e.spec?.owner as string | undefined}>
+            {ownerLabel(e.spec?.owner)}
+          </span>
         </div>
       </div>
     );
@@ -593,7 +604,9 @@ export function AppPicker({
                   <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
                 </td>
                 <td className={classes.td}>{renderTypeChip(e)}</td>
-                <td className={`${classes.td} ${classes.meta}`}>{e.spec?.owner as string | undefined}</td>
+                <td className={`${classes.td} ${classes.meta}`} title={e.spec?.owner as string | undefined}>
+                  {ownerLabel(e.spec?.owner)}
+                </td>
                 <td className={`${classes.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
               </tr>
             );
