@@ -120,7 +120,8 @@ function confidenceBreakdown(record, approvalsCount) {
   ];
 }
 function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs, sourcePrs, pipelineRuns, provenanceByImage, pipelineOrder) {
-  const upperEnvs = pipelineEnvironments.filter((e) => envTierOf(e.env, pipelineOrder) === "upper");
+  const tiered = pipelineEnvironments.filter((e) => envTierOf(e.env, pipelineOrder) === "upper");
+  const upperEnvs = tiered.length > 0 ? tiered : pipelineEnvironments.filter((e) => e.cloud);
   if (upperEnvs.length === 0) return [];
   const upperEnvNames = new Set(upperEnvs.map((e) => e.env));
   const qualifying = releases.map((row) => {
