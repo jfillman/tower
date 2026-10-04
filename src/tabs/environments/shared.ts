@@ -11,7 +11,8 @@ export interface DisplayRow {
   image?: string;
   deployedAt?: string;
   def?: EnvDef;
-  state?: 'new' | 'edited' | 'removed';
+  /** pr-open: its pull request is open and it does not exist yet. removal-pr: a pull request that removes it is open. */
+  state?: 'new' | 'edited' | 'removed' | 'pr-open' | 'removal-pr';
 }
 
 // The fields of each cloud block an environment may override (glidepath schemas/cicd.schema.json).

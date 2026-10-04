@@ -821,6 +821,8 @@ export interface CicdConfigChangeRequest {
   summary: string[];
   /** Environment files to delete in the same pull request (the backend allows only envs/<env>[.release].yaml). */
   deleteFiles?: string[];
+  /** Environment values files to create in the same pull request (a duplicated Ground environment). */
+  createFiles?: Array<{ path: string; content: string }>;
 }
 
 export interface CicdConfigChangeResult {

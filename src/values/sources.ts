@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import {
   useAppConfig,
   usePlatformFile,
@@ -55,4 +56,37 @@ export function useGroundValuesSource(target: { owner: string; appName: string; 
     submitError: sub.error,
     resetSubmit: sub.reset,
   };
+}
+
+export interface EnvValuesTarget {
+  owner: string;
+  appName: string;
+  env: string;
+  tier: 'ground' | 'flight';
+  /** Flight: the cluster directory of the gitops repo. */
+  cluster?: string;
+}
+
+/** Reads another environment's values (the same routes the form uses), for "Copy values from" and for duplicating. */
+export function useEnvValuesLoader(): (target: EnvValuesTarget) => Promise<Partial<Record<ConfigTopLevelField, unknown>>> {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  return useCallback(
+    async target => {
+      const base = await discoveryApi.getBaseUrl('glidepath');
+      const params = new URLSearchParams({ owner: target.owner, appName: target.appName, env: target.env });
+      let url = `${base}/config/platform-env?${params}`;
+      if (target.tier === 'flight') {
+        params.set('cluster', target.cluster ?? '');
+        url = `${base}/config?${params}`;
+      }
+      const res = await fetchApi.fetch(url);
+      if (!res.ok) {
+        const body = await res.json().catch(() => undefined);
+        throw new Error(body?.error ?? `request failed with ${res.status}`);
+      }
+      return ((await res.json()) as { values: Partial<Record<ConfigTopLevelField, unknown>> }).values ?? {};
+    },
+    [discoveryApi, fetchApi],
+  );
 }

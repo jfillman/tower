@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -11,6 +11,7 @@ import {
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
+  copiedEnvs,
   deleteFilesFor,
   describeChanges,
   envFilePaths,
@@ -29,6 +30,10 @@ import {
   type Staged,
 } from '../environments/stagedChanges';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
+import { dump as dumpYaml } from 'js-yaml';
+import { useEnvValuesLoader } from '../values/sources';
+import { loadSubmitted, pendingFrom, saveSubmitted, type SubmittedChange } from '../environments/submitted';
+import { RefreshButton } from '../RefreshButton';
 import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
@@ -37,6 +42,7 @@ import { Button, Chip, ColumnLabel, HEALTH_LABEL, IconButton, PageHeader, Panel,
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
+import { SubmittedPanel } from './environments/SubmittedPanel';
 import { same, TARGET_BLOCK, type DisplayRow } from './environments/shared';
 
 // The Environments tab: every environment of the service in promotion order, whichever way its
@@ -64,6 +70,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { padding: '20px 24px 40px', maxWidth: 1380 },
   layout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
   main: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
+  side: { display: 'flex', flexDirection: 'column', gap: 12, alignSelf: 'start' },
   toolbar: { display: 'flex', gap: 10, alignItems: 'center' },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
   headRow: { display: 'grid', gridTemplateColumns: COLUMNS, gap: 10, padding: '9px 14px', borderLeft: '3px solid transparent' },
@@ -81,6 +88,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   rowNew: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.good },
   rowEdited: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.amber },
   rowRemoved: { borderLeftColor: ({ t }) => t.bad },
+  rowPending: { backgroundColor: ({ t }) => t.panelAlt, borderLeftColor: ({ t }) => t.sky },
   rowDragOver: { boxShadow: ({ t }) => `inset 0 2px 0 ${t.amber}` },
   grip: {
     color: ({ t }) => t.textLo,
@@ -99,9 +107,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: 'center', fontSize: 13 },
 }));
 
-const STATE_CLASS = { new: 'rowNew', edited: 'rowEdited', removed: 'rowRemoved' } as const;
-const STATE_TONE = { new: 'ok', edited: 'flight', removed: 'bad' } as const;
-const STATE_LABEL = { new: 'new', edited: 'edit', removed: 'remove' } as const;
+const STATE_CLASS = { new: 'rowNew', edited: 'rowEdited', removed: 'rowRemoved', 'pr-open': 'rowPending', 'removal-pr': 'rowRemoved' } as const;
+const STATE_TONE = { new: 'ok', edited: 'flight', removed: 'bad', 'pr-open': 'ground', 'removal-pr': 'bad' } as const;
+const STATE_LABEL = { new: 'staged: new', edited: 'staged: edit', removed: 'staged: remove', 'pr-open': 'PR open', 'removal-pr': 'removal PR open' } as const;
 
 export function EnvironmentsTab() {
   const t = useHangarTokens();
@@ -112,6 +120,8 @@ export function EnvironmentsTab() {
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
+  const loadValues = useEnvValuesLoader();
+  const [duplicating, setDuplicating] = useState<EnvDef | undefined>();
   const [phase, setPhase] = useState<'idle' | 'launching' | 'submitting'>('idle');
   // env name -> the ApplicationEnvironment request PR already opened for it. Kept so a retry after a later
   // failure does not open a second request for an environment that already has one.
@@ -125,11 +135,18 @@ export function EnvironmentsTab() {
   const [menu, setMenu] = useState<{ name: string; el: HTMLElement } | undefined>();
   const [dragging, setDragging] = useState<string | undefined>();
   const [dragOver, setDragOver] = useState<string | undefined>();
+  const [submitted, setSubmitted] = useState<SubmittedChange[]>([]);
 
   const liveRows: EnvironmentRow[] = useMemo(
     () => buildEnvironmentRows(environments, { lower: pipelineOrder.lower, upper: pipelineOrder.upper }),
     [environments, pipelineOrder.lower, pipelineOrder.upper],
   );
+
+  // Changes submitted earlier whose pull request is not merged yet are remembered in the browser, so they survive
+  // leaving the tab. Loaded once the service is known.
+  useEffect(() => {
+    if (owner && appName) setSubmitted(loadSubmitted(owner, appName));
+  }, [owner, appName]);
 
   const deploy = cicd.data?.values.deploy as Deploy | undefined;
   const pipelines = (cicd.data?.values as Record<string, unknown> | undefined)?.pipelines;
@@ -140,6 +157,20 @@ export function EnvironmentsTab() {
 
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
+  const pending = useMemo(() => (canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }), [canEdit, submitted, before]);
+  // A merged pull request ends its record. Drop finished ones, and ask again every half minute while any is open.
+  useEffect(() => {
+    if (!canEdit || !owner || !appName) return;
+    if (pending.records.length !== submitted.length) {
+      setSubmitted(pending.records);
+      saveSubmitted(owner, appName, pending.records);
+    }
+  }, [canEdit, owner, appName, pending.records, submitted.length]);
+  useEffect(() => {
+    if (pending.records.length === 0) return undefined;
+    const id = setInterval(() => setNonce(n => n + 1), 30000);
+    return () => clearInterval(id);
+  }, [pending.records.length]);
   const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
@@ -168,12 +199,15 @@ export function EnvironmentsTab() {
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...copiedEnvs(staged, after)
+        .filter(x => x.env.tier === 'flight')
+        .map(x => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...(flightOrderChanged
         ? ['This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too.']
         : []),
       ...releasePlan.skipped.map(k => `No release step added for ${k.env}: ${k.reason}.`),
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged],
+    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged],
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
 
@@ -201,8 +235,17 @@ export function EnvironmentsTab() {
       let state: DisplayRow['state'];
       if (!prior) state = 'new';
       else if (!same(prior, def)) state = 'edited';
+      else if (pending.removals.includes(def.name)) state = 'removal-pr';
       return toRow(def, state);
     });
+    // An environment whose pull request is open stays in the table, marked, until cicd.yaml shows it.
+    for (const { env } of pending.adds) {
+      if (out.some(r => r.name === env.name)) continue;
+      const ghost = toRow(env, 'pr-open');
+      const firstFlight = out.findIndex(r => r.tier === 'flight');
+      if (env.tier === 'ground' && firstFlight !== -1) out.splice(firstFlight, 0, ghost);
+      else out.push(ghost);
+    }
     // An environment staged for removal stays listed, struck through, where it was, until the change is opened.
     before.forEach((def, i) => {
       if (after.some(e => e.name === def.name)) return;
@@ -219,7 +262,7 @@ export function EnvironmentsTab() {
     // Live environments cicd.yaml does not declare: shown, but nothing here can edit them.
     for (const r of liveRows) if (!out.some(o => o.name === r.name)) out.push({ ...r });
     return out;
-  }, [canEdit, liveRows, before, after, targetLabel]);
+  }, [canEdit, liveRows, before, after, targetLabel, pending]);
 
   if (loading && rows.length === 0) return <Progress />;
   if (error && rows.length === 0) return <ResponseErrorPanel error={new Error(String(error))} />;
@@ -241,7 +284,7 @@ export function EnvironmentsTab() {
   };
   const canEditRow = (r: DisplayRow) => canEdit && Boolean(r.def);
   const movable = (r: DisplayRow) =>
-    canEditRow(r) && r.state !== 'removed' && (canMove(r.name, 'up') || canMove(r.name, 'down'));
+    canEditRow(r) && r.state !== 'removed' && r.state !== 'removal-pr' && r.state !== 'pr-open' && (canMove(r.name, 'up') || canMove(r.name, 'down'));
 
   // Dropping a row on another row of the same tier is the same as moving it one step at a time.
   const dropOn = (target: string) => {
@@ -292,6 +335,23 @@ export function EnvironmentsTab() {
       done[e.name] = r.prUrl;
     }
     setLaunched(done);
+    // A Ground environment staged as a copy gets its values file in the same pull request: read the source's values now.
+    const createFiles: Array<{ path: string; content: string }> = [];
+    if (!cloudBlock) {
+      for (const { env, from } of copiedEnvs(staged, after)) {
+        if (env.tier !== 'ground') continue;
+        const source = before.find(b => b.name === from);
+        if (!source) continue;
+        try {
+          const values = await loadValues({ owner, appName, env: from, tier: source.tier, cluster: source.cluster });
+          createFiles.push({ path: `platform/envs/${env.name}.yaml`, content: dumpYaml({ envName: env.name, ...values }, { lineWidth: -1 }) });
+        } catch (e) {
+          setPhase('idle');
+          setFailure(`Could not read the values of ${from} to copy them to ${env.name}: ${String(e)}. Nothing was changed in cicd.yaml.`);
+          return;
+        }
+      }
+    }
     setPhase('submitting');
     await submit.submit({
       owner,
@@ -299,6 +359,7 @@ export function EnvironmentsTab() {
       patch: { deploy: buildDeploy(deploy, after), ...(releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {}) },
       summary: changes.map(l => l.title),
       ...(deleteFiles.length > 0 ? { deleteFiles } : {}),
+      ...(createFiles.length > 0 ? { createFiles } : {}),
     });
     setPhase('idle');
   };
@@ -309,6 +370,20 @@ export function EnvironmentsTab() {
     const succeeded = Boolean(submit.result);
     submit.reset();
     setFailure(undefined);
+    if (succeeded && submit.result && owner && appName) {
+      const record: SubmittedChange = {
+        id: `${Date.now()}`,
+        at: Date.now(),
+        prUrl: submit.result.prUrl,
+        requests: { ...launched },
+        added: after.filter(e => !before.some(b => b.name === e.name)),
+        removed: before.filter(b => !after.some(e => e.name === b.name)).map(b => b.name),
+        summary: changes.map(l => l.title),
+      };
+      const next = [record, ...submitted];
+      setSubmitted(next);
+      saveSubmitted(owner, appName, next);
+    }
     if (succeeded) {
       setStaged([]);
       setLaunched({});
@@ -327,12 +402,17 @@ export function EnvironmentsTab() {
     onSetField: setField,
     onRemove: setRemoving,
     onUndoRemove: undoRemove,
+    siblings: before,
+    pendingFor: name => {
+      const record = pending.records.find(r => r.added.some(e => e.name === name) || r.removed.includes(name));
+      return record && { prUrl: record.prUrl, requestUrl: record.requests[name] };
+    },
   };
 
   const menuRow = menu ? rows.find(r => r.name === menu.name) : undefined;
   const closeMenu = () => setMenu(undefined);
-  const menuGround = menuRow?.def?.tier === 'ground' && menuRow.state !== 'removed';
-  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== 'removed';
+  const menuGround = menuRow?.def?.tier === 'ground' && menuRow.state !== 'removed' && menuRow.state !== 'removal-pr';
+  const menuMovable = Boolean(menuRow?.def) && menuRow?.state !== 'removed' && menuRow?.state !== 'removal-pr';
 
   return (
     <div className={c.wrap}>
@@ -340,11 +420,14 @@ export function EnvironmentsTab() {
         title="Environments"
         subtitle={canEdit ? 'Edit in the table. Changes stage on the right, then open together.' : 'Every environment of this service, in promotion order.'}
         actions={
-          canEdit && (
-            <Button variant="primary" onClick={() => setAdding(true)}>
-              Add environment
-            </Button>
-          )
+          <>
+            <RefreshButton onClick={() => setNonce(n => n + 1)} />
+            {canEdit && (
+              <Button variant="primary" onClick={() => setAdding(true)}>
+                Add environment
+              </Button>
+            )}
+          </>
         }
       />
       {!canEdit && (
@@ -443,7 +526,7 @@ export function EnvironmentsTab() {
                           <span role="cell" className={c.nameCell}>
                             <b className={`${c.name} ${r.state === 'removed' ? c.nameRemoved : ''}`}>{r.name}</b>
                             {r.state && (
-                              <Chip tone={STATE_TONE[r.state]}>staged: {STATE_LABEL[r.state]}</Chip>
+                              <Chip tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Chip>
                             )}
                           </span>
                           <span role="cell">
@@ -467,7 +550,7 @@ export function EnvironmentsTab() {
                             )}
                           </span>
                           <span role="cell" onClick={e => e.stopPropagation()}>
-                            {editable && (
+                            {editable && r.state !== 'pr-open' && (
                               <IconButton
                                 aria-label={`Actions for ${r.name}`}
                                 aria-haspopup="menu"
@@ -488,19 +571,30 @@ export function EnvironmentsTab() {
           </Panel>
         </div>
         {canEdit && (
-          <PendingChanges
-            changes={changes}
-            problems={problems}
-            notes={notes}
-            flightAdds={flightAdds}
-            launched={launched}
-            owner={owner}
-            appName={appName}
-            deleteFiles={deleteFiles}
-            phase={phase}
-            onDiscard={() => setStaged([])}
-            onOpen={openPr}
-          />
+          <div className={c.side}>
+            <PendingChanges
+              changes={changes}
+              problems={problems}
+              notes={notes}
+              flightAdds={flightAdds}
+              launched={launched}
+              owner={owner}
+              appName={appName}
+              deleteFiles={deleteFiles}
+              phase={phase}
+              onDiscard={() => setStaged([])}
+              onOpen={openPr}
+            />
+            <SubmittedPanel
+              records={pending.records}
+              onCheck={() => setNonce(n => n + 1)}
+              onDismiss={id => {
+                const next = submitted.filter(r => r.id !== id);
+                setSubmitted(next);
+                if (owner && appName) saveSubmitted(owner, appName, next);
+              }}
+            />
+          </div>
         )}
       </div>
       <Menu anchorEl={menu?.el} open={Boolean(menu && menuRow)} onClose={closeMenu}>
@@ -534,6 +628,16 @@ export function EnvironmentsTab() {
             Move later
           </MenuItem>
         )}
+        {menuMovable && menuRow?.state !== 'pr-open' && (
+          <MenuItem
+            onClick={() => {
+              if (menuRow?.def) setDuplicating(menuRow.def);
+              closeMenu();
+            }}
+          >
+            Duplicate…
+          </MenuItem>
+        )}
         {menuRow?.state === 'removed' && (
           <MenuItem
             onClick={() => {
@@ -556,16 +660,22 @@ export function EnvironmentsTab() {
         )}
       </Menu>
       <AddEnvironmentDialog
-        open={adding}
-        onClose={() => setAdding(false)}
+        key={duplicating?.name ?? 'new'}
+        open={adding || Boolean(duplicating)}
+        duplicateOf={duplicating}
+        onClose={() => {
+          setAdding(false);
+          setDuplicating(undefined);
+        }}
         current={after}
         problems={problems}
         targetId={targetId}
         targetLabel={targetLabel}
         cloudBlock={cloudBlock}
-        onStage={(env, releaseStep) => {
-          setStaged(s => [...s, { kind: 'add', env, releaseStep }]);
+        onStage={(env, releaseStep, copyValuesFrom) => {
+          setStaged(s => [...s, { kind: 'add', env, releaseStep, ...(copyValuesFrom ? { copyValuesFrom } : {}) }]);
           setAdding(false);
+          setDuplicating(undefined);
         }}
       />
       {removing && (

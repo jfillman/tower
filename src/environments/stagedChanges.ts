@@ -79,7 +79,7 @@ export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; en
 
 export type Staged =
   /** releaseStep: also add a `release` step for this (Flight) environment to the app's main pipeline. */
-  | { kind: 'add'; env: EnvDef; releaseStep?: boolean }
+  | { kind: 'add'; env: EnvDef; releaseStep?: boolean; copyValuesFrom?: string }
   | { kind: 'move'; name: string; direction: 'up' | 'down' }
   | { kind: 'setBlock'; name: string; block: CloudBlock; value: Block | undefined }
   | { kind: 'remove'; name: string };
@@ -249,11 +249,9 @@ export function envFilePaths(env: string): string[] {
 
 /** Names of the pipelines that still have a step for this environment (either list or map form). */
 export function pipelinesNamingEnv(pipelines: unknown, env: string): string[] {
-  const entries: Array<[string, unknown]> = Array.isArray(pipelines)
-    ? pipelines.map((p, i) => [String((p as { name?: unknown })?.name ?? i), p])
-    : pipelines && typeof pipelines === 'object'
-      ? Object.entries(pipelines as Record<string, unknown>)
-      : [];
+  let entries: Array<[string, unknown]> = [];
+  if (Array.isArray(pipelines)) entries = pipelines.map((p, i) => [String((p as { name?: unknown })?.name ?? i), p]);
+  else if (pipelines && typeof pipelines === 'object') entries = Object.entries(pipelines as Record<string, unknown>);
   return entries
     .filter(([, p]) => {
       const steps = Array.isArray(p) ? p : (p as { steps?: unknown })?.steps;
@@ -432,4 +430,13 @@ export function planReleaseSteps(pipelines: unknown, envs: EnvDef[], names: stri
 export function releaseStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
   const alive = new Set(after.filter(e => e.tier === 'flight').map(e => e.name));
   return staged.flatMap(s => (s.kind === 'add' && s.releaseStep && alive.has(s.env.name) ? [s.env.name] : []));
+}
+
+/** Added environments that were staged as a copy of another, with the environment they copy. */
+export function copiedEnvs(staged: Staged[], after: EnvDef[]): Array<{ env: EnvDef; from: string }> {
+  return staged.flatMap(s => {
+    if (s.kind !== 'add' || !s.copyValuesFrom) return [];
+    const env = after.find(e => e.name === s.env.name);
+    return env ? [{ env, from: s.copyValuesFrom }] : [];
+  });
 }

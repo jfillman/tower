@@ -29,6 +29,8 @@ What can be staged so far:
 | **Add environment** (Flight, Kubernetes apps) | Needs the cluster it runs on (any registered upper cluster; ones this app already uses are suggested). Opens **two** pull requests, in this order: an ApplicationEnvironment request on the tenants repo (through Backstage's existing template, launched via the scaffolder API as you), then the `cicd.yaml` change. Merge the request first, so the environment exists when `cicd.yaml` names it; Crossplane then adds its gitops directory and the Application. If the request fails, nothing is changed in `cicd.yaml` and what you staged is kept. If `cicd.yaml` fails after the request opened, retrying does not open the request again. By default the same `cicd.yaml` change also adds a `release` step for it to the app's main pipeline (the one with the most deploy and release steps), right after the step for the environment before it (at the end if that one has no step). Untick *Also add a release step* to edit the pipeline yourself in the Glidepath tab. Nothing is added when the service has no pipeline with steps, or a pipeline already has a step for the environment; the panel says so. Not offered for a cloud target (it has no approval path for Flight yet). |
 | **Reorder** (drag the handle, or Move earlier / later in the row menu) | Changes the declared promotion order, for Ground and for Flight environments. A Ground environment never moves past a Flight one. Reordering Flight environments does not reorder the pipeline's release steps (the panel says so): edit those in the Glidepath tab. |
 | **Remove** (✕, Ground only) | A dialog previews the impact and asks you to type the environment's name. On a Kubernetes app the **same** pull request removes the environment from `cicd.yaml` and deletes its `platform/envs/<name>.yaml` and `<name>.release.yaml` (and the `glidepath/` equivalents), whichever exist. After it merges Argo CD prunes the Application `<app>-<name>` and the namespace `app-<app>-<name>`, deleting everything running in it. Refused while a pipeline step still names the environment (remove the step in the Glidepath tab first); the backend re-checks this and only accepts `envs/<env>[.release].yaml` paths. On a cloud app only `cicd.yaml` changes: the cloud resource is **not** deleted. Removing an environment you only just staged simply un-stages it. |
+| **Duplicate** (row menu) | Opens the Add dialog as a copy of the row: same tier, same cluster (Flight) and same settings; you give it a name. A cloud environment keeps its other settings but not the resource it points at (two environments on one function would deploy over each other). **Copy the values** (Kubernetes apps): for a Ground copy its `platform/envs/<name>.yaml` is created in the **same** pull request from the source's values (its image excluded); Glidepath's onboarding resync only scaffolds a missing file, so it never overwrites it. A Flight copy's values file is written by Crossplane after the request merges; once it exists use **Copy values from** in its Values tab. |
+| **Copy values from** (Values tab) | Loads another environment's values into the form as staged edits (nothing is saved until the pull request merges; Discard all undoes it). `rollout.image` is never copied. Works between any two Kubernetes environments, Ground or Flight. |
 | **A cloud environment's own resource** (click the row) | Sets this environment's `lambda` / `ecs` / `azureContainerApps` fields (for example the function name). An empty field uses the app-level value, shown as its hint. |
 
 | **Values** (click the row, Kubernetes apps) | The environment's chart values as a form in six sub-tabs: **Workload** (deployment, scaling, resources, service, health checks, availability, rollout strategy and pod template), **Release** (canary steps, notifications, custom AnalysisTemplates, SLOs), **Networking**, **Config** (environment variables, config maps, volumes, attached components), **Access** (service account, secrets) and **Advanced** (cron jobs, one-off jobs, extra manifests, the full committed YAML). A dot marks a sub-tab that holds a change. A Ground environment's values are `platform/envs/<name>.yaml`; a Flight environment's are `gitops-<app>/<cluster>/<name>/values.yaml`. Either file has its **own** pull request (a different file from `cicd.yaml`), so the form has its own Pending changes panel under it, pinned to the bottom of the screen, and is not part of the page's panel. A Ground environment you only just staged has no file yet (the onboarding pull request creates it), so the row says so instead. |
@@ -56,9 +58,26 @@ Kubernetes the read-only facts), **Values**, **Promotion** (how it deploys and w
 Drag a handle onto another Ground row to reorder, or use the menu. The layout follows the mockup; the shared pieces are in
 [the design system](design-system.md).
 
+## After you open a pull request
+
+Opening the pull request does not make the environment appear: it exists when the change merges. Tower remembers what you submitted
+(in the browser, per service) and keeps it visible until `cicd.yaml` shows the result:
+
+- The new environment stays in the table, marked **PR open**; an environment with a removal pull request open is marked **removal PR open**.
+- The **Open pull requests** panel lists each pull request (the `cicd.yaml` one and, for a Flight environment, its ApplicationEnvironment
+  request) with **Check again** and **Dismiss**. The tab asks again every half minute while any is open, and **Refresh** in the header asks now.
+- Expanding such a row shows **provisioning progress**: for a Flight environment the `cicd.yaml` change, the request pull request,
+  Crossplane applying it, the files written to GitHub (n of m), the Infisical secret store (with a link to the project once ready), the
+  values file, and the first deploy; for a Ground one the `cicd.yaml` change, the onboarding pull request, the values file and the deploy.
+  Links go to the pull requests, the GitOps repo, the file and the Infisical project. An environment that exists but is not fully
+  provisioned shows the same steps collapsed above its sub-tabs.
+- **The Values tab waits for the file.** Until the environment's values file exists (a Flight environment's is written by Crossplane,
+  a Ground one's by the onboarding pull request) the tab says so instead of showing a form, for Ground and Flight alike.
+
 ## Where the code is
 
 - `src/values/`: `ValuesForm.tsx` (the form, its sub-tabs and its pending panel), `sources.ts` (Flight / Ground), `FlightPanels.tsx`, `styles.ts`.
+- `src/environments/`: `submitted.ts` (remembered pull requests), `lifecycle.ts` (the provisioning steps, pure) and `useEnvLifecycle.ts` (reads GitHub, the ApplicationEnvironment XR, its files and the SecretStore).
 - `src/environments/stagedChanges.ts`: the pure model (read either shape, apply staged changes, validate,
   build the `deploy` block, describe the changes). Heavily tested; the rules live here, not in the component.
 - `src/tabs/EnvironmentsTab.tsx`: state and handlers; `src/tabs/environments/`: `RowDetail` (the sub-tabs), `PendingChanges`, `dialogs`, `shared`.

@@ -5,7 +5,9 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
 import { ConfigEditor } from '../../values/ValuesForm';
 import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
-import { useFlightValuesSource, useGroundValuesSource } from '../../values/sources';
+import { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, type ValuesSource } from '../../values/sources';
+import { useEnvLifecycle } from '../../environments/useEnvLifecycle';
+import { EnvLifecycle } from './EnvLifecycle';
 import { useStyles as useValuesStyles } from '../../values/styles';
 import { Button, ColumnLabel, Field, Subtabs } from '../../ui';
 import { useUi } from '../../ui/styles';
@@ -34,9 +36,36 @@ export interface RowDetailContext {
   onSetField: (env: EnvDef, block: CloudBlock, field: string, value: string) => void;
   onRemove: (name: string) => void;
   onUndoRemove: (name: string) => void;
+  /** The declared environments, for "Copy values from". */
+  siblings: EnvDef[];
+  /** The submitted change that is still waiting on this environment, if any. */
+  pendingFor: (name: string) => { prUrl: string; requestUrl?: string } | undefined;
 }
 
-export function RowDetail({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext }) {
+type RowProps = { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext };
+
+/** Reads the environment's values file once, for the lifecycle and the Values tab, then renders the row. */
+export function RowDetail(props: RowProps) {
+  const { row, ctx } = props;
+  const hasFile = !ctx.cloudBlock && row.state !== 'new' && row.state !== 'pr-open' && Boolean(ctx.owner && ctx.appName);
+  if (!hasFile) return <RowDetailBody {...props} />;
+  if (row.def.tier === 'flight') return <FlightRow {...props} />;
+  return <GroundRow {...props} />;
+}
+
+function FlightRow(props: RowProps) {
+  const { row, ctx } = props;
+  const source = useFlightValuesSource({ owner: ctx.owner as string, appName: ctx.appName as string, cluster: row.def.cluster ?? row.where, env: row.name });
+  return <RowDetailBody {...props} source={source} />;
+}
+
+function GroundRow(props: RowProps) {
+  const { row, ctx } = props;
+  const source = useGroundValuesSource({ owner: ctx.owner as string, appName: ctx.appName as string, env: row.name });
+  return <RowDetailBody {...props} source={source} />;
+}
+
+function RowDetailBody({ row, ctx, source }: RowProps & { source?: ValuesSource }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
@@ -44,9 +73,39 @@ export function RowDetail({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx
   const [tab, setTab] = useState<SubtabId>(ctx.cloudBlock ? 'settings' : 'values');
   const removed = row.state === 'removed';
   const steps = pipelinesNamingEnv(ctx.pipelines, row.name);
+  const valuesFileExists = Boolean(source?.data?.raw?.trim());
+  const pending = ctx.pendingFor(row.name);
+  const ghost = row.state === 'pr-open';
+  const lifecycle = useEnvLifecycle(
+    {
+      owner: ctx.owner ?? '',
+      appName: ctx.appName ?? '',
+      env: row.name,
+      tier: def.tier,
+      cluster: def.cluster ?? row.where,
+      declared: !ghost && row.state !== 'new',
+      cicdPrUrl: pending?.prUrl,
+      knownRequestUrl: pending?.requestUrl,
+      deployed: row.deployed,
+      valuesFileExists,
+    },
+    !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== 'new' && row.state !== 'removed',
+  );
+  const unfinished = lifecycle.steps.some(x => x.state !== 'done');
+
+  // A pull request is open for it but nothing exists yet: there is only progress to show, and nothing to edit.
+  if (ghost) {
+    return (
+      <div className={c.wrap}>
+        <EnvLifecycle steps={lifecycle.steps} initiallyOpen />
+        <div className={ui.note}>Nothing here can be edited until the environment exists. It appears in the table as it is created.</div>
+      </div>
+    );
+  }
 
   return (
     <div className={c.wrap}>
+      {!ctx.cloudBlock && unfinished && row.state !== 'new' && <EnvLifecycle steps={lifecycle.steps} />}
       <Subtabs
         label={`${row.name} sections`}
         value={tab}
@@ -60,7 +119,7 @@ export function RowDetail({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx
       />
       <div className={c.body}>
         {tab === 'settings' && <Settings row={row} ctx={ctx} />}
-        {tab === 'values' && <Values row={row} ctx={ctx} />}
+        {tab === 'values' && <Values row={row} ctx={ctx} source={source} />}
         {tab === 'promotion' && (
           <div className={ui.note}>
             {def.tier === 'ground' ? (
@@ -155,11 +214,20 @@ function Settings({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDet
   );
 }
 
-function Values({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext }) {
+function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext; source?: ValuesSource }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
   const { def } = row;
+  // The values file may not exist yet (a Flight environment's is written by Crossplane, a Ground one's by the onboarding
+  // pull request). Editing before then would open a pull request that creates the file out of order.
+  const gate = (src?: ValuesSource) =>
+    src && !src.loading && !src.error && src.data && !src.data.raw.trim() ? (
+      <div className={ui.note}>
+        The values file <span className={c.mono}>{src.data.path}</span> does not exist yet, so there is nothing to edit. The progress above shows what it is
+        waiting on. It can be edited here as soon as it exists.
+      </div>
+    ) : undefined;
   if (ctx.cloudBlock) {
     return <div className={ui.note}>A cloud environment has no chart values. Its target resource is under Settings.</div>;
   }
@@ -172,19 +240,41 @@ function Values({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetai
         </div>
       );
     }
-    return <GroundValues owner={ctx.owner as string} appName={ctx.appName as string} env={row.name} />;
+    return gate(source) ?? <GroundValues ctx={ctx} env={row.name} source={source as ValuesSource} />;
   }
-  return <FlightValues owner={ctx.owner as string} appName={ctx.appName as string} env={row.name} cluster={def.cluster ?? row.where} />;
+  return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} />;
 }
 
-function GroundValues({ owner, appName, env }: { owner: string; appName: string; env: string }) {
-  const source = useGroundValuesSource({ owner, appName, env });
-  return <ConfigEditor owner={owner} appName={appName} source={source} title={env.toUpperCase()} layout="inline" />;
+function useCopyFrom(ctx: RowDetailContext, env: string) {
+  const load = useEnvValuesLoader();
+  const others = ctx.siblings.filter(e => e.name !== env);
+  return {
+    options: others.map(e => ({ id: e.name, label: `${e.name} (${e.tier === 'flight' ? 'Flight' : 'Ground'})` })),
+    load: (id: string) => {
+      const e = ctx.siblings.find(x => x.name === id) as EnvDef;
+      return load({ owner: ctx.owner as string, appName: ctx.appName as string, env: id, tier: e.tier, cluster: e.cluster });
+    },
+  };
 }
 
-function FlightValues({ owner, appName, env, cluster }: { owner: string; appName: string; env: string; cluster: string }) {
-  const source = useFlightValuesSource({ owner, appName, cluster, env });
-  return <ConfigEditor owner={owner} appName={appName} source={source} title={`${env.toUpperCase()} (${cluster})`} prod={/^prod/i.test(env)} layout="inline" />;
+function GroundValues({ ctx, env, source }: { ctx: RowDetailContext; env: string; source: ValuesSource }) {
+  const copyFrom = useCopyFrom(ctx, env);
+  return <ConfigEditor owner={ctx.owner as string} appName={ctx.appName as string} source={source} title={env.toUpperCase()} layout="inline" copyFrom={copyFrom} />;
+}
+
+function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource }) {
+  const copyFrom = useCopyFrom(ctx, env);
+  return (
+    <ConfigEditor
+      owner={ctx.owner as string}
+      appName={ctx.appName as string}
+      source={source}
+      title={`${env.toUpperCase()} (${cluster})`}
+      prod={/^prod/i.test(env)}
+      layout="inline"
+      copyFrom={copyFrom}
+    />
+  );
 }
 
 function Danger({ row, ctx, removed }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext; removed: boolean }) {
