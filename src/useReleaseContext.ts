@@ -149,44 +149,6 @@ export function useReleaseContext() {
     refreshNonce,
   );
 
-  // TODO tower-undeployed-env-gap (found 2026-09-27/28, fixed 2026-09-28):
-  // rawEnvironments comes entirely from live K8s resource presence
-  // (useTowerEnvironments' own buildEnvironments), so an env cicd.yaml
-  // declares (deploy.lowerEnvironments/upperEnvironments) but that has never
-  // had a Rollout/Deployment deployed to it - a fresh `rollout: null` upper
-  // env, or an app that's only ever reached dev - never appeared anywhere in
-  // Tower: not in the Matrix, not targetable for a first promotion. Built
-  // here, not inside useTowerEnvironments itself, deliberately: that hook's
-  // rawEnvironments also feeds Topology/Pods/ResourceInspector/Prometheus/
-  // ClusterRbac - tabs that need a real namespace/cluster to query against
-  // and would break on a placeholder entry with none. This merge is scoped
-  // to exactly the "app's declared environments" consumers that already read
-  // `environments` from this hook (Matrix, Overview, Record) - the same
-  // scope ConfigTab.tsx's own flightEnvs already carved out for its env
-  // picker (see that component's 2026-09-16 comment on the identical
-  // `rollout: null` gap for its own, narrower purpose).
-  //
-  // Cluster for a declared-but-undeployed LOWER env is inferred from any
-  // other live environment on this app - Ground is single-cluster per app on
-  // this platform today, so any live env's cluster is a safe stand-in, not a
-  // guess at a genuinely unknown value. An upper env's cluster is never
-  // inferred - pipelineOrder.upperClusters already carries cicd.yaml's own
-  // explicit per-env declaration (empty string for the "same-cluster
-  // default", handled the same way ConfigTab.tsx's flightEnvs already does).
-  const declaredEnvironments = useMemo(() => {
-    const liveNames = new Set(rawEnvironments.map(e => e.env.toLowerCase()));
-    const fallbackCluster = rawEnvironments[0]?.cluster ?? '';
-    const result: EnvironmentSummary[] = [];
-    (pipelineOrder.lower ?? []).forEach(name => {
-      if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, fallbackCluster));
-    });
-    (pipelineOrder.upper ?? []).forEach(name => {
-      if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
-    });
-    return result;
-  }, [rawEnvironments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
 
   // The real flow-correlation nickname CiCdTab already shows per PipelineRun
   // (e.g. "lively finch" - see tekton/useTektonPipelineRuns.ts's
@@ -237,6 +199,47 @@ export function useReleaseContext() {
     () => ({ ...cloudProvenance, ...clusterProvenance }),
     [cloudProvenance, clusterProvenance],
   );
+
+  // TODO tower-undeployed-env-gap (found 2026-09-27/28, fixed 2026-09-28):
+  // rawEnvironments comes entirely from live K8s resource presence
+  // (useTowerEnvironments' own buildEnvironments), so an env cicd.yaml
+  // declares (deploy.lowerEnvironments/upperEnvironments) but that has never
+  // had a Rollout/Deployment deployed to it - a fresh `rollout: null` upper
+  // env, or an app that's only ever reached dev - never appeared anywhere in
+  // Tower: not in the Matrix, not targetable for a first promotion. Built
+  // here, not inside useTowerEnvironments itself, deliberately: that hook's
+  // rawEnvironments also feeds Topology/Pods/ResourceInspector/Prometheus/
+  // ClusterRbac - tabs that need a real namespace/cluster to query against
+  // and would break on a placeholder entry with none. This merge is scoped
+  // to exactly the "app's declared environments" consumers that already read
+  // `environments` from this hook (Matrix, Overview, Record) - the same
+  // scope ConfigTab.tsx's own flightEnvs already carved out for its env
+  // picker (see that component's 2026-09-16 comment on the identical
+  // `rollout: null` gap for its own, narrower purpose).
+  //
+  // Cluster for a declared-but-undeployed LOWER env is inferred from any
+  // other live environment on this app - Ground is single-cluster per app on
+  // this platform today, so any live env's cluster is a safe stand-in, not a
+  // guess at a genuinely unknown value. An upper env's cluster is never
+  // inferred - pipelineOrder.upperClusters already carries cicd.yaml's own
+  // explicit per-env declaration (empty string for the "same-cluster
+  // default", handled the same way ConfigTab.tsx's flightEnvs already does).
+  const declaredEnvironments = useMemo(() => {
+    // A cloud environment (built from deploy runs) is a live environment too: declaring the same
+    // name in cicd.yaml must not add a second, never-deployed card next to it.
+    const liveNames = new Set([...rawEnvironments, ...cloud.environments].map(e => e.env.toLowerCase()));
+    const fallbackCluster = rawEnvironments[0]?.cluster ?? '';
+    const result: EnvironmentSummary[] = [];
+    (pipelineOrder.lower ?? []).forEach(name => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, fallbackCluster));
+    });
+    (pipelineOrder.upper ?? []).forEach(name => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
+    });
+    return result;
+  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
 
   // THE fix: pipelineOrder.data is now actually passed through.
   const environments = useMemo(
