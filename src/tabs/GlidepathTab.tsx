@@ -125,7 +125,7 @@ interface CicdFormState {
   pipelinesRaw: string;
 }
 
-function buildFormFromValues(values: Partial<Record<CicdTopLevelField, unknown>>): CicdFormState {
+export function buildFormFromValues(values: Partial<Record<CicdTopLevelField, unknown>>): CicdFormState {
   const deploy = (values.deploy ?? {}) as Record<string, unknown>;
   const build = (values.build ?? {}) as Record<string, unknown>;
   const unitTest = (build.unitTest ?? {}) as Record<string, unknown>;
@@ -231,7 +231,7 @@ function emptyDefaultFor(key: CicdTopLevelField): unknown {
   }
 }
 
-function buildCandidateValues(
+export function buildCandidateValues(
   form: CicdFormState,
   originalValues: Partial<Record<CicdTopLevelField, unknown>>,
 ): Partial<Record<CicdTopLevelField, unknown>> {
@@ -242,6 +242,7 @@ function buildCandidateValues(
   // allowed") and `script` (re-added below only when the switch is on).
   const { dockerfile: _legacyDockerfile, script: _script, ...originalBuild } =
     (originalValues.build as Record<string, unknown> | undefined) ?? {};
+  const originalDeploy = (originalValues.deploy as Record<string, unknown> | undefined) ?? {};
   return {
     build: {
       ...originalBuild,
@@ -255,6 +256,10 @@ function buildCandidateValues(
     },
     test: { enabled: form.testEnabled, ...(form.testName.trim() ? { name: form.testName.trim() } : {}) },
     deploy: {
+      // The whole `deploy` section is replaced on save, so keep keys this form has no field for:
+      // `target` and the per-target blocks (`lambda`, `ecs`, `azureContainerApps`). Dropping them
+      // silently moved a function back to the Kubernetes target.
+      ...originalDeploy,
       lowerEnvironments: splitCsv(form.lowerEnvironments),
       upperEnvironments: safeYamlLoad(form.upperEnvironmentsRaw) ?? [],
       strategy: form.strategy,
