@@ -7,17 +7,25 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 import Button from '@material-ui/core/Button';
+import Radio from '@material-ui/core/Radio';
+import RadioGroup from '@material-ui/core/RadioGroup';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import Link from '@material-ui/core/Link';
 import TextField from '@material-ui/core/TextField';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { buildEnvironmentRows, type EnvironmentRow } from '../environmentRows';
+import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
 import {
+  addedFlightEnvs,
   applyStaged,
   buildDeploy,
   describeChanges,
   followUps,
   readEnvironments,
   stageSetBlock,
+  validateAddedFlight,
   validateEnvironments,
   type CloudBlock,
   type Deploy,
@@ -25,7 +33,6 @@ import {
   type Staged,
 } from '../environments/stagedChanges';
 import { DEPLOY_TARGETS } from '../serviceClass';
-import { PrResultDialog } from '../PrResultDialog';
 import { preventFocusScroll } from '../preventFocusScroll';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
@@ -37,9 +44,13 @@ import type { Health } from '../types';
 // submitted one by one): the Pending changes panel lists them all, and "Open pull request" turns them
 // into one change to cicd.yaml. See glidepath docs/admin/envs-overhaul-requirements.md, section 4.
 //
-// What can be edited here so far: add a Ground environment, reorder Ground environments, and set a cloud
-// environment's own function / service / Container App. Flight environments, deleting, and the values of a
-// Kubernetes environment are still done elsewhere (they come next).
+// What can be edited here so far: add a Ground or a Flight environment, reorder Ground environments, and set a
+// cloud environment's own function / service / Container App. Deleting, and the values of a Kubernetes
+// environment, are still done elsewhere (they come next).
+//
+// A Flight environment is created by Airframe's ApplicationEnvironment XR, requested through an existing
+// Backstage template. Opening the pull request therefore launches that template first (it opens a request PR on
+// the tenants repo) and then submits the cicd.yaml change, and says which to merge first.
 
 const HEALTH_LABEL: Record<Health, string> = {
   healthy: 'Healthy',
@@ -198,6 +209,12 @@ export function EnvironmentsTab() {
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
   const submit = useSubmitCicdConfigChange();
+  const launcher = useLaunchApplicationEnvironment();
+  const [phase, setPhase] = useState<'idle' | 'launching' | 'submitting'>('idle');
+  // env name -> the ApplicationEnvironment request PR already opened for it. Kept so a retry after a later
+  // failure does not open a second request for an environment that already has one.
+  const [launched, setLaunched] = useState<Record<string, string>>({});
+  const [failure, setFailure] = useState<string | undefined>();
   const [staged, setStaged] = useState<Staged[]>([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | undefined>();
@@ -216,7 +233,11 @@ export function EnvironmentsTab() {
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
   const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
-  const problems = useMemo(() => validateEnvironments(after, targetId), [after, targetId]);
+  const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
+  const problems = useMemo(
+    () => [...validateEnvironments(after, targetId), ...validateAddedFlight(before, after, targetId)],
+    [before, after, targetId],
+  );
   const notes = useMemo(() => followUps(before, after, targetId), [before, after, targetId]);
 
   const rows: DisplayRow[] = useMemo(() => {
@@ -262,15 +283,42 @@ export function EnvironmentsTab() {
     setStaged(s => stageSetBlock(s, env.name, block, current));
   };
 
-  const openPr = () => {
+  const openPr = async () => {
     if (!owner || !appName) return;
-    submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map(c => c.title) });
+    setFailure(undefined);
+    // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
+    const done = { ...launched };
+    for (const e of flightAdds) {
+      if (done[e.name]) continue;
+      setPhase('launching');
+      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster as string });
+      if (r.status !== 'done') {
+        setLaunched(done);
+        setPhase('idle');
+        setFailure(
+          `Creating ${e.name} failed: ${r.status === 'failed' ? r.error : 'the request did not finish'}. Nothing was changed in cicd.yaml.`,
+        );
+        return;
+      }
+      done[e.name] = r.prUrl;
+    }
+    setLaunched(done);
+    setPhase('submitting');
+    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map(c => c.title) });
+    setPhase('idle');
   };
 
+  // Closing after a success clears everything staged. Closing after a failure keeps it, so the user can fix
+  // the cause and try again (requests already opened are remembered and not repeated).
   const closeResult = () => {
+    const succeeded = Boolean(submit.result);
     submit.reset();
-    setStaged([]);
-    setNonce(n => n + 1);
+    setFailure(undefined);
+    if (succeeded) {
+      setStaged([]);
+      setLaunched({});
+      setNonce(n => n + 1);
+    }
   };
 
   return (
@@ -431,9 +479,16 @@ export function EnvironmentsTab() {
                   </div>
                 ))}
                 <div className={classes.label} style={{ marginTop: 12 }}>
-                  Pull request this opens
+                  {flightAdds.length > 0 ? 'Pull requests this opens, in this order' : 'Pull request this opens'}
                 </div>
+                {flightAdds.map(e => (
+                  <div key={e.name} className={classes.lineDetail} style={{ marginTop: 4 }}>
+                    1. tenants repo: ApplicationEnvironment request for {e.name}
+                    {launched[e.name] ? ' (already opened)' : ''}
+                  </div>
+                ))}
                 <div className={classes.lineDetail} style={{ marginTop: 4 }}>
+                  {flightAdds.length > 0 ? '2. ' : ''}
                   {owner}/{appName}: cicd.yaml
                 </div>
                 {notes.map(n => (
@@ -449,11 +504,11 @@ export function EnvironmentsTab() {
                     size="small"
                     variant="contained"
                     className={classes.primary}
-                    disabled={problems.length > 0 || submit.loading}
+                    disabled={problems.length > 0 || phase !== 'idle'}
                     onMouseDown={preventFocusScroll}
                     onClick={openPr}
                   >
-                    {submit.loading ? 'Opening…' : 'Open pull request'}
+                    {phase === 'launching' ? 'Requesting environment…' : phase === 'submitting' ? 'Opening…' : flightAdds.length > 0 ? 'Open pull requests' : 'Open pull request'}
                   </Button>
                 </div>
               </>
@@ -475,8 +530,14 @@ export function EnvironmentsTab() {
         }}
         classes={classes}
       />
-      {(submit.result || submit.error) && (
-        <PrResultDialog result={submit.result} error={submit.error} onClose={closeResult} />
+      {(submit.result || submit.error || failure) && (
+        <ChangeResultDialog
+          requests={flightAdds.filter(e => launched[e.name]).map(e => ({ env: e.name, url: launched[e.name] }))}
+          cicdPrUrl={submit.result?.prUrl}
+          error={failure ?? submit.error}
+          onClose={closeResult}
+          classes={classes}
+        />
       )}
     </div>
   );
@@ -504,19 +565,34 @@ function AddEnvironmentDialog({
   classes: ReturnType<typeof useStyles>;
 }) {
   const [name, setName] = useState('');
+  const [tier, setTier] = useState<'ground' | 'flight'>('ground');
+  const [cluster, setCluster] = useState('');
   const [override, setOverride] = useState('');
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
+  // Flight needs a Kubernetes app: a cloud target has no approval path for it yet.
+  const flightAllowed = !cloudBlock;
+  // Clusters this app's Flight environments already run on, as suggestions (any registered upper cluster works).
+  const knownClusters = [...new Set(current.filter(e => e.tier === 'flight' && e.cluster).map(e => e.cluster as string))];
 
-  const candidate: EnvDef = { name: name.trim(), tier: 'ground' };
-  if (cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  const candidate: EnvDef = { name: name.trim(), tier };
+  if (tier === 'flight' && cluster.trim()) candidate.cluster = cluster.trim();
+  if (tier === 'ground' && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  const withCandidate = applyStaged(current, [{ kind: 'add', env: candidate }]);
   const fresh = name.trim()
-    ? validateEnvironments(applyStaged(current, [{ kind: 'add', env: candidate }]), targetId).filter(p => !problems.includes(p))
+    ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
+        p => !problems.includes(p),
+      )
     : [];
   const ok = Boolean(name.trim()) && fresh.length === 0;
 
-  const close = () => {
+  const reset = () => {
     setName('');
+    setTier('ground');
+    setCluster('');
     setOverride('');
+  };
+  const close = () => {
+    reset();
     onClose();
   };
 
@@ -534,11 +610,52 @@ function AddEnvironmentDialog({
           onChange={e => setName(e.target.value)}
           helperText="Lowercase letters, digits and '-', for example qa."
         />
-        <div className={classes.dialogNote}>
-          <b>Ground</b>: deploys on every push. Flight environments (deployed through an approved release) are created
-          another way for now and arrive here in a later release.
-        </div>
-        {cloudBlock && mainField && (
+        <RadioGroup
+          aria-label="Tier"
+          value={tier}
+          onChange={e => setTier(e.target.value as 'ground' | 'flight')}
+          style={{ marginTop: 10 }}
+        >
+          <FormControlLabel value="ground" control={<Radio size="small" />} label="Ground: deploys on every push" />
+          <FormControlLabel
+            value="flight"
+            disabled={!flightAllowed}
+            control={<Radio size="small" />}
+            label="Flight: deploys only through an approved release"
+          />
+        </RadioGroup>
+        {!flightAllowed && (
+          <div className={classes.dialogNote}>
+            Flight environments are not available for {targetLabel} yet: a cloud target has no approval path for them.
+          </div>
+        )}
+        {tier === 'flight' && (
+          <>
+            <TextField
+              id="add-env-cluster"
+              fullWidth
+              size="small"
+              style={{ marginTop: 12 }}
+              label="Cluster"
+              value={cluster}
+              onChange={e => setCluster(e.target.value)}
+              inputProps={{ list: 'flight-clusters' }}
+              helperText="The registered upper cluster it runs on, for example kind-prod."
+              InputLabelProps={{ shrink: true }}
+            />
+            <datalist id="flight-clusters">
+              {knownClusters.map(c => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            <div className={classes.dialogNote}>
+              Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo,
+              then the cicd.yaml change. Merge the request first. The pipeline step that releases to it is not added; edit
+              the pipeline in the Glidepath tab.
+            </div>
+          </>
+        )}
+        {tier === 'ground' && cloudBlock && mainField && (
           <TextField
             id="add-env-override"
             fullWidth
@@ -559,9 +676,69 @@ function AddEnvironmentDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={close}>Cancel</Button>
-        <Button disabled={!ok} onClick={() => { onStage(candidate); setName(''); setOverride(''); }}>
+        <Button
+          disabled={!ok}
+          onClick={() => {
+            onStage(candidate);
+            reset();
+          }}
+        >
           Stage environment
         </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function ChangeResultDialog({
+  requests,
+  cicdPrUrl,
+  error,
+  onClose,
+  classes,
+}: {
+  requests: Array<{ env: string; url: string }>;
+  cicdPrUrl?: string;
+  error?: string;
+  onClose: () => void;
+  classes: ReturnType<typeof useStyles>;
+}) {
+  return (
+    <Dialog open onClose={onClose} PaperProps={{ className: classes.dialogPaper }}>
+      <DialogTitle>{error ? 'Something needs attention' : 'Pull requests opened'}</DialogTitle>
+      <DialogContent>
+        {error && <DialogContentText className={classes.problem}>{error}</DialogContentText>}
+        {requests.length > 0 && (
+          <DialogContentText component="div">
+            {requests.map((r, i) => (
+              <div key={r.env}>
+                {i + 1}. ApplicationEnvironment request for {r.env}:{' '}
+                <Link href={r.url} target="_blank" rel="noopener noreferrer">
+                  {r.url}
+                </Link>
+              </div>
+            ))}
+          </DialogContentText>
+        )}
+        {cicdPrUrl && (
+          <DialogContentText component="div">
+            {requests.length > 0 ? `${requests.length + 1}. ` : ''}cicd.yaml change:{' '}
+            <Link href={cicdPrUrl} target="_blank" rel="noopener noreferrer">
+              {cicdPrUrl}
+            </Link>
+          </DialogContentText>
+        )}
+        {requests.length > 0 && cicdPrUrl && (
+          <DialogContentText>Merge the ApplicationEnvironment request first, then the cicd.yaml change.</DialogContentText>
+        )}
+        {error && requests.length > 0 && !cicdPrUrl && (
+          <DialogContentText>
+            The request(s) above are already open and will not be opened again if you try again.
+          </DialogContentText>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
   );

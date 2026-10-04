@@ -19,6 +19,11 @@ let submitState: any;
 const submitMock = jest.fn();
 const resetMock = jest.fn();
 jest.mock('../useReleaseContext', () => ({ useReleaseContext: () => ctx }));
+const launchMock = jest.fn();
+jest.mock('../environments/applicationEnvironment', () => ({
+  ...jest.requireActual('../environments/applicationEnvironment'),
+  useLaunchApplicationEnvironment: () => ({ state: { status: 'idle' }, launch: launchMock, reset: jest.fn() }),
+}));
 jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
@@ -29,6 +34,7 @@ const base = { loading: false, error: undefined, owner: 'jfillman', appName: 'ai
 beforeEach(() => {
   submitMock.mockReset();
   resetMock.mockReset();
+  launchMock.mockReset();
   submitState = { loading: false };
   cicdData = undefined;
 });
@@ -77,6 +83,16 @@ const stageAdd = async (name: string) => {
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: name } });
   fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+};
+const stageFlight = async (name: string, cluster?: string) => {
+  fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: name } });
+  fireEvent.click(screen.getByLabelText(/^Flight/));
+  if (cluster) fireEvent.change(screen.getByLabelText('Cluster'), { target: { value: cluster } });
+  if (cluster) {
+    fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  }
 };
 const panel = () => within(screen.getByLabelText('Pending changes'));
 
@@ -193,13 +209,6 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     expect(screen.getByText(/not a valid environment name/)).toBeTruthy();
   });
 
-  it('does not offer Flight yet, and says why', () => {
-    k8sOld();
-    render(<EnvironmentsTab />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
-    expect(screen.getByText(/Flight environments .* arrive here in a later release/)).toBeTruthy();
-  });
-
   it('discards everything staged', async () => {
     k8sOld();
     render(<EnvironmentsTab />);
@@ -284,5 +293,123 @@ describe('EnvironmentsTab: the result', () => {
     expect(screen.getByText(/pull\/9/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(resetMock).toHaveBeenCalled();
+  });
+});
+
+describe('EnvironmentsTab: staging a Flight environment', () => {
+  it('offers Flight for a Kubernetes app, asks for the cluster, and explains the two pull requests', () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(false);
+    expect(screen.queryByLabelText('Cluster')).toBeNull(); // only once Flight is chosen
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    expect(screen.getByLabelText('Cluster')).toBeTruthy();
+    expect(screen.getByText(/opens two pull requests/)).toBeTruthy();
+    // clusters this app's Flight environments already use are offered as suggestions
+    expect(document.querySelector('datalist#flight-clusters option')?.getAttribute('value')).toBe('kind-prod');
+  });
+
+  it('does not offer Flight for a cloud app, and says why', () => {
+    lambdaNew();
+    render(<EnvironmentsTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(/no approval path for them/)).toBeTruthy();
+  });
+
+  it('will not stage a Flight environment without a cluster', () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    expect(screen.getByText(/needs the cluster it runs on/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Stage environment' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('lists both pull requests in the order they open, and says which to merge first', async () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    await stageFlight('prod', 'kind-prod');
+    expect(panel().getByText('Add environment prod')).toBeTruthy();
+    expect(panel().getByText('Pull requests this opens, in this order')).toBeTruthy();
+    expect(panel().getByText(/1\. tenants repo: ApplicationEnvironment request for prod/)).toBeTruthy();
+    expect(panel().getByText(/2\. jfillman\/air-traffic-api: cicd\.yaml/)).toBeTruthy();
+    expect(panel().getByText(/Merge that one before the cicd\.yaml change/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open pull requests' })).toBeTruthy();
+    // a Flight environment goes at the end, after the existing Flight one
+    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[0].textContent);
+    expect(names).toEqual(['dev', 'test', 'staging', 'prodstaged: new']);
+  });
+
+  it('launches the ApplicationEnvironment request first, then submits cicd.yaml with the Flight entry', async () => {
+    k8sOld();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    render(<EnvironmentsTab />);
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'kind-prod' });
+    expect(launchMock.mock.invocationCallOrder[0]).toBeLessThan(submitMock.mock.invocationCallOrder[0]);
+    const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
+    expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'kind-prod' });
+  });
+
+  it('opens no cicd.yaml change when the request fails, says so, and keeps what was staged', async () => {
+    k8sOld();
+    launchMock.mockResolvedValue({ status: 'failed', error: 'cluster not registered' });
+    render(<EnvironmentsTab />);
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    expect(await screen.findByText(/Creating prod failed: cluster not registered/)).toBeTruthy();
+    expect(screen.getByText(/Nothing was changed in cicd\.yaml/)).toBeTruthy();
+    expect(submitMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByText(/Creating prod failed/)).toBeNull());
+    expect(panel().getByText('Add environment prod')).toBeTruthy(); // still staged for another try
+  });
+
+  it('does not open the request twice when only the cicd.yaml step has to be retried', async () => {
+    k8sOld();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    submitMock.mockImplementationOnce(async () => {
+      submitState = { loading: false, error: 'GitHub is unavailable' };
+    });
+    resetMock.mockImplementation(() => {
+      submitState = { loading: false };
+    });
+    const { rerender } = render(<EnvironmentsTab />);
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    // the request opened, then cicd.yaml failed: both facts are shown
+    expect(await screen.findByText(/GitHub is unavailable/)).toBeTruthy();
+    expect(screen.getByText(/pull\/42/)).toBeTruthy();
+    expect(screen.getByText(/will not be opened again/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    rerender(<EnvironmentsTab />);
+    await waitFor(() => expect(screen.queryByText(/GitHub is unavailable/)).toBeNull());
+    expect(screen.getByText(/\(already opened\)/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(2));
+    expect(launchMock).toHaveBeenCalledTimes(1); // not repeated
+  });
+
+  it('shows both pull requests and the merge order once everything opened', async () => {
+    k8sOld();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    submitMock.mockImplementationOnce(async () => {
+      submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    });
+    render(<EnvironmentsTab />);
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    expect(await screen.findByText(/Pull requests opened/)).toBeTruthy();
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText(/1\. ApplicationEnvironment request for prod/)).toBeTruthy();
+    expect(dialog.getByText(/pull\/42/)).toBeTruthy();
+    expect(dialog.getByText(/2\. cicd\.yaml change/)).toBeTruthy();
+    expect(dialog.getByText(/pull\/9/)).toBeTruthy();
+    expect(dialog.getByText(/Merge the ApplicationEnvironment request first, then the cicd\.yaml change/)).toBeTruthy();
   });
 });

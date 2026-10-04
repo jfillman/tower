@@ -26,6 +26,7 @@ What can be staged so far:
 | Change | What it does |
 |---|---|
 | **Add environment** (Ground) | Adds the environment to `deploy.environments`. After the PR merges, Glidepath's onboarding resync opens a second PR that adds `platform/envs/<name>.yaml` (the panel says so up front). A cloud environment has no such file. |
+| **Add environment** (Flight, Kubernetes apps) | Needs the cluster it runs on (any registered upper cluster; ones this app already uses are suggested). Opens **two** pull requests, in this order: an ApplicationEnvironment request on the tenants repo (through Backstage's existing template, launched via the scaffolder API as you), then the `cicd.yaml` change. Merge the request first, so the environment exists when `cicd.yaml` names it; Crossplane then adds its gitops directory and the Application. If the request fails, nothing is changed in `cicd.yaml` and what you staged is kept. If `cicd.yaml` fails after the request opened, retrying does not open the request again. The release step in the pipeline that deploys to it is not added: edit the pipeline in the Glidepath tab. Not offered for a cloud target (it has no approval path for Flight yet). |
 | **Reorder** (↑ ↓, Ground only) | Changes the promotion order. A Ground environment never moves past a Flight one. |
 | **A cloud environment's own resource** (click the row) | Sets this environment's `lambda` / `ecs` / `azureContainerApps` fields (for example the function name). An empty field uses the app-level value, shown as its hint. |
 
@@ -34,9 +35,8 @@ What can be staged so far:
 `upperEnvironments` and `promotionOrder` with one list (keeping the same environments and order). That
 conversion is shown as the first line of the panel, never done silently.
 
-Not here yet: Flight environments (they are created by Airframe's ApplicationEnvironment template, which
-Tower will launch in a later release; the launcher is in `src/environments/applicationEnvironment.ts`), deleting an
-environment, and the values of a Kubernetes environment (Glidepath tab / App Configuration).
+Not here yet: deleting an environment, and the values of a Kubernetes environment (Glidepath tab / App
+Configuration). The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
 ## Where the code is
 
