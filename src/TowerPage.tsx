@@ -15,6 +15,7 @@ import { CAP, hasCapabilities, type Capability } from './serviceClass';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
+import { EnvironmentsTab } from './tabs/EnvironmentsTab';
 import { TopologyTab } from './tabs/TopologyTab';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
@@ -80,6 +81,8 @@ export const TABS: readonly TabDef[] = [
   // exactly one deploy target, so only one of the two ever passes the capability filter.
   { id: 'deployments', label: 'Deployments', Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: 'releases', label: 'Releases', Component: ReleasesTab, requires: [CAP.releases] },
+  // Every environment of the service, whatever it deploys to (read-only; editing comes later).
+  { id: 'environments', label: 'Environments', Component: EnvironmentsTab, requires: [CAP.ci] },
   { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
   { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },

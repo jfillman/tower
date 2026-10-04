@@ -14,7 +14,7 @@ const tabsFor = (e: Entity) => TABS.filter(t => hasCapabilities(e, t.requires));
 const ids = (e: Entity) => tabsFor(e).map(t => t.id);
 
 describe('which tabs a service gets', () => {
-  it('a Kubernetes container app keeps exactly the tabs it had, with the Rollout Deployments tab', () => {
+  it('a Kubernetes container app keeps the tabs it had (plus Environments), with the Rollout Deployments tab', () => {
     const e = entity(undefined, ['kind:goapplication']);
     expect(ids(e)).toEqual([
       'overview',
@@ -22,6 +22,7 @@ describe('which tabs a service gets', () => {
       'pipelines',
       'deployments',
       'releases',
+      'environments',
       'topology',
       'images',
       'slos',
@@ -56,3 +57,15 @@ describe('which tabs a service gets', () => {
     }
   });
 });
+
+describe('the Environments tab', () => {
+  it.each([
+    ['a Kubernetes app', undefined, ['kind:goapplication']],
+    ['an ECS service', 'aws-ecs', ['kind:goapplication']],
+    ['a Lambda function', 'aws-lambda', ['kind:lambdafunction']],
+    ['an Azure function', 'azure-container-apps', ['kind:azurefunction']],
+  ])('is offered to %s, since every Glidepath-built service has environments', (_n, target, tags) => {
+    expect(ids(entity(target, tags as string[]))).toContain('environments');
+  });
+});
+
