@@ -1,0 +1,215 @@
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { makeStyles } from '@material-ui/core/styles';
+import Typography from '@material-ui/core/Typography';
+import { Progress, ResponseErrorPanel } from '@backstage/core-components';
+import { useEntity } from '@backstage/plugin-catalog-react';
+import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
+import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
+import { relativeTime, formatDateTime } from '../shared/format.esm.js';
+
+const useStyles = makeStyles(() => ({
+  wrap: { padding: "20px 24px 40px", maxWidth: 1080 },
+  head: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 },
+  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 20, color: ({ t }) => t.textHi },
+  chip: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    letterSpacing: "0.04em",
+    padding: "3px 9px",
+    borderRadius: 4,
+    background: ({ t }) => t.skySoft,
+    color: ({ t }) => t.sky,
+    border: ({ t }) => `1px solid ${t.skyLine}`
+  },
+  resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
+  link: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    color: ({ t }) => t.sky,
+    textDecoration: "none",
+    "&:hover": { textDecoration: "underline" }
+  },
+  note: { fontSize: 12.5, color: ({ t }) => t.textFaint, margin: "4px 0 18px", lineHeight: 1.5 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginBottom: 22 },
+  card: {
+    background: ({ t }) => t.panel,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 8,
+    padding: "14px 16px"
+  },
+  cardBad: { borderColor: ({ t }) => t.bad, background: ({ t }) => t.badSoft },
+  cardRun: { borderColor: ({ t }) => t.amberLine, background: ({ t }) => t.amberSoft },
+  label: {
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    color: ({ t }) => t.textFaint,
+    marginBottom: 6
+  },
+  big: { fontFamily: fontMono, fontSize: 15, color: ({ t }) => t.textHi, wordBreak: "break-all" },
+  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: {
+    textAlign: "left",
+    fontFamily: fontMono,
+    fontSize: 10.5,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    color: ({ t }) => t.textFaint,
+    padding: "6px 10px",
+    borderBottom: ({ t }) => `1px solid ${t.line}`
+  },
+  td: { padding: "9px 10px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
+  mono: { fontFamily: fontMono, fontSize: 12.5 },
+  pill: { fontFamily: fontMono, fontSize: 11, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" },
+  good: { background: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
+  bad: { background: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
+  run: { background: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
+  idle: { background: ({ t }) => t.panelAlt, color: ({ t }) => t.textLo },
+  empty: { padding: "36px 8px", color: ({ t }) => t.textLo, fontSize: 14, lineHeight: 1.6 },
+  linkBtn: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontFamily: fontMono,
+    fontSize: 12,
+    color: ({ t }) => t.sky,
+    "&:hover": { textDecoration: "underline" }
+  }
+}));
+const PHASE_LABEL = {
+  succeeded: "succeeded",
+  failed: "failed",
+  running: "deploying",
+  pending: "starting",
+  cancelled: "cancelled"
+};
+function duration(sec) {
+  if (sec === void 0) return "\u2014";
+  if (sec < 60) return `${sec}s`;
+  return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+}
+function CloudDeploymentsTab() {
+  const t = useHangarTokens();
+  const classes = useStyles({ t });
+  const { entity } = useEntity();
+  const [, setSearchParams] = useSearchParams();
+  const appName = entity.metadata.annotations?.["github.com/project-slug"]?.split("/")[1] ?? entity.metadata.name;
+  const { loading, runs, error } = useTektonPipelineRuns(appName);
+  const summary = useMemo(() => summarizeCloudDeploys(runs), [runs]);
+  const openRun = (name) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.set("tab", "pipelines");
+    next.set("run", name);
+    return next;
+  });
+  const pill = (d) => {
+    let tone = classes.idle;
+    if (d.phase === "succeeded") tone = classes.good;
+    else if (d.phase === "failed") tone = classes.bad;
+    else if (d.phase === "running" || d.phase === "pending") tone = classes.run;
+    return /* @__PURE__ */ jsx("span", { className: `${classes.pill} ${tone}`, children: PHASE_LABEL[d.phase] ?? d.phase });
+  };
+  if (loading && runs.length === 0) return /* @__PURE__ */ jsx(Progress, {});
+  if (error && runs.length === 0) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  const { current, inFlight, latestFailure, deploys, resource } = summary;
+  const targetLabel = deploys[0]?.targetLabel;
+  if (deploys.length === 0) {
+    return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
+      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
+      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No cloud deploys yet. Once a build finishes, the deploy stage runs against this service's target and shows up here." })
+    ] });
+  }
+  return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
+    /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
+      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
+      targetLabel && /* @__PURE__ */ jsx("span", { className: classes.chip, children: targetLabel }),
+      resource && /* @__PURE__ */ jsxs("span", { className: classes.resource, children: [
+        resource.kind,
+        " ",
+        resource.name,
+        resource.scope ? ` \xB7 ${resource.scope}` : "",
+        resource.region ? ` \xB7 ${resource.region}` : ""
+      ] }),
+      deploys.find((d) => d.consoleUrl)?.consoleUrl && /* @__PURE__ */ jsx(
+        "a",
+        {
+          className: classes.link,
+          href: deploys.find((d) => d.consoleUrl).consoleUrl,
+          target: "_blank",
+          rel: "noreferrer",
+          children: "open in console \u2197"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsx("div", { className: classes.note, children: "What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." }),
+    /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
+      /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.label, children: "Last successful deploy" }),
+        current ? /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx("div", { className: classes.big, children: current.imageTag ?? current.imageRef ?? "unknown image" }),
+          /* @__PURE__ */ jsxs("div", { className: classes.sub, children: [
+            current.flowSlug ? `${current.flowSlug} \xB7 ` : "",
+            current.shortSha ? `commit ${current.shortSha} \xB7 ` : "",
+            relativeTime(current.completionTime ?? current.startTime),
+            " \xB7 took ",
+            duration(current.durationSec)
+          ] })
+        ] }) : /* @__PURE__ */ jsx("div", { className: classes.sub, children: "No deploy has succeeded yet." })
+      ] }),
+      inFlight && /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${classes.cardRun}`, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.label, children: "Deploying now" }),
+        /* @__PURE__ */ jsx("div", { className: classes.big, children: inFlight.imageTag ?? inFlight.imageRef ?? "unknown image" }),
+        /* @__PURE__ */ jsxs("div", { className: classes.sub, children: [
+          "started ",
+          relativeTime(inFlight.startTime),
+          " \xB7",
+          " ",
+          /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, onClick: () => openRun(inFlight.runName), children: "watch the run" })
+        ] })
+      ] }),
+      latestFailure && /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${classes.cardBad}`, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.label, children: "Latest deploy failed" }),
+        /* @__PURE__ */ jsx("div", { className: classes.big, children: latestFailure.imageTag ?? latestFailure.imageRef ?? "unknown image" }),
+        /* @__PURE__ */ jsxs("div", { className: classes.sub, children: [
+          latestFailure.failure?.task ? `${latestFailure.failure.task}: ` : "",
+          latestFailure.failure?.message ?? "see the run for details"
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.sub, children: [
+          current ? `The service may still be running ${current.imageTag ?? "the previous image"}.` : "Nothing has been deployed successfully.",
+          " ",
+          /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, onClick: () => openRun(latestFailure.runName), children: "open the run and its logs" })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+      /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
+        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Result" }),
+        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Image" }),
+        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Environment" }),
+        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Started" }),
+        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Took" }),
+        /* @__PURE__ */ jsx("th", { className: classes.th })
+      ] }) }),
+      /* @__PURE__ */ jsx("tbody", { children: deploys.map((d) => /* @__PURE__ */ jsxs("tr", { children: [
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: pill(d) }),
+        /* @__PURE__ */ jsxs("td", { className: `${classes.td} ${classes.mono}`, children: [
+          d.imageTag ?? d.imageRef ?? "\u2014",
+          d.flowSlug ? ` (${d.flowSlug})` : ""
+        ] }),
+        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: d.env ?? "\u2014" }),
+        /* @__PURE__ */ jsx("td", { className: classes.td, title: formatDateTime(d.startTime), children: relativeTime(d.startTime) }),
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: duration(d.durationSec) }),
+        /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, onClick: () => openRun(d.runName), children: "open run" }) })
+      ] }, d.runName)) })
+    ] })
+  ] });
+}
+
+export { CloudDeploymentsTab };
+//# sourceMappingURL=CloudDeploymentsTab.esm.js.map

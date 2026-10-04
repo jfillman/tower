@@ -1,3 +1,4 @@
+const FUNCTION_KINDS = /* @__PURE__ */ new Set(["LambdaFunction", "AzureFunction"]);
 const STALL_AFTER_MS = 4 * 3600 * 1e3;
 const TYPICAL_SEC = {
   request: 2,
@@ -29,7 +30,9 @@ const infisicalProjectUrl = (cluster, projectId) => {
   return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
 };
 function deriveProvisioning(input, now) {
-  const { xr, build, rollout, managed, secrets, catalog, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cloudDeploy, links } = input;
+  const isFunction = FUNCTION_KINDS.has(xr.kind);
+  const cloudFinal = isFunction || Boolean(cloudDeploy);
   const created = xr.createdAt;
   const synced = cond(xr, "Synced");
   const ready = cond(xr, "Ready");
@@ -101,7 +104,7 @@ function deriveProvisioning(input, now) {
   push({
     id: "repos",
     title: "Repositories and starter files",
-    desc: "Source and GitOps repos created, starter files committed",
+    desc: isFunction ? "Source repo created, starter files committed" : "Source and GitOps repos created, starter files committed",
     state: reposState,
     fraction: reposFraction,
     seconds: reposSeconds,
@@ -113,7 +116,7 @@ function deriveProvisioning(input, now) {
     ]
   });
   const front = steps.slice(2, 4).every((s) => s.state === "done");
-  const builtOrDeployed = Boolean(build) || Boolean(rollout);
+  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy);
   let catalogState = "pend";
   if (catalog?.found) catalogState = "done";
   else if (catalog) catalogState = "run";
@@ -128,22 +131,27 @@ function deriveProvisioning(input, now) {
     parallel: true
   });
   const ob = links?.onboarding;
-  const obPrs = [ob?.source, ob?.gitops];
+  const obPrs = isFunction ? [ob?.source] : [ob?.source, ob?.gitops];
+  const expectedPrs = obPrs.length;
   const merged = obPrs.filter((pr) => pr?.state === "merged");
   let onboardingState = "pend";
   let onboardingFraction = 0;
   let onboardingDetail;
   let onboardingEnd;
-  if (builtOrDeployed || ob && merged.length === 2) {
+  const mergePrompt = isFunction ? "Merge the onboarding PR to start the first build" : "Merge the two onboarding PRs to start the first build";
+  if (builtOrDeployed || ob && merged.length === expectedPrs) {
     onboardingState = "done";
     onboardingFraction = 1;
     onboardingEnd = merged.length ? Math.max(...merged.map((pr) => pr?.mergedAt ?? 0)) || void 0 : void 0;
   } else if (front) {
     onboardingState = "run";
     if (!ob) {
-      onboardingDetail = "Merge the two onboarding PRs to start the first build";
+      onboardingDetail = mergePrompt;
+    } else if (isFunction) {
+      onboardingFraction = merged.length / expectedPrs;
+      onboardingDetail = ob.source ? mergePrompt : "Waiting for onboarding to open its PR";
     } else {
-      onboardingFraction = merged.length / 2;
+      onboardingFraction = merged.length / expectedPrs;
       const missing = obPrs.filter((pr) => !pr).length;
       if (missing === 2) onboardingDetail = "Waiting for onboarding to open its two PRs";
       else if (missing === 1) onboardingDetail = "Waiting for onboarding to open the second PR";
@@ -160,8 +168,8 @@ function deriveProvisioning(input, now) {
   else if (onboardingState === "run") onboardingSeconds = secBetween(onboardingStart || void 0, now);
   push({
     id: "onboarding",
-    title: "Application onboarding PRs",
-    desc: "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
+    title: isFunction ? "Application onboarding PR" : "Application onboarding PRs",
+    desc: isFunction ? "One PR on the source repo adds the pipeline files. Merging it starts the build" : "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
     state: onboardingState,
     fraction: onboardingFraction,
     seconds: onboardingSeconds,
@@ -225,7 +233,29 @@ function deriveProvisioning(input, now) {
   let runFraction = 0;
   let runSec;
   let runDetail;
-  if (rollout) {
+  let runTitle = "Running healthy in dev";
+  let runDesc = "Rollout reaches its desired replicas on the dev cluster";
+  let runLinks;
+  if (cloudFinal) {
+    const where = cloudDeploy?.label ?? "the cloud target";
+    runTitle = `Deployed to ${where}`;
+    runDesc = "The deploy stage updates the existing cloud resource to the new image";
+    if (cloudDeploy?.consoleUrl) runLinks = [{ label: "Open in console", url: cloudDeploy.consoleUrl }];
+    if (cloudDeploy?.state === "succeeded") {
+      runState = "done";
+      runFraction = 1;
+    } else if (cloudDeploy?.state === "failed") {
+      runState = "fail";
+      runDetail = cloudDeploy.failure ?? "The deploy failed";
+    } else if (cloudDeploy?.state === "running") {
+      runState = "run";
+      runSec = secBetween(build?.completedAt, now);
+    } else if (buildState === "done") {
+      runState = "run";
+      runDetail = "Waiting for the deploy stage to start";
+      runSec = secBetween(build?.completedAt, now);
+    }
+  } else if (rollout) {
     const healthy = rollout.phase === "Healthy" && rollout.available >= rollout.desired && rollout.desired > 0;
     if (healthy) runState = "done";
     else if (rollout.phase === "Degraded") runState = "fail";
@@ -241,12 +271,13 @@ function deriveProvisioning(input, now) {
   }
   push({
     id: "running",
-    title: "Running healthy in dev",
-    desc: "Rollout reaches its desired replicas on the dev cluster",
+    title: runTitle,
+    desc: runDesc,
     state: runState,
     fraction: runState === "done" ? 1 : runFraction,
     seconds: runSec,
-    detail: runDetail
+    detail: runDetail,
+    links: runLinks
   });
   const complete = steps.every((s) => s.state === "done");
   const failed = steps.some((s) => s.state === "fail");
@@ -269,13 +300,15 @@ function deriveProvisioning(input, now) {
       onboardingEnd,
       secrets?.readyAt,
       build?.completedAt,
-      rollout?.createdAt
+      rollout?.createdAt,
+      cloudDeploy?.completedAt
     ].filter((x) => x !== void 0);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
-  const stalled = !complete && !failed && !rollout && build?.phase === "succeeded" && now - created > STALL_AFTER_MS;
+  const deployed = Boolean(rollout) || cloudDeploy?.state === "succeeded";
+  const stalled = !complete && !failed && !deployed && build?.phase === "succeeded" && now - created > STALL_AFTER_MS;
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
+export { FUNCTION_KINDS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
 //# sourceMappingURL=deriveProvisioning.esm.js.map

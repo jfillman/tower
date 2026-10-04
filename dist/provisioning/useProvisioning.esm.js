@@ -2,12 +2,27 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns.esm.js';
+import { TEKTON_CLUSTER, toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
+import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { deriveProvisioning } from './deriveProvisioning.esm.js';
 
 const XR_CLUSTER = TEKTON_CLUSTER;
-const XR_PLURALS = ["nodejsapplications", "springbootapplications", "pythonapplications", "goapplications"];
-const XR_KINDS = ["NodeJSApplication", "SpringBootApplication", "PythonApplication", "GoApplication"];
+const XR_PLURALS = [
+  "nodejsapplications",
+  "springbootapplications",
+  "pythonapplications",
+  "goapplications",
+  "lambdafunctions",
+  "azurefunctions"
+];
+const XR_KINDS = [
+  "NodeJSApplication",
+  "SpringBootApplication",
+  "PythonApplication",
+  "GoApplication",
+  "LambdaFunction",
+  "AzureFunction"
+];
 const TENANTS_REPO_BY_CLUSTER = {
   "kind-dev": { owner: "jfillman", repo: "gitops-cluster-dev-tenants" }
 };
@@ -15,9 +30,28 @@ const POLL_MS = 6e3;
 const MAX_AGE_MS = 24 * 3600 * 1e3;
 const GITHUB_POLL_MS = 45e3;
 const KEEP_DONE_MS = 15 * 60 * 1e3;
+function toCloudDeploySnapshot(runs, taskRuns) {
+  if (!runs?.length) return void 0;
+  const byName = new Map((taskRuns ?? []).map((t) => [t.metadata.name, t]));
+  const summary = summarizeCloudDeploys(runs.map((r2) => toPipelineRunSummary(r2, TEKTON_CLUSTER, byName)));
+  const pick = summary.inFlight ?? summary.latestFailure ?? summary.current;
+  if (!pick) return void 0;
+  let state = "succeeded";
+  if (pick === summary.inFlight) state = "running";
+  else if (pick === summary.latestFailure) state = "failed";
+  const r = pick.resource;
+  return {
+    state,
+    label: pick.targetLabel,
+    resource: r ? `${r.kind} ${r.name}` : void 0,
+    completedAt: pick.completionTime ? Date.parse(pick.completionTime) : void 0,
+    failure: pick.failure ? [pick.failure.task, pick.failure.message].filter(Boolean).join(": ") : void 0,
+    consoleUrl: pick.consoleUrl
+  };
+}
 const BUILD_PIPELINE = "build";
 function pickFirstBuild(runs) {
-  return [...runs ?? []].filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === BUILD_PIPELINE).sort((a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp))[0];
+  return [...runs ?? []].filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === BUILD_PIPELINE).sort((a, b) => (a.metadata.creationTimestamp ?? "").localeCompare(b.metadata.creationTimestamp ?? ""))[0];
 }
 const epoch = (iso) => iso ? Date.parse(iso) : void 0;
 function toBuild(run) {
@@ -227,7 +261,9 @@ function useProvisioning() {
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
-            optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
+            optional(
+              `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`
+            ),
             optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional(`${mrBase}/repositories?${selector}`),
             optional(`${mrBase}/repositoryfiles?${selector}`),
@@ -245,6 +281,11 @@ function useProvisioning() {
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
           const first = pickFirstBuild(runs?.items);
+          const deployRuns = (runs?.items ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
+          const cloudDeploy = deployRuns.length ? toCloudDeploySnapshot(
+            deployRuns,
+            (await optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))?.items
+          ) : void 0;
           return {
             xr: {
               kind: x.kind ?? "",
@@ -267,6 +308,7 @@ function useProvisioning() {
             ),
             secrets: toSecrets(store, stores !== void 0),
             catalog,
+            cloudDeploy,
             links: {
               requestPr: gh?.requestPr,
               sourceRepoUrl: repoLinks.sourceRepoUrl,
@@ -299,5 +341,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, parseTenantsRepo, pickFirstBuild, toBuild, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, parseTenantsRepo, pickFirstBuild, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

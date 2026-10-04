@@ -18,6 +18,8 @@ import { TopologyTab } from './tabs/TopologyTab.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
 import { DeploymentsTab } from './tabs/DeploymentsTab.esm.js';
+import { CloudDeploymentsTab } from './tabs/CloudDeploymentsTab.esm.js';
+import { hasCloudDeployInFlight } from './cloudDeploy.esm.js';
 import { ImagesTab } from './tabs/ImagesTab.esm.js';
 import { ConfigTab } from './tabs/ConfigTab.esm.js';
 import { GlidepathTab } from './tabs/GlidepathTab.esm.js';
@@ -34,6 +36,9 @@ const TABS = [
   { id: "pull-requests", label: "Pull Requests", Component: PullRequestsTab, requires: [CAP.source] },
   { id: "pipelines", label: "Pipelines", Component: PipelinesTab, requires: [CAP.ci] },
   { id: "deployments", label: "Deployments", Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
+  // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
+  // exactly one deploy target, so only one of the two ever passes the capability filter.
+  { id: "deployments", label: "Deployments", Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: "releases", label: "Releases", Component: ReleasesTab, requires: [CAP.releases] },
   { id: "topology", label: "Topology", Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
@@ -239,7 +244,7 @@ function TowerAppShellInner({
   const ciPipelineRuns = useTektonPipelineRuns(appName);
   const ciActive = ciPipelineRuns.runs.some((r) => r.phase === "running");
   const { environments } = useTowerEnvironments();
-  const cdActive = environments.some(isRolloutActive);
+  const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
   const tabs = TABS.filter((tabDef) => hasCapabilities(entity, tabDef.requires));
   const activeTab = tabs.find((tabDef) => tabDef.id === tabParam) ?? tabs[0];
   const { Component } = activeTab;
@@ -270,5 +275,5 @@ function TowerAppShellInner({
   ] });
 }
 
-export { TowerPage };
+export { TABS, TowerPage };
 //# sourceMappingURL=TowerPage.esm.js.map
