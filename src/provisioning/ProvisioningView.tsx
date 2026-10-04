@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import type { ProvisioningStep } from './deriveProvisioning';
+import { preventFocusScroll } from '../preventFocusScroll';
 import { SegmentBar } from './ProvisioningStrip';
 import { fmtDuration, type ProvisioningItem } from './shared';
 
@@ -117,6 +119,20 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
   detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
   links: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 },
+  action: {
+    marginTop: 6,
+    fontFamily: fontMono,
+    fontSize: 11,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    color: ({ t }) => t.sky,
+    background: 'none',
+    border: '1px solid currentColor',
+    borderRadius: 3,
+    padding: '2px 8px',
+    cursor: 'pointer',
+    '&:disabled': { opacity: 0.6, cursor: 'default' },
+  },
   link: {
     fontFamily: fontMono,
     fontSize: 11.5,
@@ -271,14 +287,50 @@ function StepIcon({ state, t }: { state: ProvisioningStep['state']; t: HangarTok
   );
 }
 
+// Asks the catalog ingestor to run now instead of at its next scheduled sync.
+function RefreshCatalogAction({
+  onRefresh,
+  className,
+}: {
+  onRefresh: () => Promise<void> | void;
+  className: string;
+}) {
+  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'error'>('idle');
+  const label = { idle: 'Refresh catalog now', busy: 'Asking…', sent: 'Requested, checking…', error: 'Could not refresh' }[state];
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={state === 'busy' || state === 'sent'}
+      onMouseDown={preventFocusScroll}
+      onClick={async () => {
+        setState('busy');
+        try {
+          await onRefresh();
+          setState('sent');
+          // The step turns done by itself when the service shows up; allow another try if not.
+          setTimeout(() => setState('idle'), 20000);
+        } catch {
+          setState('error');
+          setTimeout(() => setState('idle'), 5000);
+        }
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 function Step({
   step,
   classes,
   t,
+  onRefreshCatalog,
 }: {
   step: ProvisioningStep;
   classes: ReturnType<typeof useStyles>;
   t: HangarTokens;
+  onRefreshCatalog?: () => Promise<void> | void;
 }) {
   const pct = (sec: number) => `${Math.min(100, (sec / SCALE_SEC) * 100).toFixed(1)}%`;
   const slow = step.state === 'done' && step.seconds !== undefined && step.seconds > step.typicalSec * 1.1 + 1;
@@ -303,6 +355,9 @@ function Step({
         </div>
         <div className={classes.desc}>{step.desc}</div>
         {step.detail && <div className={classes.detail}>{step.detail}</div>}
+        {step.id === 'catalog' && step.state === 'run' && onRefreshCatalog && (
+          <RefreshCatalogAction onRefresh={onRefreshCatalog} className={classes.action} />
+        )}
         {step.links && step.links.length > 0 && (
           <div className={classes.links}>
             {step.links.map(l => (
@@ -348,12 +403,15 @@ export function ProvisioningView({
   onSelect,
   error,
   loading,
+  onRefreshCatalog,
 }: {
   items: ProvisioningItem[];
   selected?: string;
   onSelect: (name: string) => void;
   error?: string;
   loading: boolean;
+  /** Runs the catalog ingestor now. The catalog step offers a button for it while it waits. */
+  onRefreshCatalog?: () => Promise<void> | void;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -422,7 +480,7 @@ export function ProvisioningView({
         <div className={classes.head}>Steps</div>
         <ol className={classes.list}>
           {derived.steps.map(s => (
-            <Step key={s.id} step={s} classes={classes} t={t} />
+            <Step key={s.id} step={s} classes={classes} t={t} onRefreshCatalog={onRefreshCatalog} />
           ))}
         </ol>
         <div className={classes.legend}>
