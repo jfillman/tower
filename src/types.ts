@@ -385,6 +385,16 @@ export interface EnvironmentSummary {
   memoryRequest?: string;
   memoryLimit?: string;
   deployedAt?: string;
+  // Present only on an environment synthesized from cloud deploy runs
+  // (cloudEnvironments.ts): a function or cloud service has no workload to read.
+  cloud?: {
+    target: string;
+    targetLabel: string;
+    resource?: { kind: string; name: string; scope?: string; region?: string };
+    consoleUrl?: string;
+    // The newest deploy's outcome: what health() reports for it.
+    latest: 'succeeded' | 'failed' | 'running' | 'none';
+  };
   rolloutPhase?: string;
   // status.message - the Rollout's own real "why this phase" explanation
   // (e.g. why it's Degraded: an aborted canary, an exceeded progress
@@ -648,6 +658,10 @@ function argoHealthOf(status: string | undefined): Health | undefined {
 const HEALTH_SEVERITY: Record<Health, number> = { healthy: 0, unknown: 1, paused: 2, progressing: 3, degraded: 4 };
 
 export function health(env: EnvironmentSummary): Health {
+  if (env.cloud) {
+    const l = env.cloud.latest;
+    return l === 'succeeded' ? 'healthy' : l === 'failed' ? 'degraded' : l === 'running' ? 'progressing' : 'unknown';
+  }
   const rollout = rolloutHealthOf(env);
   const argo = argoHealthOf(env.argoHealthStatus);
   if (!argo) return rollout;

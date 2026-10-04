@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AppPicker } from './AppPicker';
+import { AppPicker, CATALOG_REFRESH_MS } from './AppPicker';
 
 const entities = [
   { name: 'baggage-api', type: 'service', tags: ['kind:nodejsapplication'] },
@@ -14,9 +14,18 @@ const entities = [
   spec: { type: e.type, owner: 'team-a' },
 }));
 
+let mockCatalogFails = false;
+// One stable object, like the real useApi: a new object per render would re-run AppPicker's
+// [catalogApi] effect on every render and refetch in a loop.
+const mockCatalogApi = {
+  getEntities: async () => {
+    if (mockCatalogFails) throw new Error('catalog unavailable');
+    return { items: entities };
+  },
+};
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
-  useApi: () => ({ getEntities: async () => ({ items: entities }) }),
+  useApi: () => mockCatalogApi,
 }));
 const mockProvisioning = { items: [] as any[], loading: false };
 jest.mock('./provisioning/useProvisioning', () => ({ useProvisioning: () => mockProvisioning }));
@@ -189,5 +198,63 @@ describe('AppPicker with classes Tower has never heard of', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Container apps/ }));
     expect(screen.queryByText('resize-fn')).toBeNull();
     expect(screen.getByText('checkout-ecs')).toBeTruthy();
+  });
+});
+
+describe('AppPicker keeps the list current', () => {
+  const late = {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: { name: 'smoke-fn', namespace: 'default', tags: ['cluster:kind-dev', 'kind:lambdafunction'] },
+    spec: { type: 'crossplane-xr', owner: 'team-a' },
+  };
+  const open = () =>
+    render(
+      <MemoryRouter>
+        <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+      </MemoryRouter>,
+    );
+
+  beforeEach(() => {
+    localStorage.clear();
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    mockCatalogFails = false;
+    jest.useRealTimers();
+  });
+
+  it('shows a service that reached the catalog after the page opened, without a reload', async () => {
+    open();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('baggage-api')).toBeTruthy();
+    expect(screen.queryByText('smoke-fn')).toBeNull();
+
+    entities.push(late as any);
+    try {
+      await act(async () => {
+        jest.advanceTimersByTime(CATALOG_REFRESH_MS);
+      });
+      expect(screen.getByText('smoke-fn')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^Functions\s*1$/ })).toBeTruthy();
+    } finally {
+      entities.pop();
+    }
+  });
+
+  it('a failed refresh leaves the list showing instead of replacing it with an error', async () => {
+    open();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('baggage-api')).toBeTruthy();
+    mockCatalogFails = true;
+    await act(async () => {
+      jest.advanceTimersByTime(CATALOG_REFRESH_MS);
+    });
+    expect(screen.getByText('baggage-api')).toBeTruthy();
+    expect(screen.queryByText(/catalog unavailable/)).toBeNull();
   });
 });

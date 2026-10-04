@@ -82,6 +82,9 @@ function loadViewMode(): ViewMode {
 type TypeFilter = string;
 const ALL = 'all';
 
+// How often the Services list re-reads the catalog.
+export const CATALOG_REFRESH_MS = 30000;
+
 // Cluster-backed services need a live workload to have anything to show, so they
 // are listed only when Kubernetes can see them. Anything else (a function, a bucket)
 // has no cluster to check and lists as soon as the catalog has it.
@@ -386,23 +389,36 @@ export function AppPicker({
 
   useEffect(() => {
     let cancelled = false;
-    catalogApi
-      .getEntities({ filter: { kind: 'Component' } })
-      .then(res => {
-        // Same isKubernetesAvailable predicate ../glidepath already gates its
-        // entity tab on: an entity with no live workload has nothing for
-        // Tower's Releases/Overview/Topology/Images tabs to actually show -
-        // filtering it out of the picker up front, rather than letting
-        // someone select it and then hit an empty/error state, keeps
-        // "single pane of glass for managing applications" honest (real
-        // deployed apps, not every catalog record).
-        if (!cancelled) setEntities(res.items.filter(isTowerService).filter(isListable));
-      })
-      .catch(e => {
-        if (!cancelled) setError(String(e));
-      });
+    let loaded = false;
+    // Loaded on mount and then refreshed. It used to load once: a service that reached the catalog
+    // after the page opened (new services appear in it a few minutes after their XR, on the
+    // ingestor's sync) never showed up until the page was reloaded, which is exactly when someone
+    // is sitting on this page waiting for the service they just created.
+    const load = () =>
+      catalogApi
+        .getEntities({ filter: { kind: 'Component' } })
+        .then(res => {
+          // Same isKubernetesAvailable predicate ../glidepath already gates its
+          // entity tab on: an entity with no live workload has nothing for
+          // Tower's Releases/Overview/Topology/Images tabs to actually show -
+          // filtering it out of the picker up front, rather than letting
+          // someone select it and then hit an empty/error state, keeps
+          // "single pane of glass for managing applications" honest (real
+          // deployed apps, not every catalog record).
+          if (cancelled) return;
+          loaded = true;
+          setError(undefined);
+          setEntities(res.items.filter(isTowerService).filter(isListable));
+        })
+        .catch(e => {
+          // A failed refresh must not replace a list that is already showing with an error panel.
+          if (!cancelled && !loaded) setError(String(e));
+        });
+    load();
+    const id = setInterval(load, CATALOG_REFRESH_MS);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [catalogApi]);
 

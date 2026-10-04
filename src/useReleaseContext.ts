@@ -12,6 +12,7 @@ import { usePullRequests, type PullRequestSummary } from './pullRequests/usePull
 import { linkFlowSlugsByChainId, useTektonPipelineRuns } from './tekton/useTektonPipelineRuns';
 import { useTektonResultsRuns } from './tekton/useTektonResultsRuns';
 import type { PipelineRunSummary } from './tekton/types';
+import { cloudEnvironmentsFromRuns } from './cloudEnvironments';
 import { recallNickname, rememberNickname } from './nicknameCache';
 import {
   envStageRank,
@@ -79,7 +80,7 @@ export function useReleaseContext() {
     () => rawEnvironments.map(e => e.image).filter((i): i is string => Boolean(i)),
     [rawEnvironments],
   );
-  const provenanceByImage = useProvenanceMap(images, refreshNonce);
+  const clusterProvenance = useProvenanceMap(images, refreshNonce);
 
   // Owner/repo is derived from whichever environment's own SLSA provenance
   // has already resolved a real source URL - see GlidepathPage.tsx's
@@ -87,7 +88,7 @@ export function useReleaseContext() {
   // environment with a resolved source is equally good evidence).
   const provenanceRef = useMemo(() => {
     for (const env of rawEnvironments) {
-      const data = env.image ? provenanceByImage[env.image]?.data : undefined;
+      const data = env.image ? clusterProvenance[env.image]?.data : undefined;
       const slsa = data?.attestations.find(
         a => a.predicateType === 'https://slsa.dev/provenance/v0.2',
       );
@@ -96,7 +97,7 @@ export function useReleaseContext() {
       if (parsed) return parsed;
     }
     return undefined;
-  }, [rawEnvironments, provenanceByImage]);
+  }, [rawEnvironments, clusterProvenance]);
 
   const projectSlug = entity.metadata.annotations?.['github.com/project-slug'];
   const [slugOwner, slugAppName] = projectSlug ? projectSlug.split('/') : [undefined, undefined];
@@ -187,46 +188,6 @@ export function useReleaseContext() {
     return result;
   }, [rawEnvironments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
 
-  // THE fix: pipelineOrder.data is now actually passed through.
-  const environments = useMemo(
-    () =>
-      [
-        ...rawEnvironments.map(e => ({
-          ...e,
-          deployed: true,
-          argoHealthStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthStatus : undefined,
-          argoSyncStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncStatus : undefined,
-          argoOperationStartedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationStartedAt : undefined,
-          argoOperationFinishedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationFinishedAt : undefined,
-          argoHealthSince: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthSince : undefined,
-          argoOperationPhase: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationPhase : undefined,
-          argoSource: e.argoAppName ? argoStatusRaw[e.argoAppName]?.source : undefined,
-          argoSyncPolicy: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncPolicy : undefined,
-          argoRevision: e.argoAppName ? argoStatusRaw[e.argoAppName]?.revision : undefined,
-          argoOperationMessage: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationMessage : undefined,
-          argoReconciledAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.reconciledAt : undefined,
-          argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : undefined,
-          argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : undefined,
-        })),
-        ...declaredEnvironments,
-      ].sort(
-        (a, b) =>
-          envStageRank(a.env, pipelineOrder.data) - envStageRank(b.env, pipelineOrder.data) ||
-          a.env.localeCompare(b.env),
-      ),
-    [rawEnvironments, declaredEnvironments, pipelineOrder.data, argoStatusRaw],
-  );
-
-  const prs = usePullRequests(owner && appName ? { owner, appName } : undefined, refreshNonce);
-  const gitopsPrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'gitops'), [prs.data]);
-  const sourcePrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'source'), [prs.data]);
-
-  const deployHistory = useDeployHistory(
-    repoRef,
-    environments.map(e => ({ env: e.env, cluster: e.cluster })),
-    refreshNonce,
-  );
-
   // The real flow-correlation nickname CiCdTab already shows per PipelineRun
   // (e.g. "lively finch" - see tekton/useTektonPipelineRuns.ts's
   // linkFlowSlugsByChainId), reused here as each release's own nickname
@@ -263,6 +224,69 @@ export function useReleaseContext() {
     linkFlowSlugsByChainId(merged);
     return merged;
   }, [pipelineRuns.runs, archivedPipelineRuns.runs]);
+
+  // Functions and other cloud services have no cluster to read environments from: theirs come
+  // from the deploy runs (see cloudEnvironments.ts). Empty for a Kubernetes service.
+  const cloud = useMemo(() => cloudEnvironmentsFromRuns(mergedPipelineRuns), [mergedPipelineRuns]);
+  const cloudImages = useMemo(
+    () => cloud.environments.map(e => e.image).filter((i): i is string => Boolean(i)),
+    [cloud.environments],
+  );
+  const cloudProvenance = useProvenanceMap(cloudImages, refreshNonce);
+  const provenanceByImage = useMemo(
+    () => ({ ...cloudProvenance, ...clusterProvenance }),
+    [cloudProvenance, clusterProvenance],
+  );
+
+  // THE fix: pipelineOrder.data is now actually passed through.
+  const environments = useMemo(
+    () =>
+      [
+        ...rawEnvironments.map(e => ({
+          ...e,
+          deployed: true,
+          argoHealthStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthStatus : undefined,
+          argoSyncStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncStatus : undefined,
+          argoOperationStartedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationStartedAt : undefined,
+          argoOperationFinishedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationFinishedAt : undefined,
+          argoHealthSince: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthSince : undefined,
+          argoOperationPhase: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationPhase : undefined,
+          argoSource: e.argoAppName ? argoStatusRaw[e.argoAppName]?.source : undefined,
+          argoSyncPolicy: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncPolicy : undefined,
+          argoRevision: e.argoAppName ? argoStatusRaw[e.argoAppName]?.revision : undefined,
+          argoOperationMessage: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationMessage : undefined,
+          argoReconciledAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.reconciledAt : undefined,
+          argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : undefined,
+          argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : undefined,
+        })),
+        ...declaredEnvironments,
+        ...cloud.environments,
+      ].sort(
+        (a, b) =>
+          envStageRank(a.env, pipelineOrder.data) - envStageRank(b.env, pipelineOrder.data) ||
+          a.env.localeCompare(b.env),
+      ),
+    [rawEnvironments, declaredEnvironments, cloud.environments, pipelineOrder.data, argoStatusRaw],
+  );
+
+  const prs = usePullRequests(owner && appName ? { owner, appName } : undefined, refreshNonce);
+  const gitopsPrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'gitops'), [prs.data]);
+  const sourcePrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'source'), [prs.data]);
+
+  // The gitops deploy-history endpoint knows only cluster environments; a cloud environment's
+  // history is its own successful deploys.
+  const clusterHistory = useDeployHistory(
+    repoRef,
+    environments.filter(e => !e.cloud).map(e => ({ env: e.env, cluster: e.cluster })),
+    refreshNonce,
+  );
+  const deployHistory = useMemo(
+    () => ({
+      ...clusterHistory,
+      data: clusterHistory.data || cloud.environments.length ? { ...clusterHistory.data, ...cloud.history } : undefined,
+    }),
+    [clusterHistory, cloud.environments.length, cloud.history],
+  );
 
   // Preview envs excluded here, not just at the Releases tab's own display
   // layer: they rank -1 in envStageRank (see types.ts), so if `environments`
