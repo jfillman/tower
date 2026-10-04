@@ -473,7 +473,7 @@ function ProvisioningView({
   return /* @__PURE__ */ jsxs("div", { className: classes.root, children: [
     /* @__PURE__ */ jsx("div", { className: classes.pills, children: inFlight.map((i) => pill(i)) }),
     stalled.length > 0 && /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx("div", { className: classes.head, children: "Stalled \xB7 built hours ago but not deployed: no rollout on the dev cluster, or a cloud deploy that never ran or never finished. It either deploys elsewhere or the deploy is stuck" }),
+      /* @__PURE__ */ jsx("div", { className: classes.head, children: "Stalled \xB7 hours old with nothing to show for it: built but not deployed (no rollout on the dev cluster, or a cloud deploy that never ran or finished), or no build run left in the cluster to show. It deploys elsewhere, finished and was cleaned up, or is stuck" }),
       /* @__PURE__ */ jsx("div", { className: classes.pills, children: stalled.map((i) => pill(i)) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [

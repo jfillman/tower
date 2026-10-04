@@ -1,5 +1,6 @@
 const FUNCTION_KINDS = /* @__PURE__ */ new Set(["LambdaFunction", "AzureFunction"]);
 const STALL_AFTER_MS = 4 * 3600 * 1e3;
+const NO_BUILD_EVIDENCE_AFTER_MS = 2 * 3600 * 1e3;
 const TYPICAL_SEC = {
   // A person merging the request PR, then ArgoCD's repo poll (about every 3 minutes) applying it.
   merge: 60,
@@ -242,6 +243,7 @@ function deriveProvisioning(input, now, typical) {
   let buildFraction = 0;
   let buildSec;
   let buildDetail;
+  let noBuildEvidence = false;
   if (build) {
     buildFraction = build.tasksTotal > 0 ? Math.min(1, build.tasksDone / build.tasksTotal) : 0;
     if (build.phase === "succeeded") buildState = "done";
@@ -253,7 +255,8 @@ function deriveProvisioning(input, now, typical) {
     buildState = "done";
   } else if (onboardingState === "done") {
     buildState = "run";
-    buildDetail = "Waiting for the first pipeline run to start";
+    noBuildEvidence = !cloudDeploy && now - (onboardingEnd ?? created) > NO_BUILD_EVIDENCE_AFTER_MS;
+    buildDetail = noBuildEvidence ? "No pipeline run for this service is left in the cluster, so Tower cannot tell whether the build ran. Runs are cleaned up after a while, so it may have finished; check the Pipelines tab or GitHub." : "Waiting for the first pipeline run to start";
   }
   push({
     id: "build",
@@ -345,9 +348,9 @@ function deriveProvisioning(input, now, typical) {
     completedAt = ends.length ? Math.max(...ends) : now;
   }
   const deployed = Boolean(rollout) || cloudDeploy?.state === "succeeded";
-  const stalled = !complete && !failed && !deployed && build?.phase === "succeeded" && now - created > STALL_AFTER_MS;
+  const stalled = !complete && !failed && !deployed && (build?.phase === "succeeded" && now - created > STALL_AFTER_MS || noBuildEvidence);
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { FUNCTION_KINDS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
+export { FUNCTION_KINDS, NO_BUILD_EVIDENCE_AFTER_MS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
 //# sourceMappingURL=deriveProvisioning.esm.js.map
