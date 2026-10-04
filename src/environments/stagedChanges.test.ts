@@ -1,4 +1,5 @@
 import {
+  addedFlightEnvs,
   applyStaged,
   buildDeploy,
   describeChanges,
@@ -6,6 +7,7 @@ import {
   isUnchanged,
   readEnvironments,
   stageSetBlock,
+  validateAddedFlight,
   validateEnvironments,
   type EnvDef,
 } from './stagedChanges';
@@ -233,5 +235,41 @@ describe('stageSetBlock', () => {
     );
     expect(staged).toHaveLength(3);
     expect(applyStaged([ground('dev'), ground('test')], staged).map(e => e.lambda?.functionName)).toEqual(['d', 't', undefined]);
+  });
+});
+
+describe('adding a Flight environment', () => {
+  const before = [ground('dev'), flight('staging', 'kind-prod')];
+
+  it('finds the Flight environments that are new, and only those', () => {
+    const after = applyStaged(before, [{ kind: 'add', env: ground('qa') }, { kind: 'add', env: flight('prod', 'kind-prod') }]);
+    expect(addedFlightEnvs(before, after).map(e => e.name)).toEqual(['prod']);
+    expect(addedFlightEnvs(before, before)).toEqual([]);
+  });
+
+  it('requires a cluster for a new Flight environment', () => {
+    const after = applyStaged(before, [{ kind: 'add', env: flight('prod') }]);
+    expect(validateAddedFlight(before, after, undefined).join()).toMatch(/needs the cluster it runs on/);
+    const ok = applyStaged(before, [{ kind: 'add', env: flight('prod', 'kind-prod') }]);
+    expect(validateAddedFlight(before, ok, undefined)).toEqual([]);
+  });
+
+  it('does not re-check an existing Flight environment that names no cluster (an older, own-cluster one)', () => {
+    const old = [ground('dev'), flight('staging')];
+    expect(validateAddedFlight(old, old, undefined)).toEqual([]);
+  });
+
+  it('leaves a Flight environment on a cloud target to the general validation', () => {
+    const after = applyStaged([ground('dev')], [{ kind: 'add', env: flight('prod') }]);
+    expect(validateAddedFlight([ground('dev')], after, 'aws-lambda')).toEqual([]);
+    expect(validateEnvironments(after, 'aws-lambda').join()).toMatch(/not supported for aws-lambda/);
+  });
+
+  it('tells the user the order to merge the two pull requests, and that the pipeline step is theirs to add', () => {
+    const after = applyStaged(before, [{ kind: 'add', env: flight('prod', 'kind-prod') }]);
+    const out = followUps(before, after, undefined);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/Merge that one before the cicd\.yaml change/);
+    expect(out[0]).toMatch(/not added: edit the pipeline in the Glidepath tab/);
   });
 });

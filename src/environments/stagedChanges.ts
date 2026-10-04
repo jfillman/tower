@@ -245,9 +245,35 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
   for (const e of after) {
     if (had.has(e.name)) continue;
+    if (e.tier === 'flight' && !cloud) {
+      out.push(
+        `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application. The release step in the pipeline that deploys to ${e.name} is not added: edit the pipeline in the Glidepath tab.`,
+      );
+    }
     if (e.tier === 'ground' && !cloud) {
       out.push(`Glidepath then opens a pull request on the source repo adding platform/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
+  }
+  return out;
+}
+
+/** The Flight environments staged as new: each needs the ApplicationEnvironment request as well as the cicd.yaml entry. */
+export function addedFlightEnvs(before: EnvDef[], after: EnvDef[]): EnvDef[] {
+  const had = new Set(before.map(e => e.name));
+  return after.filter(e => e.tier === 'flight' && !had.has(e.name));
+}
+
+/**
+ * Problems specific to creating a Flight environment (existing Flight environments are not re-checked: an
+ * older one may legitimately name no cluster, meaning the app's own). The request that creates it needs a
+ * registered upper cluster and a Kubernetes app.
+ */
+export function validateAddedFlight(before: EnvDef[], after: EnvDef[], target: string | undefined): string[] {
+  const out: string[] = [];
+  const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
+  for (const e of addedFlightEnvs(before, after)) {
+    if (cloud) continue; // validateEnvironments already refuses Flight on a cloud target
+    if (!e.cluster) out.push(`Flight environment "${e.name}" needs the cluster it runs on, for example kind-prod.`);
   }
   return out;
 }
