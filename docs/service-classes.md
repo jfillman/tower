@@ -42,7 +42,7 @@ has all of the ones it requires; a tab with none required always shows.
 | `slo` | container-app | SLOs (also needs `k8s-runtime`) |
 | `values-config` | container-app; removed by cloud targets | App Configuration |
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
-| `cloud-runtime` | every cloud target | none yet |
+| `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
 | `autopilot` | ai-workload | Autopilot |
 
 A class Tower has no entry for gets a label made from its slug, no capabilities, and
@@ -62,5 +62,5 @@ opens on Overview.
 
 ## Not built yet
 
-Cloud targets have no Deployments view. `cloud-runtime` is granted but no tab consumes it;
-the per-target Deployments adapter is the next piece.
+Live health for cloud targets. The cloud Deployments tab shows what Glidepath deployed, not whether
+the service is up; see cloud-deploys.md.

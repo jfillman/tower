@@ -1,0 +1,2178 @@
+{
+ "ci-1-deploy-swift-bear-772974f5": {
+  "pipelineRun": {
+   "apiVersion": "tekton.dev/v1",
+   "kind": "PipelineRun",
+   "metadata": {
+    "annotations": {
+     "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+     "chains.tekton.dev/signed": "true",
+     "chains.tekton.dev/transparency": "http://rekor-server.rekor-system.svc/api/v1/log/entries?logIndex=2541",
+     "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/6ce300d2-b342-3ece-b444-e36b7b256dd0",
+     "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/2db33494-1394-4eb3-a285-5f10ed26e386",
+     "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+    },
+    "creationTimestamp": "2026-10-04T02:54:11Z",
+    "finalizers": [
+     "results.tekton.dev/pipelinerun",
+     "chains.tekton.dev/pipelinerun"
+    ],
+    "generation": 1,
+    "labels": {
+     "app.kubernetes.io/instance": "platform-cicd-catalog",
+     "app.kubernetes.io/managed-by": "Helm",
+     "app.kubernetes.io/name": "glidepath-catalog",
+     "app.kubernetes.io/part-of": "glidepath",
+     "app.kubernetes.io/version": "1.0.0",
+     "hangar.io/app": "smoke-ecs",
+     "hangar.io/catalog": "true",
+     "hangar.io/component": "catalog",
+     "hangar.io/flow": "ci",
+     "hangar.io/stage": "deploy",
+     "hangar.io/step-index": "1",
+     "helm.sh/chart": "glidepath-catalog-0.1.0",
+     "tekton.dev/pipeline": "deploy",
+     "triggers.tekton.dev/eventlistener": "cdevents-broker",
+     "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+     "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+    },
+    "name": "ci-1-deploy-swift-bear-772974f5",
+    "namespace": "app-smoke-ecs-cicd",
+    "resourceVersion": "42470205",
+    "uid": "2db33494-1394-4eb3-a285-5f10ed26e386"
+   },
+   "spec": {
+    "params": [
+     {
+      "name": "is-flow-root",
+      "value": "false"
+     },
+     {
+      "name": "is-flow-terminal",
+      "value": "true"
+     },
+     {
+      "name": "app-namespace",
+      "value": "app-smoke-ecs-cicd"
+     },
+     {
+      "name": "app-name",
+      "value": "smoke-ecs"
+     },
+     {
+      "name": "app-type",
+      "value": "app"
+     },
+     {
+      "name": "env",
+      "value": "dev"
+     },
+     {
+      "name": "test-name",
+      "value": ""
+     },
+     {
+      "name": "cluster",
+      "value": ""
+     },
+     {
+      "name": "name",
+      "value": ""
+     },
+     {
+      "name": "git-url",
+      "value": "https://github.com/jfillman/smoke-ecs"
+     },
+     {
+      "name": "git-revision",
+      "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+     },
+     {
+      "name": "image-ref",
+      "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+     },
+     {
+      "name": "chain-id",
+      "value": "00cdc135-acc3-418e-8a67-65871742632f"
+     },
+     {
+      "name": "flow-traceparent",
+      "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+     },
+     {
+      "name": "flow-start-time",
+      "value": "2026-10-04T02:53:08.703948508Z"
+     },
+     {
+      "name": "config-json",
+      "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+     }
+    ],
+    "pipelineRef": {
+     "params": [
+      {
+       "name": "kind",
+       "value": "pipeline"
+      },
+      {
+       "name": "name",
+       "value": "deploy"
+      },
+      {
+       "name": "namespace",
+       "value": "platform-catalog"
+      }
+     ],
+     "resolver": "cluster"
+    },
+    "taskRunSpecs": [
+     {
+      "pipelineTaskName": "notify-backstage",
+      "podTemplate": {
+       "hostAliases": [
+        {
+         "hostnames": [
+          "backstage.prod.kiac.local"
+         ],
+         "ip": "192.168.1.78"
+        }
+       ]
+      }
+     }
+    ],
+    "taskRunTemplate": {
+     "serviceAccountName": "pipeline-runner"
+    },
+    "timeouts": {
+     "pipeline": "1h0m0s"
+    }
+   },
+   "status": {
+    "childReferences": [
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-start-flow",
+      "pipelineTaskName": "start-flow"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-pipelinerun-started",
+      "pipelineTaskName": "pipelinerun-started"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-start-deploy-stage-span",
+      "pipelineTaskName": "start-deploy-stage-span"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-resolve-image-ref",
+      "pipelineTaskName": "resolve-image-ref"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-resolve-deploy-target",
+      "pipelineTaskName": "resolve-deploy-target"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-deploy-aws-ecs",
+      "pipelineTaskName": "deploy-aws-ecs",
+      "whenExpressions": [
+       {
+        "input": "aws-ecs",
+        "operator": "in",
+        "values": [
+         "aws-ecs"
+        ]
+       }
+      ]
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-resolve-notify-config",
+      "pipelineTaskName": "resolve-notify-config"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-end-deploy-stage-span",
+      "pipelineTaskName": "end-deploy-stage-span"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-end-flow",
+      "pipelineTaskName": "end-flow",
+      "whenExpressions": [
+       {
+        "input": "true",
+        "operator": "in",
+        "values": [
+         "true"
+        ]
+       }
+      ]
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-notify",
+      "pipelineTaskName": "notify"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-notify-backstage",
+      "pipelineTaskName": "notify-backstage"
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-send-cdevent",
+      "pipelineTaskName": "send-cdevent",
+      "whenExpressions": [
+       {
+        "input": "$(tasks.status)",
+        "operator": "in",
+        "values": [
+         "Succeeded",
+         "Completed"
+        ]
+       }
+      ]
+     },
+     {
+      "apiVersion": "tekton.dev/v1",
+      "kind": "TaskRun",
+      "name": "ci-1-deploy-swift-bear-772974f5-pipelinerun-finished",
+      "pipelineTaskName": "pipelinerun-finished"
+     }
+    ],
+    "completionTime": "2026-10-04T02:57:42Z",
+    "conditions": [
+     {
+      "lastTransitionTime": "2026-10-04T02:57:42Z",
+      "message": "Tasks Completed: 13 (Failed: 0, Cancelled 0), Skipped: 3",
+      "reason": "Completed",
+      "status": "True",
+      "type": "Succeeded"
+     }
+    ],
+    "finallyStartTime": "2026-10-04T02:57:36Z",
+    "pipelineSpec": {
+     "tasks": [
+      {
+       "name": "start-flow",
+       "runAfter": [],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "pipelinerun-started",
+       "runAfter": [
+        "start-flow"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "start-deploy-stage-span",
+       "runAfter": [
+        "start-flow"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "resolve-image-ref",
+       "runAfter": [
+        "start-deploy-stage-span"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "resolve-deploy-target",
+       "runAfter": [
+        "start-deploy-stage-span"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "deploy",
+       "runAfter": [
+        "resolve-image-ref",
+        "resolve-deploy-target"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "deploy-aws-ecs",
+       "runAfter": [
+        "resolve-image-ref",
+        "resolve-deploy-target"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "deploy-aws-lambda",
+       "runAfter": [
+        "resolve-image-ref",
+        "resolve-deploy-target"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "deploy-azure-container-apps",
+       "runAfter": [
+        "resolve-image-ref",
+        "resolve-deploy-target"
+       ],
+       "taskRef": {
+        "name": null
+       }
+      },
+      {
+       "name": "resolve-notify-config",
+       "runAfter": [],
+       "taskRef": {
+        "name": null
+       }
+      }
+     ],
+     "finally": [
+      {
+       "name": "end-deploy-stage-span",
+       "runAfter": []
+      },
+      {
+       "name": "end-flow",
+       "runAfter": []
+      },
+      {
+       "name": "notify",
+       "runAfter": []
+      },
+      {
+       "name": "notify-backstage",
+       "runAfter": []
+      },
+      {
+       "name": "send-cdevent",
+       "runAfter": []
+      },
+      {
+       "name": "pipelinerun-finished",
+       "runAfter": []
+      }
+     ]
+    },
+    "provenance": {
+     "featureFlags": {
+      "awaitSidecarReadiness": true,
+      "coschedule": "workspaces",
+      "enableAPIFields": "beta",
+      "enableProvenanceInStatus": true,
+      "enforceNonfalsifiability": "none",
+      "maxResultSize": 4096,
+      "resultExtractionMethod": "termination-message",
+      "runningInEnvWithInjectedSidecars": true,
+      "sendCloudEventsForRuns": true,
+      "verificationNoMatchPolicy": "ignore"
+     },
+     "refSource": {
+      "digest": {
+       "sha256": "3aecf5eb7863adfb6251ce37f5c399594799981295af0ab9c36f1f87dd62aefd"
+      },
+      "uri": "/apis/tekton.dev/v1/namespaces/platform-catalog/pipeline/deploy@d1bd5133-dbfb-4ca0-8726-ca5ba2c06960"
+     }
+    },
+    "skippedTasks": [
+     {
+      "name": "deploy",
+      "reason": "When Expressions evaluated to false",
+      "whenExpressions": [
+       {
+        "input": "aws-ecs",
+        "operator": "in",
+        "values": [
+         "k8s-rollout"
+        ]
+       }
+      ]
+     },
+     {
+      "name": "deploy-aws-lambda",
+      "reason": "When Expressions evaluated to false",
+      "whenExpressions": [
+       {
+        "input": "aws-ecs",
+        "operator": "in",
+        "values": [
+         "aws-lambda"
+        ]
+       }
+      ]
+     },
+     {
+      "name": "deploy-azure-container-apps",
+      "reason": "When Expressions evaluated to false",
+      "whenExpressions": [
+       {
+        "input": "aws-ecs",
+        "operator": "in",
+        "values": [
+         "azure-container-apps"
+        ]
+       }
+      ]
+     }
+    ],
+    "startTime": "2026-10-04T02:54:11Z"
+   }
+  },
+  "taskRuns": [
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/347f2688-68eb-3ffc-a808-8fc34d3b688c",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/cde04e3f-e759-4b9e-965d-90509191e8d8",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:38Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "deploy-aws-ecs",
+      "tekton.dev/task": "deploy-ecs",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-deploy-aws-ecs",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42469793",
+     "uid": "cde04e3f-e759-4b9e-965d-90509191e8d8"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "image-ref",
+       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      },
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "env",
+       "value": "dev"
+      },
+      {
+       "name": "app-name",
+       "value": "smoke-ecs"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "deploy-ecs"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:36Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:36Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-deploy-aws-ecs-pod",
+     "startTime": "2026-10-04T02:54:39Z",
+     "steps": [
+      {
+       "container": "step-update-service",
+       "name": "update-service",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://37980c4ce557155a6ee37884a0483c8b9504631494534ddc983ab69e31b73b39",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:35Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:42Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/3656ff22-fc54-3ae1-8d12-a85c6e72e4ea",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/e0be1a25-5634-4135-be95-4fd36e94b5e5",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "results.tekton.dev/taskrun",
+      "chains.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "end-deploy-stage-span",
+      "tekton.dev/task": "end-stage-span",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-end-deploy-stage-span",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470593",
+     "uid": "e0be1a25-5634-4135-be95-4fd36e94b5e5"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "stage-name",
+       "value": "deploy"
+      },
+      {
+       "name": "flow-traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "chain-id",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "span-id",
+       "value": "35721c01478e03b0"
+      },
+      {
+       "name": "start-time",
+       "value": "2026-10-04T02:54:32.274432753Z"
+      },
+      {
+       "name": "status",
+       "value": "Completed"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "end-stage-span"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-end-deploy-stage-span-pod",
+     "startTime": "2026-10-04T02:57:36Z",
+     "steps": [
+      {
+       "container": "step-end-span",
+       "name": "end-span",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://457d9ed0fd46712ff0c5cf5f6a449068660235df066f0fb303ea9eda279975c0",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/50765d2a-aa7a-3068-891b-f63e79ce68f2",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/d44fe3de-556a-4c72-899e-6d201325ba24",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "end-flow",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-end-flow",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470136",
+     "uid": "d44fe3de-556a-4c72-899e-6d201325ba24"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "flow-name",
+       "value": "app-smoke-ecs-cicd/smoke-ecs"
+      },
+      {
+       "name": "flow-traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "flow-start-time",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      },
+      {
+       "name": "status",
+       "value": "Completed"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "end-flow-root-span"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-end-flow-pod",
+     "startTime": "2026-10-04T02:57:36Z",
+     "steps": [
+      {
+       "container": "step-end-span",
+       "name": "end-span",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://f5ea4eca59354548c47a96f2110c317cec9a9388451e86ba741973bfc3432288",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/d47f7004-fbc3-3363-b6d9-4959dfbd1e75",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/1b3ee1d2-a5db-43c7-91a6-e45aaa266918",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "notify",
+      "tekton.dev/task": "notify-slack",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-notify",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470540",
+     "uid": "1b3ee1d2-a5db-43c7-91a6-e45aaa266918"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "stage-name",
+       "value": "deploy"
+      },
+      {
+       "name": "status",
+       "value": "Completed"
+      },
+      {
+       "name": "pipeline-run-name",
+       "value": "ci-1-deploy-swift-bear-772974f5"
+      },
+      {
+       "name": "app-namespace",
+       "value": "app-smoke-ecs-cicd"
+      },
+      {
+       "name": "app-name",
+       "value": "smoke-ecs"
+      },
+      {
+       "name": "git-url",
+       "value": "https://github.com/jfillman/smoke-ecs"
+      },
+      {
+       "name": "git-revision",
+       "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+      },
+      {
+       "name": "image-ref",
+       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      },
+      {
+       "name": "env",
+       "value": "dev"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "notify-slack"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-notify-pod",
+     "startTime": "2026-10-04T02:57:36Z",
+     "steps": [
+      {
+       "container": "step-notify",
+       "name": "notify",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://e4c4876e595fb40ca814cea68db56cf6096747deb75574cc9cb30047a6a143cc",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/dd796ddd-e638-3c70-941e-59efc62cce61",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/4cce9a55-178b-43b3-b97e-514b2b150adc",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "notify-backstage",
+      "tekton.dev/task": "notify-backstage",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-notify-backstage",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470247",
+     "uid": "4cce9a55-178b-43b3-b97e-514b2b150adc"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "stage-name",
+       "value": "deploy"
+      },
+      {
+       "name": "status",
+       "value": "Completed"
+      },
+      {
+       "name": "pipeline-run-name",
+       "value": "ci-1-deploy-swift-bear-772974f5"
+      },
+      {
+       "name": "app-namespace",
+       "value": "app-smoke-ecs-cicd"
+      },
+      {
+       "name": "app-name",
+       "value": "smoke-ecs"
+      },
+      {
+       "name": "git-url",
+       "value": "https://github.com/jfillman/smoke-ecs"
+      },
+      {
+       "name": "git-revision",
+       "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+      },
+      {
+       "name": "image-ref",
+       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      },
+      {
+       "name": "env",
+       "value": "dev"
+      }
+     ],
+     "podTemplate": {
+      "hostAliases": [
+       {
+        "hostnames": [
+         "backstage.prod.kiac.local"
+        ],
+        "ip": "192.168.1.78"
+       }
+      ]
+     },
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "notify-backstage"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-notify-backstage-pod",
+     "startTime": "2026-10-04T02:57:36Z",
+     "steps": [
+      {
+       "container": "step-notify",
+       "name": "notify",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://f26052b387a485549d4dc1546f4eec17b37e28b64c54f0afcd1e8ed23f356b14",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/93ac683b-2592-32c2-b8fa-5e07cd737293",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/0ec51e8b-2e38-447e-ab93-54a308ec3679",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "pipelinerun-finished",
+      "tekton.dev/task": "send-cdevent",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-pipelinerun-finished",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470346",
+     "uid": "0ec51e8b-2e38-447e-ab93-54a308ec3679"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "event-type",
+       "value": "dev.cdevents.pipelinerun.finished.0.3.0"
+      },
+      {
+       "name": "subject-type",
+       "value": "pipelineRun"
+      },
+      {
+       "name": "subject-content-json",
+       "value": "{\"pipelineName\": \"deploy\"}"
+      },
+      {
+       "name": "chain-id",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "flow-start-time",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      },
+      {
+       "name": "namespace",
+       "value": "app-smoke-ecs-cicd"
+      },
+      {
+       "name": "pipeline-run-name",
+       "value": "ci-1-deploy-swift-bear-772974f5"
+      },
+      {
+       "name": "tekton-status",
+       "value": "Completed"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "send-cdevent"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-pipelinerun-finished-pod",
+     "startTime": "2026-10-04T02:57:37Z",
+     "steps": [
+      {
+       "container": "step-send",
+       "name": "send",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://d216b0478e08f46e0d12e5e7e6f050cf2f0405f4b1c121369600c1555a513fe5",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/b3c53017-4b55-33a6-a287-9717c69a16ac",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/1d72050d-9dd1-4a17-8977-4a581e7a0391",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:27Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "pipelinerun-started",
+      "tekton.dev/task": "send-cdevent",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-pipelinerun-started",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42467020",
+     "uid": "1d72050d-9dd1-4a17-8977-4a581e7a0391"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "event-type",
+       "value": "dev.cdevents.pipelinerun.started.0.3.0"
+      },
+      {
+       "name": "subject-type",
+       "value": "pipelineRun"
+      },
+      {
+       "name": "subject-content-json",
+       "value": "{\"pipelineName\": \"deploy\"}"
+      },
+      {
+       "name": "chain-id",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "flow-start-time",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      },
+      {
+       "name": "namespace",
+       "value": "app-smoke-ecs-cicd"
+      },
+      {
+       "name": "pipeline-run-name",
+       "value": "ci-1-deploy-swift-bear-772974f5"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "send-cdevent"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:32Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:32Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-pipelinerun-started-pod",
+     "startTime": "2026-10-04T02:54:27Z",
+     "steps": [
+      {
+       "container": "step-send",
+       "name": "send",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://dd3c8419f365eb71b38a71a1c32a17ad50662c0324a5a7e6a5576cee9b425390",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:31Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:31Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/b003c67e-fc4b-3778-be72-abc72d467c74",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/a5849302-335c-4dc7-b725-0a1ffb82db06",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:33Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "resolve-deploy-target",
+      "tekton.dev/task": "resolve-deploy-target",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-resolve-deploy-target",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42467283",
+     "uid": "a5849302-335c-4dc7-b725-0a1ffb82db06"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "git-url",
+       "value": "https://github.com/jfillman/smoke-ecs"
+      },
+      {
+       "name": "git-revision",
+       "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+      },
+      {
+       "name": "app-name",
+       "value": "smoke-ecs"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "resolve-deploy-target"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:38Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:38Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-resolve-deploy-target-pod",
+     "results": [
+      {
+       "name": "config-json",
+       "type": "string",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "target",
+       "type": "string",
+       "value": "aws-ecs"
+      }
+     ],
+     "startTime": "2026-10-04T02:54:33Z",
+     "steps": [
+      {
+       "container": "step-resolve",
+       "name": "resolve",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://ca29dcfb7f9b06adb20643816305929e556cc2e4d4a767a08155b1490512e537",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:37Z",
+        "message": "[{\"key\":\"config-json\",\"value\":\"{\\n  \\\"apiVersion\\\": \\\"platform/v1\\\",\\n  \\\"kind\\\": \\\"PipelineConfig\\\",\\n  \\\"build\\\": {\\n    \\\"agent\\\": \\\"go-1.23\\\",\\n    \\\"platforms\\\": [\\n      \\\"arm64\\\"\\n    ],\\n    \\\"unitTest\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"command\\\": \\\"./test.sh\\\"\\n    },\\n    \\\"containerfile\\\": \\\"./Containerfile\\\",\\n    \\\"artifacts\\\": [],\\n    \\\"sonar\\\": false,\\n    \\\"cache\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"size\\\": \\\"small\\\"\\n    },\\n    \\\"sourceVolume\\\": {\\n      \\\"size\\\": \\\"small\\\"\\n    }\\n  },\\n  \\\"pipelines\\\": {\\n    \\\"ci\\\": {\\n      \\\"trigger\\\": {\\n        \\\"source\\\": \\\"git\\\",\\n        \\\"event\\\": \\\"push\\\",\\n        \\\"branch\\\": \\\"main\\\"\\n      },\\n      \\\"steps\\\": [\\n        {\\n          \\\"stage\\\": \\\"build\\\"\\n        },\\n        {\\n          \\\"stage\\\": \\\"deploy\\\",\\n          \\\"env\\\": \\\"dev\\\"\\n        }\\n      ]\\n    }\\n  },\\n  \\\"deploy\\\": {\\n    \\\"target\\\": \\\"aws-ecs\\\",\\n    \\\"ecs\\\": {\\n      \\\"cluster\\\": \\\"glidepath-smoke\\\",\\n      \\\"service\\\": \\\"glidepath-smoke\\\",\\n      \\\"containerName\\\": \\\"app\\\",\\n      \\\"region\\\": \\\"us-east-1\\\",\\n      \\\"taskDefinitionFamily\\\": \\\"glidepath-smoke\\\"\\n    },\\n    \\\"lowerEnvironments\\\": [\\n      \\\"dev\\\"\\n    ],\\n    \\\"upperEnvironments\\\": [],\\n    \\\"strategy\\\": \\\"rollout\\\",\\n    \\\"promotionOrder\\\": [\\n      \\\"dev\\\"\\n    ],\\n    \\\"releaseFile\\\": \\\"glidepath/releases/{env}.yaml\\\",\\n    \\\"lambda\\\": {\\n      \\\"region\\\": \\\"us-east-1\\\"\\n    },\\n    \\\"azureContainerApps\\\": {}\\n  },\\n  \\\"secrets\\\": [\\n    {\\n      \\\"name\\\": \\\"aws-access-key-id\\\"\\n    },\\n    {\\n      \\\"name\\\": \\\"aws-secret-access-key\\\"\\n    }\\n  ],\\n  \\\"test\\\": {\\n    \\\"enabled\\\": true\\n  },\\n  \\\"ephemeralEnvironments\\\": {\\n    \\\"branch\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"patterns\\\": [\\n        \\\"preview/*\\\"\\n      ]\\n    },\\n    \\\"pullRequest\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"labels\\\": [\\n        \\\"preview\\\"\\n      ]\\n    },\\n    \\\"ttl\\\": \\\"5d\\\"\\n  },\\n  \\\"governance\\\": {\\n    \\\"sast\\\": false,\\n    \\\"imageScan\\\": false,\\n    \\\"policyCheck\\\": false,\\n    \\\"sbom\\\": false,\\n    \\\"allowedCommitSigners\\\": []\\n  },\\n  \\\"notifications\\\": {\\n    \\\"slack\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"scanResults\\\": true\\n    },\\n    \\\"backstage\\\": {\\n      \\\"enabled\\\": false\\n    }\\n  }\\n}\\n\",\"type\":1},{\"key\":\"target\",\"value\":\"aws-ecs\",\"type\":1}]",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:37Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/60e41416-9816-3445-b3db-01004879b83b",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/6fbfb8d0-dc50-4d4d-92b1-3367330bcf06",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:33Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "resolve-image-ref",
+      "tekton.dev/task": "resolve-image-ref",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-resolve-image-ref",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42467220",
+     "uid": "6fbfb8d0-dc50-4d4d-92b1-3367330bcf06"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "image-ref",
+       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      },
+      {
+       "name": "image-repo",
+       "value": ""
+      },
+      {
+       "name": "git-tag",
+       "value": ""
+      },
+      {
+       "name": "git-revision",
+       "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "resolve-image-ref"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:38Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:38Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-resolve-image-ref-pod",
+     "results": [
+      {
+       "name": "image-ref",
+       "type": "string",
+       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      }
+     ],
+     "startTime": "2026-10-04T02:54:33Z",
+     "steps": [
+      {
+       "container": "step-resolve",
+       "name": "resolve",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://fe8988cd13dd1bffa78fe0cba59e93f7c3601091b95089338d86839ca320d76f",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:37Z",
+        "message": "[{\"key\":\"image-ref\",\"value\":\"ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7\",\"type\":1}]",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:37Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/2d307365-4040-3c13-9129-48a50c6cedf1",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/57c316b8-7e83-4c16-af7c-0ace98829776",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:21Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "resolve-notify-config",
+      "tekton.dev/task": "resolve-notify-config",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-resolve-notify-config",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42466853",
+     "uid": "57c316b8-7e83-4c16-af7c-0ace98829776"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "git-url",
+       "value": "https://github.com/jfillman/smoke-ecs"
+      },
+      {
+       "name": "git-revision",
+       "value": "4eedae7b7cf01572bd82683e69d50d2dc96392b4"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "resolve-notify-config"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:28Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:28Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-resolve-notify-config-pod",
+     "results": [
+      {
+       "name": "config-json",
+       "type": "string",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      }
+     ],
+     "startTime": "2026-10-04T02:54:21Z",
+     "steps": [
+      {
+       "container": "step-resolve",
+       "name": "resolve",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://4245e1bcca07d100a0e757261557013d3f70e1ca393d2526fe9af8d24ab108da",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:27Z",
+        "message": "[{\"key\":\"config-json\",\"value\":\"{\\n  \\\"apiVersion\\\": \\\"platform/v1\\\",\\n  \\\"kind\\\": \\\"PipelineConfig\\\",\\n  \\\"build\\\": {\\n    \\\"agent\\\": \\\"go-1.23\\\",\\n    \\\"platforms\\\": [\\n      \\\"arm64\\\"\\n    ],\\n    \\\"unitTest\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"command\\\": \\\"./test.sh\\\"\\n    },\\n    \\\"containerfile\\\": \\\"./Containerfile\\\",\\n    \\\"artifacts\\\": [],\\n    \\\"sonar\\\": false,\\n    \\\"cache\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"size\\\": \\\"small\\\"\\n    },\\n    \\\"sourceVolume\\\": {\\n      \\\"size\\\": \\\"small\\\"\\n    }\\n  },\\n  \\\"pipelines\\\": {\\n    \\\"ci\\\": {\\n      \\\"trigger\\\": {\\n        \\\"source\\\": \\\"git\\\",\\n        \\\"event\\\": \\\"push\\\",\\n        \\\"branch\\\": \\\"main\\\"\\n      },\\n      \\\"steps\\\": [\\n        {\\n          \\\"stage\\\": \\\"build\\\"\\n        },\\n        {\\n          \\\"stage\\\": \\\"deploy\\\",\\n          \\\"env\\\": \\\"dev\\\"\\n        }\\n      ]\\n    }\\n  },\\n  \\\"deploy\\\": {\\n    \\\"target\\\": \\\"aws-ecs\\\",\\n    \\\"ecs\\\": {\\n      \\\"cluster\\\": \\\"glidepath-smoke\\\",\\n      \\\"service\\\": \\\"glidepath-smoke\\\",\\n      \\\"containerName\\\": \\\"app\\\",\\n      \\\"region\\\": \\\"us-east-1\\\",\\n      \\\"taskDefinitionFamily\\\": \\\"glidepath-smoke\\\"\\n    },\\n    \\\"lowerEnvironments\\\": [\\n      \\\"dev\\\"\\n    ],\\n    \\\"upperEnvironments\\\": [],\\n    \\\"strategy\\\": \\\"rollout\\\",\\n    \\\"promotionOrder\\\": [\\n      \\\"dev\\\"\\n    ],\\n    \\\"releaseFile\\\": \\\"glidepath/releases/{env}.yaml\\\",\\n    \\\"lambda\\\": {\\n      \\\"region\\\": \\\"us-east-1\\\"\\n    },\\n    \\\"azureContainerApps\\\": {}\\n  },\\n  \\\"secrets\\\": [\\n    {\\n      \\\"name\\\": \\\"aws-access-key-id\\\"\\n    },\\n    {\\n      \\\"name\\\": \\\"aws-secret-access-key\\\"\\n    }\\n  ],\\n  \\\"test\\\": {\\n    \\\"enabled\\\": true\\n  },\\n  \\\"ephemeralEnvironments\\\": {\\n    \\\"branch\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"patterns\\\": [\\n        \\\"preview/*\\\"\\n      ]\\n    },\\n    \\\"pullRequest\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"labels\\\": [\\n        \\\"preview\\\"\\n      ]\\n    },\\n    \\\"ttl\\\": \\\"5d\\\"\\n  },\\n  \\\"governance\\\": {\\n    \\\"sast\\\": false,\\n    \\\"imageScan\\\": false,\\n    \\\"policyCheck\\\": false,\\n    \\\"sbom\\\": false,\\n    \\\"allowedCommitSigners\\\": []\\n  },\\n  \\\"notifications\\\": {\\n    \\\"slack\\\": {\\n      \\\"enabled\\\": false,\\n      \\\"scanResults\\\": true\\n    },\\n    \\\"backstage\\\": {\\n      \\\"enabled\\\": false\\n    }\\n  }\\n}\\n\",\"type\":1}]",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:27Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/04fc1ed6-70ea-3405-b36e-04c6646ba2ab",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/b465deb8-51e8-45ba-942e-42eed3163c86",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:57:36Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "finally",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "send-cdevent",
+      "tekton.dev/task": "send-cdevent",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-send-cdevent",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42470466",
+     "uid": "b465deb8-51e8-45ba-942e-42eed3163c86"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "event-type",
+       "value": "dev.cdevents.service.deployed.0.3.0"
+      },
+      {
+       "name": "subject-type",
+       "value": "service"
+      },
+      {
+       "name": "subject-content-json",
+       "value": "{\"environment\": {\"id\": \"dev\"}, \"artifactId\": \"ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7\", \"git-url\": \"https://github.com/jfillman/smoke-ecs\", \"revision\": \"4eedae7b7cf01572bd82683e69d50d2dc96392b4\"}"
+      },
+      {
+       "name": "chain-id",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "flow-start-time",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      },
+      {
+       "name": "config-json",
+       "value": "{\n  \"apiVersion\": \"platform/v1\",\n  \"kind\": \"PipelineConfig\",\n  \"build\": {\n    \"agent\": \"go-1.23\",\n    \"platforms\": [\n      \"arm64\"\n    ],\n    \"unitTest\": {\n      \"enabled\": false,\n      \"command\": \"./test.sh\"\n    },\n    \"containerfile\": \"./Containerfile\",\n    \"artifacts\": [],\n    \"sonar\": false,\n    \"cache\": {\n      \"enabled\": false,\n      \"size\": \"small\"\n    },\n    \"sourceVolume\": {\n      \"size\": \"small\"\n    }\n  },\n  \"pipelines\": {\n    \"ci\": {\n      \"trigger\": {\n        \"source\": \"git\",\n        \"event\": \"push\",\n        \"branch\": \"main\"\n      },\n      \"steps\": [\n        {\n          \"stage\": \"build\"\n        },\n        {\n          \"stage\": \"deploy\",\n          \"env\": \"dev\"\n        }\n      ]\n    }\n  },\n  \"deploy\": {\n    \"target\": \"aws-ecs\",\n    \"ecs\": {\n      \"cluster\": \"glidepath-smoke\",\n      \"service\": \"glidepath-smoke\",\n      \"containerName\": \"app\",\n      \"region\": \"us-east-1\",\n      \"taskDefinitionFamily\": \"glidepath-smoke\"\n    },\n    \"lowerEnvironments\": [\n      \"dev\"\n    ],\n    \"upperEnvironments\": [],\n    \"strategy\": \"rollout\",\n    \"promotionOrder\": [\n      \"dev\"\n    ],\n    \"releaseFile\": \"glidepath/releases/{env}.yaml\",\n    \"lambda\": {\n      \"region\": \"us-east-1\"\n    },\n    \"azureContainerApps\": {}\n  },\n  \"secrets\": [\n    {\n      \"name\": \"aws-access-key-id\"\n    },\n    {\n      \"name\": \"aws-secret-access-key\"\n    }\n  ],\n  \"test\": {\n    \"enabled\": true\n  },\n  \"ephemeralEnvironments\": {\n    \"branch\": {\n      \"enabled\": false,\n      \"patterns\": [\n        \"preview/*\"\n      ]\n    },\n    \"pullRequest\": {\n      \"enabled\": false,\n      \"labels\": [\n        \"preview\"\n      ]\n    },\n    \"ttl\": \"5d\"\n  },\n  \"governance\": {\n    \"sast\": false,\n    \"imageScan\": false,\n    \"policyCheck\": false,\n    \"sbom\": false,\n    \"allowedCommitSigners\": []\n  },\n  \"notifications\": {\n    \"slack\": {\n      \"enabled\": false,\n      \"scanResults\": true\n    },\n    \"backstage\": {\n      \"enabled\": false\n    }\n  }\n}\n"
+      },
+      {
+       "name": "namespace",
+       "value": "app-smoke-ecs-cicd"
+      },
+      {
+       "name": "pipeline-run-name",
+       "value": "ci-1-deploy-swift-bear-772974f5"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "send-cdevent"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:57:42Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:57:42Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-send-cdevent-pod",
+     "startTime": "2026-10-04T02:57:37Z",
+     "steps": [
+      {
+       "container": "step-send",
+       "name": "send",
+       "provenance": {},
+       "terminated": {
+        "containerID": "containerd://7fc399bfdc2e94fe824a4e00094cf38650ae9ecd73a5351f09d0dea281b1fa0d",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:57:41Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:57:41Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/a2842ba6-db36-3126-bd18-652ce9e2ca7c",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/779ac561-6fdd-4976-b0de-c04b3dc42a37",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:27Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "start-deploy-stage-span",
+      "tekton.dev/task": "start-stage-span",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-start-deploy-stage-span",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42467073",
+     "uid": "779ac561-6fdd-4976-b0de-c04b3dc42a37"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "flow-traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "start-stage-span"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:33Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:33Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-start-deploy-stage-span-pod",
+     "results": [
+      {
+       "name": "span-id",
+       "type": "string",
+       "value": "35721c01478e03b0"
+      },
+      {
+       "name": "start-time",
+       "type": "string",
+       "value": "2026-10-04T02:54:32.274432753Z"
+      }
+     ],
+     "startTime": "2026-10-04T02:54:27Z",
+     "steps": [
+      {
+       "container": "step-start-span",
+       "name": "start-span",
+       "provenance": {},
+       "results": [
+        {
+         "name": "span-id",
+         "type": "string",
+         "value": "35721c01478e03b0"
+        },
+        {
+         "name": "start-time",
+         "type": "string",
+         "value": "2026-10-04T02:54:32.274432753Z"
+        }
+       ],
+       "terminated": {
+        "containerID": "containerd://6e3fd1efdcfa2ffcb94b3429dd26ff6949477f8a02b2bc28006e7d7bbc96301a",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:32Z",
+        "message": "[{\"key\":\"span-id\",\"value\":\"35721c01478e03b0\",\"type\":4},{\"key\":\"start-time\",\"value\":\"2026-10-04T02:54:32.274432753Z\",\"type\":4}]",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:32Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   },
+   {
+    "apiVersion": "tekton.dev/v1",
+    "kind": "TaskRun",
+    "metadata": {
+     "annotations": {
+      "argocd.argoproj.io/tracking-id": "platform-cicd-catalog:tekton.dev/Pipeline:platform-catalog/deploy",
+      "chains.tekton.dev/signed": "true",
+      "pipeline.tekton.dev/release": "70f7308",
+      "results.tekton.dev/childReadyForDeletion": "true",
+      "results.tekton.dev/log": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/logs/21ffbcf2-3435-3d0e-b106-de98ec2be6a4",
+      "results.tekton.dev/record": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634/records/edc94648-a093-43b4-a622-f26173acb4ab",
+      "results.tekton.dev/result": "app-smoke-ecs-cicd/results/03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "creationTimestamp": "2026-10-04T02:54:21Z",
+     "finalizers": [
+      "chains.tekton.dev/taskrun",
+      "results.tekton.dev/taskrun"
+     ],
+     "generation": 1,
+     "labels": {
+      "app.kubernetes.io/instance": "platform-cicd-catalog",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "glidepath-catalog",
+      "app.kubernetes.io/part-of": "glidepath",
+      "app.kubernetes.io/version": "1.0.0",
+      "hangar.io/app": "smoke-ecs",
+      "hangar.io/catalog": "true",
+      "hangar.io/component": "catalog",
+      "hangar.io/flow": "ci",
+      "hangar.io/stage": "deploy",
+      "hangar.io/step-index": "1",
+      "helm.sh/chart": "glidepath-catalog-0.1.0",
+      "tekton.dev/memberOf": "tasks",
+      "tekton.dev/pipeline": "deploy",
+      "tekton.dev/pipelineRun": "ci-1-deploy-swift-bear-772974f5",
+      "tekton.dev/pipelineRunUID": "2db33494-1394-4eb3-a285-5f10ed26e386",
+      "tekton.dev/pipelineTask": "start-flow",
+      "tekton.dev/task": "start-flow-root-span",
+      "triggers.tekton.dev/eventlistener": "cdevents-broker",
+      "triggers.tekton.dev/trigger": "flow-ci-1-deploy",
+      "triggers.tekton.dev/triggers-eventid": "03339ad9-17ec-4fec-8590-2f20a4b8c634"
+     },
+     "name": "ci-1-deploy-swift-bear-772974f5-start-flow",
+     "namespace": "app-smoke-ecs-cicd",
+     "resourceVersion": "42466765",
+     "uid": "edc94648-a093-43b4-a622-f26173acb4ab"
+    },
+    "spec": {
+     "params": [
+      {
+       "name": "chain-id",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "traceparent",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      },
+      {
+       "name": "flow-start-time",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      }
+     ],
+     "serviceAccountName": "pipeline-runner",
+     "taskRef": {
+      "params": [
+       {
+        "name": "kind",
+        "value": "task"
+       },
+       {
+        "name": "name",
+        "value": "start-flow-root-span"
+       },
+       {
+        "name": "namespace",
+        "value": "platform-catalog"
+       }
+      ],
+      "resolver": "cluster"
+     },
+     "timeout": "1h0m0s"
+    },
+    "status": {
+     "artifacts": {},
+     "completionTime": "2026-10-04T02:54:27Z",
+     "conditions": [
+      {
+       "lastTransitionTime": "2026-10-04T02:54:27Z",
+       "message": "All Steps have completed executing",
+       "reason": "Succeeded",
+       "status": "True",
+       "type": "Succeeded"
+      }
+     ],
+     "podName": "ci-1-deploy-swift-bear-772974f5-start-flow-pod",
+     "results": [
+      {
+       "name": "chain-id",
+       "type": "string",
+       "value": "00cdc135-acc3-418e-8a67-65871742632f"
+      },
+      {
+       "name": "chain-slug",
+       "type": "string",
+       "value": "swift-bear"
+      },
+      {
+       "name": "start-time",
+       "type": "string",
+       "value": "2026-10-04T02:53:08.703948508Z"
+      },
+      {
+       "name": "traceparent",
+       "type": "string",
+       "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+      }
+     ],
+     "startTime": "2026-10-04T02:54:21Z",
+     "steps": [
+      {
+       "container": "step-check-and-start",
+       "name": "check-and-start",
+       "provenance": {},
+       "results": [
+        {
+         "name": "chain-id",
+         "type": "string",
+         "value": "00cdc135-acc3-418e-8a67-65871742632f"
+        },
+        {
+         "name": "chain-slug",
+         "type": "string",
+         "value": "swift-bear"
+        },
+        {
+         "name": "start-time",
+         "type": "string",
+         "value": "2026-10-04T02:53:08.703948508Z"
+        },
+        {
+         "name": "traceparent",
+         "type": "string",
+         "value": "00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01"
+        }
+       ],
+       "terminated": {
+        "containerID": "containerd://8d11b657d364207dd2708545b94202f9c49ee36ce84c7825dae3ea5d7c952b79",
+        "exitCode": 0,
+        "finishedAt": "2026-10-04T02:54:26Z",
+        "message": "[{\"key\":\"chain-id\",\"value\":\"00cdc135-acc3-418e-8a67-65871742632f\",\"type\":4},{\"key\":\"chain-slug\",\"value\":\"swift-bear\",\"type\":4},{\"key\":\"start-time\",\"value\":\"2026-10-04T02:53:08.703948508Z\",\"type\":4},{\"key\":\"traceparent\",\"value\":\"00-44c9d4bea60278cf0ed4060a13a01754-66794ef3df97143b-01\",\"type\":4}]",
+        "reason": "Completed",
+        "startedAt": "2026-10-04T02:54:26Z"
+       },
+       "terminationReason": "Completed"
+      }
+     ]
+    }
+   }
+  ]
+ }
+}
