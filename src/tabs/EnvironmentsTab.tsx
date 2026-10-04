@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -37,6 +38,7 @@ import {
   type Staged,
 } from '../environments/stagedChanges';
 import { DEPLOY_TARGETS } from '../serviceClass';
+import { PlatformFileEditor } from '../PlatformFileEditor';
 import { preventFocusScroll } from '../preventFocusScroll';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
@@ -50,8 +52,9 @@ import type { Health } from '../types';
 //
 // What can be edited here so far: add a Ground or a Flight environment, reorder Ground environments, and set a
 // cloud environment's own function / service / Container App, and remove a Ground environment (its files go in
-// the same pull request). Removing a Flight environment, and the values of a Kubernetes environment, are
-// still done elsewhere.
+// the same pull request). A Kubernetes Ground environment's values (platform/envs/<env>.yaml) are edited in its
+// row as YAML, with their own pull request; a Flight environment's link to App Configuration. Removing a Flight
+// environment is still done by hand.
 //
 // A Flight environment is created by Airframe's ApplicationEnvironment XR, requested through an existing
 // Backstage template. Opening the pull request therefore launches that template first (it opens a request PR on
@@ -211,6 +214,7 @@ export function EnvironmentsTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { environments, pipelineOrder, loading, error, owner, appName } = useReleaseContext();
+  const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
   const submit = useSubmitCicdConfigChange();
@@ -359,7 +363,7 @@ export function EnvironmentsTab() {
       </div>
       <div className={classes.note}>
         {canEdit
-          ? 'Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment, and the values of a Kubernetes environment, are still done elsewhere.'
+          ? 'Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment is still done by hand. The values of a Ground environment are edited in its row, with their own pull request.'
           : 'Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration.'}
       </div>
       <div className={canEdit ? classes.layout : undefined}>
@@ -474,10 +478,30 @@ export function EnvironmentsTab() {
                                 ))}
                               </div>
                             </>
+                          ) : r.def.tier === 'ground' ? (
+                            r.state === 'new' ? (
+                              <div className={classes.dialogNote}>
+                                Its values file, <span className={classes.mono}>platform/envs/{r.name}.yaml</span>, is created by a
+                                second pull request after the cicd.yaml change merges. Edit its values here once that is merged.
+                              </div>
+                            ) : (
+                              <>
+                                <div className={classes.label}>Values: platform/envs/{r.name}.yaml</div>
+                                <div className={classes.dialogNote} style={{ marginBottom: 8 }}>
+                                  The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file
+                                  has its own pull request: it is not part of the pending changes.
+                                </div>
+                                <PlatformFileEditor owner={owner as string} appName={appName as string} selector={{ kind: 'env', env: r.name }} />
+                              </>
+                            )
                           ) : (
                             <div className={classes.dialogNote}>
-                              This environment&apos;s values live in <span className={classes.mono}>platform/envs/{r.name}.yaml</span> (Ground)
-                              or the gitops repo (Flight). Edit them in the Glidepath tab or App Configuration for now.
+                              This Flight environment&apos;s values live in{' '}
+                              <span className={classes.mono}>gitops-{appName}/{r.def.cluster ?? '<cluster>'}/{r.name}/values.yaml</span>.{' '}
+                              <Link href={`?${new URLSearchParams({ entity: searchParams.get('entity') ?? '', tab: 'config', env: r.name })}`}>
+                                Edit them in App Configuration
+                              </Link>
+                              , which keeps its own pull-request flow and prod warnings.
                             </div>
                           )}
                           {r.def.tier === 'flight' && (

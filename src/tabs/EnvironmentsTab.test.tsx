@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { EnvironmentsTab } from './EnvironmentsTab';
 import type { EnvironmentSummary } from '../types';
 
@@ -16,6 +17,8 @@ const env = (over: Partial<EnvironmentSummary> & { env: string }): EnvironmentSu
 let ctx: any;
 let cicdData: any;
 let submitState: any;
+let platformFile: any;
+const platformSubmitMock = jest.fn();
 const submitMock = jest.fn();
 const resetMock = jest.fn();
 jest.mock('../useReleaseContext', () => ({ useReleaseContext: () => ctx }));
@@ -27,12 +30,29 @@ jest.mock('../environments/applicationEnvironment', () => ({
 jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
+  usePlatformFile: () => platformFile,
+  useSubmitPlatformFileChange: () => ({ loading: false, submit: platformSubmitMock, reset: jest.fn() }),
 }));
+
+const tabUi = () => (
+  <MemoryRouter initialEntries={['/tower?entity=component:default/air-traffic-api&tab=environments']}>
+    <EnvironmentsTab />
+  </MemoryRouter>
+);
+let rerenderFn: (ui: React.ReactElement) => void = () => undefined;
+const renderTab = () => {
+  const r = render(tabUi());
+  rerenderFn = r.rerender;
+  return r;
+};
+const rerenderTab = () => rerenderFn(tabUi());
 
 const base = { loading: false, error: undefined, owner: 'jfillman', appName: 'air-traffic-api' };
 
 beforeEach(() => {
   submitMock.mockReset();
+  platformSubmitMock.mockReset();
+  platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'platform/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: '' } };
   resetMock.mockReset();
   launchMock.mockReset();
   submitState = { loading: false };
@@ -94,6 +114,7 @@ const stageFlight = async (name: string, cluster?: string) => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   }
 };
+const openRow = (name: string) => screen.getAllByRole('row').find(r => within(r).queryByText(name))!;
 const panel = () => within(screen.getByLabelText('Pending changes'));
 
 describe('EnvironmentsTab: reading', () => {
@@ -106,7 +127,7 @@ describe('EnvironmentsTab: reading', () => {
         env({ env: 'staging', cluster: 'kind-prod', deployed: false }),
       ],
     };
-    render(<EnvironmentsTab />);
+    renderTab();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
     const dev = within(rows[0]);
@@ -131,7 +152,7 @@ describe('EnvironmentsTab: reading', () => {
           cloud: { target: 'aws-lambda', targetLabel: 'AWS Lambda', resource: { kind: 'Lambda function', name: 'glidepath-smoke-fn', region: 'us-east-1' }, latest: 'failed' } }),
       ],
     };
-    render(<EnvironmentsTab />);
+    renderTab();
     expect(screen.getByText('AWS Lambda')).toBeTruthy();
     expect(screen.getByText('glidepath-smoke-fn · us-east-1')).toBeTruthy();
     expect(screen.getByText('Degraded')).toBeTruthy();
@@ -139,7 +160,7 @@ describe('EnvironmentsTab: reading', () => {
 
   it('is read-only, and says where to edit, when there is no cicd.yaml Tower can edit', () => {
     ctx = { ...base, pipelineOrder: { lower: ['dev'], upper: [] }, environments: [env({ env: 'dev' })] };
-    render(<EnvironmentsTab />);
+    renderTab();
     expect(screen.getByText(/Read-only/)).toBeTruthy();
     expect(screen.getByText(/Glidepath tab/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add environment' })).toBeNull();
@@ -148,7 +169,7 @@ describe('EnvironmentsTab: reading', () => {
 
   it('shows an empty state when the service has no environments', () => {
     ctx = { ...base, pipelineOrder: {}, environments: [] };
-    render(<EnvironmentsTab />);
+    renderTab();
     expect(screen.getByText(/No environments yet/)).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
   });
@@ -157,7 +178,7 @@ describe('EnvironmentsTab: reading', () => {
 describe('EnvironmentsTab: staging a Ground environment', () => {
   it('stages an add, shows the conversion and the follow-up, and the new row', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
     await stageAdd('qa');
     expect(panel().getByText('Add environment qa')).toBeTruthy();
@@ -173,7 +194,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 
   it('opens one pull request with the new list in the new shape and none of the old fields', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageAdd('qa');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
     expect(submitMock).toHaveBeenCalledTimes(1);
@@ -194,7 +215,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 
   it('refuses a duplicate name before it can be staged', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'dev' } });
     expect(screen.getByText(/listed twice/)).toBeTruthy();
@@ -203,7 +224,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 
   it('refuses an invalid name', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'QA team' } });
     expect(screen.getByText(/not a valid environment name/)).toBeTruthy();
@@ -211,7 +232,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 
   it('discards everything staged', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageAdd('qa');
     fireEvent.click(screen.getByRole('button', { name: 'Discard all' }));
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
@@ -222,7 +243,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 describe('EnvironmentsTab: reordering', () => {
   it('moves a Ground environment, stages the new order, and keeps Flight where it is', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Move test earlier' }));
     expect(panel().getByText('Change the promotion order')).toBeTruthy();
     expect(panel().getByText('test to dev to staging')).toBeTruthy();
@@ -240,7 +261,7 @@ describe('EnvironmentsTab: reordering', () => {
 describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
   it('sets a function for one environment, shows the app-level value as the hint, and stages one line', () => {
     lambdaNew();
-    render(<EnvironmentsTab />);
+    renderTab();
     const testRow = screen.getAllByRole('row').find(r => within(r).queryByText('test'))!;
     fireEvent.click(testRow);
     const field = screen.getByLabelText('functionName') as HTMLInputElement;
@@ -262,7 +283,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
 
   it('offers the target\'s own override field when adding an environment, and stages it', async () => {
     lambdaNew();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'eu' } });
     fireEvent.change(screen.getByLabelText(/functionName \(optional\)/), { target: { value: 'app-fn-eu' } });
@@ -276,9 +297,9 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
 
   it('a Kubernetes environment points to where its values live instead of showing cloud fields', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getAllByRole('row').find(r => within(r).queryByText('test'))!);
-    expect(screen.getByText(/platform\/envs\/test\.yaml/)).toBeTruthy();
+    expect(screen.getByText('Values: platform/envs/test.yaml')).toBeTruthy();
     expect(screen.queryByLabelText('functionName')).toBeNull();
   });
 });
@@ -286,10 +307,10 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
 describe('EnvironmentsTab: the result', () => {
   it('shows the opened pull request and clears what was staged when it is closed', async () => {
     k8sOld();
-    const { rerender } = render(<EnvironmentsTab />);
+    renderTab();
     await stageAdd('qa');
     submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
-    rerender(<EnvironmentsTab />);
+    rerenderTab();
     expect(screen.getByText(/pull\/9/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(resetMock).toHaveBeenCalled();
@@ -299,7 +320,7 @@ describe('EnvironmentsTab: the result', () => {
 describe('EnvironmentsTab: staging a Flight environment', () => {
   it('offers Flight for a Kubernetes app, asks for the cluster, and explains the two pull requests', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(false);
     expect(screen.queryByLabelText('Cluster')).toBeNull(); // only once Flight is chosen
@@ -312,7 +333,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('does not offer Flight for a cloud app, and says why', () => {
     lambdaNew();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByText(/no approval path for them/)).toBeTruthy();
@@ -320,7 +341,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('will not stage a Flight environment without a cluster', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
     fireEvent.click(screen.getByLabelText(/^Flight/));
@@ -330,7 +351,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('lists both pull requests in the order they open, and says which to merge first', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageFlight('prod', 'kind-prod');
     expect(panel().getByText('Add environment prod')).toBeTruthy();
     expect(panel().getByText('Pull requests this opens, in this order')).toBeTruthy();
@@ -346,7 +367,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
   it('launches the ApplicationEnvironment request first, then submits cicd.yaml with the Flight entry', async () => {
     k8sOld();
     launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageFlight('prod', 'kind-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
@@ -359,7 +380,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
   it('opens no cicd.yaml change when the request fails, says so, and keeps what was staged', async () => {
     k8sOld();
     launchMock.mockResolvedValue({ status: 'failed', error: 'cluster not registered' });
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageFlight('prod', 'kind-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     expect(await screen.findByText(/Creating prod failed: cluster not registered/)).toBeTruthy();
@@ -379,7 +400,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     resetMock.mockImplementation(() => {
       submitState = { loading: false };
     });
-    const { rerender } = render(<EnvironmentsTab />);
+    renderTab();
     await stageFlight('prod', 'kind-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     // the request opened, then cicd.yaml failed: both facts are shown
@@ -387,7 +408,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(screen.getByText(/pull\/42/)).toBeTruthy();
     expect(screen.getByText(/will not be opened again/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    rerender(<EnvironmentsTab />);
+    rerenderTab();
     await waitFor(() => expect(screen.queryByText(/GitHub is unavailable/)).toBeNull());
     expect(screen.getByText(/\(already opened\)/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
@@ -401,7 +422,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     submitMock.mockImplementationOnce(async () => {
       submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
     });
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageFlight('prod', 'kind-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     expect(await screen.findByText(/Pull requests opened/)).toBeTruthy();
@@ -424,7 +445,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 
   it('previews the impact, needs the name typed, and only then stages the removal', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
     expect(screen.getByText('platform/envs/test.yaml')).toBeTruthy();
     expect(screen.getByText('app-air-traffic-api-test')).toBeTruthy();
@@ -439,7 +460,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 
   it('submits the cicd.yaml change together with the files to delete', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     await confirmRemove('test');
     expect(panel().getByText('Remove environment test')).toBeTruthy();
     fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
@@ -457,7 +478,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
   it('refuses while a pipeline step still names the environment', () => {
     k8sOld();
     cicdData.values.pipelines = { ci: { steps: [{ stage: 'deploy', env: 'test' }] } };
-    render(<EnvironmentsTab />);
+    renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
     expect(screen.getByText(/Pipeline "ci" still has a step for test/)).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement).disabled).toBe(true);
@@ -466,7 +487,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 
   it('sends no files for a cloud app and says the cloud resource is kept', async () => {
     lambdaNew();
-    render(<EnvironmentsTab />);
+    renderTab();
     await confirmRemove('test');
     expect(panel().getByText(/not deleted/)).toBeTruthy();
     fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
@@ -476,7 +497,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 
   it('removing an environment that is only staged just un-stages it', async () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     await stageAdd('qa');
     expect(panel().getByText('Add environment qa')).toBeTruthy();
     await confirmRemove('qa');
@@ -485,11 +506,67 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 
   it('offers no Remove button for a Flight environment and shows the manual steps instead', () => {
     k8sOld();
-    render(<EnvironmentsTab />);
+    renderTab();
     expect(screen.queryByRole('button', { name: 'Remove staging' })).toBeNull();
-    fireEvent.click(screen.getByText('staging'));
+    fireEvent.click(openRow('staging'));
     expect(screen.getByText(/Danger zone: removing a Flight environment/)).toBeTruthy();
     expect(screen.getByText('tenants/air-traffic-api/staging/')).toBeTruthy();
     expect(screen.getByText('kind-prod/staging/')).toBeTruthy();
+  });
+});
+
+describe('EnvironmentsTab: the values of a Ground environment', () => {
+  it('shows the platform file of the environment in its row, as YAML, with its own PR button', () => {
+    k8sOld();
+    renderTab();
+    fireEvent.click(openRow('test'));
+    expect(screen.getByText('Values: platform/envs/test.yaml')).toBeTruthy();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toContain('replicas: 1');
+    expect((screen.getByRole('button', { name: 'Open PR for this file' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('opens a PR for just the changed fields of that file, separate from the pending changes', async () => {
+    k8sOld();
+    renderTab();
+    fireEvent.click(openRow('test'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'envName: test\nrollout:\n  replicas: 3\n' } });
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open PR for this file' }));
+    await waitFor(() => expect(platformSubmitMock).toHaveBeenCalledTimes(1));
+    expect(platformSubmitMock.mock.calls[0][0]).toMatchObject({
+      owner: 'jfillman',
+      appName: 'air-traffic-api',
+      selector: { kind: 'env', env: 'test' },
+      patch: { rollout: { replicas: 3 } },
+    });
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it('will not submit invalid YAML', () => {
+    k8sOld();
+    renderTab();
+    fireEvent.click(openRow('test'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'rollout: [3' } });
+    expect((screen.getByRole('button', { name: 'Open PR for this file' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('does not offer a file editor for an environment that is only staged (its file does not exist yet)', async () => {
+    k8sOld();
+    renderTab();
+    await stageAdd('qa');
+    fireEvent.click(openRow('qa'));
+    expect(screen.getByText(/is created by a\s+second pull request/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open PR for this file' })).toBeNull();
+  });
+
+  it('links a Flight environment to App Configuration with that environment preselected', () => {
+    k8sOld();
+    renderTab();
+    fireEvent.click(openRow('staging'));
+    const link = screen.getByRole('link', { name: 'Edit them in App Configuration' }) as HTMLAnchorElement;
+    const q = new URLSearchParams(link.getAttribute('href')!.replace(/^\?/, ''));
+    expect(q.get('tab')).toBe('config');
+    expect(q.get('env')).toBe('staging');
+    expect(q.get('entity')).toBe('component:default/air-traffic-api');
   });
 });
