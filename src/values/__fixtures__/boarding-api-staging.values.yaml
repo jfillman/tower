@@ -1,0 +1,86 @@
+appName: boarding-api
+appType: app
+cluster: kind-prod
+envName: staging
+rollout:
+  replicas: 4
+  ports:
+    - name: http
+      containerPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits: {}
+  steps:
+    - setWeight: 50
+    - pause:
+        duration: 30s
+    - setWeight: 100
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    timeoutSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    timeoutSeconds: 10
+httpRoute:
+  enabled: true
+  hostnames:
+    - boarding-api.prod.kind.local
+  parentRefs:
+    - name: kiac
+      namespace: kiac-gateway
+env:
+  - name: REDIS_URL
+    value: redis://cache-master:6379
+  - name: FLIGHT_API_URL
+    value: http://flight-api.app-flight-api-staging.svc.cluster.local:8080
+  - name: RABBITMQ_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: board-mq-connection
+        key: host
+  - name: RABBITMQ_VHOST
+    valueFrom:
+      configMapKeyRef:
+        name: board-mq-connection
+        key: vhost
+  - name: RABBITMQ_USER
+    valueFrom:
+      secretKeyRef:
+        name: board-mq-user-credentials
+        key: username
+  - name: RABBITMQ_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: board-mq-user-credentials
+        key: password
+secrets:
+  - name: redis-password
+    key: REDIS_PASSWORD
+components:
+  - type: redis
+    name: cache
+    spec:
+      size: small
+      persistence: false
+  - type: rabbitmq
+    name: board-mq
+    spec:
+      mode: attach
+      brokerRef:
+        name: skyport-broker
+        namespace: app-skyport-broker-staging
+      vhost: flights
+      queuePrefix: boarding
+      consume:
+        - flights.events
+configMaps:
+  - name: test
+    data: {}
