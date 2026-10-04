@@ -819,6 +819,8 @@ export interface CicdConfigChangeRequest {
   appName: string;
   patch: Partial<Record<CicdTopLevelField, unknown>>;
   summary: string[];
+  /** Environment files to delete in the same pull request (the backend allows only envs/<env>[.release].yaml). */
+  deleteFiles?: string[];
 }
 
 export interface CicdConfigChangeResult {

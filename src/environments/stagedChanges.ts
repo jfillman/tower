@@ -238,11 +238,70 @@ export function describeChanges(before: EnvDef[], after: EnvDef[], shape: Shape)
   return lines;
 }
 
+/**
+ * The files Glidepath keeps for one Ground environment on the source repo (backstage's environmentFiles.ts allows
+ * exactly these paths). Both folder names are listed because apps are mid-rename; a missing file is skipped.
+ */
+export function envFilePaths(env: string): string[] {
+  return ['platform', 'glidepath'].flatMap(dir => [`${dir}/envs/${env}.yaml`, `${dir}/envs/${env}.release.yaml`]);
+}
+
+/** Names of the pipelines that still have a step for this environment (either list or map form). */
+export function pipelinesNamingEnv(pipelines: unknown, env: string): string[] {
+  const entries: Array<[string, unknown]> = Array.isArray(pipelines)
+    ? pipelines.map((p, i) => [String((p as { name?: unknown })?.name ?? i), p])
+    : pipelines && typeof pipelines === 'object'
+      ? Object.entries(pipelines as Record<string, unknown>)
+      : [];
+  return entries
+    .filter(([, p]) => {
+      const steps = Array.isArray(p) ? p : (p as { steps?: unknown })?.steps;
+      return Array.isArray(steps) && steps.some(st => (st as { env?: unknown })?.env === env);
+    })
+    .map(([name]) => name);
+}
+
+/** Environments the staged changes remove, in their original order. */
+export function removedEnvs(before: EnvDef[], after: EnvDef[]): EnvDef[] {
+  const kept = new Set(after.map(e => e.name));
+  return before.filter(e => !kept.has(e.name));
+}
+
+/** Why removals could not be submitted. Only a Ground environment on a Kubernetes app can be removed here. */
+export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: unknown): string[] {
+  const problems: string[] = [];
+  for (const e of removedEnvs(before, after)) {
+    if (e.tier === 'flight') {
+      problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
+    }
+    for (const p of pipelinesNamingEnv(pipelines, e.name)) {
+      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in the Glidepath tab first.`);
+    }
+  }
+  return problems;
+}
+
+/** The files to delete in the same pull request: those of removed Ground environments of a Kubernetes app. */
+export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string | undefined): string[] {
+  if ((target || 'k8s-rollout') !== 'k8s-rollout') return [];
+  return removedEnvs(before, after)
+    .filter(e => e.tier === 'ground')
+    .flatMap(e => envFilePaths(e.name));
+}
+
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */
-export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined): string[] {
+export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string): string[] {
   const out: string[] = [];
   const had = new Set(before.map(e => e.name));
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
+  for (const e of removedEnvs(before, after)) {
+    if (e.tier !== 'ground') continue;
+    out.push(
+      cloud
+        ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.`
+        : `The pull request also deletes platform/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`,
+    );
+  }
   for (const e of after) {
     if (had.has(e.name)) continue;
     if (e.tier === 'flight' && !cloud) {

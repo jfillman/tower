@@ -2,13 +2,18 @@ import {
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
+  deleteFilesFor,
   describeChanges,
+  envFilePaths,
   followUps,
   isUnchanged,
+  pipelinesNamingEnv,
   readEnvironments,
+  removedEnvs,
   stageSetBlock,
   validateAddedFlight,
   validateEnvironments,
+  validateRemovals,
   type EnvDef,
 } from './stagedChanges';
 
@@ -271,5 +276,61 @@ describe('adding a Flight environment', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatch(/Merge that one before the cicd\.yaml change/);
     expect(out[0]).toMatch(/not added: edit the pipeline in the Glidepath tab/);
+  });
+});
+
+describe('removing environments', () => {
+  const before = [ground('dev'), ground('qa'), flight('prod', 'kind-prod')];
+
+  it('names exactly the files the backend allows deleting', () => {
+    expect(envFilePaths('qa')).toEqual([
+      'platform/envs/qa.yaml',
+      'platform/envs/qa.release.yaml',
+      'glidepath/envs/qa.yaml',
+      'glidepath/envs/qa.release.yaml',
+    ]);
+  });
+
+  it('finds removed environments', () => {
+    expect(removedEnvs(before, [ground('dev'), flight('prod', 'kind-prod')]).map(e => e.name)).toEqual(['qa']);
+    expect(removedEnvs(before, before)).toEqual([]);
+  });
+
+  it('finds pipelines with a step for an environment, in map and list form', () => {
+    const map = { ci: { steps: [{ stage: 'build' }, { stage: 'deploy', env: 'qa' }] }, other: { steps: [{ env: 'dev' }] } };
+    expect(pipelinesNamingEnv(map, 'qa')).toEqual(['ci']);
+    expect(pipelinesNamingEnv(map, 'nope')).toEqual([]);
+    expect(pipelinesNamingEnv([{ name: 'ci', steps: [{ env: 'qa' }] }], 'qa')).toEqual(['ci']);
+    expect(pipelinesNamingEnv(undefined, 'qa')).toEqual([]);
+  });
+
+  it('refuses a removal a pipeline step still uses, naming the pipeline', () => {
+    const after = [ground('dev'), flight('prod', 'kind-prod')];
+    expect(validateRemovals(before, after, { ci: { steps: [{ env: 'qa' }] } })).toEqual([
+      'Pipeline "ci" still has a step for "qa". Remove that step in the Glidepath tab first.',
+    ]);
+    expect(validateRemovals(before, after, { ci: { steps: [{ env: 'dev' }] } })).toEqual([]);
+  });
+
+  it('refuses to remove a Flight environment', () => {
+    expect(validateRemovals(before, [ground('dev'), ground('qa')], undefined)[0]).toMatch(/Flight environment "prod" cannot be removed/);
+  });
+
+  it('deletes files only for removed Ground environments of a Kubernetes app', () => {
+    const after = [ground('dev')];
+    expect(deleteFilesFor(before, after, undefined)).toEqual(envFilePaths('qa'));
+    expect(deleteFilesFor(before, after, 'k8s-rollout')).toEqual(envFilePaths('qa'));
+    expect(deleteFilesFor(before, after, 'aws-lambda')).toEqual([]);
+    expect(deleteFilesFor(before, before, undefined)).toEqual([]);
+  });
+
+  it('says what a Ground removal will take with it, and that a cloud resource is left alone', () => {
+    const after = [ground('dev'), flight('prod', 'kind-prod')];
+    const k8s = followUps(before, after, undefined, 'air-traffic-api');
+    expect(k8s).toHaveLength(1);
+    expect(k8s[0]).toMatch(/deletes platform\/envs\/qa\.yaml/);
+    expect(k8s[0]).toMatch(/air-traffic-api-qa/);
+    expect(k8s[0]).toMatch(/app-air-traffic-api-qa/);
+    expect(followUps(before, after, 'aws-lambda', 'fn')[0]).toMatch(/not deleted/);
   });
 });
