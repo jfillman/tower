@@ -570,3 +570,72 @@ describe('EnvironmentsTab: the values of a Ground environment', () => {
     expect(q.get('entity')).toBe('component:default/air-traffic-api');
   });
 });
+
+describe('EnvironmentsTab: a release step for a new Flight environment', () => {
+  const withPipeline = () => {
+    k8sOld();
+    cicdData.values.pipelines = {
+      ci: { trigger: { branch: 'main' }, steps: [{ stage: 'build' }, { stage: 'deploy', env: 'dev' }, { stage: 'release', env: 'staging' }] },
+    };
+  };
+
+  it('is offered on, and staged as its own line in the panel', async () => {
+    withPipeline();
+    renderTab();
+    await stageFlight('prod', 'kind-prod');
+    expect(panel().getByText('Add a release step for prod')).toBeTruthy();
+    expect(panel().getByText(/pipeline ci, after the step for staging/)).toBeTruthy();
+  });
+
+  it('sends the pipelines change in the same cicd.yaml patch', async () => {
+    withPipeline();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/o/tenants/pull/1' });
+    renderTab();
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    const req = submitMock.mock.calls[0][0];
+    expect(req.patch.pipelines.ci.steps.at(-1)).toEqual({ stage: 'release', env: 'prod' });
+    expect(req.summary).toContain('Add a release step for prod');
+  });
+
+  it('adds no step, and no pipelines change, when it is switched off', async () => {
+    withPipeline();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/o/tenants/pull/1' });
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    fireEvent.change(screen.getByLabelText('Cluster'), { target: { value: 'kind-prod' } });
+    fireEvent.click(screen.getByLabelText('Also add a release step for it to the pipeline'));
+    fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(panel().queryByText('Add a release step for prod')).toBeNull();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(submitMock.mock.calls[0][0].patch.pipelines).toBeUndefined();
+  });
+
+  it('says so when there is no pipeline to add it to, and still opens the environment change', async () => {
+    k8sOld();
+    renderTab();
+    await stageFlight('prod', 'kind-prod');
+    expect(panel().getByText(/No release step added for prod/)).toBeTruthy();
+    expect(panel().queryByText('Add a release step for prod')).toBeNull();
+  });
+
+  it('is not offered for a Ground environment', () => {
+    withPipeline();
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    expect(screen.queryByLabelText('Also add a release step for it to the pipeline')).toBeNull();
+  });
+
+  it('un-staging the environment drops its release step too', async () => {
+    withPipeline();
+    renderTab();
+    await stageFlight('prod', 'kind-prod');
+    fireEvent.click(panel().getByRole('button', { name: 'Discard all' }));
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+  });
+});
