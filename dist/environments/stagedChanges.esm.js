@@ -233,6 +233,71 @@ function validateAddedFlight(before, after, target) {
   }
   return out;
 }
+const isStage = (st, ...stages) => stages.includes(String(st.stage));
+function pipelineSlots(pipelines) {
+  const clone = JSON.parse(JSON.stringify(pipelines ?? null));
+  const slots = [];
+  const add = (name, holder) => {
+    const steps = holder.steps;
+    if (!Array.isArray(steps)) return;
+    slots.push({
+      name,
+      steps,
+      get: () => holder.steps,
+      set: (next) => {
+        holder.steps = next;
+      }
+    });
+  };
+  if (Array.isArray(clone)) {
+    clone.forEach((p, i) => {
+      if (p && typeof p === "object" && !Array.isArray(p)) add(String(p.name ?? i), p);
+    });
+  } else if (clone && typeof clone === "object") {
+    for (const [name, p] of Object.entries(clone)) {
+      if (p && typeof p === "object" && !Array.isArray(p)) add(name, p);
+    }
+  }
+  return { copy: clone, slots };
+}
+function planReleaseSteps(pipelines, envs, names) {
+  const { copy, slots } = pipelineSlots(pipelines);
+  const plan = { pipelines, added: [], skipped: [] };
+  if (names.length === 0) return plan;
+  if (slots.length === 0) {
+    plan.skipped = names.map((env) => ({ env, reason: "the service has no pipeline with steps to add it to" }));
+    return plan;
+  }
+  const weight = (sl) => sl.steps.filter((st) => isStage(st, "deploy", "release")).length;
+  const main = slots.reduce((best, sl) => weight(sl) > weight(best) ? sl : best, slots[0]);
+  for (const env of names) {
+    if (slots.some((sl) => sl.steps.some((st) => st.env === env))) {
+      plan.skipped.push({ env, reason: "a pipeline already has a step for it" });
+      continue;
+    }
+    const i = envs.findIndex((e) => e.name === env);
+    const prev = i > 0 ? envs[i - 1].name : void 0;
+    const steps = [...main.get()];
+    let at = steps.length;
+    if (prev) {
+      for (let k = steps.length - 1; k >= 0; k--) {
+        if (steps[k].env === prev) {
+          at = k + 1;
+          break;
+        }
+      }
+    }
+    steps.splice(at, 0, { stage: "release", env });
+    main.set(steps);
+    plan.added.push({ env, pipeline: main.name, ...prev && at > 0 && steps[at - 1].env === prev ? { after: prev } : {} });
+  }
+  if (plan.added.length > 0) plan.pipelines = copy;
+  return plan;
+}
+function releaseStepEnvs(staged, after) {
+  const alive = new Set(after.filter((e) => e.tier === "flight").map((e) => e.name));
+  return staged.flatMap((s) => s.kind === "add" && s.releaseStep && alive.has(s.env.name) ? [s.env.name] : []);
+}
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, readEnvironments, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, planReleaseSteps, readEnvironments, releaseStepEnvs, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map

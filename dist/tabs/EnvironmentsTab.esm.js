@@ -8,6 +8,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 import Button from '@material-ui/core/Button';
+import Checkbox from '@material-ui/core/Checkbox';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -18,7 +19,7 @@ import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, followUps, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, deleteFilesFor, pipelinesNamingEnv, envFilePaths, buildDeploy, stageSetBlock } from '../environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { PlatformFileEditor } from '../PlatformFileEditor.esm.js';
 import { preventFocusScroll } from '../preventFocusScroll.esm.js';
@@ -184,7 +185,7 @@ function EnvironmentsTab() {
   const targetLabel = DEPLOY_TARGETS[targetId]?.label ?? targetId;
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
-  const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
+  const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
     () => [
@@ -194,7 +195,28 @@ function EnvironmentsTab() {
     ],
     [before, after, targetId, pipelines]
   );
-  const notes = useMemo(() => followUps(before, after, targetId, appName), [before, after, targetId, appName]);
+  const releasePlan = useMemo(
+    () => planReleaseSteps(pipelines, after, releaseStepEnvs(staged, after)),
+    [pipelines, after, staged]
+  );
+  const releaseLines = useMemo(
+    () => [
+      ...releasePlan.added.map((a) => ({
+        kind: "edit",
+        title: `Add a release step for ${a.env}`,
+        detail: `pipeline ${a.pipeline}${a.after ? `, after the step for ${a.after}` : ", at the end"}`
+      }))
+    ],
+    [releasePlan]
+  );
+  const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const notes = useMemo(
+    () => [
+      ...followUps(before, after, targetId, appName),
+      ...releasePlan.skipped.map((k) => `No release step added for ${k.env}: ${k.reason}.`)
+    ],
+    [before, after, targetId, appName, releasePlan]
+  );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
   const rows = useMemo(() => {
     const live = new Map(liveRows.map((r) => [r.name, r]));
@@ -263,7 +285,7 @@ function EnvironmentsTab() {
     await submit.submit({
       owner,
       appName,
-      patch: { deploy: buildDeploy(deploy, after) },
+      patch: { deploy: buildDeploy(deploy, after), ...releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {} },
       summary: changes.map((c) => c.title),
       ...deleteFiles.length > 0 ? { deleteFiles } : {}
     });
@@ -278,6 +300,70 @@ function EnvironmentsTab() {
       setLaunched({});
       setNonce((n) => n + 1);
     }
+  };
+  const valuesPanel = (r) => {
+    if (cloudBlock) {
+      return /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
+          "This environment's ",
+          targetLabel,
+          " resource"
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Leave a field empty to use the app-level value shown as its hint." }),
+        /* @__PURE__ */ jsx("div", { className: classes.fields, style: { marginTop: 10 }, children: BLOCK_FIELDS[cloudBlock].map((f) => /* @__PURE__ */ jsx(
+          TextField,
+          {
+            id: `env-${r.name}-${f}`,
+            size: "small",
+            label: f,
+            value: String(r.def?.[cloudBlock]?.[f] ?? ""),
+            placeholder: String(deploy?.[cloudBlock]?.[f] ?? ""),
+            InputLabelProps: { shrink: true },
+            onChange: (e) => setField(r.def, cloudBlock, f, e.target.value)
+          },
+          f
+        )) })
+      ] });
+    }
+    if (r.def.tier === "ground" && r.state === "new") {
+      return /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+        "Its values file, ",
+        /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+          "platform/envs/",
+          r.name,
+          ".yaml"
+        ] }),
+        ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
+      ] });
+    }
+    if (r.def.tier === "ground") {
+      return /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
+          "Values: platform/envs/",
+          r.name,
+          ".yaml"
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, style: { marginBottom: 8 }, children: "The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file has its own pull request: it is not part of the pending changes." }),
+        /* @__PURE__ */ jsx(PlatformFileEditor, { owner, appName, selector: { kind: "env", env: r.name } })
+      ] });
+    }
+    return /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+      "This Flight environment's values live in",
+      " ",
+      /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+        "gitops-",
+        appName,
+        "/",
+        r.def.cluster ?? "<cluster>",
+        "/",
+        r.name,
+        "/values.yaml"
+      ] }),
+      ".",
+      " ",
+      /* @__PURE__ */ jsx(Link, { href: `?${new URLSearchParams({ entity: searchParams.get("entity") ?? "", tab: "config", env: r.name })}`, children: "Edit them in App Configuration" }),
+      ", which keeps its own pull-request flow and prod warnings."
+    ] });
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
@@ -361,59 +447,7 @@ function EnvironmentsTab() {
               r.name
             ),
             isOpen && r.def && /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsxs("td", { colSpan: 8, className: classes.expanded, children: [
-              cloudBlock ? /* @__PURE__ */ jsxs(Fragment, { children: [
-                /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
-                  "This environment's ",
-                  targetLabel,
-                  " resource"
-                ] }),
-                /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Leave a field empty to use the app-level value shown as its hint." }),
-                /* @__PURE__ */ jsx("div", { className: classes.fields, style: { marginTop: 10 }, children: BLOCK_FIELDS[cloudBlock].map((f) => /* @__PURE__ */ jsx(
-                  TextField,
-                  {
-                    id: `env-${r.name}-${f}`,
-                    size: "small",
-                    label: f,
-                    value: String(r.def?.[cloudBlock]?.[f] ?? ""),
-                    placeholder: String(deploy?.[cloudBlock]?.[f] ?? ""),
-                    InputLabelProps: { shrink: true },
-                    onChange: (e) => setField(r.def, cloudBlock, f, e.target.value)
-                  },
-                  f
-                )) })
-              ] }) : r.def.tier === "ground" ? r.state === "new" ? /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
-                "Its values file, ",
-                /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
-                  "platform/envs/",
-                  r.name,
-                  ".yaml"
-                ] }),
-                ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
-              ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-                /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
-                  "Values: platform/envs/",
-                  r.name,
-                  ".yaml"
-                ] }),
-                /* @__PURE__ */ jsx("div", { className: classes.dialogNote, style: { marginBottom: 8 }, children: "The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file has its own pull request: it is not part of the pending changes." }),
-                /* @__PURE__ */ jsx(PlatformFileEditor, { owner, appName, selector: { kind: "env", env: r.name } })
-              ] }) : /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
-                "This Flight environment's values live in",
-                " ",
-                /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
-                  "gitops-",
-                  appName,
-                  "/",
-                  r.def.cluster ?? "<cluster>",
-                  "/",
-                  r.name,
-                  "/values.yaml"
-                ] }),
-                ".",
-                " ",
-                /* @__PURE__ */ jsx(Link, { href: `?${new URLSearchParams({ entity: searchParams.get("entity") ?? "", tab: "config", env: r.name })}`, children: "Edit them in App Configuration" }),
-                ", which keeps its own pull-request flow and prod warnings."
-              ] }),
+              valuesPanel(r),
               r.def.tier === "flight" && /* @__PURE__ */ jsxs("div", { className: classes.problem, style: { marginTop: 14 }, children: [
                 /* @__PURE__ */ jsx("div", { className: classes.label, children: "Danger zone: removing a Flight environment" }),
                 /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
@@ -518,8 +552,8 @@ function EnvironmentsTab() {
         targetId,
         targetLabel,
         cloudBlock,
-        onStage: (env) => {
-          setStaged((s) => [...s, { kind: "add", env }]);
+        onStage: (env, releaseStep) => {
+          setStaged((s) => [...s, { kind: "add", env, releaseStep }]);
           setAdding(false);
         },
         classes
@@ -565,6 +599,7 @@ function AddEnvironmentDialog({
   const [tier, setTier] = useState("ground");
   const [cluster, setCluster] = useState("");
   const [override, setOverride] = useState("");
+  const [releaseStep, setReleaseStep] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
   const flightAllowed = !cloudBlock;
   const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
@@ -581,6 +616,7 @@ function AddEnvironmentDialog({
     setTier("ground");
     setCluster("");
     setOverride("");
+    setReleaseStep(true);
   };
   const close = () => {
     reset();
@@ -645,7 +681,15 @@ function AddEnvironmentDialog({
           }
         ),
         /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((c) => /* @__PURE__ */ jsx("option", { value: c }, c)) }),
-        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first. The pipeline step that releases to it is not added; edit the pipeline in the Glidepath tab." })
+        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first." }),
+        /* @__PURE__ */ jsx(
+          FormControlLabel,
+          {
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: releaseStep, onChange: (e) => setReleaseStep(e.target.checked) }),
+            label: "Also add a release step for it to the pipeline"
+          }
+        ),
+        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
       ] }),
       tier === "ground" && cloudBlock && mainField && /* @__PURE__ */ jsx(
         TextField,
@@ -670,7 +714,7 @@ function AddEnvironmentDialog({
         {
           disabled: !ok,
           onClick: () => {
-            onStage(candidate);
+            onStage(candidate, tier === "flight" && releaseStep);
             reset();
           },
           children: "Stage environment"
