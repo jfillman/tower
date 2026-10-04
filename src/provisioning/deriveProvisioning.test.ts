@@ -45,6 +45,8 @@ const xr = (conditions: XrCondition[]): ProvisioningInputs['xr'] => ({
 const now = Date.parse('2026-10-01T02:00:00Z');
 // Steps, in order: merge, request, cluster, cicd, repos, catalog, onboarding, secrets, build, running.
 const [MERGE, REQUEST, CLUSTER, CICD, REPOS, CATALOG, ONBOARDING, SECRETS, BUILD, RUNNING] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+// 20 minutes after the onboarding PRs merged (mergedLinks): a build is expected, and may still be starting.
+const soonAfterMerge = Date.parse('2026-09-30T15:30:00Z');
 const secretsReady = { found: true, ready: true, readyAt: Date.parse('2026-09-30T15:03:00Z') };
 // Both onboarding PRs merged, as on sky-marshall (jfillman/sky-marshall#1, gitops-sky-marshall#1).
 const mergedLinks: ProvisioningLinks = {
@@ -82,7 +84,7 @@ describe('deriveProvisioning', () => {
 
   it('runs the build step with task progress and waits for it when no run exists', () => {
     const base = { xr: xr(live), links: mergedLinks, secrets: secretsReady };
-    expect(deriveProvisioning(base, now).steps[BUILD]).toMatchObject({
+    expect(deriveProvisioning(base, soonAfterMerge).steps[BUILD]).toMatchObject({
       state: 'run',
       detail: 'Waiting for the first pipeline run to start',
     });
@@ -202,7 +204,7 @@ describe('deriveProvisioning', () => {
       );
       expect(p.steps[ONBOARDING].state).toBe('run');
       expect(p.steps[BUILD].state).toBe('pend');
-      const merged = deriveProvisioning({ ...front, links: mergedLinks }, now);
+      const merged = deriveProvisioning({ ...front, links: mergedLinks }, soonAfterMerge);
       expect(merged.steps[ONBOARDING].state).toBe('done');
       expect(merged.steps[BUILD]).toMatchObject({
         state: 'run',
@@ -609,6 +611,50 @@ describe('step times and measured typical durations', () => {
     expect(measured.steps[BUILD].typicalSec).toBe(1000);
     expect(measured.etaSec).toBeGreaterThan(est.etaSec);
     expect(measured.steps[CLUSTER].typicalSec).toBe(est.steps[CLUSTER].typicalSec); // untouched steps keep theirs
+  });
+});
+
+describe('a service whose build left no trace in the cluster', () => {
+  // smoke-fn: the XR is Ready and both PRs merged long ago, but its PipelineRuns were cleaned up and a
+  // function has no Rollout, so nothing shows that a build ever ran.
+  const base = { xr: xr(live), links: mergedLinks, secrets: secretsReady, catalog: { found: true } };
+
+  it('is waiting, and in flight, shortly after the onboarding PRs merged', () => {
+    const p = deriveProvisioning(base, soonAfterMerge);
+    expect(p.steps[BUILD]).toMatchObject({ state: 'run', detail: 'Waiting for the first pipeline run to start' });
+    expect(p.stalled).toBe(false);
+  });
+
+  it('is stalled, not forever in flight, once hours have passed with no build in sight', () => {
+    const p = deriveProvisioning(base, now); // ten hours after the merge
+    expect(p.stalled).toBe(true);
+    expect(p.complete).toBe(false);
+    expect(p.steps[BUILD].state).toBe('run'); // Tower still does not claim it finished
+    expect(p.steps[BUILD].detail).toMatch(/No pipeline run for this service is left in the cluster/);
+    expect(p.steps[BUILD].detail).toMatch(/may have finished/);
+  });
+
+  it('turns stalled two hours after the merge, not before', () => {
+    const merge = Date.parse('2026-09-30T15:10:20Z');
+    expect(deriveProvisioning(base, merge + 119 * 60_000).stalled).toBe(false);
+    expect(deriveProvisioning(base, merge + 121 * 60_000).stalled).toBe(true);
+  });
+
+  it('is not stalled when a cloud deploy shows it ran', () => {
+    const cloud = { label: 'AWS Lambda', state: 'running' as const };
+    expect(deriveProvisioning({ ...base, cloudDeploy: cloud }, now).stalled).toBe(false);
+  });
+
+  it('is not stalled when a rollout proves the build happened', () => {
+    const p = deriveProvisioning({ ...base, rollout: { phase: 'Progressing', desired: 2, available: 1 } }, now);
+    expect(p.stalled).toBe(false);
+    expect(p.steps[BUILD].state).toBe('done');
+  });
+
+  it('is not stalled while the onboarding PRs are still open: that is waiting on a person, not a lost build', () => {
+    const p = deriveProvisioning({ ...base, links: { onboarding: { source: { number: 1, url: 'u', state: 'open' }, gitops: { number: 1, url: 'u', state: 'open' } } } }, now);
+    expect(p.stalled).toBe(false);
+    expect(p.steps[ONBOARDING].state).toBe('run');
   });
 });
 

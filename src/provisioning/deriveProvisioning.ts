@@ -208,6 +208,15 @@ export interface Provisioning {
 // it stops counting as in flight. A normal deploy appears within minutes.
 export const STALL_AFTER_MS = 4 * 3600 * 1000;
 
+/**
+ * How long after the onboarding PRs merged a service may have no sign of any build before Tower stops
+ * calling it in flight. A build starts within minutes of that merge; and the only thing that shows a
+ * build happened for a service with no Rollout (a function, or an app whose deploy is elsewhere) is its
+ * PipelineRuns, which are cleaned up after a while. Without this such a service sat at "First build and
+ * checks" until it aged out of the list (found on smoke-fn, whose runs had been cleared).
+ */
+export const NO_BUILD_EVIDENCE_AFTER_MS = 2 * 3600 * 1000;
+
 // Estimates from watching real provisions, not recorded history. The UI
 // labels them "typical" until a history store replaces them.
 export const TYPICAL_SEC: Record<string, number> = {
@@ -531,6 +540,7 @@ export function deriveProvisioning(
   let buildFraction = 0;
   let buildSec: number | undefined;
   let buildDetail: string | undefined;
+  let noBuildEvidence = false;
   if (build) {
     buildFraction = build.tasksTotal > 0 ? Math.min(1, build.tasksDone / build.tasksTotal) : 0;
     if (build.phase === 'succeeded') buildState = 'done';
@@ -544,7 +554,10 @@ export function deriveProvisioning(
     buildState = 'done';
   } else if (onboardingState === 'done') {
     buildState = 'run';
-    buildDetail = 'Waiting for the first pipeline run to start';
+    noBuildEvidence = !cloudDeploy && now - (onboardingEnd ?? created) > NO_BUILD_EVIDENCE_AFTER_MS;
+    buildDetail = noBuildEvidence
+      ? 'No pipeline run for this service is left in the cluster, so Tower cannot tell whether the build ran. Runs are cleaned up after a while, so it may have finished; check the Pipelines tab or GitHub.'
+      : 'Waiting for the first pipeline run to start';
   }
   push({
     id: 'build',
@@ -653,6 +666,10 @@ export function deriveProvisioning(
     completedAt = ends.length ? Math.max(...ends) : now;
   }
   const deployed = Boolean(rollout) || cloudDeploy?.state === 'succeeded';
-  const stalled = !complete && !failed && !deployed && build?.phase === 'succeeded' && now - created > STALL_AFTER_MS;
+  const stalled =
+    !complete &&
+    !failed &&
+    !deployed &&
+    ((build?.phase === 'succeeded' && now - created > STALL_AFTER_MS) || noBuildEvidence);
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
