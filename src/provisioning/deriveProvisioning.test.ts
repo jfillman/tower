@@ -533,3 +533,29 @@ describe('an app (not a function) that deploys to a cloud target', () => {
     expect(p.steps[ONBOARDING].title).toBe('Application onboarding PRs');
   });
 });
+
+describe('CI/CD step waits for its ArgoCD app', () => {
+  const base = xr(live.slice(0, 2).concat({ type: 'Ready', status: 'False' }));
+  const run = (cicdApp?: { name: string; sync?: string; health?: string }) =>
+    deriveProvisioning({ xr: base, cicdApp }, now);
+
+  it('is done on the condition alone when ArgoCD cannot be read', () => {
+    expect(run().steps[CICD].state).toBe('done');
+  });
+  it('keeps running while the app is not yet Synced and Healthy', () => {
+    const p = run({ name: 'gate-api-cicd', sync: 'OutOfSync', health: 'Progressing' });
+    expect(p.steps[CICD].state).toBe('run');
+    expect(p.steps[CICD].detail).toContain('gate-api-cicd is OutOfSync / Progressing');
+  });
+  it('runs when the app does not exist yet', () => {
+    expect(run({ name: 'gate-api-cicd' }).steps[CICD].state).toBe('run');
+  });
+  it('says a Degraded app needs a look', () => {
+    const p = run({ name: 'gate-api-cicd', sync: 'Synced', health: 'Degraded' });
+    expect(p.steps[CICD].state).toBe('run');
+    expect(p.steps[CICD].detail).toContain('sync hook failed');
+  });
+  it('is done once Synced and Healthy', () => {
+    expect(run({ name: 'gate-api-cicd', sync: 'Synced', health: 'Healthy' }).steps[CICD].state).toBe('done');
+  });
+});

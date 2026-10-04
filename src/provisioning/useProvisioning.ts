@@ -20,6 +20,7 @@ import {
   type RolloutSnapshot,
   type SecretsSnapshot,
   type XrCondition,
+  type ArgoSnapshot,
   type CatalogSnapshot,
   type CloudDeploySnapshot,
 } from './deriveProvisioning';
@@ -315,6 +316,8 @@ export function toPendingInputs(
     }));
 }
 
+const CATALOG_RECHECK_MS = 30000;
+
 export function useProvisioning(): UseProvisioningResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -417,13 +420,37 @@ export function useProvisioning(): UseProvisioningResult {
 
     // Whether the catalog has a Component for this service yet. Undefined when the lookup fails, so
     // the step waits rather than guessing.
+    // A service stays in the catalog once found, so only misses are asked again, and not every poll.
+    const catalogSeen = new Map<string, { found: boolean; at: number }>();
     const inCatalog = async (name: string): Promise<CatalogSnapshot | undefined> => {
+      const seen = catalogSeen.get(name);
+      if (seen && (seen.found || Date.now() - seen.at < CATALOG_RECHECK_MS)) return { found: seen.found };
       try {
         const res = await catalogApi.getEntities({
           filter: { kind: 'Component', 'metadata.name': name },
           fields: ['metadata.name'],
         });
+        catalogSeen.set(name, { found: res.items.length > 0, at: Date.now() });
         return { found: res.items.length > 0 };
+      } catch {
+        return undefined;
+      }
+    };
+
+    // The ArgoCD app that installs the pipeline namespace. Undefined when ArgoCD cannot be read,
+    // so the step falls back to the XR condition alone.
+    const cicdApp = async (name: string): Promise<ArgoSnapshot | undefined> => {
+      const appName = `${name}-cicd`;
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('argocd');
+        const res = await fetchApi.fetch(`${baseUrl}/find/name/${encodeURIComponent(appName)}?expand=applications`);
+        if (!res.ok) return undefined;
+        const instances = (await res.json()) as Array<{
+          applications?: Array<{ status?: { sync?: { status?: string }; health?: { status?: string } } }>;
+        }>;
+        const app = instances.flatMap(i => i.applications ?? [])[0];
+        // Not created yet: still waiting on ArgoCD, reported as unsynced rather than unreadable.
+        return { name: appName, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
       } catch {
         return undefined;
       }
@@ -463,7 +490,7 @@ export function useProvisioning(): UseProvisioningResult {
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
+          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo] = await Promise.all([
             optional<ListResponse<TektonRawPipelineRun>>(
               `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`,
             ),
@@ -473,6 +500,7 @@ export function useProvisioning(): UseProvisioningResult {
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
             optional<ListResponse<RawManaged>>(`${nsBase}/tektoncicds`),
             inCatalog(name),
+            cicdApp(name),
           ]);
           const store = stores?.items?.find(s => s.spec?.appRef?.name === name);
           // The Infisical project id is the Project resource's external name. Needs a read
@@ -524,6 +552,7 @@ export function useProvisioning(): UseProvisioningResult {
             ),
             secrets: toSecrets(store, stores !== undefined),
             catalog,
+            cicdApp: cicdArgo,
             cloudDeploy,
             links: {
               requestPr: gh?.requestPr,

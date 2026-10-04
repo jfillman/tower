@@ -78,6 +78,12 @@ export interface SecretsSnapshot {
   failed?: string;
 }
 
+export interface ArgoSnapshot {
+  name: string;
+  health?: string;
+  sync?: string;
+}
+
 export interface CatalogSnapshot {
   /** A Component named after the service exists in the Backstage catalog. */
   found: boolean;
@@ -132,6 +138,8 @@ export interface ProvisioningInputs {
   secrets?: SecretsSnapshot;
   /** Undefined until the catalog lookup has answered (or when it could not). */
   catalog?: CatalogSnapshot;
+  /** The ArgoCD app that installs the pipeline namespace. Undefined when ArgoCD cannot be read. */
+  cicdApp?: ArgoSnapshot;
   /** Undefined when the app has no deploy to a cloud target. */
   cloudDeploy?: CloudDeploySnapshot;
   links?: ProvisioningLinks;
@@ -230,7 +238,7 @@ export const infisicalProjectUrl = (cluster: string, projectId: string): string 
 };
 
 export function deriveProvisioning(input: ProvisioningInputs, now: number): Provisioning {
-  const { xr, build, rollout, managed, secrets, catalog, cloudDeploy, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   // A function, or any app that deploys to a cloud target, has no Rollout to wait for.
   const cloudFinal = isFunction || Boolean(cloudDeploy);
@@ -263,7 +271,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     requestState = 'run';
     requestDetail =
       reqPr?.state === 'merged'
-        ? 'Merged. Waiting for ArgoCD to create the resource'
+        ? 'Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource'
         : 'Merge the request PR to start provisioning';
   }
   push({
@@ -291,14 +299,24 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
 
   // 3. CI/CD onboarded (parallel with repositories).
-  const cicdDone = cicdC?.status === 'True';
+  // The condition only says the manifests were committed. The namespace exists once ArgoCD has
+  // synced them, so the step waits for that app to be Synced and Healthy when ArgoCD can be read.
+  const cicdCommitted = cicdC?.status === 'True';
+  const cicdSettled = !cicdApp || (cicdApp.sync === 'Synced' && cicdApp.health === 'Healthy');
+  const cicdDone = cicdCommitted && cicdSettled;
+  const cicdWaiting =
+    cicdCommitted && cicdApp && !cicdSettled
+      ? `Committed. ArgoCD app ${cicdApp.name} is ${cicdApp.sync ?? 'unknown'} / ${cicdApp.health ?? 'unknown'}${
+          cicdApp.health === 'Degraded' ? ' (a sync hook failed; see the app in ArgoCD)' : ''
+        }`
+      : undefined;
   push({
     id: 'cicd',
     title: 'CI/CD onboarded',
     desc: 'Tenant identity committed; the pipeline namespace is stood up',
     state: stateOf(cicdDone, clusterDone),
     seconds: cicdDone ? secBetween(ts(clusterC?.lastTransitionTime), ts(cicdC?.lastTransitionTime)) : undefined,
-    detail: !cicdDone && cicdC?.message ? cicdC.message : undefined,
+    detail: cicdWaiting ?? (!cicdDone && cicdC?.message ? cicdC.message : undefined),
   });
 
   // 4. Repositories and starter files.
