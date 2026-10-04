@@ -53,6 +53,42 @@ function asRecord(v: unknown): Record<string, unknown> {
 // fallback needed since both shapes are small and fixed (unlike rollout
 // steps, which can genuinely go outside what a form can represent). -------
 
+// An env var is a literal value or a reference to a key of a ConfigMap or Secret (`valueFrom`). Dropping the reference to
+// a plain empty value on save destroyed real config (2026-10-04, found on boarding-api staging), so each form is its own
+// row kind; a reference the form cannot edit (fieldRef, resourceFieldRef) is kept as it was.
+type EnvKind = 'value' | 'configMap' | 'secret' | 'other';
+interface EnvRow {
+  name: string;
+  kind: EnvKind;
+  value: string;
+  refName: string;
+  refKey: string;
+  other?: unknown;
+}
+
+function parseEnvRow(e: Record<string, unknown>): EnvRow {
+  const name = typeof e.name === 'string' ? e.name : '';
+  const from = asRecord(e.valueFrom);
+  const cm = asRecord(from.configMapKeyRef);
+  const sec = asRecord(from.secretKeyRef);
+  if (Object.keys(cm).length > 0) return { name, kind: 'configMap', value: '', refName: String(cm.name ?? ''), refKey: String(cm.key ?? '') };
+  if (Object.keys(sec).length > 0) return { name, kind: 'secret', value: '', refName: String(sec.name ?? ''), refKey: String(sec.key ?? '') };
+  if (Object.keys(from).length > 0) return { name, kind: 'other', value: '', refName: '', refKey: '', other: e.valueFrom };
+  return { name, kind: 'value', value: String(e.value ?? ''), refName: '', refKey: '' };
+}
+
+function buildEnvValue(rows: EnvRow[]): unknown[] {
+  return rows
+    .filter(r => r.name.trim())
+    .map(r => {
+      const name = r.name.trim();
+      if (r.kind === 'configMap') return { name, valueFrom: { configMapKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
+      if (r.kind === 'secret') return { name, valueFrom: { secretKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
+      if (r.kind === 'other') return { name, valueFrom: r.other };
+      return { name, value: r.value };
+    });
+}
+
 interface ConfigMapRow {
   name: string;
   as: 'volume' | 'env' | 'both';
@@ -614,7 +650,7 @@ function SecretsSection({ rows, onChange, classes }: { rows: SecretRow[]; onChan
 
 interface FormState {
   replicas: number | '';
-  ports: Array<{ name: string; containerPort: number | '' }>;
+  ports: Array<{ name: string; containerPort: number | ''; protocol: string }>;
   resourcesRequestsCpu: string;
   resourcesRequestsMemory: string;
   resourcesLimitsCpu: string;
@@ -630,8 +666,11 @@ interface FormState {
   ingressPath: string;
   ingressPathType: string;
   ingressTls: boolean;
+  ingressTlsSecretName: string;
   httpRouteEnabled: boolean;
   httpRouteHostnames: string;
+  httpRoutePath: string;
+  httpRoutePathType: string;
   httpRouteParentRefs: Array<{ name: string; namespace: string }>;
   networkPolicyEnabled: boolean;
   networkPolicyAllowIngressFromIngressController: boolean;
@@ -641,9 +680,10 @@ interface FormState {
   serviceMonitorEnabled: boolean;
   serviceMonitorPath: string;
   serviceMonitorInterval: string;
+  serviceMonitorPort: string;
   slackEnabled: boolean;
   slackChannel: string;
-  envVars: Array<{ name: string; value: string }>;
+  envVars: EnvRow[];
   configMaps: ConfigMapRow[];
   secrets: SecretRow[];
   serviceAccountCreate: boolean;
@@ -787,7 +827,7 @@ const ROLLOUT_ADVANCED_KEYS = [
   'podSpec',
 ] as const;
 
-const DEFAULT_PORTS: FormState['ports'] = [{ name: 'http', containerPort: 8080 }];
+const DEFAULT_PORTS: FormState['ports'] = [{ name: 'http', containerPort: 8080, protocol: '' }];
 
 function dumpOrBlank(v: unknown): string {
   if (v === undefined || v === null) return '';
@@ -814,17 +854,18 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
   const serviceMonitor = asRecord(values.serviceMonitor);
   const notifications = asRecord(values.notifications);
   const slack = asRecord(notifications.slack);
-  const envList = Array.isArray(values.env) ? (values.env as Array<{ name: string; value: string }>) : [];
+  const envList = Array.isArray(values.env) ? (values.env as Array<Record<string, unknown>>) : [];
   const serviceAccount = asRecord(values.serviceAccount);
   const imagePullSecrets = Array.isArray(serviceAccount.imagePullSecrets)
     ? (serviceAccount.imagePullSecrets as Array<{ name?: string }>).map(s => ({ name: s.name ?? '' }))
     : [];
 
   const portsList = Array.isArray(rollout.ports)
-    ? (rollout.ports as Array<{ name?: string; containerPort?: number }>).map(
-        (p): { name: string; containerPort: number | '' } => ({
+    ? (rollout.ports as Array<{ name?: string; containerPort?: number; protocol?: string }>).map(
+        (p): { name: string; containerPort: number | ''; protocol: string } => ({
           name: p.name ?? '',
           containerPort: typeof p.containerPort === 'number' ? p.containerPort : '',
+          protocol: typeof p.protocol === 'string' ? p.protocol : '',
         }),
       )
     : undefined;
@@ -847,8 +888,11 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     ingressPath: typeof ingress.path === 'string' ? ingress.path : '/',
     ingressPathType: typeof ingress.pathType === 'string' ? ingress.pathType : 'Prefix',
     ingressTls: Boolean(ingress.tls ?? false),
+    ingressTlsSecretName: typeof ingress.tlsSecretName === 'string' ? ingress.tlsSecretName : '',
     httpRouteEnabled: Boolean(httpRoute.enabled ?? false),
     httpRouteHostnames: Array.isArray(httpRoute.hostnames) ? (httpRoute.hostnames as string[]).join(', ') : '',
+    httpRoutePath: typeof httpRoute.path === 'string' ? httpRoute.path : '',
+    httpRoutePathType: typeof httpRoute.pathType === 'string' ? httpRoute.pathType : '',
     httpRouteParentRefs: Array.isArray(httpRoute.parentRefs)
       ? (httpRoute.parentRefs as Array<{ name: string; namespace?: string }>).map(p => ({
           name: p.name ?? '',
@@ -863,9 +907,10 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     serviceMonitorEnabled: Boolean(serviceMonitor.enabled ?? true),
     serviceMonitorPath: typeof serviceMonitor.path === 'string' ? serviceMonitor.path : '/metrics',
     serviceMonitorInterval: typeof serviceMonitor.interval === 'string' ? serviceMonitor.interval : '30s',
+    serviceMonitorPort: typeof serviceMonitor.port === 'string' ? serviceMonitor.port : '',
     slackEnabled: Boolean(slack.enabled ?? false),
     slackChannel: typeof slack.channel === 'string' ? slack.channel : '',
-    envVars: envList.map(e => ({ name: e.name ?? '', value: String(e.value ?? '') })),
+    envVars: envList.map(parseEnvRow),
     configMaps: parseConfigMapRows(values.configMaps),
     secrets: parseSecretRows(values.secrets),
     serviceAccountCreate: Boolean(serviceAccount.create ?? true),
@@ -1128,11 +1173,11 @@ export function ConfigEditor({
     dirty.add('rollout');
   }
   if (fieldsChanged(['autoscalingEnabled', 'autoscalingMin', 'autoscalingMax', 'autoscalingTargetCPUPercent'])) dirty.add('autoscaling');
-  if (fieldsChanged(['ingressEnabled', 'ingressHost', 'ingressPath', 'ingressPathType', 'ingressTls'])) dirty.add('ingress');
-  if (fieldsChanged(['httpRouteEnabled', 'httpRouteHostnames', 'httpRouteParentRefs'])) dirty.add('httpRoute');
+  if (fieldsChanged(['ingressEnabled', 'ingressHost', 'ingressPath', 'ingressPathType', 'ingressTls', 'ingressTlsSecretName'])) dirty.add('ingress');
+  if (fieldsChanged(['httpRouteEnabled', 'httpRouteHostnames', 'httpRouteParentRefs', 'httpRoutePath', 'httpRoutePathType'])) dirty.add('httpRoute');
   if (fieldsChanged(['networkPolicyEnabled', 'networkPolicyAllowIngressFromIngressController'])) dirty.add('networkPolicy');
   if (fieldsChanged(['pdbEnabled', 'pdbMinAvailable', 'pdbMaxUnavailable'])) dirty.add('podDisruptionBudget');
-  if (fieldsChanged(['serviceMonitorEnabled', 'serviceMonitorPath', 'serviceMonitorInterval'])) dirty.add('serviceMonitor');
+  if (fieldsChanged(['serviceMonitorEnabled', 'serviceMonitorPath', 'serviceMonitorInterval', 'serviceMonitorPort'])) dirty.add('serviceMonitor');
   if (fieldsChanged(['slackEnabled', 'slackChannel'])) dirty.add('notifications');
   if (fieldsChanged(['envVars'])) dirty.add('env');
   if (fieldsChanged(['configMaps'])) dirty.add('configMaps');
@@ -1160,6 +1205,8 @@ export function ConfigEditor({
       summary.push('rollout: disabled (no container deployed in this environment)');
     } else if (dirty.has('rollout')) {
       const advancedParsed = asRecord(validateYamlBlock(advanced.rolloutAdvanced).parsed);
+      const hasResources = Boolean(form.resourcesRequestsCpu || form.resourcesRequestsMemory || form.resourcesLimitsCpu || form.resourcesLimitsMemory);
+      const originalHadResources = asRecord(cfg.data!.values.rollout).resources !== undefined;
       const stepsValue =
         stepsMode === 'simple' ? buildStepsValue(stepsSimple) : (validateYamlBlock(stepsRaw).parsed ?? []);
       patch.rollout = {
@@ -1167,17 +1214,26 @@ export function ConfigEditor({
         replicas: form.replicas === '' ? undefined : form.replicas,
         ports: form.ports
           .filter(p => p.name.trim())
-          .map(p => ({ name: p.name.trim(), containerPort: p.containerPort === '' ? undefined : p.containerPort })),
-        resources: {
-          requests: {
-            ...(form.resourcesRequestsCpu ? { cpu: form.resourcesRequestsCpu } : {}),
-            ...(form.resourcesRequestsMemory ? { memory: form.resourcesRequestsMemory } : {}),
-          },
-          limits: {
-            ...(form.resourcesLimitsCpu ? { cpu: form.resourcesLimitsCpu } : {}),
-            ...(form.resourcesLimitsMemory ? { memory: form.resourcesLimitsMemory } : {}),
-          },
-        },
+          .map(p => ({
+            name: p.name.trim(),
+            containerPort: p.containerPort === '' ? undefined : p.containerPort,
+            ...(p.protocol ? { protocol: p.protocol } : {}),
+          })),
+        // Left out when nothing is set and the file had none, so an edit elsewhere does not add `resources: {…{}}`.
+        ...(hasResources || originalHadResources
+          ? {
+              resources: {
+                requests: {
+                  ...(form.resourcesRequestsCpu ? { cpu: form.resourcesRequestsCpu } : {}),
+                  ...(form.resourcesRequestsMemory ? { memory: form.resourcesRequestsMemory } : {}),
+                },
+                limits: {
+                  ...(form.resourcesLimitsCpu ? { cpu: form.resourcesLimitsCpu } : {}),
+                  ...(form.resourcesLimitsMemory ? { memory: form.resourcesLimitsMemory } : {}),
+                },
+              },
+            }
+          : {}),
         steps: stepsValue,
         livenessProbe: buildProbeValue(form.liveness),
         readinessProbe: buildProbeValue(form.readiness),
@@ -1211,6 +1267,7 @@ export function ConfigEditor({
         path: form.ingressPath,
         pathType: form.ingressPathType,
         tls: form.ingressTls,
+        tlsSecretName: form.ingressTlsSecretName.trim() || undefined,
       };
       summary.push(`ingress: ${form.ingressEnabled ? `enabled for ${form.ingressHost}` : 'disabled'}`);
     }
@@ -1219,6 +1276,8 @@ export function ConfigEditor({
         ...asRecord(values.httpRoute),
         enabled: form.httpRouteEnabled,
         hostnames: form.httpRouteHostnames.split(',').map(h => h.trim()).filter(Boolean),
+        path: form.httpRoutePath.trim() || undefined,
+        pathType: form.httpRoutePathType || undefined,
         parentRefs: form.httpRouteParentRefs.filter(p => p.name.trim()),
       };
       summary.push(`httpRoute: ${form.httpRouteEnabled ? `enabled for ${form.httpRouteHostnames}` : 'disabled'}`);
@@ -1246,6 +1305,7 @@ export function ConfigEditor({
         enabled: form.serviceMonitorEnabled,
         path: form.serviceMonitorPath,
         interval: form.serviceMonitorInterval,
+        port: form.serviceMonitorPort.trim() || undefined,
       };
       summary.push(`serviceMonitor: ${form.serviceMonitorEnabled ? `enabled, scraping ${form.serviceMonitorPath} every ${form.serviceMonitorInterval}` : 'disabled'}`);
     }
@@ -1254,7 +1314,7 @@ export function ConfigEditor({
       summary.push(`notifications.slack: ${form.slackEnabled ? `enabled${form.slackChannel ? ` (${form.slackChannel})` : ''}` : 'disabled'}`);
     }
     if (dirty.has('env')) {
-      patch.env = form.envVars.filter(v => v.name.trim()).map(v => ({ name: v.name.trim(), value: v.value }));
+      patch.env = buildEnvValue(form.envVars);
       summary.push(`env: ${(patch.env as unknown[]).length} variable(s) set`);
     }
     if (dirty.has('configMaps')) {
@@ -1483,12 +1543,27 @@ export function ConfigEditor({
                   setF('ports', next, 'rollout');
                 }}
               />
+              <select
+                className={classes.input}
+                aria-label={`Port ${i + 1} protocol`}
+                value={p.protocol}
+                onChange={e => {
+                  const next = [...form.ports];
+                  next[i] = { ...next[i], protocol: e.target.value };
+                  setF('ports', next, 'rollout');
+                }}
+              >
+                <option value="">TCP (default)</option>
+                <option value="TCP">TCP</option>
+                <option value="UDP">UDP</option>
+                <option value="SCTP">SCTP</option>
+              </select>
               <button type="button" className={classes.removeBtn} onClick={() => setF('ports', form.ports.filter((_, j) => j !== i), 'rollout')}>
                 Remove
               </button>
             </div>
           ))}
-          <button type="button" className={classes.addBtn} onClick={() => setF('ports', [...form.ports, { name: '', containerPort: '' }], 'rollout')}>
+          <button type="button" className={classes.addBtn} onClick={() => setF('ports', [...form.ports, { name: '', containerPort: '', protocol: '' }], 'rollout')}>
             + Add port
           </button>
         </div>
@@ -1556,6 +1631,17 @@ export function ConfigEditor({
               <Field label="Hostnames (comma-separated)" classes={classes}>
                 <input className={classes.input} placeholder="checkout-api.prod.kiac.local" value={form.httpRouteHostnames} onChange={e => setF('httpRouteHostnames', e.target.value, 'httpRoute')} />
               </Field>
+              <Field label="Path (optional)" classes={classes}>
+                <input className={classes.input} placeholder="/" value={form.httpRoutePath} onChange={e => setF('httpRoutePath', e.target.value, 'httpRoute')} />
+              </Field>
+              <Field label="Path type" classes={classes}>
+                <select className={classes.input} value={form.httpRoutePathType} onChange={e => setF('httpRoutePathType', e.target.value, 'httpRoute')}>
+                  <option value="">Chart default</option>
+                  <option value="PathPrefix">PathPrefix</option>
+                  <option value="Exact">Exact</option>
+                  <option value="RegularExpression">RegularExpression</option>
+                </select>
+              </Field>
             </div>
             <Typography className={classes.fieldLabel} style={{ marginTop: 10 }}>Parent gateways</Typography>
             <div className={classes.rowList} style={{ marginTop: 6 }}>
@@ -1615,6 +1701,11 @@ export function ConfigEditor({
               <Switch checked={form.ingressTls} onChange={e => setF('ingressTls', e.target.checked, 'ingress')} />
               <Typography className={classes.switchLabel}>TLS (cert-manager)</Typography>
             </div>
+            {form.ingressTls && (
+              <Field label="TLS secret name (optional)" classes={classes}>
+                <input className={classes.input} value={form.ingressTlsSecretName} onChange={e => setF('ingressTlsSecretName', e.target.value, 'ingress')} />
+              </Field>
+            )}
           </div>
         )}
         <div className={classes.switchRow} style={{ marginTop: 16 }}>
@@ -1660,6 +1751,9 @@ export function ConfigEditor({
             </Field>
             <Field label="Scrape interval" classes={classes}>
               <input className={classes.input} value={form.serviceMonitorInterval} onChange={e => setF('serviceMonitorInterval', e.target.value, 'serviceMonitor')} />
+            </Field>
+            <Field label="Port name (optional)" classes={classes}>
+              <input className={classes.input} placeholder="the service port" value={form.serviceMonitorPort} onChange={e => setF('serviceMonitorPort', e.target.value, 'serviceMonitor')} />
             </Field>
           </div>
         )}
@@ -1764,34 +1858,49 @@ export function ConfigEditor({
       {tab === 'config' && (
       <Section title="Environment variables" dirty={dirty.has('env')} classes={classes}>
         <div className={classes.rowList}>
-          {form.envVars.map((v, i) => (
-            <div className={classes.row} key={i}>
-              <input
-                className={classes.input}
-                placeholder="NAME"
-                value={v.name}
-                onChange={e => {
-                  const next = [...form.envVars];
-                  next[i] = { ...next[i], name: e.target.value };
-                  setF('envVars', next, 'env');
-                }}
-              />
-              <input
-                className={classes.input}
-                placeholder="value"
-                value={v.value}
-                onChange={e => {
-                  const next = [...form.envVars];
-                  next[i] = { ...next[i], value: e.target.value };
-                  setF('envVars', next, 'env');
-                }}
-              />
-              <button type="button" className={classes.removeBtn} onClick={() => setF('envVars', form.envVars.filter((_, j) => j !== i), 'env')}>
-                Remove
-              </button>
-            </div>
-          ))}
-          <button type="button" className={classes.addBtn} onClick={() => setF('envVars', [...form.envVars, { name: '', value: '' }], 'env')}>
+          {form.envVars.map((v, i) => {
+            const setRow = (patch: Partial<EnvRow>) => {
+              const next = [...form.envVars];
+              next[i] = { ...next[i], ...patch };
+              setF('envVars', next, 'env');
+            };
+            return (
+              <div className={classes.row} key={i}>
+                <input className={classes.input} placeholder="NAME" aria-label={`Variable ${i + 1} name`} value={v.name} onChange={e => setRow({ name: e.target.value })} />
+                {v.kind === 'other' ? (
+                  <span className={classes.hint} style={{ flex: 2 }}>
+                    Taken from {Object.keys(asRecord(v.other))[0] ?? 'another source'} (kept as it is; edit it under Advanced if needed)
+                  </span>
+                ) : (
+                  <>
+                    <select className={classes.input} aria-label={`Variable ${i + 1} source`} value={v.kind} onChange={e => setRow({ kind: e.target.value as EnvKind })}>
+                      <option value="value">Value</option>
+                      <option value="configMap">From config map</option>
+                      <option value="secret">From secret</option>
+                    </select>
+                    {v.kind === 'value' ? (
+                      <input className={classes.input} placeholder="value" aria-label={`Variable ${i + 1} value`} value={v.value} onChange={e => setRow({ value: e.target.value })} />
+                    ) : (
+                      <>
+                        <input
+                          className={classes.input}
+                          placeholder={v.kind === 'configMap' ? 'config map name' : 'secret name'}
+                          aria-label={`Variable ${i + 1} ${v.kind === 'configMap' ? 'config map' : 'secret'} name`}
+                          value={v.refName}
+                          onChange={e => setRow({ refName: e.target.value })}
+                        />
+                        <input className={classes.input} placeholder="key" aria-label={`Variable ${i + 1} key`} value={v.refKey} onChange={e => setRow({ refKey: e.target.value })} />
+                      </>
+                    )}
+                  </>
+                )}
+                <button type="button" className={classes.removeBtn} onClick={() => setF('envVars', form.envVars.filter((_, j) => j !== i), 'env')}>
+                  Remove
+                </button>
+              </div>
+            );
+          })}
+          <button type="button" className={classes.addBtn} onClick={() => setF('envVars', [...form.envVars, { name: '', kind: 'value', value: '', refName: '', refKey: '' }], 'env')}>
             + Add variable
           </button>
         </div>
