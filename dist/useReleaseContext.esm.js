@@ -59,20 +59,6 @@ function useReleaseContext() {
     rawEnvironments.map((e) => e.argoAppName).filter((n) => Boolean(n)),
     refreshNonce
   );
-  const declaredEnvironments = useMemo(() => {
-    const liveNames = new Set(rawEnvironments.map((e) => e.env.toLowerCase()));
-    const fallbackCluster = rawEnvironments[0]?.cluster ?? "";
-    const result = [];
-    (pipelineOrder.lower ?? []).forEach((name) => {
-      if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, fallbackCluster));
-    });
-    (pipelineOrder.upper ?? []).forEach((name) => {
-      if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
-    });
-    return result;
-  }, [rawEnvironments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
   const pipelineRuns = useTektonPipelineRuns(appName, refreshNonce);
   const archivedPipelineRuns = useTektonResultsRuns(appName, refreshNonce);
   const mergedPipelineRuns = useMemo(() => {
@@ -95,6 +81,20 @@ function useReleaseContext() {
     () => ({ ...cloudProvenance, ...clusterProvenance }),
     [cloudProvenance, clusterProvenance]
   );
+  const declaredEnvironments = useMemo(() => {
+    const liveNames = new Set([...rawEnvironments, ...cloud.environments].map((e) => e.env.toLowerCase()));
+    const fallbackCluster = rawEnvironments[0]?.cluster ?? "";
+    const result = [];
+    (pipelineOrder.lower ?? []).forEach((name) => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, fallbackCluster));
+    });
+    (pipelineOrder.upper ?? []).forEach((name) => {
+      if (liveNames.has(name.toLowerCase())) return;
+      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
+    });
+    return result;
+  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
   const environments = useMemo(
     () => [
       ...rawEnvironments.map((e) => ({

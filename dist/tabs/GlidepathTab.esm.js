@@ -134,6 +134,7 @@ function emptyDefaultFor(key) {
 }
 function buildCandidateValues(form, originalValues) {
   const { dockerfile: _legacyDockerfile, script: _script, ...originalBuild } = originalValues.build ?? {};
+  const originalDeploy = originalValues.deploy ?? {};
   return {
     build: {
       ...originalBuild,
@@ -147,6 +148,10 @@ function buildCandidateValues(form, originalValues) {
     },
     test: { enabled: form.testEnabled, ...form.testName.trim() ? { name: form.testName.trim() } : {} },
     deploy: {
+      // The whole `deploy` section is replaced on save, so keep keys this form has no field for:
+      // `target` and the per-target blocks (`lambda`, `ecs`, `azureContainerApps`). Dropping them
+      // silently moved a function back to the Kubernetes target.
+      ...originalDeploy,
       lowerEnvironments: splitCsv(form.lowerEnvironments),
       upperEnvironments: safeYamlLoad(form.upperEnvironmentsRaw) ?? [],
       strategy: form.strategy,
@@ -787,5 +792,5 @@ rollout: null
   ] });
 }
 
-export { GlidepathTab };
+export { GlidepathTab, buildCandidateValues, buildFormFromValues };
 //# sourceMappingURL=GlidepathTab.esm.js.map
