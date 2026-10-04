@@ -59,13 +59,16 @@ describe('which tabs a service gets', () => {
 });
 
 describe('the Environments tab', () => {
+  // [description, deploy-target annotation (none = the Kubernetes default), kind tag, expected Deployments tab]
   it.each([
-    ['a Kubernetes app', undefined, ['kind:goapplication']],
-    ['an ECS service', 'aws-ecs', ['kind:goapplication']],
-    ['a Lambda function', 'aws-lambda', ['kind:lambdafunction']],
-    ['an Azure function', 'azure-container-apps', ['kind:azurefunction']],
-  ])('is offered to %s, since every Glidepath-built service has environments', (_n, target, tags) => {
-    expect(ids(entity(target, tags as string[]))).toContain('environments');
+    ['a Kubernetes app', undefined, 'kind:goapplication', 'DeploymentsTab'],
+    ['an ECS service', 'aws-ecs', 'kind:goapplication', 'CloudDeploymentsTab'],
+    ['a Lambda function', 'aws-lambda', 'kind:lambdafunction', 'CloudDeploymentsTab'],
+    ['an Azure function', 'azure-container-apps', 'kind:azurefunction', 'CloudDeploymentsTab'],
+  ])('is offered to %s, since every Glidepath-built service has environments', (_n, target, tag, deployments) => {
+    const e = entity(target ? { 'hangar.io/deploy-target': target } : undefined, [tag]);
+    // Guard against a vacuous test: the service must really be classed as the kind it claims to be.
+    expect(tabsFor(e).find(t => t.id === 'deployments')!.Component.name).toBe(deployments);
+    expect(ids(e)).toContain('environments');
   });
 });
-
