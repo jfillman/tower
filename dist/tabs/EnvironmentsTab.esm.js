@@ -17,7 +17,7 @@ import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, followUps, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, followUps, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { preventFocusScroll } from '../preventFocusScroll.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
@@ -168,11 +168,13 @@ function EnvironmentsTab() {
   const [staged, setStaged] = useState([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState();
+  const [removing, setRemoving] = useState();
   const liveRows = useMemo(
     () => buildEnvironmentRows(environments, { lower: pipelineOrder.lower, upper: pipelineOrder.upper }),
     [environments, pipelineOrder.lower, pipelineOrder.upper]
   );
   const deploy = cicd.data?.values.deploy;
+  const pipelines = cicd.data?.values?.pipelines;
   const canEdit = Boolean(cicd.data && owner && appName);
   const targetId = typeof deploy?.target === "string" && deploy.target || "k8s-rollout";
   const cloudBlock = TARGET_BLOCK[targetId];
@@ -182,10 +184,15 @@ function EnvironmentsTab() {
   const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
-    () => [...validateEnvironments(after, targetId), ...validateAddedFlight(before, after, targetId)],
-    [before, after, targetId]
+    () => [
+      ...validateEnvironments(after, targetId),
+      ...validateAddedFlight(before, after, targetId),
+      ...validateRemovals(before, after, pipelines)
+    ],
+    [before, after, targetId, pipelines]
   );
-  const notes = useMemo(() => followUps(before, after, targetId), [before, after, targetId]);
+  const notes = useMemo(() => followUps(before, after, targetId, appName), [before, after, targetId, appName]);
+  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
   const rows = useMemo(() => {
     const live = new Map(liveRows.map((r) => [r.name, r]));
     if (!canEdit) return liveRows.map((r) => ({ ...r }));
@@ -218,6 +225,12 @@ function EnvironmentsTab() {
     const j = i + (direction === "up" ? -1 : 1);
     return i !== -1 && Boolean(after[j]) && after[j].tier === after[i].tier;
   };
+  const stageRemove = (name) => {
+    if (before.some((e) => e.name === name)) setStaged((s) => [...s, { kind: "remove", name }]);
+    else setStaged((s) => s.filter((x) => !("env" in x && x.env.name === name) && !("name" in x && x.name === name)));
+    setRemoving(void 0);
+    setOpen(void 0);
+  };
   const setField = (env, block, field, value) => {
     const current = { ...env[block] ?? {} };
     if (value.trim()) current[field] = value;
@@ -244,7 +257,13 @@ function EnvironmentsTab() {
     }
     setLaunched(done);
     setPhase("submitting");
-    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map((c) => c.title) });
+    await submit.submit({
+      owner,
+      appName,
+      patch: { deploy: buildDeploy(deploy, after) },
+      summary: changes.map((c) => c.title),
+      ...deleteFiles.length > 0 ? { deleteFiles } : {}
+    });
     setPhase("idle");
   };
   const closeResult = () => {
@@ -265,7 +284,7 @@ function EnvironmentsTab() {
       ] }),
       canEdit && /* @__PURE__ */ jsx(Button, { variant: "outlined", size: "small", onMouseDown: preventFocusScroll, onClick: () => setAdding(true), children: "Add environment" })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.note, children: canEdit ? "Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Flight environments, deleting, and the values of a Kubernetes environment are still done elsewhere." : "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
+    /* @__PURE__ */ jsx("div", { className: classes.note, children: canEdit ? "Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment, and the values of a Kubernetes environment, are still done elsewhere." : "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
     /* @__PURE__ */ jsxs("div", { className: canEdit ? classes.layout : void 0, children: [
       /* @__PURE__ */ jsx("div", { children: rows.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No environments yet. They appear here once the service declares or deploys to one." }) : /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: ["Environment", "Tier", "Target", "Where", "Health", "Live image", "Deployed", canEdit ? "Order" : ""].map((h) => /* @__PURE__ */ jsx("th", { className: classes.th, children: h }, h || "x")) }) }),
@@ -295,65 +314,124 @@ function EnvironmentsTab() {
                   ] }) }),
                   /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: r.deployed ? r.image : /* @__PURE__ */ jsx("span", { className: classes.muted, children: "not deployed yet" }) }),
                   /* @__PURE__ */ jsx("td", { className: classes.td, title: r.deployedAt ? formatDateTime(r.deployedAt) : void 0, children: r.deployedAt ? relativeTime(r.deployedAt) : /* @__PURE__ */ jsx("span", { className: classes.muted, children: "\u2014" }) }),
-                  canEdit && /* @__PURE__ */ jsx("td", { className: classes.td, onClick: (e) => e.stopPropagation(), children: editable && r.def?.tier === "ground" && /* @__PURE__ */ jsxs(Fragment, { children: [
-                    /* @__PURE__ */ jsx(
+                  canEdit && /* @__PURE__ */ jsxs("td", { className: classes.td, onClick: (e) => e.stopPropagation(), children: [
+                    editable && r.def?.tier === "ground" && /* @__PURE__ */ jsxs(Fragment, { children: [
+                      /* @__PURE__ */ jsx(
+                        "button",
+                        {
+                          type: "button",
+                          className: classes.rowBtn,
+                          "aria-label": `Move ${r.name} earlier`,
+                          disabled: !canMove(r.name, "up"),
+                          onMouseDown: preventFocusScroll,
+                          onClick: () => move(r.name, "up"),
+                          children: "\u2191"
+                        }
+                      ),
+                      /* @__PURE__ */ jsx(
+                        "button",
+                        {
+                          type: "button",
+                          className: classes.rowBtn,
+                          "aria-label": `Move ${r.name} later`,
+                          disabled: !canMove(r.name, "down"),
+                          onMouseDown: preventFocusScroll,
+                          onClick: () => move(r.name, "down"),
+                          children: "\u2193"
+                        }
+                      )
+                    ] }),
+                    editable && r.def?.tier === "ground" && /* @__PURE__ */ jsx(
                       "button",
                       {
                         type: "button",
                         className: classes.rowBtn,
-                        "aria-label": `Move ${r.name} earlier`,
-                        disabled: !canMove(r.name, "up"),
+                        "aria-label": `Remove ${r.name}`,
                         onMouseDown: preventFocusScroll,
-                        onClick: () => move(r.name, "up"),
-                        children: "\u2191"
-                      }
-                    ),
-                    /* @__PURE__ */ jsx(
-                      "button",
-                      {
-                        type: "button",
-                        className: classes.rowBtn,
-                        "aria-label": `Move ${r.name} later`,
-                        disabled: !canMove(r.name, "down"),
-                        onMouseDown: preventFocusScroll,
-                        onClick: () => move(r.name, "down"),
-                        children: "\u2193"
+                        onClick: () => setRemoving(r.name),
+                        children: "\u2715"
                       }
                     )
-                  ] }) })
+                  ] })
                 ]
               },
               r.name
             ),
-            isOpen && r.def && /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { colSpan: 8, className: classes.expanded, children: cloudBlock ? /* @__PURE__ */ jsxs(Fragment, { children: [
-              /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
-                "This environment's ",
-                targetLabel,
-                " resource"
+            isOpen && r.def && /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsxs("td", { colSpan: 8, className: classes.expanded, children: [
+              cloudBlock ? /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsxs("div", { className: classes.label, children: [
+                  "This environment's ",
+                  targetLabel,
+                  " resource"
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Leave a field empty to use the app-level value shown as its hint." }),
+                /* @__PURE__ */ jsx("div", { className: classes.fields, style: { marginTop: 10 }, children: BLOCK_FIELDS[cloudBlock].map((f) => /* @__PURE__ */ jsx(
+                  TextField,
+                  {
+                    id: `env-${r.name}-${f}`,
+                    size: "small",
+                    label: f,
+                    value: String(r.def?.[cloudBlock]?.[f] ?? ""),
+                    placeholder: String(deploy?.[cloudBlock]?.[f] ?? ""),
+                    InputLabelProps: { shrink: true },
+                    onChange: (e) => setField(r.def, cloudBlock, f, e.target.value)
+                  },
+                  f
+                )) })
+              ] }) : /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+                "This environment's values live in ",
+                /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+                  "platform/envs/",
+                  r.name,
+                  ".yaml"
+                ] }),
+                " (Ground) or the gitops repo (Flight). Edit them in the Glidepath tab or App Configuration for now."
               ] }),
-              /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Leave a field empty to use the app-level value shown as its hint." }),
-              /* @__PURE__ */ jsx("div", { className: classes.fields, style: { marginTop: 10 }, children: BLOCK_FIELDS[cloudBlock].map((f) => /* @__PURE__ */ jsx(
-                TextField,
-                {
-                  id: `env-${r.name}-${f}`,
-                  size: "small",
-                  label: f,
-                  value: String(r.def?.[cloudBlock]?.[f] ?? ""),
-                  placeholder: String(deploy?.[cloudBlock]?.[f] ?? ""),
-                  InputLabelProps: { shrink: true },
-                  onChange: (e) => setField(r.def, cloudBlock, f, e.target.value)
-                },
-                f
-              )) })
-            ] }) : /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
-              "This environment's values live in ",
-              /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
-                "platform/envs/",
-                r.name,
-                ".yaml"
-              ] }),
-              " (Ground) or the gitops repo (Flight). Edit them in the Glidepath tab or App Configuration for now."
-            ] }) }) }, `${r.name}-edit`)
+              r.def.tier === "flight" && /* @__PURE__ */ jsxs("div", { className: classes.problem, style: { marginTop: 14 }, children: [
+                /* @__PURE__ */ jsx("div", { className: classes.label, children: "Danger zone: removing a Flight environment" }),
+                /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+                  "Tower does not remove Flight environments. Deleting the ApplicationEnvironment does not delete the files it wrote, so a partial removal would leave an Application still deploying. By hand, in this order:",
+                  /* @__PURE__ */ jsxs("ol", { children: [
+                    /* @__PURE__ */ jsxs("li", { children: [
+                      "Remove the pipeline step that releases to ",
+                      r.name,
+                      " (Glidepath tab)."
+                    ] }),
+                    /* @__PURE__ */ jsxs("li", { children: [
+                      "In the tenants repo, delete ",
+                      /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+                        "tenants/",
+                        appName,
+                        "/",
+                        r.name,
+                        "/"
+                      ] }),
+                      " so the Application is no longer generated."
+                    ] }),
+                    /* @__PURE__ */ jsxs("li", { children: [
+                      "In ",
+                      /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+                        "gitops-",
+                        appName
+                      ] }),
+                      ", delete ",
+                      /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+                        r.def.cluster ?? "<cluster>",
+                        "/",
+                        r.name,
+                        "/"
+                      ] }),
+                      "."
+                    ] }),
+                    /* @__PURE__ */ jsxs("li", { children: [
+                      "Delete the ApplicationEnvironment request, then remove ",
+                      r.name,
+                      " from cicd.yaml."
+                    ] })
+                  ] })
+                ] })
+              ] })
+            ] }) }, `${r.name}-edit`)
           ];
         }) })
       ] }) }),
@@ -417,6 +495,19 @@ function EnvironmentsTab() {
           setStaged((s) => [...s, { kind: "add", env }]);
           setAdding(false);
         },
+        classes
+      }
+    ),
+    removing && /* @__PURE__ */ jsx(
+      RemoveEnvironmentDialog,
+      {
+        name: removing,
+        appName,
+        cloud: Boolean(cloudBlock),
+        files: envFilePaths(removing),
+        blockedBy: pipelinesNamingEnv(pipelines, removing),
+        onCancel: () => setRemoving(void 0),
+        onConfirm: () => stageRemove(removing),
         classes
       }
     ),
@@ -558,6 +649,77 @@ function AddEnvironmentDialog({
           children: "Stage environment"
         }
       )
+    ] })
+  ] });
+}
+function RemoveEnvironmentDialog({
+  name,
+  appName,
+  cloud,
+  files,
+  blockedBy,
+  onCancel,
+  onConfirm,
+  classes
+}) {
+  const [typed, setTyped] = useState("");
+  const blocked = blockedBy.length > 0;
+  return /* @__PURE__ */ jsxs(Dialog, { open: true, onClose: onCancel, PaperProps: { className: classes.dialogPaper }, children: [
+    /* @__PURE__ */ jsxs(DialogTitle, { children: [
+      "Remove ",
+      name
+    ] }),
+    /* @__PURE__ */ jsx(DialogContent, { children: blocked ? /* @__PURE__ */ jsxs(DialogContentText, { className: classes.problem, children: [
+      blockedBy.map((p) => `Pipeline "${p}"`).join(", "),
+      " still ",
+      blockedBy.length > 1 ? "have" : "has",
+      " a step for ",
+      name,
+      ". Remove the step in the Glidepath tab first, then come back."
+    ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsxs(DialogContentText, { component: "div", children: [
+        "Staging this removes ",
+        name,
+        " from cicd.yaml. Nothing happens until you open the pull request and merge it.",
+        cloud ? /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "The cloud resource this environment deployed to is not deleted. Remove it in your cloud account." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "The same pull request deletes, where they exist:" }),
+          /* @__PURE__ */ jsx("ul", { className: classes.mono, children: files.map((f) => /* @__PURE__ */ jsx("li", { children: f }, f)) }),
+          /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+            "After it merges, Argo CD prunes the Application ",
+            /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+              appName,
+              "-",
+              name
+            ] }),
+            " and the namespace ",
+            /* @__PURE__ */ jsxs("span", { className: classes.mono, children: [
+              "app-",
+              appName,
+              "-",
+              name
+            ] }),
+            ", deleting everything running in it."
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsx(
+        TextField,
+        {
+          id: "remove-env-confirm",
+          autoFocus: true,
+          fullWidth: true,
+          size: "small",
+          style: { marginTop: 14 },
+          label: `Type ${name} to confirm`,
+          value: typed,
+          onChange: (e) => setTyped(e.target.value),
+          InputLabelProps: { shrink: true }
+        }
+      )
+    ] }) }),
+    /* @__PURE__ */ jsxs(DialogActions, { children: [
+      /* @__PURE__ */ jsx(Button, { onClick: onCancel, children: "Cancel" }),
+      /* @__PURE__ */ jsx(Button, { disabled: blocked || typed !== name, onClick: onConfirm, children: "Stage removal" })
     ] })
   ] });
 }

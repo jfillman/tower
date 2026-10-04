@@ -167,10 +167,46 @@ function describeChanges(before, after, shape) {
   }
   return lines;
 }
-function followUps(before, after, target) {
+function envFilePaths(env) {
+  return ["platform", "glidepath"].flatMap((dir) => [`${dir}/envs/${env}.yaml`, `${dir}/envs/${env}.release.yaml`]);
+}
+function pipelinesNamingEnv(pipelines, env) {
+  const entries = Array.isArray(pipelines) ? pipelines.map((p, i) => [String(p?.name ?? i), p]) : pipelines && typeof pipelines === "object" ? Object.entries(pipelines) : [];
+  return entries.filter(([, p]) => {
+    const steps = Array.isArray(p) ? p : p?.steps;
+    return Array.isArray(steps) && steps.some((st) => st?.env === env);
+  }).map(([name]) => name);
+}
+function removedEnvs(before, after) {
+  const kept = new Set(after.map((e) => e.name));
+  return before.filter((e) => !kept.has(e.name));
+}
+function validateRemovals(before, after, pipelines) {
+  const problems = [];
+  for (const e of removedEnvs(before, after)) {
+    if (e.tier === "flight") {
+      problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
+    }
+    for (const p of pipelinesNamingEnv(pipelines, e.name)) {
+      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in the Glidepath tab first.`);
+    }
+  }
+  return problems;
+}
+function deleteFilesFor(before, after, target) {
+  if ((target) !== "k8s-rollout") return [];
+  return removedEnvs(before, after).filter((e) => e.tier === "ground").flatMap((e) => envFilePaths(e.name));
+}
+function followUps(before, after, target, appName) {
   const out = [];
   const had = new Set(before.map((e) => e.name));
   const cloud = (target) !== "k8s-rollout";
+  for (const e of removedEnvs(before, after)) {
+    if (e.tier !== "ground") continue;
+    out.push(
+      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes platform/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
+    );
+  }
   for (const e of after) {
     if (had.has(e.name)) continue;
     if (e.tier === "flight" && !cloud) {
@@ -198,5 +234,5 @@ function validateAddedFlight(before, after, target) {
   return out;
 }
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, describeChanges, followUps, readEnvironments, stageSetBlock, validateAddedFlight, validateEnvironments };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, readEnvironments, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map
