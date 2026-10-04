@@ -151,7 +151,7 @@ describe('AppPicker home', () => {
     expect(screen.getByRole('tab', { name: /Provisioning\s*1/ })).toBeTruthy();
 
     fireEvent.click(within(screen.getByRole('region', { name: 'Provisioning in flight' })).getByText('fare-quote-api'));
-    expect(await screen.findByText('Request accepted')).toBeTruthy();
+    expect(await screen.findByText('Request PR merged')).toBeTruthy();
     expect(screen.getByText('First build and checks')).toBeTruthy();
     expect(screen.queryByText('baggage-api')).toBeNull();
   });

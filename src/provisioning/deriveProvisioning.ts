@@ -66,6 +66,7 @@ export interface PrSnapshot {
   number: number;
   url: string;
   state: 'open' | 'merged' | 'closed';
+  createdAt?: number;
   mergedAt?: number;
 }
 
@@ -194,7 +195,9 @@ export const STALL_AFTER_MS = 4 * 3600 * 1000;
 // Estimates from watching real provisions, not recorded history. The UI
 // labels them "typical" until a history store replaces them.
 export const TYPICAL_SEC: Record<string, number> = {
-  request: 2,
+  // A person merging the request PR, then ArgoCD's repo poll (about every 3 minutes) applying it.
+  merge: 60,
+  request: 180,
   cluster: 10,
   cicd: 30,
   repos: 45,
@@ -261,27 +264,31 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       ...s,
     });
 
-  // 1. The request. Normally the XR exists, so the request was accepted. Before that, the request
-  // PR is the only thing there is to show: it waits for a person to merge it, then for Argo to apply it.
+  // 1. The request PR is merged, by a person. 2. ArgoCD applies it (it polls the repo about every
+  // 3 minutes), which creates the resource. Normally the XR already exists, so both are done and
+  // only their durations are left to show; they are known only when the PR's times were seen.
   const pending = Boolean(xr.pending);
   const reqPr = links?.requestPr;
-  let requestState: StepState = 'done';
-  let requestDetail: string | undefined;
-  if (pending) {
-    requestState = 'run';
-    requestDetail =
-      reqPr?.state === 'merged'
-        ? 'Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource'
-        : 'Merge the request PR to start provisioning';
-  }
+  const requestMerged = !pending || reqPr?.state === 'merged';
+  const dur = (from?: number, to?: number) => (from !== undefined && to !== undefined ? secBetween(from, to) : undefined);
+  push({
+    id: 'merge',
+    title: 'Request PR merged',
+    desc: 'A person merges the request PR in the tenants repo',
+    state: requestMerged ? 'done' : 'run',
+    seconds: requestMerged ? dur(reqPr?.createdAt, reqPr?.mergedAt) : secBetween(reqPr?.createdAt ?? created, now),
+    detail: requestMerged ? undefined : 'Merge the request PR to start provisioning',
+    links: prLink('Request PR', reqPr),
+  });
+  const appliedState: StepState = !pending ? 'done' : requestMerged ? 'run' : 'pend';
   push({
     id: 'request',
-    title: 'Request accepted',
-    desc: 'Claim validated against the Airframe schema',
-    state: requestState,
-    seconds: pending ? secBetween(created, now) : 0,
-    detail: requestDetail,
-    links: prLink('Request PR', reqPr),
+    title: 'Request applied',
+    desc: 'ArgoCD applies the merged request, which creates the resource',
+    state: appliedState,
+    seconds: !pending ? dur(reqPr?.mergedAt, created) : requestMerged ? dur(reqPr?.mergedAt, now) : undefined,
+    detail:
+      appliedState === 'run' ? 'Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource' : undefined,
   });
 
   // 2. Dev cluster resolved. Nothing to resolve until the XR exists.
@@ -296,7 +303,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : undefined,
     detail: !clusterDone && clusterC?.message ? clusterC.message : undefined,
   });
-  if (!clusterDone && !pending) steps[1].seconds = secBetween(created, now);
+  if (!clusterDone && !pending) steps[steps.length - 1].seconds = secBetween(created, now);
 
   // 3. CI/CD onboarded (parallel with repositories).
   // The condition only says the manifests were committed. The namespace exists once ArgoCD has
@@ -355,7 +362,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     ],
   });
 
-  const front = steps.slice(2, 4).every(s => s.state === 'done');
+  // CI/CD and repositories both done, by id so a new step ahead of them cannot shift it.
+  const front = steps.filter(s => s.id === 'cicd' || s.id === 'repos').every(s => s.state === 'done');
   // The app's own build run (not Glidepath's onboarding runs, see pickFirstBuild) or a rollout
   // cannot exist before the source repo's onboarding PR merged (the .tekton files arrive with
   // it), so either is proof of the step.
@@ -566,7 +574,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     return s.state === 'done' ? 0 : s.typicalSec * (1 - s.fraction);
   };
   const etaSec = Math.round(
-    remaining('request') +
+    remaining('merge') +
+      remaining('request') +
       remaining('cluster') +
       Math.max(remaining('cicd'), remaining('repos'), remaining('catalog')) +
       Math.max(remaining('onboarding'), remaining('secrets')) +

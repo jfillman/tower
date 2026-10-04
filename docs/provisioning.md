@@ -11,9 +11,10 @@ Tower reads these through the Kubernetes proxy on the dev cluster, with its exis
 
 | Step | Signal |
 |---|---|
-| Request accepted | The application XR exists (`catalog.hangar.io`: NodeJS, SpringBoot, Python, Go). Links the **request PR** in the tenants repo named by the XR's `terasky.backstage.io/source-info` annotation, found by its title `Create <Kind> [Resource] <name>` through the backend's `/request-pr` route |
+| Request PR merged | The request PR's state: open until a person merges it. Its open and merge times are remembered from the pending phase, so the duration stays after the XR appears (shown blank, never zero, if the page never saw it pending) |
+| Request applied | The application XR exists, which means ArgoCD applied the merged request (it polls about every 3 minutes). Duration is merge time to XR creation. The XR (`catalog.hangar.io`: NodeJS, SpringBoot, Python, Go). Links the **request PR** in the tenants repo named by the XR's `terasky.backstage.io/source-info` annotation, found by its title `Create <Kind> [Resource] <name>` through the backend's `/request-pr` route |
 | Dev cluster chosen | XR condition `DevClusterReady` |
-| CI/CD onboarded | XR condition `CicdOnboarded` |
+| CI/CD onboarded | XR condition `CicdOnboarded` **and** the `<app>-cicd` ArgoCD Application Synced and Healthy, read from the `argocd` namespace with a read-only `applications` grant (`backstage-argocd-application-viewer`, gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac`). Backstage's ArgoCD plugin cannot be used: it only knows the argocd-apps instances, and this app is in the platform instance. Without the grant the step falls back to the condition alone |
 | Repositories and starter files | The XR's `Repository` and `RepositoryFile` objects (label `crossplane.io/composite=<name>`); done when every one the XR composes is `Ready`. Falls back to XR `Ready` if they cannot be read. Links the source and GitOps repos from the Repository objects' `htmlUrl` |
 | Available in the Backstage catalog | A `Component` named after the service exists, looked up through the catalog API. The ingestor makes it from the XR on its next sync, and until then Tower has no entity to open. Runs alongside the steps around it. If the lookup cannot answer, it waits, unless a build already ran |
 | Application onboarding PRs | The two PRs Glidepath opens, "Onboarding: re-sync ..." on the source repo and on `gitops-<name>`, read from the backend's `/pull-requests` route. Done when both are merged, or as soon as the app's own build run or a Rollout exists. **A person merges these**, and merging the source one is what starts the first build |
@@ -44,8 +45,8 @@ An XR appears only after the request PR is merged and Argo applies it, so for th
 merging, then Argo syncing) there is nothing on the cluster to read. Tower asks the backend's
 `GET /pending-requests?owner&repo` for open "Create <Kind> Resource <name>" PRs in the cluster's tenants
 repo, plus ones merged in the last 30 minutes, and lists each as a service whose only running step is
-"Request accepted" ("Merge the request PR to start provisioning", then "Merged. Waiting for ArgoCD to
-create the resource"). Every later step waits. When the XR appears it replaces the pending item under the
+"Request PR merged" ("Merge the request PR to start provisioning"); once merged, "Request applied" runs
+("Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource"). Every later step waits. When the XR appears it replaces the pending item under the
 same name. The tenants repo comes from an existing XR's `source-info` annotation, falling back to a
 per-cluster default in `useProvisioning.ts`. This needs the backend route, so Tower and the backend ship together.
 
