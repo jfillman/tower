@@ -43,8 +43,8 @@ const xr = (conditions: XrCondition[]): ProvisioningInputs['xr'] => ({
   conditions,
 });
 const now = Date.parse('2026-10-01T02:00:00Z');
-// Steps, in order: request, cluster, cicd, repos, catalog, onboarding, secrets, build, running.
-const [REQUEST, CLUSTER, CICD, REPOS, CATALOG, ONBOARDING, SECRETS, BUILD, RUNNING] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+// Steps, in order: merge, request, cluster, cicd, repos, catalog, onboarding, secrets, build, running.
+const [MERGE, REQUEST, CLUSTER, CICD, REPOS, CATALOG, ONBOARDING, SECRETS, BUILD, RUNNING] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const secretsReady = { found: true, ready: true, readyAt: Date.parse('2026-09-30T15:03:00Z') };
 // Both onboarding PRs merged, as on sky-marshall (jfillman/sky-marshall#1, gitops-sky-marshall#1).
 const mergedLinks: ProvisioningLinks = {
@@ -68,14 +68,14 @@ const states = (p: ReturnType<typeof deriveProvisioning>) => p.steps.map(s => s.
 describe('deriveProvisioning', () => {
   it('a brand new XR with no conditions is only accepted', () => {
     const p = deriveProvisioning({ xr: xr([]) }, created + 5000);
-    expect(states(p)).toBe('done,run,pend,run,pend,pend,pend,pend,pend');
+    expect(states(p)).toBe('done,done,run,pend,run,pend,pend,pend,pend,pend');
     expect(p.complete).toBe(false);
     expect(p.percent).toBeLessThan(10);
   });
 
   it('marks cluster and CI/CD onboarding done from their conditions, with durations', () => {
     const p = deriveProvisioning({ xr: xr(live.slice(0, 2).concat({ type: 'Ready', status: 'False' })) }, now);
-    expect(states(p)).toBe('done,done,done,run,pend,pend,run,pend,pend');
+    expect(states(p)).toBe('done,done,done,done,run,pend,pend,run,pend,pend');
     expect(p.steps[CLUSTER].state).toBe('done');
     expect(p.steps[CICD].seconds).toBe(26);
   });
@@ -298,7 +298,7 @@ describe('deriveProvisioning', () => {
       },
       now,
     );
-    expect(p.steps[REQUEST].links).toEqual([
+    expect(p.steps[MERGE].links).toEqual([
       { label: 'Request PR #16', url: 'https://github.com/o/tenants/pull/16', state: 'merged' },
     ]);
     expect(p.steps[REPOS].links?.map(l => l.label)).toEqual(['Source repo', 'GitOps repo']);
@@ -367,12 +367,12 @@ describe('a request with no XR yet', () => {
   const at = prCreated + 90_000;
   it('shows only the request step running, with everything after it waiting', () => {
     const p = deriveProvisioning({ xr: pendingXr, links: open }, at);
-    expect(states(p)).toBe('run,pend,pend,pend,pend,pend,pend,pend,pend');
+    expect(states(p)).toBe('run,pend,pend,pend,pend,pend,pend,pend,pend,pend');
     expect(p.complete).toBe(false);
     expect(p.failed).toBe(false);
   });
   it('tells the person to merge the request PR, with a link and the time since it was opened', () => {
-    const s = deriveProvisioning({ xr: pendingXr, links: open }, at).steps[REQUEST];
+    const s = deriveProvisioning({ xr: pendingXr, links: open }, at).steps[MERGE];
     expect(s.detail).toMatch(/Merge the request PR/);
     expect(s.seconds).toBe(90);
     expect(s.links?.[0]).toMatchObject({ label: 'Request PR #20', state: 'open' });
@@ -389,8 +389,32 @@ describe('a request with no XR yet', () => {
   });
   it('goes back to the normal sequence once the XR exists', () => {
     const p = deriveProvisioning({ xr: xr([live[0]]), links: open }, now);
+    expect(p.steps[MERGE].state).toBe('done');
     expect(p.steps[REQUEST].state).toBe('done');
     expect(p.steps[CLUSTER].state).toBe('done');
+  });
+  it('splits the wait into the person merging and ArgoCD applying, with real durations once the XR exists', () => {
+    const prOpened = Date.parse('2026-09-30T14:00:00Z');
+    const prMerged = Date.parse('2026-09-30T14:03:00Z');
+    const x = { ...xr([live[0]]), createdAt: Date.parse('2026-09-30T14:07:30Z') };
+    const p = deriveProvisioning(
+      { xr: x, links: { requestPr: { number: 9, url: 'u', state: 'merged', createdAt: prOpened, mergedAt: prMerged } } },
+      now,
+    );
+    expect(p.steps[MERGE].seconds).toBe(180);
+    expect(p.steps[REQUEST].seconds).toBe(270);
+  });
+  it('shows no duration rather than zero when the PR times were never seen', () => {
+    const p = deriveProvisioning({ xr: xr([live[0]]) }, now);
+    expect(p.steps[MERGE].seconds).toBeUndefined();
+    expect(p.steps[REQUEST].seconds).toBeUndefined();
+  });
+  it('waits on ArgoCD, not a person, once the request merged', () => {
+    const merged = { requestPr: { ...open.requestPr, state: 'merged' as const, mergedAt: prCreated + 60_000 } };
+    const p = deriveProvisioning({ xr: pendingXr, links: merged }, at);
+    expect(p.steps[MERGE].state).toBe('done');
+    expect(p.steps[REQUEST].state).toBe('run');
+    expect(p.steps[REQUEST].seconds).toBe(30);
   });
 });
 

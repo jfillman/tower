@@ -39,7 +39,7 @@ const inputs: ProvisioningInputs = {
 };
 
 describe('ProvisioningView', () => {
-  it('lists the nine steps in order with their links', () => {
+  it('lists the ten steps in order with their links', () => {
     const items = toItems([inputs], t('2026-10-01T17:55:00Z'));
     render(<ProvisioningView items={items} onSelect={() => {}} loading={false} />);
 
@@ -47,7 +47,8 @@ describe('ProvisioningView', () => {
     // The title is the first text node of the step's name row (a "parallel" tag may follow it).
     const titles = steps.map(li => li.children[1].firstElementChild?.firstChild?.textContent);
     expect(titles).toEqual([
-      'Request accepted',
+      'Request PR merged',
+      'Request applied',
       'Dev cluster chosen',
       'CI/CD onboarded',
       'Repositories and starter files',

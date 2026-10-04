@@ -3,6 +3,7 @@ import {
   pickFirstBuild,
   toCreated,
   toManaged,
+  toArgoSnapshot,
   toCloudDeploySnapshot,
   toOnboardingPrs,
   toPendingInputs,
@@ -290,5 +291,18 @@ describe('toPendingInputs for function kinds', () => {
     const now = Date.parse('2026-10-03T23:30:00Z');
     expect(toPendingInputs([mk('LambdaFunction')], new Set(), 'kind-dev', now)).toHaveLength(1);
     expect(toPendingInputs([mk('AzureFunction')], new Set(), 'kind-dev', now)[0].xr.kind).toBe('AzureFunction');
+  });
+});
+
+describe('toArgoSnapshot', () => {
+  it('reads sync and health from a real Application status', () => {
+    expect(toArgoSnapshot('a-cicd', { status: { sync: { status: 'Synced' }, health: { status: 'Healthy' } } })).toEqual({
+      name: 'a-cicd',
+      sync: 'Synced',
+      health: 'Healthy',
+    });
+  });
+  it('an Application that does not exist yet has no sync or health', () => {
+    expect(toArgoSnapshot('a-cicd', undefined)).toEqual({ name: 'a-cicd', sync: undefined, health: undefined });
   });
 });

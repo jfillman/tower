@@ -312,9 +312,33 @@ export function toPendingInputs(
     .filter(({ created }) => now - created < MAX_AGE_MS)
     .map(({ r, created }) => ({
       xr: { kind: r.kind, name: r.name, namespace: '', cluster, createdAt: created, conditions: [], pending: true },
-      links: { requestPr: { number: r.number, url: r.url, state: r.state, mergedAt: epoch(r.mergedAt) } },
+      links: { requestPr: toRequestPr(r) },
     }));
 }
+
+export function toRequestPr(r: RawPending): PrSnapshot {
+  return { number: r.number, url: r.url, state: r.state, createdAt: epoch(r.createdAt), mergedAt: epoch(r.mergedAt) };
+}
+
+/** The live lookup wins on state; the remembered one fills in the times it does not carry. */
+export function mergeRequestPr(live: PrSnapshot | undefined, remembered: PrSnapshot | undefined): PrSnapshot | undefined {
+  if (!live) return remembered;
+  if (!remembered) return live;
+  return {
+    ...live,
+    createdAt: live.createdAt ?? remembered.createdAt,
+    mergedAt: live.mergedAt ?? remembered.mergedAt,
+  };
+}
+
+interface RawArgoApp {
+  status?: { sync?: { status?: string }; health?: { status?: string } };
+}
+
+export function toArgoSnapshot(name: string, app: RawArgoApp | undefined): ArgoSnapshot {
+  return { name, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
+}
+
 
 const CATALOG_RECHECK_MS = 30000;
 
@@ -390,6 +414,10 @@ export function useProvisioning(): UseProvisioningResult {
     // Pending requests come from GitHub through the backend, so they are asked at the GitHub cadence and
     // the last answer is reused between polls.
     const pendingCache: { at: number; busy: boolean; list: RawPending[] } = { at: 0, busy: false, list: [] };
+    // The request PR as seen before its XR existed. Once the XR is there the PR no longer shows
+    // up as pending, and the tenants-repo lookup has no creation time, so the step durations for
+    // "merged" and "applied" would be lost; this keeps them for as long as the page is open.
+    const requestMemo = new Map<string, PrSnapshot>();
     const refreshPending = (tenants: { owner: string; repo: string } | undefined) => {
       if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
       pendingCache.busy = true;
@@ -400,6 +428,7 @@ export function useProvisioning(): UseProvisioningResult {
             `${prBase}/pending-requests?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo })}`,
           );
           if (res.ok) pendingCache.list = ((await res.json()) as { requests?: RawPending[] }).requests ?? [];
+          pendingCache.list.forEach(r => requestMemo.set(r.name, toRequestPr(r)));
         } catch {
           // An extra: a failed lookup leaves the list as it was.
         } finally {
@@ -437,22 +466,23 @@ export function useProvisioning(): UseProvisioningResult {
       }
     };
 
-    // The ArgoCD app that installs the pipeline namespace. Undefined when ArgoCD cannot be read,
-    // so the step falls back to the XR condition alone.
+    // The ArgoCD app that installs the pipeline namespace. It lives in the platform `argocd`
+    // instance, which Backstage's ArgoCD plugin cannot read (it only has the argocd-apps
+    // instances), so it is read straight from the cluster. Undefined when it cannot be read at
+    // all (no grant), so the step falls back to the XR condition alone; not found means ArgoCD
+    // has not created it yet, which is still waiting.
     const cicdApp = async (name: string): Promise<ArgoSnapshot | undefined> => {
       const appName = `${name}-cicd`;
       try {
-        const baseUrl = await discoveryApi.getBaseUrl('argocd');
-        const res = await fetchApi.fetch(`${baseUrl}/find/name/${encodeURIComponent(appName)}?expand=applications`);
-        if (!res.ok) return undefined;
-        const instances = (await res.json()) as Array<{
-          applications?: Array<{ status?: { sync?: { status?: string }; health?: { status?: string } } }>;
-        }>;
-        const app = instances.flatMap(i => i.applications ?? [])[0];
-        // Not created yet: still waiting on ArgoCD, reported as unsynced rather than unreadable.
-        return { name: appName, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
-      } catch {
-        return undefined;
+        const app = await k8sProxyGet<RawArgoApp>(
+          discoveryApi,
+          fetchApi,
+          XR_CLUSTER,
+          `/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/${encodeURIComponent(appName)}`,
+        );
+        return toArgoSnapshot(appName, app);
+      } catch (e) {
+        return /not found/i.test(String((e as Error)?.message)) ? toArgoSnapshot(appName, undefined) : undefined;
       }
     };
 
@@ -555,7 +585,7 @@ export function useProvisioning(): UseProvisioningResult {
             cicdApp: cicdArgo,
             cloudDeploy,
             links: {
-              requestPr: gh?.requestPr,
+              requestPr: mergeRequestPr(gh?.requestPr, requestMemo.get(name)),
               sourceRepoUrl: repoLinks.sourceRepoUrl,
               gitopsRepoUrl: repoLinks.gitopsRepoUrl,
               onboarding: gh?.onboarding,
