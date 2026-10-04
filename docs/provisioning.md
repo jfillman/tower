@@ -71,3 +71,12 @@ yet costs no extra requests.
 
 Not verified against a live function provision: the unit tests use the real captured ECS deploy and edits of
 it, and the XRD has not been provisioned on a cluster yet.
+
+## Refreshing the catalog
+
+The catalog step waits for the Backstage catalog ingestor (kubernetes-ingestor), which re-reads the clusters
+every 10 minutes by default. While that step is waiting it shows **Refresh catalog now**, which POSTs to
+Backstage's scheduler trigger for the ingestor's `KubernetesEntityProvider` task
+(`/api/catalog/.backstage/scheduler/v1/tasks/KubernetesEntityProvider/trigger`) with the signed-in user's session.
+It only moves the next run to now: it is idempotent and Tower holds no extra credential for it. The step still
+turns green by itself once the service is in the catalog. If Backstage refuses the call the button says so.

@@ -10,7 +10,8 @@ import Typography from '@material-ui/core/Typography';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
-import { useApi } from '@backstage/core-plugin-api';
+import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
+import { triggerCatalogRefresh } from './catalogRefresh';
 import type { Entity } from '@backstage/catalog-model';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
@@ -369,6 +370,8 @@ export function AppPicker({
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
   const [entities, setEntities] = useState<Entity[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [query, setQuery] = useState('');
@@ -637,6 +640,7 @@ export function AppPicker({
           onSelect={openProvisioning}
           error={provisioning.error}
           loading={provisioning.loading}
+          onRefreshCatalog={() => triggerCatalogRefresh(discoveryApi, fetchApi)}
         />
       ) : (
         <>

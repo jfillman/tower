@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ProvisioningView } from './ProvisioningView';
 import { toItems } from './shared';
 import type { ProvisioningInputs } from './deriveProvisioning';
@@ -100,5 +100,28 @@ describe('ProvisioningView', () => {
     expect(screen.getByText(/^Stalled/)).toBeTruthy();
     const pills = screen.getAllByRole('button');
     expect(pills.map(b => b.querySelector('b')?.textContent)).toEqual(['sky-marshall', 'old-app']);
+  });
+
+  describe('catalog refresh button', () => {
+    const waiting = { ...inputs, catalog: { found: false } };
+    const now = t('2026-10-01T17:55:00Z');
+    it('shows while the catalog step waits and runs the handler when clicked', async () => {
+      const onRefresh = jest.fn().mockResolvedValue(undefined);
+      render(<ProvisioningView items={toItems([waiting], now)} onSelect={() => {}} loading={false} onRefreshCatalog={onRefresh} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh catalog now' }));
+      await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+      expect(await screen.findByRole('button', { name: /Requested/ })).toBeTruthy();
+    });
+    it('says when the refresh could not be requested', async () => {
+      const onRefresh = jest.fn().mockRejectedValue(new Error('403'));
+      render(<ProvisioningView items={toItems([waiting], now)} onSelect={() => {}} loading={false} onRefreshCatalog={onRefresh} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh catalog now' }));
+      expect(await screen.findByRole('button', { name: 'Could not refresh' })).toBeTruthy();
+    });
+    it('is absent once the service is in the catalog, and when no handler is given', () => {
+      const found = { ...inputs, catalog: { found: true } };
+      render(<ProvisioningView items={toItems([found], now)} onSelect={() => {}} loading={false} onRefreshCatalog={jest.fn()} />);
+      expect(screen.queryByRole('button', { name: 'Refresh catalog now' })).toBeNull();
+    });
   });
 });
