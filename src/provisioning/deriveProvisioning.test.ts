@@ -393,3 +393,143 @@ describe('a request with no XR yet', () => {
     expect(p.steps[CLUSTER].state).toBe('done');
   });
 });
+
+describe('function XRs (Lambda, Azure Functions): no GitOps repo, no Rollout', () => {
+  const fnXr = (kind = 'LambdaFunction') => ({ ...xr(live), kind, name: 'resize-fn' });
+  const sourceMerged = {
+    onboarding: {
+      source: {
+        number: 1,
+        url: 'https://github.com/o/resize-fn/pull/1',
+        state: 'merged' as const,
+        mergedAt: Date.parse('2026-09-30T15:10:00Z'),
+      },
+    },
+  };
+  const sourceOpen = { onboarding: { source: { number: 1, url: 'u', state: 'open' as const } } };
+  const build = (phase: 'succeeded' | 'failed' | 'running') => ({
+    name: 'ci-0-build-x',
+    phase,
+    tasksDone: 3,
+    tasksTotal: 3,
+    startedAt: Date.parse('2026-09-30T15:11:00Z'),
+    completedAt: Date.parse('2026-09-30T15:14:00Z'),
+  });
+  const deployed = {
+    state: 'succeeded' as const,
+    label: 'AWS Lambda',
+    resource: 'Lambda function resize-fn',
+    completedAt: Date.parse('2026-09-30T15:16:00Z'),
+    consoleUrl: 'https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/resize-fn',
+  };
+
+  it('waits for ONE onboarding PR, not two, and says so', () => {
+    const p = deriveProvisioning({ xr: fnXr(), links: sourceOpen }, now);
+    const s = p.steps[ONBOARDING];
+    expect(s.title).toBe('Application onboarding PR');
+    expect(s.state).toBe('run');
+    expect(s.detail).toBe('Merge the onboarding PR to start the first build');
+    expect(s.links?.map(l => l.label)).toEqual(['Source PR #1']);
+  });
+
+  it('is done as soon as that one PR merges (an app would still wait for a second)', () => {
+    expect(deriveProvisioning({ xr: fnXr(), links: sourceMerged }, now).steps[ONBOARDING].state).toBe('done');
+    const app = deriveProvisioning({ xr: xr(live), links: sourceMerged }, now);
+    expect(app.steps[ONBOARDING].state).toBe('run');
+  });
+
+  it('describes the repos step without a GitOps repo', () => {
+    expect(deriveProvisioning({ xr: fnXr() }, now).steps[REPOS].desc).toBe(
+      'Source repo created, starter files committed',
+    );
+  });
+
+  it('the last step is the cloud deploy, never a Rollout', () => {
+    const p = deriveProvisioning({ xr: fnXr(), links: sourceMerged, build: build('succeeded') }, now);
+    const last = p.steps[RUNNING];
+    expect(last.title).toBe('Deployed to the cloud target');
+    expect(last.state).toBe('run');
+    expect(last.detail).toBe('Waiting for the deploy stage to start');
+    expect(last.detail).not.toMatch(/rollout|platform\/envs/i);
+  });
+
+  it('names the target once the deploy has resolved it, and links the console when done', () => {
+    const p = deriveProvisioning(
+      {
+        xr: fnXr(),
+        links: sourceMerged,
+        build: build('succeeded'),
+        secrets: secretsReady,
+        catalog: { found: true },
+        cloudDeploy: deployed,
+      },
+      now,
+    );
+    const last = p.steps[RUNNING];
+    expect(last.title).toBe('Deployed to AWS Lambda');
+    expect(last.state).toBe('done');
+    expect(last.links).toEqual([{ label: 'Open in console', url: deployed.consoleUrl }]);
+    expect(p.complete).toBe(true);
+  });
+
+  it('a deploy in progress is the running step', () => {
+    const p = deriveProvisioning(
+      {
+        xr: fnXr(),
+        links: sourceMerged,
+        build: build('succeeded'),
+        cloudDeploy: { ...deployed, state: 'running', completedAt: undefined },
+      },
+      now,
+    );
+    expect(p.steps[RUNNING].state).toBe('run');
+  });
+
+  it('a failed deploy fails the provision and says why', () => {
+    const p = deriveProvisioning(
+      {
+        xr: fnXr(),
+        links: sourceMerged,
+        build: build('succeeded'),
+        cloudDeploy: { ...deployed, state: 'failed', failure: 'deploy-aws-lambda: step-prepare exited with code 1' },
+      },
+      now,
+    );
+    expect(p.steps[RUNNING].state).toBe('fail');
+    expect(p.steps[RUNNING].detail).toBe('deploy-aws-lambda: step-prepare exited with code 1');
+    expect(p.failed).toBe(true);
+  });
+
+  it('works the same for an Azure function', () => {
+    const p = deriveProvisioning({ xr: fnXr('AzureFunction'), links: sourceMerged }, now);
+    expect(p.steps[ONBOARDING].title).toBe('Application onboarding PR');
+  });
+
+  it('a succeeded cloud deploy keeps it from counting as stalled', () => {
+    const later = created + 6 * 3600 * 1000;
+    const base = { xr: fnXr(), links: sourceMerged, build: build('succeeded') };
+    expect(deriveProvisioning(base, later).stalled).toBe(true);
+    expect(deriveProvisioning({ ...base, cloudDeploy: deployed }, later).stalled).toBe(false);
+  });
+});
+
+describe('an app (not a function) that deploys to a cloud target', () => {
+  it('ends on the cloud deploy instead of waiting forever for a Rollout that will never exist', () => {
+    const cloudDeploy = {
+      state: 'succeeded' as const,
+      label: 'AWS ECS',
+      completedAt: Date.parse('2026-09-30T15:16:00Z'),
+    };
+    const p = deriveProvisioning(
+      { xr: xr(live), cloudDeploy, build: { name: 'b', phase: 'succeeded', tasksDone: 1, tasksTotal: 1 } },
+      now,
+    );
+    expect(p.steps[RUNNING].title).toBe('Deployed to AWS ECS');
+    expect(p.steps[RUNNING].state).toBe('done');
+  });
+  it('an ordinary Kubernetes app is unchanged', () => {
+    const p = deriveProvisioning({ xr: xr(live) }, now);
+    expect(p.steps[RUNNING].title).toBe('Running healthy in dev');
+    expect(p.steps[ONBOARDING].title).toBe('Application onboarding PRs');
+  });
+});

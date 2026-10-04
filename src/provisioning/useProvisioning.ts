@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
+import {
+  TEKTON_CLUSTER,
+  toPipelineRunSummary,
+  type RawPipelineRun as TektonRawPipelineRun,
+  type RawTaskRun,
+} from '../tekton/useTektonPipelineRuns';
+import { summarizeCloudDeploys } from '../cloudDeploy';
 import {
   deriveProvisioning,
   type BuildSnapshot,
@@ -15,14 +21,29 @@ import {
   type SecretsSnapshot,
   type XrCondition,
   type CatalogSnapshot,
+  type CloudDeploySnapshot,
 } from './deriveProvisioning';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
 // Tekton (see TEKTON_CLUSTER). The four app-tier kinds are the ones a user
 // can request from the scaffolder.
 const XR_CLUSTER = TEKTON_CLUSTER;
-const XR_PLURALS = ['nodejsapplications', 'springbootapplications', 'pythonapplications', 'goapplications'];
-const XR_KINDS = ['NodeJSApplication', 'SpringBootApplication', 'PythonApplication', 'GoApplication'];
+const XR_PLURALS = [
+  'nodejsapplications',
+  'springbootapplications',
+  'pythonapplications',
+  'goapplications',
+  'lambdafunctions',
+  'azurefunctions',
+];
+const XR_KINDS = [
+  'NodeJSApplication',
+  'SpringBootApplication',
+  'PythonApplication',
+  'GoApplication',
+  'LambdaFunction',
+  'AzureFunction',
+];
 // The tenants repo each dev cluster's XR requests are opened against, used to find a request before
 // any XR exists to read it off (an existing XR names it in its source-info annotation, which wins).
 const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
@@ -54,7 +75,7 @@ interface RawManaged {
   status?: { conditions?: XrCondition[]; atProvider?: { htmlUrl?: string; fullName?: string } };
 }
 interface RawPipelineRun {
-  metadata: { name: string; creationTimestamp: string; labels?: Record<string, string> };
+  metadata: { name: string; creationTimestamp?: string; labels?: Record<string, string> };
   status?: {
     conditions?: { type: string; status: string; reason?: string }[];
     startTime?: string;
@@ -69,6 +90,35 @@ interface RawRollout {
   status?: { phase?: string; availableReplicas?: number };
 }
 
+/**
+ * The state of the app's deploys to a cloud target (ECS, Lambda, Container Apps), from its Tekton
+ * deploy runs, or undefined when it has none (a Kubernetes app, or nothing deployed yet). The same
+ * reading the Deployments tab uses (cloudDeploy.ts), so the two never disagree about a deploy.
+ * A deploy in progress wins over an older result; a failure counts only until a newer success.
+ */
+export function toCloudDeploySnapshot(
+  runs: TektonRawPipelineRun[] | undefined,
+  taskRuns: RawTaskRun[] | undefined,
+): CloudDeploySnapshot | undefined {
+  if (!runs?.length) return undefined;
+  const byName = new Map((taskRuns ?? []).map(t => [t.metadata.name, t]));
+  const summary = summarizeCloudDeploys(runs.map(r => toPipelineRunSummary(r, TEKTON_CLUSTER, byName)));
+  const pick = summary.inFlight ?? summary.latestFailure ?? summary.current;
+  if (!pick) return undefined;
+  let state: CloudDeploySnapshot['state'] = 'succeeded';
+  if (pick === summary.inFlight) state = 'running';
+  else if (pick === summary.latestFailure) state = 'failed';
+  const r = pick.resource;
+  return {
+    state,
+    label: pick.targetLabel,
+    resource: r ? `${r.kind} ${r.name}` : undefined,
+    completedAt: pick.completionTime ? Date.parse(pick.completionTime) : undefined,
+    failure: pick.failure ? [pick.failure.task, pick.failure.message].filter(Boolean).join(': ') : undefined,
+    consoleUrl: pick.consoleUrl,
+  };
+}
+
 // The app's own build pipeline, as Pipelines-as-Code runs it on a push. The namespace also holds
 // Glidepath's own runs (the onboarding-resync that delivers the .tekton files, the values check on
 // GitOps PRs), which finish before any build exists. Counting one of those as "the first build"
@@ -78,7 +128,7 @@ export const BUILD_PIPELINE = 'build';
 export function pickFirstBuild<T extends RawPipelineRun>(runs: T[] | undefined): T | undefined {
   return [...(runs ?? [])]
     .filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === BUILD_PIPELINE)
-    .sort((a, b) => a.metadata.creationTimestamp.localeCompare(b.metadata.creationTimestamp))[0];
+    .sort((a, b) => (a.metadata.creationTimestamp ?? '').localeCompare(b.metadata.creationTimestamp ?? ''))[0];
 }
 
 const epoch = (iso?: string) => (iso ? Date.parse(iso) : undefined);
@@ -414,7 +464,9 @@ export function useProvisioning(): UseProvisioningResult {
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const [runs, rollouts, repos, files, stores, cicds, catalog] = await Promise.all([
-            optional<ListResponse<RawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`),
+            optional<ListResponse<TektonRawPipelineRun>>(
+              `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`,
+            ),
             optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
@@ -438,6 +490,16 @@ export function useProvisioning(): UseProvisioningResult {
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
           const first = pickFirstBuild(runs?.items);
+          // TaskRuns carry the deploy target and config, so they are only fetched for an app that has
+          // a deploy run to read them for (the common case of "nothing deployed yet" costs nothing).
+          const deployRuns = (runs?.items ?? []).filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === 'deploy');
+          const cloudDeploy = deployRuns.length
+            ? toCloudDeploySnapshot(
+                deployRuns,
+                (await optional<ListResponse<RawTaskRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))
+                  ?.items,
+              )
+            : undefined;
           return {
             xr: {
               kind: x.kind ?? '',
@@ -462,6 +524,7 @@ export function useProvisioning(): UseProvisioningResult {
             ),
             secrets: toSecrets(store, stores !== undefined),
             catalog,
+            cloudDeploy,
             links: {
               requestPr: gh?.requestPr,
               sourceRepoUrl: repoLinks.sourceRepoUrl,
