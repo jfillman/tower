@@ -13,5 +13,6 @@ nav:
   - Components: components.md
   - Provisioning: provisioning.md
   - Environments: environments.md
+  - Design system: design-system.md
   - Patches: patches.md
   - Brand: brand/README.md

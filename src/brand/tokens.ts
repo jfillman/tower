@@ -24,6 +24,8 @@ export interface HangarTokens {
   textFaint: string;
   amber: string;
   amberInk: string;
+  /** Text on a solid `amber` fill (a primary button). `amberInk` is for text on `amberSoft`, not on amber. */
+  onAmber: string;
   amberSoft: string;
   amberLine: string;
   sky: string;
@@ -47,6 +49,7 @@ const light: HangarTokens = {
   textFaint: '#88919A',
   amber: '#B9791F',
   amberInk: '#7A5115',
+  onAmber: '#1A1204',
   amberSoft: '#F4E6C9',
   amberLine: '#E0BE84',
   sky: '#2E7BA6',
@@ -70,6 +73,7 @@ const dark: HangarTokens = {
   textFaint: '#66717B',
   amber: '#E8A33D',
   amberInk: '#F4C67D',
+  onAmber: '#1A1204',
   amberSoft: '#3A2C15',
   amberLine: '#5C4520',
   sky: '#6FB2D9',

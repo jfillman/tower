@@ -272,12 +272,12 @@ describe('adding a Flight environment', () => {
     expect(validateEnvironments(after, 'aws-lambda').join()).toMatch(/not supported for aws-lambda/);
   });
 
-  it('tells the user the order to merge the two pull requests, and that the pipeline step is theirs to add', () => {
+  it('tells the user the order to merge the two pull requests', () => {
     const after = applyStaged(before, [{ kind: 'add', env: flight('prod', 'kind-prod') }]);
     const out = followUps(before, after, undefined);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatch(/Merge that one before the cicd\.yaml change/);
-    expect(out[0]).toMatch(/not added: edit the pipeline in the Glidepath tab/);
+    expect(out[0]).not.toMatch(/not added/); // the release step is added by default now, and has its own line
   });
 });
 

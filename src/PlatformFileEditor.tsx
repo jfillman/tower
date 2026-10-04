@@ -8,6 +8,7 @@ import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { usePlatformFile, useSubmitPlatformFileChange } from './useConfigData';
 import { YamlBlockEditor, validateYamlBlock } from './YamlBlockEditor';
+import { Button } from './ui';
 import { deepEqual } from './deepEqual';
 import { CONFIG_TOP_LEVEL_FIELDS, type ConfigTopLevelField, type PlatformEnvSelector } from './types';
 
@@ -33,18 +34,6 @@ function safeYamlLoad(text: string): unknown {
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>({
   submitBar: { display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 },
-  submitBtn: {
-    fontFamily: 'inherit',
-    fontSize: 13,
-    fontWeight: 600,
-    padding: '6px 14px',
-    borderRadius: 4,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: ({ t }) => t.amber,
-    color: ({ t }) => t.amberInk,
-    '&:disabled': { opacity: 0.45, cursor: 'default' },
-  },
   resultLink: { fontFamily: fontMono, fontSize: 12 },
 });
 
@@ -112,9 +101,9 @@ export function PlatformFileEditor({
     <>
       <YamlBlockEditor label={file.data?.path ?? 'platform file'} value={raw} onChange={setRaw} rows={12} />
       <div className={classes.submitBar}>
-        <button type="button" className={classes.submitBtn} disabled={!dirty || !valid || submit.loading} onClick={handleSubmit}>
+        <Button variant="primary" disabled={!dirty || !valid || submit.loading} onClick={handleSubmit}>
           {submit.loading ? 'Opening PR…' : 'Open PR for this file'}
-        </button>
+        </Button>
       </div>
       {submit.result && (
         <Typography>
