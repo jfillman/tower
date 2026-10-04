@@ -120,7 +120,7 @@ export function Subtabs<T extends string>({
   onChange,
 }: {
   label: string;
-  tabs: Array<{ id: T; label: string }>;
+  tabs: Array<{ id: T; label: string; marked?: boolean }>;
   value: T;
   onChange: (id: T) => void;
 }) {
@@ -138,6 +138,7 @@ export function Subtabs<T extends string>({
           onClick={() => onChange(tab.id)}
         >
           {tab.label}
+          {tab.marked && <i className={ui.marker} role="img" aria-label="has staged changes" />}
         </button>
       ))}
     </div>

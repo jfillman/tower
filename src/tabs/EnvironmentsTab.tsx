@@ -66,8 +66,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   main: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
   toolbar: { display: 'flex', gap: 10, alignItems: 'center' },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
-  scroll: { overflowX: 'auto' },
-  table: { minWidth: 760 },
   headRow: { display: 'grid', gridTemplateColumns: COLUMNS, gap: 10, padding: '9px 14px', borderLeft: '3px solid transparent' },
   row: {
     display: 'grid',
@@ -372,8 +370,8 @@ export function EnvironmentsTab() {
                   : 'No environments match this filter.'}
               </div>
             ) : (
-              <div className={c.scroll}>
-                <div className={c.table} role="table" aria-label="Environments">
+              <div>
+                <div role="table" aria-label="Environments">
                   <div className={c.headRow} role="row">
                     <span role="presentation" />
                     {['Environment', 'Tier', 'Target', 'Where', 'Health', 'Live image'].map(h => (

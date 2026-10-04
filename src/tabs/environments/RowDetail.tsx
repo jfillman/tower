@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
-import { PlatformFileEditor } from '../../PlatformFileEditor';
+import { ConfigEditor } from '../../values/ValuesForm';
+import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
+import { useFlightValuesSource, useGroundValuesSource } from '../../values/sources';
+import { useStyles as useValuesStyles } from '../../values/styles';
 import { Button, ColumnLabel, Field, Subtabs } from '../../ui';
 import { useUi } from '../../ui/styles';
 import { BLOCK_FIELDS, type DisplayRow } from './shared';
@@ -98,6 +100,7 @@ export function RowDetail({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx
 function Settings({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
+  const vc = useValuesStyles({ t });
   const ui = useUi({ t });
   const { def } = row;
   const block = ctx.cloudBlock;
@@ -142,6 +145,12 @@ function Settings({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDet
       <div className={ui.note}>
         Tier, cluster and target cannot change on an existing environment. Remove it and add it again.
       </div>
+      {def.tier === 'flight' && ctx.owner && ctx.appName && (
+        <>
+          <EnvXrPanel owner={ctx.owner} appName={ctx.appName} env={row.name} classes={vc} />
+          <ConfigMapFilesPanel owner={ctx.owner} appName={ctx.appName} cluster={def.cluster ?? row.where} env={row.name} classes={vc} />
+        </>
+      )}
     </>
   );
 }
@@ -163,28 +172,19 @@ function Values({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetai
         </div>
       );
     }
-    return (
-      <>
-        <ColumnLabel>Values: platform/envs/{row.name}.yaml</ColumnLabel>
-        <div className={ui.note}>
-          The same chart values as App Configuration, minus rollout.image (set by deploy automation). This file has its own pull request:
-          it is not part of the pending changes.
-        </div>
-        <PlatformFileEditor owner={ctx.owner as string} appName={ctx.appName as string} selector={{ kind: 'env', env: row.name }} />
-      </>
-    );
+    return <GroundValues owner={ctx.owner as string} appName={ctx.appName as string} env={row.name} />;
   }
-  return (
-    <div className={ui.note}>
-      This Flight environment&apos;s values live in{' '}
-      <span className={c.mono}>
-        gitops-{ctx.appName}/{def.cluster ?? '<cluster>'}/{row.name}/values.yaml
-      </span>
-      .{' '}
-      <Link href={`?${new URLSearchParams({ entity: ctx.entity, tab: 'config', env: row.name })}`}>Edit them in App Configuration</Link>, which
-      keeps its own pull-request flow and prod warnings.
-    </div>
-  );
+  return <FlightValues owner={ctx.owner as string} appName={ctx.appName as string} env={row.name} cluster={def.cluster ?? row.where} />;
+}
+
+function GroundValues({ owner, appName, env }: { owner: string; appName: string; env: string }) {
+  const source = useGroundValuesSource({ owner, appName, env });
+  return <ConfigEditor owner={owner} appName={appName} source={source} title={env.toUpperCase()} layout="inline" />;
+}
+
+function FlightValues({ owner, appName, env, cluster }: { owner: string; appName: string; env: string; cluster: string }) {
+  const source = useFlightValuesSource({ owner, appName, cluster, env });
+  return <ConfigEditor owner={owner} appName={appName} source={source} title={`${env.toUpperCase()} (${cluster})`} prod={/^prod/i.test(env)} layout="inline" />;
 }
 
 function Danger({ row, ctx, removed }: { row: DisplayRow & { def: EnvDef }; ctx: RowDetailContext; removed: boolean }) {
