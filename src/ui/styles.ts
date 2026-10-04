@@ -126,6 +126,8 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: -2 },
   },
+  marker: { display: 'inline-block', width: 6, height: 6, borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle', backgroundColor: ({ t }) => t.amber },
+  sideBySide: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
   subtabOn: { color: ({ t }) => t.textHi, borderBottomColor: ({ t }) => t.amber },
   // ---- status
   dot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', flexShrink: 0 },
@@ -147,6 +149,8 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&::placeholder': { color: ({ t }) => t.textFaint },
     '&:focus': { outline: 'none', borderColor: ({ t }) => t.amber },
   },
+  formSection: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 14, marginTop: 14 },
+  formSectionTitle: { margin: '0 0 10px', fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
   note: { fontSize: 12.5, color: ({ t }) => t.textLo },
   problem: { fontSize: 12.5, color: ({ t }) => t.bad },
 }));

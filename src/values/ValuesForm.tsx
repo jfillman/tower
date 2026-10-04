@@ -3,18 +3,21 @@ import type { ReactNode } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
 import Link from '@material-ui/core/Link';
-import WarningRoundedIcon from '@material-ui/icons/WarningRounded';
 import { dump as dumpYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { useAppConfig, useSubmitConfigChange, useValuesSchema } from '../useConfigData';
+import { useValuesSchema } from '../useConfigData';
+import { useHangarTokens } from '../brand/tokens';
+import { Subtabs } from '../ui';
+import { PendingPanel } from '../ui/PendingPanel';
+import { useUi } from '../ui/styles';
+import type { ValuesSource } from './sources';
 import { RefreshButton } from '../RefreshButton';
 import { PrResultDialog } from '../PrResultDialog';
-import { preventFocusScroll } from '../preventFocusScroll';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
 import { validateAgainstSchema, type JsonSchema, type SchemaIssue } from '../schemaValidate';
 import { deepEqual } from '../deepEqual';
 import type { ConfigTopLevelField } from '../types';
-import type { Cls } from './styles';
+import { useStyles, type Cls } from './styles';
 
 
 // --- probe form (item 1) ----------------------------------------------------
@@ -932,25 +935,58 @@ function validateBeforeSubmit(form: FormState, rolloutEnabled: boolean): string[
   return errors;
 }
 
+export type ValuesTab = 'workload' | 'release' | 'networking' | 'config' | 'access' | 'advanced';
+
+const VALUES_TABS: Array<{ id: ValuesTab; label: string }> = [
+  { id: 'workload', label: 'Workload' },
+  { id: 'release', label: 'Release' },
+  { id: 'networking', label: 'Networking' },
+  { id: 'config', label: 'Config' },
+  { id: 'access', label: 'Access' },
+  { id: 'advanced', label: 'Advanced' },
+];
+
+// Which sub-tab each raw-YAML block lives in.
+const ADVANCED_TAB: Record<AdvancedKey, ValuesTab> = {
+  rolloutAdvanced: 'workload',
+  analysisTemplates: 'release',
+  slos: 'release',
+  volumes: 'config',
+  components: 'config',
+  cronJobs: 'advanced',
+  jobs: 'advanced',
+  extraManifests: 'advanced',
+};
+
+/**
+ * One environment's chart values as a form, split into sub-tabs, with its own pending-changes panel. `source` says
+ * where the values are read from and where the pull request goes (see ./sources.ts). `layout="side"` puts the panel
+ * beside the form (App Configuration); `"inline"` puts it below (inside an Environments row, which already has the
+ * page's own pending-changes panel for cicd.yaml).
+ */
 export function ConfigEditor({
   owner,
   appName,
-  cluster,
-  env,
-  prod,
-  classes,
+  source,
+  title,
+  prod = false,
+  layout = 'side',
 }: {
   owner: string;
   appName: string;
-  cluster: string;
-  env: string;
-  prod: boolean;
-  classes: Cls;
+  source: ValuesSource;
+  /** Names what is being edited in the panel, for example "TEST (kind-dev)". */
+  title: string;
+  prod?: boolean;
+  layout?: 'side' | 'inline';
 }) {
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const cfg = useAppConfig({ owner, appName, cluster, env }, refreshNonce);
-  const submitCfg = useSubmitConfigChange();
+  const tokens = useHangarTokens();
+  const classes = useStyles({ t: tokens });
+  const ui = useUi({ t: tokens });
+  const cfg = source;
+  const submitCfg = { loading: source.submitting, result: source.result, error: source.submitError, reset: source.resetSubmit };
   const schema = useValuesSchema(owner);
+  const [tab, setTab] = useState<ValuesTab>('workload');
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
   const [originalForm, setOriginalForm] = useState<FormState | undefined>(undefined);
@@ -972,7 +1008,6 @@ export function ConfigEditor({
   const [stepsSimple, setStepsSimple] = useState<StepForm[]>([]);
   const [stepsRaw, setStepsRaw] = useState('');
   const [originalStepsRaw, setOriginalStepsRaw] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showRawFile, setShowRawFile] = useState(false);
   const [exampleOpen, setExampleOpen] = useState<Set<AdvancedKey>>(new Set());
 
@@ -1002,6 +1037,8 @@ export function ConfigEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg.data]);
 
+  // The error first: with no data there is never a form, so checking "no form yet" first would show a spinner forever.
+  if (cfg.error && !cfg.data) return <ResponseErrorPanel error={new Error(cfg.error)} />;
   if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return <Progress />;
   if (cfg.error) return <ResponseErrorPanel error={new Error(cfg.error)} />;
   if (!cfg.data) return null;
@@ -1257,7 +1294,8 @@ export function ConfigEditor({
   // review-bar's error list and the submit button's disabled state need to
   // agree on (see item 4's own top-of-file note on why the schema check
   // lives alongside, not instead of, validateBeforeSubmit).
-  const { patch: previewPatch } = dirty.size > 0 ? buildPatchAndSummary() : { patch: {} as Partial<Record<ConfigTopLevelField, unknown>> };
+  const { patch: previewPatch, summary: previewSummary } =
+    dirty.size > 0 ? buildPatchAndSummary() : { patch: {} as Partial<Record<ConfigTopLevelField, unknown>>, summary: [] as string[] };
   const schemaIssues: SchemaIssue[] = schema.data
     ? (Object.keys(previewPatch) as ConfigTopLevelField[]).flatMap(key =>
         validateAgainstSchema((schema.data as JsonSchema).properties?.[key], schema.data as JsonSchema, previewPatch[key], key),
@@ -1269,7 +1307,7 @@ export function ConfigEditor({
 
   const onSubmit = () => {
     const { patch, summary } = buildPatchAndSummary();
-    submitCfg.submit({ owner, appName, cluster, env, patch, summary });
+    source.submit(patch, summary);
   };
 
   const renderAdvancedSection = (key: AdvancedKey) => {
@@ -1299,22 +1337,52 @@ export function ConfigEditor({
           );
   };
 
+  const fieldsDirty = (keys: (keyof FormState)[]) => fieldsChanged(keys);
+  const tabDirty: Record<ValuesTab, boolean> = {
+    workload:
+      rolloutEnabled !== originalRolloutEnabled ||
+      fieldsDirty(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness']) ||
+      dirty.has('autoscaling') ||
+      dirty.has('podDisruptionBudget') ||
+      dirty.has('serviceMonitor') ||
+      advanced.rolloutAdvanced !== originalAdvanced.rolloutAdvanced,
+    release: stepsCurrentText !== originalStepsRaw || dirty.has('notifications') || dirty.has('analysisTemplates') || dirty.has('slos'),
+    networking: dirty.has('ingress') || dirty.has('httpRoute') || dirty.has('networkPolicy'),
+    config: dirty.has('env') || dirty.has('configMaps') || dirty.has('volumes') || dirty.has('components'),
+    access: dirty.has('serviceAccount') || dirty.has('secrets'),
+    advanced: dirty.has('cronJobs') || dirty.has('jobs') || dirty.has('extraManifests'),
+  };
+
+  const problems = [
+    ...advancedInvalid.map(k => `${ADVANCED_META[k].title}: fix the YAML syntax error before submitting.`),
+    ...(stepsInvalid ? ['Canary steps: fix the YAML syntax error before submitting.'] : []),
+    ...structuralErrors,
+    ...schemaIssues.map(i => `${i.path}: ${i.message}`),
+  ];
+  const notes = schema.error ? [`Couldn't load the chart's values.schema.json for extra validation (${schema.error}). The built-in checks still apply.`] : [];
+
   return (
-    <div className={classes.columns}>
-      <div className={classes.sectionTitleRow} style={{ marginBottom: 0 }}>
-        <Typography className={classes.note}>Live values from GitHub - not polled, use refresh for the latest commit.</Typography>
-        <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
-      </div>
+    <div className={layout === 'side' ? ui.sideBySide : undefined}>
+      <div className={classes.columns}>
+        <div className={classes.sectionTitleRow} style={{ marginBottom: 0 }}>
+          <Typography className={classes.note}>Live values from GitHub - not polled, use refresh for the latest commit.</Typography>
+          <RefreshButton onClick={source.refresh} />
+        </div>
+        <Subtabs label="Values sections" value={tab} onChange={setTab} tabs={VALUES_TABS.map(x => ({ ...x, marked: tabDirty[x.id] }))} />
+        {tab === 'advanced' && (
+          <>
+            <button type="button" className={classes.advancedToggle} onClick={() => setShowRawFile(v => !v)}>
+              {showRawFile ? '▾ Hide full committed YAML' : '▸ View full committed YAML'}
+            </button>
+            {showRawFile && (
+              <pre className={classes.example} style={{ maxHeight: 420, overflow: 'auto' }}>
+                {cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values file\n# on its own branch/history. Submitting a change creates it.`}
+              </pre>
+            )}
+          </>
+        )}
 
-      <button type="button" className={classes.advancedToggle} onClick={() => setShowRawFile(v => !v)}>
-        {showRawFile ? '▾ Hide full committed YAML' : '▸ View full committed YAML'}
-      </button>
-      {showRawFile && (
-        <pre className={classes.example} style={{ maxHeight: 420, overflow: 'auto' }}>
-          {cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values.yaml\n# on its own branch/history. Submitting a change below creates it.`}
-        </pre>
-      )}
-
+      {tab === 'workload' && (
       <Section title="Deployment" dirty={rolloutEnabled !== originalRolloutEnabled} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={rolloutEnabled} onChange={e => setRolloutEnabled(e.target.checked)} />
@@ -1326,9 +1394,11 @@ export function ConfigEditor({
             : "This environment has rollout: null - no Rollout, Service, HPA, or PodDisruptionBudget is deployed here. That's a normal, deliberate state, not a placeholder waiting to be filled in - a good fit for an env that only runs a Job/CronJob or another XR. Turn this on to deploy a real container instead."}
         </Typography>
       </Section>
+      )}
 
       {rolloutEnabled && (
         <>
+      {tab === 'workload' && (
       <Section title="Scaling" dirty={dirty.has('rollout') || dirty.has('autoscaling')} classes={classes}>
         <div className={classes.grid}>
           <Field label="Replicas" classes={classes}>
@@ -1359,7 +1429,9 @@ export function ConfigEditor({
           </div>
         )}
       </Section>
+      )}
 
+      {tab === 'workload' && (
       <Section title="Resources" dirty={dirty.has('rollout')} classes={classes}>
         <div className={classes.grid}>
           <Field label="Request CPU" classes={classes}>
@@ -1376,7 +1448,9 @@ export function ConfigEditor({
           </Field>
         </div>
       </Section>
+      )}
 
+      {tab === 'workload' && (
       <Section title="Service" dirty={dirty.has('rollout') && fieldsChanged(['ports'])} classes={classes}>
         <Typography className={classes.hint}>
           One Service port per entry below (this chart has no separate Service-level port - the
@@ -1419,14 +1493,18 @@ export function ConfigEditor({
           </button>
         </div>
       </Section>
+      )}
 
+      {tab === 'workload' && (
       <Section title="Health checks" dirty={dirty.has('rollout')} classes={classes}>
         <ProbeFields label="Liveness probe" probe={form.liveness} onChange={p => setF('liveness', p, 'rollout')} classes={classes} />
         <div style={{ marginTop: 16 }}>
           <ProbeFields label="Readiness probe" probe={form.readiness} onChange={p => setF('readiness', p, 'rollout')} classes={classes} />
         </div>
       </Section>
+      )}
 
+      {tab === 'release' && (
       <Section title="Canary steps" dirty={dirty.has('rollout')} classes={classes}>
         {stepsMode === 'simple' ? (
           <StepsBuilder steps={stepsSimple} onChange={setSteps} declaredTemplateNames={declaredTemplateNames} classes={classes} />
@@ -1445,9 +1523,11 @@ export function ConfigEditor({
           <Typography className={classes.hint}>Can't switch to the builder: this YAML doesn't parse, or uses a step shape it can't represent.</Typography>
         )}
       </Section>
+      )}
         </>
       )}
 
+      {tab === 'networking' && (
       <Section title="Networking" dirty={dirty.has('ingress') || dirty.has('httpRoute') || dirty.has('networkPolicy')} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={form.httpRouteEnabled} onChange={e => setF('httpRouteEnabled', e.target.checked, 'httpRoute')} />
@@ -1534,7 +1614,9 @@ export function ConfigEditor({
           </div>
         )}
       </Section>
+      )}
 
+      {tab === 'workload' && (
       <Section title="Availability" dirty={dirty.has('podDisruptionBudget') || dirty.has('serviceMonitor')} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={form.pdbEnabled} onChange={e => setF('pdbEnabled', e.target.checked, 'podDisruptionBudget')} />
@@ -1565,7 +1647,9 @@ export function ConfigEditor({
           </div>
         )}
       </Section>
+      )}
 
+      {tab === 'access' && (
       <Section title="Service account" dirty={dirty.has('serviceAccount')} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={form.serviceAccountCreate} onChange={e => setF('serviceAccountCreate', e.target.checked, 'serviceAccount')} />
@@ -1641,7 +1725,9 @@ export function ConfigEditor({
           </>
         )}
       </Section>
+      )}
 
+      {tab === 'release' && (
       <Section title="Notifications" dirty={dirty.has('notifications')} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={form.slackEnabled} onChange={e => setF('slackEnabled', e.target.checked, 'notifications')} />
@@ -1656,7 +1742,9 @@ export function ConfigEditor({
         )}
         <Typography className={classes.hint}>The webhook URL itself is never edited here - it's an Infisical secret, not a values.yaml field.</Typography>
       </Section>
+      )}
 
+      {tab === 'config' && (
       <Section title="Environment variables" dirty={dirty.has('env')} classes={classes}>
         <div className={classes.rowList}>
           {form.envVars.map((v, i) => (
@@ -1691,134 +1779,77 @@ export function ConfigEditor({
           </button>
         </div>
       </Section>
+      )}
 
+      {tab === 'config' && (
       <Section title="Config maps" dirty={dirty.has('configMaps')} classes={classes}>
         <ConfigMapsSection rows={form.configMaps} onChange={rows => setF('configMaps', rows)} classes={classes} />
       </Section>
+      )}
 
+      {tab === 'access' && (
       <Section title="Secrets" dirty={dirty.has('secrets')} classes={classes}>
         <SecretsSection rows={form.secrets} onChange={rows => setF('secrets', rows)} classes={classes} />
       </Section>
+      )}
 
-      {/* Below Secrets, above the advanced (raw YAML) fields - see ADVANCED_META's `promoted`. */}
       {(Object.keys(ADVANCED_META) as AdvancedKey[])
-        .filter(key => ADVANCED_META[key].promoted)
+        .filter(key => ADVANCED_TAB[key] === tab)
         .map(key => renderAdvancedSection(key))}
 
-      <button type="button" className={classes.advancedToggle} onClick={() => setShowAdvanced(v => !v)}>
-        {showAdvanced ? '▾ Hide advanced (raw YAML) fields' : '▸ Show advanced (raw YAML) fields'}
-      </button>
-
-      {showAdvanced &&
-        (Object.keys(ADVANCED_META) as AdvancedKey[])
-          .filter(key => !ADVANCED_META[key].promoted)
-          .map(key => renderAdvancedSection(key))}
-
-      {dirty.size > 0 && (
-        <div className={`${classes.reviewBar} ${prod ? classes.reviewBarProd : classes.reviewBarOther}`}>
-          <div className={classes.reviewHeader}>
-            <Typography className={`${classes.reviewTitle} ${prod ? classes.reviewTitleProd : classes.reviewTitleOther}`}>
-              {prod && <WarningRoundedIcon style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4 }} />}
-              Review changes to {env.toUpperCase()} ({cluster}) before opening a PR
-            </Typography>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {submitCfg.result ? (
-                // A successful (or already-open) PR means these edits are
-                // already on their way to review - "Discard" would silently
-                // wipe the form back to pre-edit state for no reason at that
-                // point (2026-09-13 bug report). Close just dismisses the PR
-                // link/banner (submitCfg.reset()), leaving the form exactly
-                // as submitted in case there's more to add before merge.
-                <button type="button" className={classes.discardBtn} onClick={() => submitCfg.reset()}>
-                  Close
-                </button>
-              ) : (
-                <button type="button" className={classes.discardBtn} onClick={discard} disabled={submitCfg.loading}>
-                  Discard
-                </button>
-              )}
-              <button type="button" className={classes.btn} disabled={!canSubmit} onMouseDown={preventFocusScroll} onClick={onSubmit}>
-                {submitCfg.loading ? 'Opening PR…' : 'Open PR'}
-              </button>
-            </div>
-          </div>
-          <ul className={classes.reviewList}>
-            {[...dirty].map(k => (
-              <li key={k}>{k}</li>
-            ))}
-          </ul>
-          {advancedInvalid.length > 0 && (
-            <ul className={classes.errorList}>
-              {advancedInvalid.map(k => (
-                <li key={k}>{ADVANCED_META[k].title}: fix the YAML syntax error above before submitting.</li>
-              ))}
-            </ul>
-          )}
-          {stepsInvalid && (
-            <ul className={classes.errorList}>
-              <li>Canary steps: fix the YAML syntax error above before submitting.</li>
-            </ul>
-          )}
-          {structuralErrors.length > 0 && (
-            <ul className={classes.errorList}>
-              {structuralErrors.map(e => (
-                <li key={e}>{e}</li>
-              ))}
-            </ul>
-          )}
-          {schemaIssues.length > 0 && (
-            <ul className={classes.errorList}>
-              {schemaIssues.map((issue, i) => (
-                <li key={i}>
-                  {issue.path}: {issue.message}
-                </li>
-              ))}
-            </ul>
-          )}
-          {schema.error && (
-            <Typography className={classes.hint} style={{ marginTop: 0 }}>
-              Couldn't load the chart's values.schema.json for extra validation ({schema.error}) - the built-in checks above still apply.
-            </Typography>
-          )}
-          <PrResultDialog result={submitCfg.result} error={submitCfg.error} onClose={() => submitCfg.reset()} />
-          {submitCfg.result && (
-            <Typography className={classes.note}>
-              {submitCfg.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-              <Link className={classes.resultLink} href={submitCfg.result.prUrl} target="_blank" rel="noopener noreferrer">
-                {submitCfg.result.prUrl}
-              </Link>
-            </Typography>
-          )}
-          {submitCfg.error && (
-            <Typography className={classes.errorList} style={{ listStyle: 'none', paddingLeft: 0 }}>
-              Couldn't open PR: {submitCfg.error}
-            </Typography>
-          )}
+      </div>
+      <PendingPanel
+        lines={previewSummary.map(title => ({ title }))}
+        problems={problems}
+        notes={notes}
+        heading={prod ? `Pending changes to ${title}` : 'Pending changes'}
+        aria-label={`Pending changes to the values of ${title}`}
+        emptyText="Nothing staged. Edit a field and it appears here."
+        stick={layout === 'side' ? 'top' : 'bottom'}
+        busy={submitCfg.loading}
+        canSubmit={canSubmit}
+        submitLabel="Open pull request"
+        onDiscard={discard}
+        onSubmit={onSubmit}
+      >
+        <div className={ui.note}>
+          {title}: {cfg.data.path}. This file has its own pull request.
         </div>
-      )}
+        {submitCfg.result && (
+          <div className={ui.note}>
+            {submitCfg.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
+            <Link className={classes.resultLink} href={submitCfg.result.prUrl} target="_blank" rel="noopener noreferrer">
+              {submitCfg.result.prUrl}
+            </Link>
+          </div>
+        )}
+        {submitCfg.error && <div className={ui.problem}>Couldn&apos;t open PR: {submitCfg.error}</div>}
+      </PendingPanel>
+      <PrResultDialog result={submitCfg.result} error={submitCfg.error} onClose={() => submitCfg.reset()} />
     </div>
   );
 }
 
-function Section({ title, dirty, classes, children }: { title: string; dirty: boolean; classes: Cls; children: ReactNode }) {
+function Section({ title, dirty, children }: { title: string; dirty: boolean; classes: Cls; children: ReactNode }) {
+  const t = useHangarTokens();
+  const ui = useUi({ t });
   return (
-    <div className={`${classes.section} ${dirty ? classes.sectionDirty : ''}`}>
-      <div className={classes.sectionTitleRow}>
-        <Typography className={classes.sectionTitle}>
-          {title}
-          {dirty && <span className={classes.dirtyDot} />}
-        </Typography>
-      </div>
+    <div className={ui.formSection}>
+      <h3 className={ui.formSectionTitle}>
+        {title}
+        {dirty && <i className={ui.marker} role="img" aria-label="changed" />}
+      </h3>
       {children}
     </div>
   );
 }
 
+// A real <label> around the label text and its control, so the text names the input (it did not before).
 function Field({ label, classes, children }: { label: string; classes: Cls; children: ReactNode }) {
   return (
-    <div className={classes.field}>
+    <label className={classes.field}>
       <Typography className={classes.fieldLabel}>{label}</Typography>
       {children}
-    </div>
+    </label>
   );
 }

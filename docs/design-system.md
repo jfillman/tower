@@ -23,12 +23,12 @@ its own title, chip, table header and button styles with slightly different numb
 ## Kit
 
 `PageHeader`, `Panel`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `Chip`, `TierChip`, `Segmented`,
-`Subtabs`, `StatusDot`, `Field`, `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
+`Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 
 ## Migration status
 
-Done: Environments tab (and its dialogs), the platform file editor. Everything else still declares its own styles
+Done: Environments tab (and its dialogs), the values form's sub-tabs, sections and pending panel, the platform file editor. The values form's individual inputs still use the older MUI controls. Everything else still declares its own styles
 and moves onto the kit tab by tab; see the table below. A tab is done when it declares no title, chip, table-header,
 panel or button style of its own.
 

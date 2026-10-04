@@ -18,6 +18,10 @@ let ctx: any;
 let cicdData: any;
 let submitState: any;
 let platformFile: any;
+// Stable objects: the form re-initialises whenever the data object changes, as the real hooks' state does not.
+const flightConfig = { loading: false, data: { values: { rollout: { replicas: 2 } }, raw: '', path: 'gitops-air-traffic-api/kind-prod/staging/values.yaml' } };
+const envXr = { loading: false, data: { env: 'staging', path: 'p', configMapGenerator: false } };
+const configMapFiles = { loading: false, data: { cluster: 'kind-prod', env: 'staging', path: 'p', files: [] } };
 const platformSubmitMock = jest.fn();
 const submitMock = jest.fn();
 const resetMock = jest.fn();
@@ -31,6 +35,13 @@ jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
   usePlatformFile: () => platformFile,
+  useValuesSchema: () => ({ loading: false, data: undefined }),
+  useAppConfig: () => flightConfig,
+  useSubmitConfigChange: () => ({ loading: false, submit: jest.fn(), reset: jest.fn() }),
+  useEnvXr: () => envXr,
+  useSubmitEnvXrChange: () => ({ loading: false, submit: jest.fn(), reset: jest.fn() }),
+  useConfigMapFiles: () => configMapFiles,
+  useSubmitConfigMapFiles: () => ({ loading: false, submit: jest.fn(), reset: jest.fn() }),
   useSubmitPlatformFileChange: () => ({ loading: false, submit: platformSubmitMock, reset: jest.fn() }),
 }));
 
@@ -130,7 +141,7 @@ const confirmRemoveFromMenu = async (name: string) => {
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 };
 const openRow = (name: string) => screen.getAllByRole('row').find(r => within(r).queryByText(name))!;
-const panel = () => within(screen.getByLabelText('Pending changes'));
+const panel = () => within(screen.getByRole('region', { name: 'Pending changes' }));
 
 describe('EnvironmentsTab: reading', () => {
   it('lists every environment in order with tier, target, where, health and the live image', () => {
@@ -349,7 +360,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     k8sOld();
     renderTab();
     fireEvent.click(screen.getAllByRole('row').find(r => within(r).queryByText('test'))!);
-    expect(screen.getByText('Values: platform/envs/test.yaml')).toBeTruthy();
+    expect(screen.getByRole('tablist', { name: 'Values sections' })).toBeTruthy();
     expect(screen.queryByLabelText(/^functionName/)).toBeNull();
   });
 });
@@ -575,58 +586,59 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
 });
 
 describe('EnvironmentsTab: the values of a Ground environment', () => {
-  it('shows the platform file of the environment in its row, as YAML, with its own PR button', () => {
+  const replicas = () => screen.getByLabelText('Replicas') as HTMLInputElement;
+
+  it('shows the values form of the environment in its row, in sub-tabs, with its own pending-changes panel', () => {
     k8sOld();
     renderTab();
     fireEvent.click(openRow('test'));
-    expect(screen.getByText('Values: platform/envs/test.yaml')).toBeTruthy();
-    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toContain('replicas: 1');
-    expect((screen.getByRole('button', { name: 'Open PR for this file' }) as HTMLButtonElement).disabled).toBe(true);
+    const tabs = within(screen.getByRole('tablist', { name: 'Values sections' })).getAllByRole('tab').map(t => t.textContent);
+    expect(tabs).toEqual(['Workload', 'Release', 'Networking', 'Config', 'Access', 'Advanced']);
+    expect(replicas().value).toBe('1');
+    expect(screen.getByRole('region', { name: 'Pending changes to the values of TEST' })).toBeTruthy();
   });
 
-  it('opens a PR for just the changed fields of that file, separate from the pending changes', async () => {
+  it('stages a field edit in the values panel, not in the page panel, and opens a PR for that file only', async () => {
     k8sOld();
     renderTab();
     fireEvent.click(openRow('test'));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'envName: test\nrollout:\n  replicas: 3\n' } });
-    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open PR for this file' }));
+    fireEvent.change(replicas(), { target: { value: '3' } });
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy(); // the page-level panel is for cicd.yaml
+    const values = within(screen.getByRole('region', { name: 'Pending changes to the values of TEST' }));
+    expect(values.getByText(/rollout:/)).toBeTruthy();
+    fireEvent.click(values.getByRole('button', { name: 'Open pull request' }));
     await waitFor(() => expect(platformSubmitMock).toHaveBeenCalledTimes(1));
-    expect(platformSubmitMock.mock.calls[0][0]).toMatchObject({
-      owner: 'jfillman',
-      appName: 'air-traffic-api',
-      selector: { kind: 'env', env: 'test' },
-      patch: { rollout: { replicas: 3 } },
-    });
+    const req = platformSubmitMock.mock.calls[0][0];
+    expect(req).toMatchObject({ owner: 'jfillman', appName: 'air-traffic-api', selector: { kind: 'env', env: 'test' } });
+    expect(req.patch.rollout.replicas).toBe(3);
     expect(submitMock).not.toHaveBeenCalled();
   });
 
-  it('will not submit invalid YAML', () => {
+  it('marks the sub-tab that holds a change', () => {
     k8sOld();
     renderTab();
     fireEvent.click(openRow('test'));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'rollout: [3' } });
-    expect((screen.getByRole('button', { name: 'Open PR for this file' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(replicas(), { target: { value: '3' } });
+    expect(within(screen.getByRole('tab', { name: /Workload/ })).getByRole('img', { name: 'has staged changes' })).toBeTruthy();
+    expect(within(screen.getByRole('tab', { name: /Networking/ })).queryByRole('img')).toBeNull();
   });
 
-  it('does not offer a file editor for an environment that is only staged (its file does not exist yet)', async () => {
+  it('does not offer the values form for an environment that is only staged (its file does not exist yet)', async () => {
     k8sOld();
     renderTab();
     await stageAdd('qa');
     fireEvent.click(openRow('qa'));
     expect(screen.getByText(/is created by a\s+second pull request/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Open PR for this file' })).toBeNull();
+    expect(screen.queryByRole('tablist', { name: 'Values sections' })).toBeNull();
   });
 
-  it('links a Flight environment to App Configuration with that environment preselected', () => {
+  it('shows a Flight environment\'s values form and its catalog resource and configmap files under Settings', () => {
     k8sOld();
     renderTab();
     fireEvent.click(openRow('staging'));
-    const link = screen.getByRole('link', { name: 'Edit them in App Configuration' }) as HTMLAnchorElement;
-    const q = new URLSearchParams(link.getAttribute('href')!.replace(/^\?/, ''));
-    expect(q.get('tab')).toBe('config');
-    expect(q.get('env')).toBe('staging');
-    expect(q.get('entity')).toBe('component:default/air-traffic-api');
+    expect(screen.getByRole('tablist', { name: 'Values sections' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
+    expect(screen.getAllByText(/configMapGenerator/i).length).toBeGreaterThan(0);
   });
 });
 
