@@ -413,3 +413,83 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(dialog.getByText(/Merge the ApplicationEnvironment request first, then the cicd\.yaml change/)).toBeTruthy();
   });
 });
+
+describe('EnvironmentsTab: removing a Ground environment', () => {
+  const confirmRemove = async (name: string) => {
+    fireEvent.click(screen.getByRole('button', { name: `Remove ${name}` }));
+    fireEvent.change(screen.getByLabelText(`Type ${name} to confirm`), { target: { value: name } });
+    fireEvent.click(screen.getByRole('button', { name: 'Stage removal' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  };
+
+  it('previews the impact, needs the name typed, and only then stages the removal', () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
+    expect(screen.getByText('platform/envs/test.yaml')).toBeTruthy();
+    expect(screen.getByText('app-air-traffic-api-test')).toBeTruthy();
+    const stage = screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement;
+    expect(stage.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Type test to confirm'), { target: { value: 'tes' } });
+    expect(stage.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Type test to confirm'), { target: { value: 'test' } });
+    expect(stage.disabled).toBe(false);
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it('submits the cicd.yaml change together with the files to delete', async () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    await confirmRemove('test');
+    expect(panel().getByText('Remove environment test')).toBeTruthy();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    const req = submitMock.mock.calls[0][0];
+    expect(req.patch.deploy.environments.map((e: any) => e.name)).toEqual(['dev', 'staging']);
+    expect(req.deleteFiles).toEqual([
+      'platform/envs/test.yaml',
+      'platform/envs/test.release.yaml',
+      'glidepath/envs/test.yaml',
+      'glidepath/envs/test.release.yaml',
+    ]);
+  });
+
+  it('refuses while a pipeline step still names the environment', () => {
+    k8sOld();
+    cicdData.values.pipelines = { ci: { steps: [{ stage: 'deploy', env: 'test' }] } };
+    render(<EnvironmentsTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
+    expect(screen.getByText(/Pipeline "ci" still has a step for test/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByLabelText('Type test to confirm')).toBeNull();
+  });
+
+  it('sends no files for a cloud app and says the cloud resource is kept', async () => {
+    lambdaNew();
+    render(<EnvironmentsTab />);
+    await confirmRemove('test');
+    expect(panel().getByText(/not deleted/)).toBeTruthy();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(submitMock.mock.calls[0][0].deleteFiles).toBeUndefined();
+  });
+
+  it('removing an environment that is only staged just un-stages it', async () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    await stageAdd('qa');
+    expect(panel().getByText('Add environment qa')).toBeTruthy();
+    await confirmRemove('qa');
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+  });
+
+  it('offers no Remove button for a Flight environment and shows the manual steps instead', () => {
+    k8sOld();
+    render(<EnvironmentsTab />);
+    expect(screen.queryByRole('button', { name: 'Remove staging' })).toBeNull();
+    fireEvent.click(screen.getByText('staging'));
+    expect(screen.getByText(/Danger zone: removing a Flight environment/)).toBeTruthy();
+    expect(screen.getByText('tenants/air-traffic-api/staging/')).toBeTruthy();
+    expect(screen.getByText('kind-prod/staging/')).toBeTruthy();
+  });
+});

@@ -21,12 +21,16 @@ import {
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
+  deleteFilesFor,
+  envFilePaths,
   describeChanges,
   followUps,
+  pipelinesNamingEnv,
   readEnvironments,
   stageSetBlock,
   validateAddedFlight,
   validateEnvironments,
+  validateRemovals,
   type CloudBlock,
   type Deploy,
   type EnvDef,
@@ -45,8 +49,9 @@ import type { Health } from '../types';
 // into one change to cicd.yaml. See glidepath docs/admin/envs-overhaul-requirements.md, section 4.
 //
 // What can be edited here so far: add a Ground or a Flight environment, reorder Ground environments, and set a
-// cloud environment's own function / service / Container App. Deleting, and the values of a Kubernetes
-// environment, are still done elsewhere (they come next).
+// cloud environment's own function / service / Container App, and remove a Ground environment (its files go in
+// the same pull request). Removing a Flight environment, and the values of a Kubernetes environment, are
+// still done elsewhere.
 //
 // A Flight environment is created by Airframe's ApplicationEnvironment XR, requested through an existing
 // Backstage template. Opening the pull request therefore launches that template first (it opens a request PR on
@@ -218,6 +223,7 @@ export function EnvironmentsTab() {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | undefined>();
+  const [removing, setRemoving] = useState<string | undefined>();
 
   const liveRows: EnvironmentRow[] = useMemo(
     () => buildEnvironmentRows(environments, { lower: pipelineOrder.lower, upper: pipelineOrder.upper }),
@@ -225,6 +231,7 @@ export function EnvironmentsTab() {
   );
 
   const deploy = cicd.data?.values.deploy as Deploy | undefined;
+  const pipelines = (cicd.data?.values as Record<string, unknown> | undefined)?.pipelines;
   const canEdit = Boolean(cicd.data && owner && appName);
   const targetId = (typeof deploy?.target === 'string' && deploy.target) || 'k8s-rollout';
   const cloudBlock = TARGET_BLOCK[targetId];
@@ -235,10 +242,15 @@ export function EnvironmentsTab() {
   const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
   const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
   const problems = useMemo(
-    () => [...validateEnvironments(after, targetId), ...validateAddedFlight(before, after, targetId)],
-    [before, after, targetId],
+    () => [
+      ...validateEnvironments(after, targetId),
+      ...validateAddedFlight(before, after, targetId),
+      ...validateRemovals(before, after, pipelines),
+    ],
+    [before, after, targetId, pipelines],
   );
-  const notes = useMemo(() => followUps(before, after, targetId), [before, after, targetId]);
+  const notes = useMemo(() => followUps(before, after, targetId, appName), [before, after, targetId, appName]);
+  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
 
   const rows: DisplayRow[] = useMemo(() => {
     const live = new Map(liveRows.map(r => [r.name, r]));
@@ -276,6 +288,14 @@ export function EnvironmentsTab() {
     return i !== -1 && Boolean(after[j]) && after[j].tier === after[i].tier;
   };
 
+  // Removing an environment that exists only as a staged add just un-stages it; removing a real one stages a remove.
+  const stageRemove = (name: string) => {
+    if (before.some(e => e.name === name)) setStaged(s => [...s, { kind: 'remove', name }]);
+    else setStaged(s => s.filter(x => !('env' in x && x.env.name === name) && !('name' in x && x.name === name)));
+    setRemoving(undefined);
+    setOpen(undefined);
+  };
+
   const setField = (env: EnvDef, block: CloudBlock, field: string, value: string) => {
     const current = { ...(env[block] ?? {}) } as Record<string, unknown>;
     if (value.trim()) current[field] = value;
@@ -304,7 +324,10 @@ export function EnvironmentsTab() {
     }
     setLaunched(done);
     setPhase('submitting');
-    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map(c => c.title) });
+    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) },
+      summary: changes.map(c => c.title),
+      ...(deleteFiles.length > 0 ? { deleteFiles } : {}),
+    });
     setPhase('idle');
   };
 
@@ -336,7 +359,7 @@ export function EnvironmentsTab() {
       </div>
       <div className={classes.note}>
         {canEdit
-          ? 'Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Flight environments, deleting, and the values of a Kubernetes environment are still done elsewhere.'
+          ? 'Changes here are staged: nothing is submitted until you open the pull request from the Pending changes panel. Removing a Ground environment is staged the same way. Removing a Flight environment, and the values of a Kubernetes environment, are still done elsewhere.'
           : 'Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration.'}
       </div>
       <div className={canEdit ? classes.layout : undefined}>
@@ -413,6 +436,17 @@ export function EnvironmentsTab() {
                               </button>
                             </>
                           )}
+                          {editable && r.def?.tier === 'ground' && (
+                            <button
+                              type="button"
+                              className={classes.rowBtn}
+                              aria-label={`Remove ${r.name}`}
+                              onMouseDown={preventFocusScroll}
+                              onClick={() => setRemoving(r.name)}
+                            >
+                              ✕
+                            </button>
+                          )}
                         </td>
                       )}
                     </tr>,
@@ -444,6 +478,25 @@ export function EnvironmentsTab() {
                             <div className={classes.dialogNote}>
                               This environment&apos;s values live in <span className={classes.mono}>platform/envs/{r.name}.yaml</span> (Ground)
                               or the gitops repo (Flight). Edit them in the Glidepath tab or App Configuration for now.
+                            </div>
+                          )}
+                          {r.def.tier === 'flight' && (
+                            <div className={classes.problem} style={{ marginTop: 14 }}>
+                              <div className={classes.label}>Danger zone: removing a Flight environment</div>
+                              <div className={classes.dialogNote}>
+                                Tower does not remove Flight environments. Deleting the ApplicationEnvironment does not delete the files it
+                                wrote, so a partial removal would leave an Application still deploying. By hand, in this order:
+                                <ol>
+                                  <li>Remove the pipeline step that releases to {r.name} (Glidepath tab).</li>
+                                  <li>
+                                    In the tenants repo, delete <span className={classes.mono}>tenants/{appName}/{r.name}/</span> so the Application is no longer generated.
+                                  </li>
+                                  <li>
+                                    In <span className={classes.mono}>gitops-{appName}</span>, delete <span className={classes.mono}>{r.def.cluster ?? '<cluster>'}/{r.name}/</span>.
+                                  </li>
+                                  <li>Delete the ApplicationEnvironment request, then remove {r.name} from cicd.yaml.</li>
+                                </ol>
+                              </div>
                             </div>
                           )}
                         </td>
@@ -530,6 +583,18 @@ export function EnvironmentsTab() {
         }}
         classes={classes}
       />
+      {removing && (
+        <RemoveEnvironmentDialog
+          name={removing}
+          appName={appName}
+          cloud={Boolean(cloudBlock)}
+          files={envFilePaths(removing)}
+          blockedBy={pipelinesNamingEnv(pipelines, removing)}
+          onCancel={() => setRemoving(undefined)}
+          onConfirm={() => stageRemove(removing)}
+          classes={classes}
+        />
+      )}
       {(submit.result || submit.error || failure) && (
         <ChangeResultDialog
           requests={flightAdds.filter(e => launched[e.name]).map(e => ({ env: e.name, url: launched[e.name] }))}
@@ -684,6 +749,83 @@ function AddEnvironmentDialog({
           }}
         >
           Stage environment
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function RemoveEnvironmentDialog({
+  name,
+  appName,
+  cloud,
+  files,
+  blockedBy,
+  onCancel,
+  onConfirm,
+  classes,
+}: {
+  name: string;
+  appName?: string;
+  cloud: boolean;
+  files: string[];
+  blockedBy: string[];
+  onCancel: () => void;
+  onConfirm: () => void;
+  classes: ReturnType<typeof useStyles>;
+}) {
+  const [typed, setTyped] = useState('');
+  const blocked = blockedBy.length > 0;
+  return (
+    <Dialog open onClose={onCancel} PaperProps={{ className: classes.dialogPaper }}>
+      <DialogTitle>Remove {name}</DialogTitle>
+      <DialogContent>
+        {blocked ? (
+          <DialogContentText className={classes.problem}>
+            {blockedBy.map(p => `Pipeline "${p}"`).join(', ')} still {blockedBy.length > 1 ? 'have' : 'has'} a step for {name}. Remove
+            the step in the Glidepath tab first, then come back.
+          </DialogContentText>
+        ) : (
+          <>
+            <DialogContentText component="div">
+              Staging this removes {name} from cicd.yaml. Nothing happens until you open the pull request and merge it.
+              {cloud ? (
+                <div className={classes.dialogNote}>
+                  The cloud resource this environment deployed to is not deleted. Remove it in your cloud account.
+                </div>
+              ) : (
+                <>
+                  <div className={classes.dialogNote}>The same pull request deletes, where they exist:</div>
+                  <ul className={classes.mono}>
+                    {files.map(f => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
+                  <div className={classes.dialogNote}>
+                    After it merges, Argo CD prunes the Application <span className={classes.mono}>{appName}-{name}</span> and the
+                    namespace <span className={classes.mono}>app-{appName}-{name}</span>, deleting everything running in it.
+                  </div>
+                </>
+              )}
+            </DialogContentText>
+            <TextField
+              id="remove-env-confirm"
+              autoFocus
+              fullWidth
+              size="small"
+              style={{ marginTop: 14 }}
+              label={`Type ${name} to confirm`}
+              value={typed}
+              onChange={e => setTyped(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button disabled={blocked || typed !== name} onClick={onConfirm}>
+          Stage removal
         </Button>
       </DialogActions>
     </Dialog>

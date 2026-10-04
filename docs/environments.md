@@ -28,6 +28,7 @@ What can be staged so far:
 | **Add environment** (Ground) | Adds the environment to `deploy.environments`. After the PR merges, Glidepath's onboarding resync opens a second PR that adds `platform/envs/<name>.yaml` (the panel says so up front). A cloud environment has no such file. |
 | **Add environment** (Flight, Kubernetes apps) | Needs the cluster it runs on (any registered upper cluster; ones this app already uses are suggested). Opens **two** pull requests, in this order: an ApplicationEnvironment request on the tenants repo (through Backstage's existing template, launched via the scaffolder API as you), then the `cicd.yaml` change. Merge the request first, so the environment exists when `cicd.yaml` names it; Crossplane then adds its gitops directory and the Application. If the request fails, nothing is changed in `cicd.yaml` and what you staged is kept. If `cicd.yaml` fails after the request opened, retrying does not open the request again. The release step in the pipeline that deploys to it is not added: edit the pipeline in the Glidepath tab. Not offered for a cloud target (it has no approval path for Flight yet). |
 | **Reorder** (↑ ↓, Ground only) | Changes the promotion order. A Ground environment never moves past a Flight one. |
+| **Remove** (✕, Ground only) | A dialog previews the impact and asks you to type the environment's name. On a Kubernetes app the **same** pull request removes the environment from `cicd.yaml` and deletes its `platform/envs/<name>.yaml` and `<name>.release.yaml` (and the `glidepath/` equivalents), whichever exist. After it merges Argo CD prunes the Application `<app>-<name>` and the namespace `app-<app>-<name>`, deleting everything running in it. Refused while a pipeline step still names the environment (remove the step in the Glidepath tab first); the backend re-checks this and only accepts `envs/<env>[.release].yaml` paths. On a cloud app only `cicd.yaml` changes: the cloud resource is **not** deleted. Removing an environment you only just staged simply un-stages it. |
 | **A cloud environment's own resource** (click the row) | Sets this environment's `lambda` / `ecs` / `azureContainerApps` fields (for example the function name). An empty field uses the app-level value, shown as its hint. |
 
 **An app still on the older shape is converted by its first change.** Tower always writes
@@ -35,8 +36,12 @@ What can be staged so far:
 `upperEnvironments` and `promotionOrder` with one list (keeping the same environments and order). That
 conversion is shown as the first line of the panel, never done silently.
 
-Not here yet: deleting an environment, and the values of a Kubernetes environment (Glidepath tab / App
-Configuration). The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
+**Flight environments are not removed by Tower.** Deleting the ApplicationEnvironment XR deletes none of the
+files it wrote (they deliberately have no delete policy, after an earlier data-loss incident), and the file in
+the tenants repo is what keeps the Application alive, so a partial automated removal could leave a live
+Application. The row's Danger zone lists the manual steps in order.
+
+Not here yet: the values of a Kubernetes environment (Glidepath tab / App Configuration). The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
 ## Where the code is
 
