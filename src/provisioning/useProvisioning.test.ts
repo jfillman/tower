@@ -3,11 +3,13 @@ import {
   pickFirstBuild,
   toCreated,
   toManaged,
+  toCloudDeploySnapshot,
   toOnboardingPrs,
   toPendingInputs,
   toRepoLinks,
   toSecrets,
 } from './useProvisioning';
+import fixture from '../__fixtures__/cloudDeployRuns.json';
 
 const mr = (name: string, status: 'True' | 'False' | null, at = '2026-09-30T14:12:35Z') => ({
   metadata: { name },
@@ -222,5 +224,71 @@ describe('toPendingInputs', () => {
   it('drops kinds Tower does not provision and abandoned old PRs', () => {
     expect(toPendingInputs([req({ kind: 'ApplicationEnvironment' })], new Set(), 'kind-dev', now)).toEqual([]);
     expect(toPendingInputs([req({ createdAt: '2026-09-01T00:00:00Z' })], new Set(), 'kind-dev', now)).toEqual([]);
+  });
+});
+
+describe('toCloudDeploySnapshot over the real ECS deploy captured from kiac-dev', () => {
+  const real = (fixture as any)['ci-1-deploy-swift-bear-772974f5'];
+  const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
+  const snap = (edit?: (pr: any, trs: any[]) => void) => {
+    const pr = clone(real.pipelineRun);
+    const trs = clone(real.taskRuns);
+    edit?.(pr, trs);
+    return toCloudDeploySnapshot([pr], trs);
+  };
+  const task = (trs: any[], n: string) => trs.find(t => t.metadata.labels['tekton.dev/pipelineTask'] === n);
+
+  it('a succeeded deploy: target, resource and a console link', () => {
+    expect(snap()).toEqual({
+      state: 'succeeded',
+      label: 'AWS ECS',
+      resource: 'ECS service glidepath-smoke',
+      completedAt: expect.any(Number),
+      failure: undefined,
+      consoleUrl: expect.stringContaining('console.aws.amazon.com/ecs'),
+    });
+  });
+  it('a failed deploy carries the task and what Tekton said', () => {
+    const s = snap((pr, trs) => {
+      pr.status.conditions = [{ type: 'Succeeded', status: 'False', reason: 'Failed' }];
+      task(trs, 'deploy-aws-ecs').status.conditions = [
+        { type: 'Succeeded', status: 'False', reason: 'Failed', message: 'step-update-service exited with code 252' },
+      ];
+    })!;
+    expect(s.state).toBe('failed');
+    expect(s.failure).toBe('deploy-aws-ecs: step-update-service exited with code 252');
+  });
+  it('a deploy still running is running, with no completion time', () => {
+    const s = snap(pr => {
+      pr.status.conditions = [{ type: 'Succeeded', status: 'Unknown', reason: 'Running' }];
+      delete pr.status.completionTime;
+    })!;
+    expect(s.state).toBe('running');
+    expect(s.completedAt).toBeUndefined();
+  });
+  it('is undefined for a Kubernetes deploy, and for no runs at all', () => {
+    expect(
+      snap((_pr, trs) => {
+        task(trs, 'resolve-deploy-target').status.results.find((r: any) => r.name === 'target').value = 'k8s-rollout';
+      }),
+    ).toBeUndefined();
+    expect(toCloudDeploySnapshot([], [])).toBeUndefined();
+    expect(toCloudDeploySnapshot(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe('toPendingInputs for function kinds', () => {
+  it('lists a requested Lambda or Azure function before its XR exists', () => {
+    const mk = (kind: string) => ({
+      kind,
+      name: 'resize-fn',
+      number: 21,
+      url: 'u',
+      state: 'open' as const,
+      createdAt: '2026-10-03T22:59:00Z',
+    });
+    const now = Date.parse('2026-10-03T23:30:00Z');
+    expect(toPendingInputs([mk('LambdaFunction')], new Set(), 'kind-dev', now)).toHaveLength(1);
+    expect(toPendingInputs([mk('AzureFunction')], new Set(), 'kind-dev', now)[0].xr.kind).toBe('AzureFunction');
   });
 });

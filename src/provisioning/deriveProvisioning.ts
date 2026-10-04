@@ -83,6 +83,25 @@ export interface CatalogSnapshot {
   found: boolean;
 }
 
+/** A deploy to a cloud target (ECS, Lambda, Container Apps), read from the app's deploy runs. */
+export interface CloudDeploySnapshot {
+  state: 'running' | 'succeeded' | 'failed';
+  /** "AWS Lambda", "AWS ECS", "Azure Container Apps". */
+  label: string;
+  /** "Lambda function resize-fn", for the step's detail. */
+  resource?: string;
+  completedAt?: number;
+  /** For a failed deploy: the task and what Tekton said. */
+  failure?: string;
+  consoleUrl?: string;
+}
+
+/**
+ * XRs for a container-image function (Lambda, Azure Functions). They have no GitOps repo and no
+ * Rollout: one onboarding PR on the source repo, and "deployed" means the cloud deploy ran.
+ */
+export const FUNCTION_KINDS = new Set(['LambdaFunction', 'AzureFunction']);
+
 export interface ProvisioningLinks {
   /** The PR that requested the service (against the cluster's tenants repo). */
   requestPr?: PrSnapshot;
@@ -113,6 +132,8 @@ export interface ProvisioningInputs {
   secrets?: SecretsSnapshot;
   /** Undefined until the catalog lookup has answered (or when it could not). */
   catalog?: CatalogSnapshot;
+  /** Undefined when the app has no deploy to a cloud target. */
+  cloudDeploy?: CloudDeploySnapshot;
   links?: ProvisioningLinks;
 }
 
@@ -209,7 +230,10 @@ export const infisicalProjectUrl = (cluster: string, projectId: string): string 
 };
 
 export function deriveProvisioning(input: ProvisioningInputs, now: number): Provisioning {
-  const { xr, build, rollout, managed, secrets, catalog, links } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cloudDeploy, links } = input;
+  const isFunction = FUNCTION_KINDS.has(xr.kind);
+  // A function, or any app that deploys to a cloud target, has no Rollout to wait for.
+  const cloudFinal = isFunction || Boolean(cloudDeploy);
   const created = xr.createdAt;
   const synced = cond(xr, 'Synced');
   const ready = cond(xr, 'Ready');
@@ -299,7 +323,9 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   push({
     id: 'repos',
     title: 'Repositories and starter files',
-    desc: 'Source and GitOps repos created, starter files committed',
+    desc: isFunction
+      ? 'Source repo created, starter files committed'
+      : 'Source and GitOps repos created, starter files committed',
     state: reposState,
     fraction: reposFraction,
     seconds: reposSeconds,
@@ -315,7 +341,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   // The app's own build run (not Glidepath's onboarding runs, see pickFirstBuild) or a rollout
   // cannot exist before the source repo's onboarding PR merged (the .tekton files arrive with
   // it), so either is proof of the step.
-  const builtOrDeployed = Boolean(build) || Boolean(rollout);
+  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy);
 
   // 4b. Visible in the Backstage catalog. The catalog ingestor turns the XR into a Component on
   // its next sync; until then Tower's other tabs have no entity to open. Runs alongside the
@@ -340,22 +366,30 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   // GitOps repo. Nothing builds until the source one is merged; Glidepath opens
   // them but a person merges them.
   const ob = links?.onboarding;
-  const obPrs = [ob?.source, ob?.gitops];
+  // A function has only the source repo, so one PR; an app has the source and GitOps ones.
+  const obPrs = isFunction ? [ob?.source] : [ob?.source, ob?.gitops];
+  const expectedPrs = obPrs.length;
   const merged = obPrs.filter(pr => pr?.state === 'merged');
   let onboardingState: StepState = 'pend';
   let onboardingFraction = 0;
   let onboardingDetail: string | undefined;
   let onboardingEnd: number | undefined;
-  if (builtOrDeployed || (ob && merged.length === 2)) {
+  const mergePrompt = isFunction
+    ? 'Merge the onboarding PR to start the first build'
+    : 'Merge the two onboarding PRs to start the first build';
+  if (builtOrDeployed || (ob && merged.length === expectedPrs)) {
     onboardingState = 'done';
     onboardingFraction = 1;
     onboardingEnd = merged.length ? Math.max(...merged.map(pr => pr?.mergedAt ?? 0)) || undefined : undefined;
   } else if (front) {
     onboardingState = 'run';
     if (!ob) {
-      onboardingDetail = 'Merge the two onboarding PRs to start the first build';
+      onboardingDetail = mergePrompt;
+    } else if (isFunction) {
+      onboardingFraction = merged.length / expectedPrs;
+      onboardingDetail = ob.source ? mergePrompt : 'Waiting for onboarding to open its PR';
     } else {
-      onboardingFraction = merged.length / 2;
+      onboardingFraction = merged.length / expectedPrs;
       const missing = obPrs.filter(pr => !pr).length;
       if (missing === 2) onboardingDetail = 'Waiting for onboarding to open its two PRs';
       else if (missing === 1) onboardingDetail = 'Waiting for onboarding to open the second PR';
@@ -372,8 +406,10 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   else if (onboardingState === 'run') onboardingSeconds = secBetween(onboardingStart || undefined, now);
   push({
     id: 'onboarding',
-    title: 'Application onboarding PRs',
-    desc: 'Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build',
+    title: isFunction ? 'Application onboarding PR' : 'Application onboarding PRs',
+    desc: isFunction
+      ? 'One PR on the source repo adds the pipeline files. Merging it starts the build'
+      : 'Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build',
     state: onboardingState,
     fraction: onboardingFraction,
     seconds: onboardingSeconds,
@@ -445,13 +481,37 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     detail: buildDetail,
   });
 
-  // 8. Running healthy in dev. New apps get platform/envs/dev.yaml and a deploy
-  // stage from onboarding, so this follows the build without anyone's help.
+  // 8. The last step. For an app on Kubernetes: running healthy in dev (new apps get
+  // platform/envs/dev.yaml and a deploy stage from onboarding, so this follows the build without
+  // anyone's help). For a function, or any app that deploys to a cloud target, there is no Rollout:
+  // the deploy stage updating the cloud resource is the step.
   let runState: StepState = 'pend';
   let runFraction = 0;
   let runSec: number | undefined;
   let runDetail: string | undefined;
-  if (rollout) {
+  let runTitle = 'Running healthy in dev';
+  let runDesc = 'Rollout reaches its desired replicas on the dev cluster';
+  let runLinks: StepLink[] | undefined;
+  if (cloudFinal) {
+    const where = cloudDeploy?.label ?? 'the cloud target';
+    runTitle = `Deployed to ${where}`;
+    runDesc = 'The deploy stage updates the existing cloud resource to the new image';
+    if (cloudDeploy?.consoleUrl) runLinks = [{ label: 'Open in console', url: cloudDeploy.consoleUrl }];
+    if (cloudDeploy?.state === 'succeeded') {
+      runState = 'done';
+      runFraction = 1;
+    } else if (cloudDeploy?.state === 'failed') {
+      runState = 'fail';
+      runDetail = cloudDeploy.failure ?? 'The deploy failed';
+    } else if (cloudDeploy?.state === 'running') {
+      runState = 'run';
+      runSec = secBetween(build?.completedAt, now);
+    } else if (buildState === 'done') {
+      runState = 'run';
+      runDetail = 'Waiting for the deploy stage to start';
+      runSec = secBetween(build?.completedAt, now);
+    }
+  } else if (rollout) {
     const healthy = rollout.phase === 'Healthy' && rollout.available >= rollout.desired && rollout.desired > 0;
     if (healthy) runState = 'done';
     else if (rollout.phase === 'Degraded') runState = 'fail';
@@ -469,12 +529,13 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
   }
   push({
     id: 'running',
-    title: 'Running healthy in dev',
-    desc: 'Rollout reaches its desired replicas on the dev cluster',
+    title: runTitle,
+    desc: runDesc,
     state: runState,
     fraction: runState === 'done' ? 1 : runFraction,
     seconds: runSec,
     detail: runDetail,
+    links: runLinks,
   });
 
   const complete = steps.every(s => s.state === 'done');
@@ -507,9 +568,11 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       secrets?.readyAt,
       build?.completedAt,
       rollout?.createdAt,
+      cloudDeploy?.completedAt,
     ].filter((x): x is number => x !== undefined);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
-  const stalled = !complete && !failed && !rollout && build?.phase === 'succeeded' && now - created > STALL_AFTER_MS;
+  const deployed = Boolean(rollout) || cloudDeploy?.state === 'succeeded';
+  const stalled = !complete && !failed && !deployed && build?.phase === 'succeeded' && now - created > STALL_AFTER_MS;
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }

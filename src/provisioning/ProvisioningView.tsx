@@ -391,8 +391,8 @@ export function ProvisioningView({
       {stalled.length > 0 && (
         <div>
           <div className={classes.head}>
-            Stalled · built hours ago but no rollout on the dev cluster. It either deploys elsewhere or the deploy is
-            stuck
+            Stalled · built hours ago but not deployed: no rollout on the dev cluster, or a cloud deploy that never ran
+            or never finished. It either deploys elsewhere or the deploy is stuck
           </div>
           <div className={classes.pills}>{stalled.map(i => pill(i))}</div>
         </div>

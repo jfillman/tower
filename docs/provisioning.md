@@ -48,3 +48,25 @@ repo, plus ones merged in the last 30 minutes, and lists each as a service whose
 create the resource"). Every later step waits. When the XR appears it replaces the pending item under the
 same name. The tenants repo comes from an existing XR's `source-info` annotation, falling back to a
 per-cluster default in `useProvisioning.ts`. This needs the backend route, so Tower and the backend ship together.
+
+## Function XRs and cloud deploys
+
+`LambdaFunction` and `AzureFunction` XRs are tracked like the application kinds, with three differences, because
+a function has no GitOps repo and no Rollout:
+
+- **One onboarding PR, not two.** Only the source repo has one. The step is titled "Application onboarding PR"
+  and is done when that PR merges. (The backend already treats a missing `gitops-<name>` repo as empty.)
+- **The repos step** says "Source repo created", with no GitOps repo.
+- **The last step is "Deployed to <target>"**, not "Running healthy in dev". It follows the deploy stage's own
+  run: waiting for it to start, running, done (with an "Open in console" link) or failed (with the failing task
+  and Tekton's message). It reads the same deploy runs as the cloud Deployments tab (cloud-deploys.md).
+
+The same last step applies to an *application* XR that deploys to a cloud target (a Go app on `aws-ecs`):
+without it that app would wait forever for a Rollout that will never exist. The cloud deploy counts as the
+deployed proof for the "stalled" test too. Kubernetes apps are unchanged.
+
+TaskRuns are fetched only for an app that already has a `deploy` PipelineRun, so an app with nothing deployed
+yet costs no extra requests.
+
+Not verified against a live function provision: the unit tests use the real captured ECS deploy and edits of
+it, and the XRD has not been provisioned on a cluster yet.
