@@ -3,6 +3,7 @@ import { toPipelineRunSummary, type RawPipelineRun, type RawTaskRun } from './te
 import { cloudEnvironmentsFromRuns } from './cloudEnvironments';
 import { health } from './types';
 import { buildReleases } from './useReleaseContext';
+import { buildReleaseRecords } from './useReleaseRecords';
 
 const real = (fixture as any)['ci-1-deploy-swift-bear-772974f5'];
 const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
@@ -46,5 +47,19 @@ describe('cloudEnvironmentsFromRuns', () => {
     expect(health(e)).toBe('degraded');
     expect(e.image).toBeTruthy();
     expect(o.history[e.env]).toHaveLength(1);
+  });
+
+  it('makes a release record for a cloud service that has no upper environment', () => {
+    const { rows } = buildReleases(out.environments, out.history, []);
+    const records = buildReleaseRecords('smoke', out.environments, rows, [], [], [], {}, { lower: ['dev'], upper: [] });
+    expect(records).toHaveLength(1);
+    expect(records[0].deployments[0].env).toBe(out.environments[0].env);
+    expect(records[0].status).toBe('healthy');
+  });
+
+  it('still makes no record for a Kubernetes app that has only a lower environment', () => {
+    const k8s = { ...out.environments[0], cloud: undefined };
+    const { rows } = buildReleases([k8s], out.history, []);
+    expect(buildReleaseRecords('x', [k8s], rows, [], [], [], {}, { lower: [k8s.env], upper: [] })).toEqual([]);
   });
 });

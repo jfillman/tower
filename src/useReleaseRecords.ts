@@ -452,7 +452,11 @@ export function buildReleaseRecords(
   provenanceByImage: Record<string, ProvenanceState>,
   pipelineOrder: { lower?: string[]; upper?: string[] },
 ): ReleaseRecord[] {
-  const upperEnvs = pipelineEnvironments.filter(e => envTierOf(e.env, pipelineOrder) === 'upper');
+  // A release record is a release that reached an upper (production-tier) environment. A
+  // function or other cloud service has no upper tier: its deploy environment is the end of its
+  // pipeline, so that is what makes a release. Kubernetes apps are unchanged.
+  const tiered = pipelineEnvironments.filter(e => envTierOf(e.env, pipelineOrder) === 'upper');
+  const upperEnvs = tiered.length > 0 ? tiered : pipelineEnvironments.filter(e => e.cloud);
   if (upperEnvs.length === 0) return [];
   const upperEnvNames = new Set(upperEnvs.map(e => e.env));
 
