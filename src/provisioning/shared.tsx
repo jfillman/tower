@@ -21,8 +21,13 @@ export function useNow(intervalMs = 1000): number {
   return now;
 }
 
-export const toItems = (inputs: ProvisioningInputs[], now: number): ProvisioningItem[] =>
-  inputs.map(i => ({ inputs: i, derived: deriveProvisioning(i, now) }));
+/** `typicalByKind` supplies measured typical durations for a kind of service; without it the estimates apply. */
+export const toItems = (
+  inputs: ProvisioningInputs[],
+  now: number,
+  typicalByKind?: (kind: string) => Record<string, number> | undefined,
+): ProvisioningItem[] =>
+  inputs.map(i => ({ inputs: i, derived: deriveProvisioning(i, now, typicalByKind?.(i.xr.kind)) }));
 
 export const stateLabel: Record<StepState, string> = {
   done: 'done',

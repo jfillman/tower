@@ -20,6 +20,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
 import { ProvisioningView } from './provisioning/ProvisioningView';
 import { toItems, useNow } from './provisioning/shared';
+import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
 
@@ -378,11 +379,24 @@ export function AppPicker({
   const [searchParams, setSearchParams] = useSearchParams();
   const provisioning = useProvisioning();
   const now = useNow();
-  const provItems = useMemo(() => toItems(provisioning.items, now), [provisioning.items, now]);
+  const history = useProvisioningHistory();
+  const provItems = useMemo(
+    () => toItems(provisioning.items, now, kind => typicalFor(history.typical, kind)),
+    [provisioning.items, now, history.typical],
+  );
+  // A finished provision is stored once; the backend ignores a repeat from another browser.
+  useEffect(() => {
+    provItems.forEach(i => {
+      if (i.derived.complete) history.record(i);
+    });
+  }, [provItems, history]);
   // Built hours ago but never rolled out on the dev cluster: not "in flight", so off the strip and the badge.
   const inFlight = useMemo(() => provItems.filter(i => !i.derived.stalled), [provItems]);
   const view = searchParams.get('view') === 'provisioning' ? 'provisioning' : 'services';
   const selectedService = searchParams.get('service') ?? undefined;
+  // Whether the selected service's typical bars are measured, for the legend.
+  const shownItem = provItems.find(i => i.inputs.xr.name === selectedService) ?? inFlight[0] ?? provItems[0];
+  const typicalMeasured = Boolean(shownItem && typicalFor(history.typical, shownItem.inputs.xr.kind));
   const openProvisioning = (name?: string) =>
     setSearchParams(name ? { view: 'provisioning', service: name } : { view: 'provisioning' });
   const openServices = () => setSearchParams({});
@@ -641,6 +655,8 @@ export function AppPicker({
           error={provisioning.error}
           loading={provisioning.loading}
           onRefreshCatalog={() => triggerCatalogRefresh(discoveryApi, fetchApi)}
+          runs={history.runs}
+          typicalMeasured={typicalMeasured}
         />
       ) : (
         <>

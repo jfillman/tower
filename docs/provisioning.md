@@ -80,3 +80,25 @@ Backstage's scheduler trigger for the ingestor's `KubernetesEntityProvider` task
 (`/api/catalog/.backstage/scheduler/v1/tasks/KubernetesEntityProvider/trigger`) with the signed-in user's session.
 It only moves the next run to now: it is idempotent and Tower holds no extra credential for it. The step still
 turns green by itself once the service is in the catalog. If Backstage refuses the call the button says so.
+
+## Live events, history and real typical durations
+
+**Live events.** Under the steps, a log lists what happened with the time since the first event, built from the
+steps' own timestamps (`startedAt`/`endedAt` in `deriveProvisioning.ts`): `[0:12] ▸ Repositories started`,
+`[1:04] ✓ CI/CD onboarded done`. A step with no known time has no line rather than an invented one. Most times come
+from the cluster (XR conditions, PR open/merge times, the build run, the cloud deploy). Two steps have none: the
+catalog sync and a rollout turning healthy. For those Tower uses the time it first *saw* the step finished, but only
+if it had already seen it running (`observed.ts`); a step first seen done is left without a duration.
+
+**History.** When Tower first sees a provision complete it posts it to the Backstage backend's
+`provisioning-history` plugin (`POST /api/provisioning-history/runs`): service, kind, start/finish and the seconds
+of every step whose duration is known. It is idempotent on service + start, so two browsers record one run.
+Steps with no known duration are left out, never recorded as zero. A provision is only recorded if someone had Tower
+open while it finished (a finished service stays in the list for 15 minutes).
+
+**Recently provisioned.** The newest 10 recorded runs: service, type, how long, when.
+
+**Typical durations.** Each step's "typical" bar is the median of that step over the newest 20 recorded runs of the
+same kind, falling back to all kinds, and needs at least 3 runs (`MIN_SAMPLES`); otherwise the built-in
+`TYPICAL_SEC` estimate stays. The legend says which one is showing. The human steps (the PR merges) are measured
+too, so their typical is noisy. Without the backend plugin everything degrades to the estimates and an empty table.

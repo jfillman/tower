@@ -21,9 +21,11 @@ import {
   type SecretsSnapshot,
   type XrCondition,
   type ArgoSnapshot,
+  type StepObservation,
   type CatalogSnapshot,
   type CloudDeploySnapshot,
 } from './deriveProvisioning';
+import { updateObservation } from './observed';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
 // Tekton (see TEKTON_CLUSTER). The four app-tier kinds are the ones a user
@@ -418,6 +420,7 @@ export function useProvisioning(): UseProvisioningResult {
     // up as pending, and the tenants-repo lookup has no creation time, so the step durations for
     // "merged" and "applied" would be lost; this keeps them for as long as the page is open.
     const requestMemo = new Map<string, PrSnapshot>();
+    const observedMemo = new Map<string, Record<string, StepObservation>>();
     const refreshPending = (tenants: { owner: string; repo: string } | undefined) => {
       if (!tenants || pendingCache.busy || Date.now() - pendingCache.at < GITHUB_POLL_MS) return;
       pendingCache.busy = true;
@@ -600,7 +603,16 @@ export function useProvisioning(): UseProvisioningResult {
           TENANTS_REPO_BY_CLUSTER[XR_CLUSTER],
       );
       items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map(x => x.metadata.name)), XR_CLUSTER, now));
-      const kept = items.filter(i => {
+      // What Tower watched change, per service, for steps the cluster has no timestamp for. Derived
+      // once to see the current states, then attached so the views derive the same durations.
+      const withObserved = items.map(i => {
+        const prior = observedMemo.get(i.xr.name);
+        const current = deriveProvisioning({ ...i, observed: prior }, now);
+        const next = updateObservation(prior, current.steps, now);
+        observedMemo.set(i.xr.name, next);
+        return { ...i, observed: next };
+      });
+      const kept = withObserved.filter(i => {
         const p = deriveProvisioning(i, now);
         // Stalled ones stay: the tab lists them apart from the in-flight ones, the strip hides them.
         return !p.complete || (p.completedAt !== undefined && now - p.completedAt < KEEP_DONE_MS);
