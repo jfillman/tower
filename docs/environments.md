@@ -31,6 +31,9 @@ What can be staged so far:
 | **Remove** (✕, Ground only) | A dialog previews the impact and asks you to type the environment's name. On a Kubernetes app the **same** pull request removes the environment from `cicd.yaml` and deletes its `platform/envs/<name>.yaml` and `<name>.release.yaml` (and the `glidepath/` equivalents), whichever exist. After it merges Argo CD prunes the Application `<app>-<name>` and the namespace `app-<app>-<name>`, deleting everything running in it. Refused while a pipeline step still names the environment (remove the step in the Glidepath tab first); the backend re-checks this and only accepts `envs/<env>[.release].yaml` paths. On a cloud app only `cicd.yaml` changes: the cloud resource is **not** deleted. Removing an environment you only just staged simply un-stages it. |
 | **A cloud environment's own resource** (click the row) | Sets this environment's `lambda` / `ecs` / `azureContainerApps` fields (for example the function name). An empty field uses the app-level value, shown as its hint. |
 
+| **Values of a Ground environment** (click the row, Kubernetes apps) | Shows `platform/envs/<name>.yaml` as YAML (the same chart values as App Configuration, minus `rollout.image`) with its own **Open PR for this file** button. It is a *different file* from `cicd.yaml`, so it has its own pull request and is not part of the Pending changes panel. Only the fields App Configuration also allows are written. A Ground environment you only just staged has no file yet (the onboarding pull request creates it), so the row says so instead. |
+| **Values of a Flight environment** (click the row) | Links to App Configuration with that environment preselected (`?tab=config&env=<name>`), which keeps its own form, pull-request flow and prod warnings. |
+
 **An app still on the older shape is converted by its first change.** Tower always writes
 `deploy.environments`, so the first staged change to such an app also replaces `lowerEnvironments`,
 `upperEnvironments` and `promotionOrder` with one list (keeping the same environments and order). That
@@ -41,7 +44,8 @@ files it wrote (they deliberately have no delete policy, after an earlier data-l
 the tenants repo is what keeps the Application alive, so a partial automated removal could leave a live
 Application. The row's Danger zone lists the manual steps in order.
 
-Not here yet: the values of a Kubernetes environment (Glidepath tab / App Configuration). The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
+Not here yet: the full App Configuration *form* for a Ground environment. Its values are edited as YAML (the same
+editor as the Glidepath tab's Platform files); generalising App Configuration's form to platform files is a larger change. The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
 ## Where the code is
 

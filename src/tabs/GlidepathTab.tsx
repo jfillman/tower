@@ -19,14 +19,13 @@ import { useReleaseContext } from '../useReleaseContext';
 import {
   useCicdConfig,
   usePlatformEnvs,
-  usePlatformFile,
   useSubmitCicdConfigChange,
-  useSubmitPlatformFileChange,
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
+import { PlatformFileEditor } from '../PlatformFileEditor';
 import { deepEqual } from '../deepEqual';
-import { CICD_TOP_LEVEL_FIELDS, CONFIG_TOP_LEVEL_FIELDS, type CicdTopLevelField, type ConfigTopLevelField, type PlatformEnvSelector } from '../types';
+import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField, type PlatformEnvSelector } from '../types';
 
 // Tower's Glidepath tab (2026-09-16): full management of an app's own
 // cicd.yaml (the file that configures the Glidepath CI/CD engine itself)
@@ -817,55 +816,8 @@ function PlatformFilesSection({
   const classes = useStyles({ t });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const envs = usePlatformEnvs({ owner, appName }, refreshNonce);
-  const file = usePlatformFile({ owner, appName, selector }, refreshNonce);
-  const submit = useSubmitPlatformFileChange();
-  const [raw, setRaw] = useState('');
   const [newEnvName, setNewEnvName] = useState('');
   const [newEnvError, setNewEnvError] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (!file.data) return;
-    // Brand-new env (nothing committed yet, real 404-tolerant "not
-    // configured" state) - seed the same minimal bootstrap stub this
-    // platform's own lower-env convention documents as the safe starting
-    // point (platform/envs/dev.yaml's own comment: "rollout: null - ...
-    // leaving this key out entirely rendered a real Rollout with two
-    // InvalidImageName pods instead of the clean namespace-only stub"),
-    // rather than leaving the editor on an empty/near-empty document that
-    // would produce a real broken env if submitted as-is. Not needed for
-    // pr-env.yaml - the ApplicationSet requires that file to already have
-    // real content (ports at minimum), and it has no envName of its own to
-    // seed.
-    if (Object.keys(file.data.values).length === 0 && selector.kind === 'env') {
-      setRaw(`envName: ${selector.env}\nrollout: null\n`);
-    } else {
-      setRaw(safeYamlDump(file.data.values));
-    }
-  }, [file.data, selector]);
-
-  const valid = validateYamlBlock(raw).valid;
-  const patch = useMemo(() => {
-    if (!file.data || !valid) return {} as Partial<Record<ConfigTopLevelField, unknown>>;
-    const parsed = (safeYamlLoad(raw) ?? {}) as Record<string, unknown>;
-    const result: Partial<Record<ConfigTopLevelField, unknown>> = {};
-    for (const key of CONFIG_TOP_LEVEL_FIELDS) {
-      if (!deepEqual(parsed[key], file.data.values[key])) result[key] = parsed[key];
-    }
-    return result;
-  }, [raw, valid, file.data]);
-  const dirty = Object.keys(patch).length > 0;
-
-  async function handleSubmit() {
-    if (!dirty || !valid) return;
-    await submit.submit({
-      owner,
-      appName,
-      selector,
-      patch,
-      summary: Object.keys(patch).map(k => `updated \`${k}\``),
-    });
-    setRefreshNonce(n => n + 1);
-  }
 
   return (
     <div className={classes.section}>
@@ -928,32 +880,7 @@ function PlatformFilesSection({
         </Select>
         <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} label="Refresh" />
       </div>
-      {file.loading && <Progress />}
-      {file.error && <ResponseErrorPanel error={new Error(file.error)} />}
-      {!file.loading && !file.error && (
-        <>
-          <YamlBlockEditor label={file.data?.path ?? 'platform file'} value={raw} onChange={setRaw} rows={12} />
-          <div className={classes.submitBar}>
-            <button
-              type="button"
-              className={classes.submitBtn}
-              disabled={!dirty || !valid || submit.loading}
-              onClick={handleSubmit}
-            >
-              {submit.loading ? 'Opening PR…' : 'Open PR for this file'}
-            </button>
-          </div>
-          {submit.result && (
-            <Typography>
-              {submit.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-              <Link className={classes.resultLink} href={submit.result.prUrl} target="_blank" rel="noopener noreferrer">
-                {submit.result.prUrl}
-              </Link>
-            </Typography>
-          )}
-          {submit.error && <ResponseErrorPanel error={new Error(submit.error)} />}
-        </>
-      )}
+      <PlatformFileEditor owner={owner} appName={appName} selector={selector} refreshNonce={refreshNonce} />
     </div>
   );
 }

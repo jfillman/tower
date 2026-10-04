@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -1231,7 +1232,9 @@ export function ConfigTab() {
     }));
   }, [pipelineOrder.upper, pipelineOrder.upperClusters]);
 
-  const [selectedEnv, setSelectedEnv] = useState<string | undefined>(undefined);
+  // ?env=<name> (the Environments tab links here) preselects that environment.
+  const [searchParams] = useSearchParams();
+  const [selectedEnv, setSelectedEnv] = useState<string | undefined>(searchParams.get('env') ?? undefined);
   useEffect(() => {
     if (!selectedEnv && flightEnvs.length > 0) setSelectedEnv(flightEnvs[0].env);
   }, [flightEnvs, selectedEnv]);
