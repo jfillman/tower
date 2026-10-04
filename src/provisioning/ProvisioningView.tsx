@@ -5,6 +5,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../br
 import type { ProvisioningStep } from './deriveProvisioning';
 import { preventFocusScroll } from '../preventFocusScroll';
 import { SegmentBar } from './ProvisioningStrip';
+import { buildEvents } from './events';
+import type { HistoryRun } from './provisioningHistory';
+import { relativeTime } from '../shared/format';
 import { fmtDuration, type ProvisioningItem } from './shared';
 
 // Bar scale: the longest typical step (the first build) fits with headroom.
@@ -143,6 +146,18 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '2px 7px',
     '&:hover': { borderColor: ({ t }) => t.sky },
   },
+  events: {
+    fontFamily: fontMono,
+    fontSize: 12,
+    lineHeight: 1.7,
+    color: ({ t }) => t.textLo,
+    display: 'flex',
+    flexDirection: 'column',
+    overflowWrap: 'anywhere',
+  },
+  eventDone: { color: ({ t }) => t.good },
+  eventStart: { color: ({ t }) => t.sky },
+  eventFail: { color: ({ t }) => t.bad },
   created: { width: '100%', borderCollapse: 'collapse', fontSize: 12.5 },
   createdRow: {
     borderTop: ({ t }) => `1px solid ${t.line}`,
@@ -397,6 +412,75 @@ function Step({
   );
 }
 
+const EVENT_LINES = 14;
+
+/** The most recent things that happened, each stamped with the time since the first one. */
+function LiveEvents({
+  steps,
+  classes,
+}: {
+  steps: ProvisioningItem['derived']['steps'];
+  classes: ReturnType<typeof useStyles>;
+}) {
+  const events = buildEvents(steps, Date.now());
+  const origin = events[0]?.at ?? 0;
+  const shown = events.slice(-EVENT_LINES);
+  const mark = { start: '▸', done: '✓', fail: '✗' } as const;
+  const tone = { start: classes.eventStart, done: classes.eventDone, fail: classes.eventFail } as const;
+  return (
+    <div className={classes.panel}>
+      <div className={classes.head}>Live events</div>
+      {shown.length === 0 ? (
+        <div className={classes.desc}>Nothing has happened yet.</div>
+      ) : (
+        <div className={classes.events} aria-label="Live events">
+          {shown.map((e, i) => (
+            <span key={`${e.stepId}-${e.kind}-${i}`}>
+              [{fmtDuration((e.at - origin) / 1000)}] <span className={tone[e.kind]}>{mark[e.kind]}</span> {e.text}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Finished provisions the backend remembers, newest first. */
+function RecentlyProvisioned({
+  runs,
+  classes,
+}: {
+  runs: HistoryRun[];
+  classes: ReturnType<typeof useStyles>;
+}) {
+  if (runs.length === 0) return null;
+  return (
+    <div className={classes.panel}>
+      <div className={classes.head}>Recently provisioned</div>
+      <table className={classes.created}>
+        <thead>
+          <tr className={classes.createdRow}>
+            <td>Service</td>
+            <td>Type</td>
+            <td>Took</td>
+            <td>Finished</td>
+          </tr>
+        </thead>
+        <tbody>
+          {runs.map(r => (
+            <tr key={`${r.service}-${r.startedAt}`} className={classes.createdRow}>
+              <td>{r.service}</td>
+              <td>{r.kind}</td>
+              <td>{fmtDuration(r.totalSeconds)}</td>
+              <td>{relativeTime(new Date(r.completedAt))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ProvisioningView({
   items,
   selected,
@@ -404,6 +488,8 @@ export function ProvisioningView({
   error,
   loading,
   onRefreshCatalog,
+  runs = [],
+  typicalMeasured = false,
 }: {
   items: ProvisioningItem[];
   selected?: string;
@@ -412,6 +498,10 @@ export function ProvisioningView({
   loading: boolean;
   /** Runs the catalog ingestor now. The catalog step offers a button for it while it waits. */
   onRefreshCatalog?: () => Promise<void> | void;
+  /** Finished provisions from the backend's history, newest first. */
+  runs?: HistoryRun[];
+  /** The typical bars come from real recent provisions rather than the built-in estimates. */
+  typicalMeasured?: boolean;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -420,10 +510,13 @@ export function ProvisioningView({
   }
   if (items.length === 0) {
     return (
-      <div className={classes.empty}>
-        {loading
-          ? 'Reading provisioning status…'
-          : 'Nothing is provisioning. A new service appears here as soon as you create it.'}
+      <div className={classes.root}>
+        <div className={classes.empty}>
+          {loading
+            ? 'Reading provisioning status…'
+            : 'Nothing is provisioning. A new service appears here as soon as you create it.'}
+        </div>
+        <RecentlyProvisioned runs={runs} classes={classes} />
       </div>
     );
   }
@@ -494,10 +587,11 @@ export function ProvisioningView({
           </span>
           <span>
             <i className={classes.swatch} style={{ border: `1px dashed ${t.textFaint}`, height: 5 }} />
-            Typical (estimate)
+            {typicalMeasured ? 'Typical (median of recent provisions)' : 'Typical (estimate)'}
           </span>
         </div>
       </div>
+      <LiveEvents steps={derived.steps} classes={classes} />
       {inputs.created && inputs.created.length > 0 && (
         <div className={classes.panel}>
           <div className={classes.head}>
@@ -524,6 +618,7 @@ export function ProvisioningView({
           </table>
         </div>
       )}
+      <RecentlyProvisioned runs={runs} classes={classes} />
     </div>
   );
 }

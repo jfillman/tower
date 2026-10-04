@@ -124,4 +124,36 @@ describe('ProvisioningView', () => {
       expect(screen.queryByRole('button', { name: 'Refresh catalog now' })).toBeNull();
     });
   });
+
+  describe('live events and recently provisioned', () => {
+    const now = t('2026-10-01T17:55:00Z');
+    it('lists what happened with times relative to the first event', () => {
+      render(<ProvisioningView items={toItems([inputs], now)} onSelect={() => {}} loading={false} />);
+      const log = screen.getByLabelText('Live events');
+      expect(log.textContent).toContain('Dev cluster chosen started');
+      expect(log.textContent).toMatch(/\[0:\d\d\] ✓ Dev cluster chosen done/);
+      expect(log.textContent).toContain('CI/CD onboarded done');
+    });
+    it('shows recent provisions with how long they took', () => {
+      const runs = [
+        { service: 'air-traffic-api', kind: 'PythonApplication', startedAt: now - 700_000, completedAt: now - 60_000, totalSeconds: 640, steps: [] },
+      ];
+      render(<ProvisioningView items={toItems([inputs], now)} onSelect={() => {}} loading={false} runs={runs} />);
+      const row = screen.getByText('air-traffic-api').closest('tr');
+      expect(row?.textContent).toContain('PythonApplication');
+      expect(row?.textContent).toContain('10:40');
+    });
+    it('still shows recent provisions when nothing is in flight', () => {
+      const runs = [{ service: 'old-one', kind: 'GoApplication', startedAt: 1, completedAt: now - 3_600_000, totalSeconds: 300, steps: [] }];
+      render(<ProvisioningView items={[]} onSelect={() => {}} loading={false} runs={runs} />);
+      expect(screen.getByText(/Nothing is provisioning/)).toBeTruthy();
+      expect(screen.getByText('old-one')).toBeTruthy();
+    });
+    it('says whether the typical bars are measured', () => {
+      const { rerender } = render(<ProvisioningView items={toItems([inputs], now)} onSelect={() => {}} loading={false} />);
+      expect(screen.getByText('Typical (estimate)')).toBeTruthy();
+      rerender(<ProvisioningView items={toItems([inputs], now)} onSelect={() => {}} loading={false} typicalMeasured />);
+      expect(screen.getByText('Typical (median of recent provisions)')).toBeTruthy();
+    });
+  });
 });

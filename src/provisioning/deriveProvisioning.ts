@@ -130,6 +130,17 @@ export interface CreatedResource {
   ready?: boolean;
 }
 
+/**
+ * When Tower itself watched a step change, for the steps the cluster keeps no timestamp for (the
+ * catalog sync, a rollout turning healthy). Only trusted when the step was seen running first: a
+ * step first seen already done says nothing about how long it took.
+ */
+export interface StepObservation {
+  sawRunning?: boolean;
+  startedAt?: number;
+  endedAt?: number;
+}
+
 export interface ProvisioningInputs {
   xr: XrSnapshot;
   created?: CreatedResource[];
@@ -144,6 +155,8 @@ export interface ProvisioningInputs {
   /** Undefined when the app has no deploy to a cloud target. */
   cloudDeploy?: CloudDeploySnapshot;
   links?: ProvisioningLinks;
+  /** Step id to what Tower watched; see StepObservation. */
+  observed?: Record<string, StepObservation>;
 }
 
 export interface StepLink {
@@ -159,6 +172,9 @@ export interface ProvisioningStep {
   state: StepState;
   /** Seconds this step took, or has been running. Undefined if unknown or not started. */
   seconds?: number;
+  /** Epoch ms the step began and finished, when known. Feeds the events log and the history. */
+  startedAt?: number;
+  endedAt?: number;
   /** Typical seconds for this step. An estimate until Tower records history. */
   typicalSec: number;
   /** 0..1 within the step while running. */
@@ -240,8 +256,16 @@ export const infisicalProjectUrl = (cluster: string, projectId: string): string 
   return host ? `http://${host}/projects/secret-management/${projectId}/overview` : undefined;
 };
 
-export function deriveProvisioning(input: ProvisioningInputs, now: number): Provisioning {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links } = input;
+/**
+ * `typical` overrides the built-in estimates, step id to seconds: Tower passes the median of the
+ * recent real provisions once it has some.
+ */
+export function deriveProvisioning(
+  input: ProvisioningInputs,
+  now: number,
+  typical?: Record<string, number>,
+): Provisioning {
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   // A function, or any app that deploys to a cloud target, has no Rollout to wait for.
   const cloudFinal = isFunction || Boolean(cloudDeploy);
@@ -257,12 +281,22 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     s: Omit<ProvisioningStep, 'typicalSec' | 'fraction'> & {
       fraction?: number;
     },
-  ) =>
+  ) => {
+    const obs = observed?.[s.id];
+    const trusted = obs?.sawRunning ? obs : undefined;
+    const startedAt = s.startedAt ?? trusted?.startedAt;
+    const endedAt = s.endedAt ?? (s.state === 'done' ? trusted?.endedAt : undefined);
+    const seconds =
+      s.seconds ?? (s.state === 'done' && startedAt !== undefined && endedAt !== undefined ? secBetween(startedAt, endedAt) : undefined);
     steps.push({
-      typicalSec: TYPICAL_SEC[s.id],
+      typicalSec: typical?.[s.id] ?? TYPICAL_SEC[s.id],
       fraction: s.state === 'done' ? 1 : 0,
       ...s,
+      startedAt,
+      endedAt,
+      seconds,
     });
+  };
 
   // 1. The request PR is merged, by a person. 2. ArgoCD applies it (it polls the repo about every
   // 3 minutes), which creates the resource. Normally the XR already exists, so both are done and
@@ -276,6 +310,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'Request PR merged',
     desc: 'A person merges the request PR in the tenants repo',
     state: requestMerged ? 'done' : 'run',
+    startedAt: reqPr?.createdAt,
+    endedAt: requestMerged ? reqPr?.mergedAt : undefined,
     seconds: requestMerged ? dur(reqPr?.createdAt, reqPr?.mergedAt) : secBetween(reqPr?.createdAt ?? created, now),
     detail: requestMerged ? undefined : 'Merge the request PR to start provisioning',
     links: prLink('Request PR', reqPr),
@@ -286,6 +322,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'Request applied',
     desc: 'ArgoCD applies the merged request, which creates the resource',
     state: appliedState,
+    startedAt: reqPr?.mergedAt,
+    endedAt: !pending ? created : undefined,
     seconds: !pending ? dur(reqPr?.mergedAt, created) : requestMerged ? dur(reqPr?.mergedAt, now) : undefined,
     detail:
       appliedState === 'run' ? 'Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource' : undefined,
@@ -300,6 +338,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'Dev cluster chosen',
     desc: 'A registered, ready dev cluster is selected for onboarding',
     state: clusterStepState,
+    startedAt: pending ? undefined : created,
+    endedAt: clusterDone ? ts(clusterC?.lastTransitionTime) : undefined,
     seconds: clusterDone ? secBetween(created, ts(clusterC?.lastTransitionTime)) : undefined,
     detail: !clusterDone && clusterC?.message ? clusterC.message : undefined,
   });
@@ -322,6 +362,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'CI/CD onboarded',
     desc: 'Tenant identity committed; the pipeline namespace is stood up',
     state: stateOf(cicdDone, clusterDone),
+    startedAt: ts(clusterC?.lastTransitionTime),
+    endedAt: cicdDone ? ts(cicdC?.lastTransitionTime) : undefined,
     seconds: cicdDone ? secBetween(ts(clusterC?.lastTransitionTime), ts(cicdC?.lastTransitionTime)) : undefined,
     detail: cicdWaiting ?? (!cicdDone && cicdC?.message ? cicdC.message : undefined),
   });
@@ -353,6 +395,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       : 'Source and GitOps repos created, starter files committed',
     state: reposState,
     fraction: reposFraction,
+    startedAt: pending ? undefined : created,
+    endedAt: reposState === 'done' ? reposEnd : undefined,
     seconds: reposSeconds,
     detail: reposState === 'fail' ? synced?.message : undefined,
     parallel: true,
@@ -383,6 +427,7 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'Available in the Backstage catalog',
     desc: 'The catalog ingestor has picked the service up, so it can be opened in Tower',
     state: catalogState,
+    startedAt: pending ? undefined : created,
     seconds: catalogState === 'run' ? secBetween(created, now) : undefined,
     detail: catalogState === 'run' ? "Waiting for the catalog ingestor's next sync" : undefined,
     parallel: true,
@@ -438,6 +483,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
       : 'Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build',
     state: onboardingState,
     fraction: onboardingFraction,
+    startedAt: onboardingStart || undefined,
+    endedAt: onboardingState === 'done' ? onboardingEnd : undefined,
     seconds: onboardingSeconds,
     detail: onboardingDetail,
     links: [...prLink('Source PR', ob?.source), ...prLink('GitOps PR', ob?.gitops)],
@@ -471,6 +518,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     title: 'Infisical secrets resources',
     desc: 'Project, machine identity and the cluster secret store that reads it',
     state: secretsState,
+    startedAt: ts(cicdC?.lastTransitionTime),
+    endedAt: secretsState === 'done' ? secrets?.readyAt : undefined,
     seconds: secretsSeconds,
     detail: secretsDetail,
     parallel: true,
@@ -503,6 +552,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     desc: 'Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges',
     state: buildState,
     fraction: buildState === 'done' ? 1 : buildFraction,
+    startedAt: build?.startedAt,
+    endedAt: buildState === 'done' ? build?.completedAt : undefined,
     seconds: buildSec,
     detail: buildDetail,
   });
@@ -559,6 +610,8 @@ export function deriveProvisioning(input: ProvisioningInputs, now: number): Prov
     desc: runDesc,
     state: runState,
     fraction: runState === 'done' ? 1 : runFraction,
+    startedAt: build?.completedAt ?? rollout?.createdAt,
+    endedAt: cloudFinal && runState === 'done' ? cloudDeploy?.completedAt : undefined,
     seconds: runSec,
     detail: runDetail,
     links: runLinks,

@@ -583,3 +583,32 @@ describe('CI/CD step waits for its ArgoCD app', () => {
     expect(run({ name: 'gate-api-cicd', sync: 'Synced', health: 'Healthy' }).steps[CICD].state).toBe('done');
   });
 });
+
+describe('step times and measured typical durations', () => {
+  it('gives the steps absolute start and end times where the cluster has them', () => {
+    const p = deriveProvisioning({ xr: xr(live.slice(0, 2).concat({ type: 'Ready', status: 'False' })) }, now);
+    expect(p.steps[CLUSTER]).toMatchObject({ startedAt: created, endedAt: Date.parse('2026-09-30T15:01:33Z') });
+    expect(p.steps[CICD].endedAt).toBe(Date.parse('2026-09-30T15:01:59Z'));
+  });
+  it('uses the time Tower watched a step finish only if it saw the step running first', () => {
+    const base = { xr: xr(live), catalog: { found: true } };
+    const watched = deriveProvisioning(
+      { ...base, observed: { catalog: { sawRunning: true, startedAt: now - 90_000, endedAt: now - 30_000 } } },
+      now,
+    );
+    // The step runs from the XR's creation to the moment Tower saw it finish.
+    expect(watched.steps[CATALOG].seconds).toBe(Math.round((now - 30_000 - created) / 1000));
+    const notWatched = deriveProvisioning({ ...base, observed: { catalog: { endedAt: now - 30_000 } } }, now);
+    expect(notWatched.steps[CATALOG].seconds).toBeUndefined();
+  });
+  it('replaces the built-in typical duration with a measured one, and the ETA follows', () => {
+    const base = { xr: xr([]) };
+    const est = deriveProvisioning(base, now);
+    const measured = deriveProvisioning(base, now, { build: 1000 });
+    expect(est.steps[BUILD].typicalSec).toBe(150);
+    expect(measured.steps[BUILD].typicalSec).toBe(1000);
+    expect(measured.etaSec).toBeGreaterThan(est.etaSec);
+    expect(measured.steps[CLUSTER].typicalSec).toBe(est.steps[CLUSTER].typicalSec); // untouched steps keep theirs
+  });
+});
+
