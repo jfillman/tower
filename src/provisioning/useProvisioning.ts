@@ -30,7 +30,7 @@ import { updateObservation } from './observed';
 // Airframe application XRs live on the dev cluster, the same one that runs
 // Tekton (see TEKTON_CLUSTER). The four app-tier kinds are the ones a user
 // can request from the scaffolder.
-const XR_CLUSTER = TEKTON_CLUSTER;
+export const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = [
   'nodejsapplications',
   'springbootapplications',
@@ -49,7 +49,7 @@ const XR_KINDS = [
 ];
 // The tenants repo each dev cluster's XR requests are opened against, used to find a request before
 // any XR exists to read it off (an existing XR names it in its source-info annotation, which wins).
-const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
+export const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
   'kind-dev': { owner: 'jfillman', repo: 'gitops-cluster-dev-tenants' },
 };
 const POLL_MS = 6000;

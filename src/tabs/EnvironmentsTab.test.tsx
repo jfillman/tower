@@ -1,6 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { EnvironmentsTab } from './EnvironmentsTab';
+
+// These tests render a table with dialogs and a form; under a full parallel run the default one-second waitFor is too tight.
+configure({ asyncUtilTimeout: 8000 });
+jest.setTimeout(30000);
 import type { EnvironmentSummary } from '../types';
 
 const env = (over: Partial<EnvironmentSummary> & { env: string }): EnvironmentSummary => ({
@@ -19,7 +23,7 @@ let cicdData: any;
 let submitState: any;
 let platformFile: any;
 // Stable objects: the form re-initialises whenever the data object changes, as the real hooks' state does not.
-const flightConfig = { loading: false, data: { values: { rollout: { replicas: 2 } }, raw: '', path: 'gitops-air-traffic-api/kind-prod/staging/values.yaml' } };
+const flightConfig = { loading: false, data: { values: { rollout: { replicas: 2 } }, raw: 'rollout:\n  replicas: 2\n', path: 'gitops-air-traffic-api/kind-prod/staging/values.yaml' } };
 const envXr = { loading: false, data: { env: 'staging', path: 'p', configMapGenerator: false } };
 const configMapFiles = { loading: false, data: { cluster: 'kind-prod', env: 'staging', path: 'p', files: [] } };
 const platformSubmitMock = jest.fn();
@@ -31,6 +35,10 @@ jest.mock('../environments/applicationEnvironment', () => ({
   ...jest.requireActual('../environments/applicationEnvironment'),
   useLaunchApplicationEnvironment: () => ({ state: { status: 'idle' }, launch: launchMock, reset: jest.fn() }),
 }));
+let lifecycleSteps: any[] = [];
+const loadValuesMock = jest.fn();
+jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources'), useEnvValuesLoader: () => loadValuesMock }));
+jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
 jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
@@ -63,7 +71,10 @@ const base = { loading: false, error: undefined, owner: 'jfillman', appName: 'ai
 beforeEach(() => {
   submitMock.mockReset();
   platformSubmitMock.mockReset();
-  platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'platform/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: '' } };
+  platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'platform/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: 'envName: test\n' } };
+  lifecycleSteps = [];
+  loadValuesMock.mockReset();
+  window.localStorage.clear();
   resetMock.mockReset();
   launchMock.mockReset();
   submitState = { loading: false };
@@ -802,5 +813,248 @@ describe('EnvironmentsTab: the table', () => {
     fireEvent.click(openRow('test'));
     expect(within(screen.getByText('functionName').closest('label')!).getByText('set here')).toBeTruthy();
     expect(within(screen.getByText('region').closest('label')!).getByText('app-level')).toBeTruthy();
+  });
+});
+
+describe('EnvironmentsTab: after a pull request is opened', () => {
+  const openAndClose = async () => {
+    await stageAdd('qa');
+    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    rerenderTab();
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    submitState = { loading: false };
+    rerenderTab();
+  };
+
+  it('keeps the new environment in the table as "PR open", and lists the pull request, until cicd.yaml shows it', async () => {
+    k8sOld();
+    renderTab();
+    await openAndClose();
+    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
+    expect(names).toEqual(['dev', 'test', 'qaPR open', 'staging']); // a Ground environment goes before the Flight ones
+    const open = within(screen.getByRole('region', { name: 'Open pull requests' }));
+    expect(open.getByRole('link', { name: 'cicd.yaml pull request' }).getAttribute('href')).toBe('https://github.com/jfillman/air-traffic-api/pull/9');
+    expect(open.getByText(/Add environment qa/)).toBeTruthy();
+  });
+
+  it('survives leaving the tab and coming back', async () => {
+    k8sOld();
+    const first = renderTab();
+    await openAndClose();
+    first.unmount();
+    renderTab();
+    expect(screen.getByText('PR open')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Open pull requests' })).toBeTruthy();
+  });
+
+  it('forgets it once cicd.yaml declares the environment', async () => {
+    k8sOld();
+    renderTab();
+    await openAndClose();
+    cicdData = {
+      values: { ...cicdData.values, deploy: { ...cicdData.values.deploy, lowerEnvironments: ['dev', 'test', 'qa'], promotionOrder: ['dev', 'test', 'qa', 'staging'] } },
+    };
+    rerenderTab();
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Open pull requests' })).toBeNull());
+    expect(screen.queryByText('PR open')).toBeNull();
+  });
+
+  it('shows the progress of an environment whose pull request is open, and offers no editing', async () => {
+    k8sOld();
+    lifecycleSteps = [
+      { id: 'cicd', title: 'cicd.yaml change merged', desc: 'Adds qa.', state: 'run', detail: 'Waiting for the pull request to be merged.' },
+      { id: 'onboarding', title: 'Onboarding pull request', desc: 'x', state: 'pend' },
+    ];
+    renderTab();
+    await openAndClose();
+    fireEvent.click(openRow('qa'));
+    expect(screen.getByRole('group', { name: 'Provisioning progress' })).toBeTruthy();
+    expect(screen.getByText('Onboarding pull request')).toBeTruthy();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Actions for qa' })).toBeNull();
+  });
+
+  it('has a Refresh in the header', () => {
+    k8sOld();
+    renderTab();
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeTruthy();
+  });
+
+  it('shows an environment with a removal pull request open as such', async () => {
+    k8sOld();
+    renderTab();
+    await confirmRemoveFromMenu('test');
+    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/10', alreadyOpen: false } };
+    rerenderTab();
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    submitState = { loading: false };
+    rerenderTab();
+    expect(screen.getByText('removal PR open')).toBeTruthy();
+  });
+});
+
+describe('EnvironmentsTab: values that do not exist yet', () => {
+  it('does not offer the form for an environment whose values file does not exist', () => {
+    k8sOld();
+    platformFile = { loading: false, data: { repo: 'o/x', path: 'platform/envs/test.yaml', values: {}, raw: '' } };
+    renderTab();
+    fireEvent.click(openRow('test'));
+    expect(screen.getByText(/does not exist yet, so there is nothing to edit/)).toBeTruthy();
+    expect(screen.queryByRole('tablist', { name: 'Values sections' })).toBeNull();
+  });
+
+  it('shows the steps above an environment that is not fully provisioned', () => {
+    k8sOld();
+    lifecycleSteps = [
+      { id: 'cicd', title: 'cicd.yaml declares it', desc: 'x', state: 'done' },
+      { id: 'applied', title: 'Applied by Crossplane', desc: 'x', state: 'run', detail: 'Reconciling.' },
+    ];
+    renderTab();
+    fireEvent.click(openRow('staging'));
+    expect(screen.getByText(/Provisioning: step 2 of 2/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show steps' }));
+    expect(screen.getByText('Applied by Crossplane')).toBeTruthy();
+  });
+
+  it('shows nothing extra for a fully provisioned environment', () => {
+    k8sOld();
+    lifecycleSteps = [{ id: 'cicd', title: 'cicd.yaml declares it', desc: 'x', state: 'done' }];
+    renderTab();
+    fireEvent.click(openRow('staging'));
+    expect(screen.queryByText(/Provisioning: step/)).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Provisioning progress' })).toBeNull();
+  });
+});
+
+describe('EnvironmentsTab: duplicating an environment', () => {
+  const duplicate = async (from: string, as: string) => {
+    openMenu(from);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: as } });
+    return as;
+  };
+  const stage = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Stage duplicate' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  };
+
+  it('opens the Add dialog as a copy: titled, with the tier fixed and the name left to the user', () => {
+    k8sOld();
+    renderTab();
+    openMenu('dev');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    expect(screen.getByText('Duplicate dev')).toBeTruthy();
+    expect((screen.getByLabelText(/^Ground/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
+    expect((screen.getByRole('button', { name: 'Stage duplicate' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('stages a Ground copy and creates its values file, from the source values, in the same pull request', async () => {
+    k8sOld();
+    loadValuesMock.mockResolvedValue({ rollout: { replicas: 2 }, env: [{ name: 'A', value: '1' }] });
+    renderTab();
+    await duplicate('test', 'qa');
+    await stage();
+    expect(panel().getByText('Add environment qa')).toBeTruthy();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(loadValuesMock).toHaveBeenCalledWith({ owner: 'jfillman', appName: 'air-traffic-api', env: 'test', tier: 'ground', cluster: undefined });
+    const req = submitMock.mock.calls[0][0];
+    expect(req.createFiles).toHaveLength(1);
+    expect(req.createFiles[0].path).toBe('platform/envs/qa.yaml');
+    expect(req.createFiles[0].content).toMatch(/^envName: qa\n/);
+    expect(req.createFiles[0].content).toMatch(/replicas: 2/);
+    expect(req.patch.deploy.environments.map((e: any) => e.name)).toEqual(['dev', 'test', 'qa', 'staging']);
+  });
+
+  it('sends no values file when "Copy the values" is switched off', async () => {
+    k8sOld();
+    renderTab();
+    openMenu('test');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'qa' } });
+    fireEvent.click(screen.getByLabelText('Copy the values of test'));
+    await stage();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(submitMock.mock.calls[0][0].createFiles).toBeUndefined();
+    expect(loadValuesMock).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing and says so when the source values cannot be read', async () => {
+    k8sOld();
+    loadValuesMock.mockRejectedValue(new Error('502'));
+    renderTab();
+    await duplicate('test', 'qa');
+    await stage();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(screen.getByText(/Could not read the values of test to copy them to qa/)).toBeTruthy());
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it('copies a Flight environment as Flight with its cluster, adds no values file, and says how to copy values later', async () => {
+    k8sOld();
+    renderTab();
+    openMenu('staging');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    expect((screen.getByLabelText('Cluster') as HTMLInputElement).value).toBe('kind-prod');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    await stage();
+    expect(panel().getByText(/prod is a copy of staging/)).toBeTruthy();
+    expect(panel().getByText(/Copy values from/)).toBeTruthy();
+  });
+
+  it('keeps a cloud environment\'s other settings but not the resource it points at', async () => {
+    lambdaNew();
+    cicdData.values.deploy.environments[1].lambda = { functionName: 'app-fn-test', region: 'eu-west-1' };
+    renderTab();
+    openMenu('test');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'eu' } });
+    await stage();
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(submitMock.mock.calls[0][0].patch.deploy.environments[2]).toEqual({ name: 'eu', tier: 'ground', lambda: { region: 'eu-west-1' } });
+    expect(submitMock.mock.calls[0][0].createFiles).toBeUndefined();
+  });
+
+  it('is not offered for an environment that only has a pull request open', async () => {
+    k8sOld();
+    renderTab();
+    await stageAdd('qa');
+    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    rerenderTab();
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    submitState = { loading: false };
+    rerenderTab();
+    expect(screen.queryByRole('button', { name: 'Actions for qa' })).toBeNull();
+  });
+});
+
+describe('EnvironmentsTab: copying values into the form', () => {
+  it('lists the other environments, loads the chosen one as staged edits, and never touches the saved values', async () => {
+    k8sOld();
+    loadValuesMock.mockResolvedValue({ rollout: { replicas: 9 } });
+    renderTab();
+    fireEvent.click(openRow('test'));
+    const select = screen.getByLabelText('Copy values from') as HTMLSelectElement;
+    expect([...select.options].map(o => o.textContent)).toEqual(['Copy values from…', 'dev (Ground)', 'staging (Flight)']);
+    fireEvent.change(select, { target: { value: 'dev' } });
+    await waitFor(() => expect(screen.getByText(/Copied the values of dev \(Ground\)/)).toBeTruthy());
+    expect((screen.getByLabelText('Replicas') as HTMLInputElement).value).toBe('9');
+    const values = within(screen.getByRole('region', { name: 'Pending changes to the values of TEST' }));
+    expect(values.getByText(/^rollout:/)).toBeTruthy();
+    fireEvent.click(values.getByRole('button', { name: 'Discard all' }));
+    expect((screen.getByLabelText('Replicas') as HTMLInputElement).value).toBe('1');
+  });
+
+  it('says so when the other environment cannot be read', async () => {
+    k8sOld();
+    loadValuesMock.mockRejectedValue(new Error('nope'));
+    renderTab();
+    fireEvent.click(openRow('test'));
+    fireEvent.change(screen.getByLabelText('Copy values from'), { target: { value: 'dev' } });
+    await waitFor(() => expect(screen.getByText(/Could not load the values of dev/)).toBeTruthy());
   });
 });

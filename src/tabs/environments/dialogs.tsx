@@ -38,6 +38,7 @@ export function AddEnvironmentDialog({
   targetId,
   targetLabel,
   cloudBlock,
+  duplicateOf,
   onStage,
 }: {
   open: boolean;
@@ -47,14 +48,17 @@ export function AddEnvironmentDialog({
   targetId: string;
   targetLabel: string;
   cloudBlock?: CloudBlock;
-  onStage: (env: EnvDef, releaseStep: boolean) => void;
+  /** Duplicating: the environment this one starts as a copy of (tier, cluster and settings; the user names it). */
+  duplicateOf?: EnvDef;
+  onStage: (env: EnvDef, releaseStep: boolean, copyValuesFrom?: string) => void;
 }) {
   const { c } = useDialogStyles();
   const [name, setName] = useState('');
-  const [tier, setTier] = useState<'ground' | 'flight'>('ground');
-  const [cluster, setCluster] = useState('');
+  const [tier, setTier] = useState<'ground' | 'flight'>(duplicateOf?.tier ?? 'ground');
+  const [cluster, setCluster] = useState(duplicateOf?.cluster ?? '');
   const [override, setOverride] = useState('');
   const [releaseStep, setReleaseStep] = useState(true);
+  const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
   // Flight needs a Kubernetes app: a cloud target has no approval path for it yet.
   const flightAllowed = !cloudBlock;
@@ -64,6 +68,13 @@ export function AddEnvironmentDialog({
   const candidate: EnvDef = { name: name.trim(), tier };
   if (tier === 'flight' && cluster.trim()) candidate.cluster = cluster.trim();
   if (tier === 'ground' && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  // A duplicate of a cloud environment keeps its other settings, but not the resource it points at: two environments on the
+  // same function would deploy over each other.
+  if (duplicateOf && cloudBlock && duplicateOf[cloudBlock]) {
+    const { [mainField as string]: _own, ...rest } = duplicateOf[cloudBlock] as Record<string, unknown>;
+    candidate[cloudBlock] = { ...rest, ...(candidate[cloudBlock] ?? {}) };
+    if (Object.keys(candidate[cloudBlock] as object).length === 0) delete candidate[cloudBlock];
+  }
   const withCandidate = applyStaged(current, [{ kind: 'add', env: candidate }]);
   const fresh = name.trim()
     ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
@@ -78,6 +89,7 @@ export function AddEnvironmentDialog({
     setCluster('');
     setOverride('');
     setReleaseStep(true);
+    setCopyValues(true);
   };
   const close = () => {
     reset();
@@ -86,7 +98,7 @@ export function AddEnvironmentDialog({
 
   return (
     <Dialog open={open} onClose={close} PaperProps={{ className: c.paper }}>
-      <DialogTitle>Add environment</DialogTitle>
+      <DialogTitle>{duplicateOf ? `Duplicate ${duplicateOf.name}` : 'Add environment'}</DialogTitle>
       <DialogContent>
         <div className={c.stack}>
           <Field id="add-env-name" label="Name">
@@ -96,10 +108,10 @@ export function AddEnvironmentDialog({
             Lowercase letters, digits and &apos;-&apos;, for example qa.
           </div>
           <RadioGroup aria-label="Tier" value={tier} onChange={e => setTier(e.target.value as 'ground' | 'flight')}>
-            <FormControlLabel value="ground" control={<Radio size="small" />} label="Ground: deploys on every push" />
+            <FormControlLabel value="ground" disabled={Boolean(duplicateOf)} control={<Radio size="small" />} label="Ground: deploys on every push" />
             <FormControlLabel
               value="flight"
-              disabled={!flightAllowed}
+              disabled={!flightAllowed || Boolean(duplicateOf)}
               control={<Radio size="small" />}
               label="Flight: deploys only through an approved release"
             />
@@ -146,6 +158,24 @@ export function AddEnvironmentDialog({
               </div>
             </>
           )}
+          {duplicateOf && !cloudBlock && (
+            <>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={copyValues} onChange={e => setCopyValues(e.target.checked)} />}
+                label={`Copy the values of ${duplicateOf.name}`}
+              />
+              <div className={c.note} style={{ marginTop: -6 }}>
+                {tier === 'ground'
+                  ? `The new environment's values file is created in the same pull request, with the values of ${duplicateOf.name} (its own image excluded).`
+                  : `A Flight environment's values file is written by Crossplane after its request merges. When it exists, use "Copy values from" in its Values tab.`}
+              </div>
+            </>
+          )}
+          {duplicateOf && cloudBlock && mainField && (
+            <div className={c.note}>
+              Settings are copied except {mainField}: give it its own above, or both environments will deploy to the same resource.
+            </div>
+          )}
           {fresh.map(p => (
             <div key={p} className={c.problem} style={{ marginTop: 0 }}>
               {p}
@@ -159,11 +189,11 @@ export function AddEnvironmentDialog({
           variant="primary"
           disabled={!ok}
           onClick={() => {
-            onStage(candidate, tier === 'flight' && releaseStep);
+            onStage(candidate, tier === 'flight' && releaseStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : undefined);
             reset();
           }}
         >
-          Stage environment
+          {duplicateOf ? 'Stage duplicate' : 'Stage environment'}
         </Button>
       </DialogActions>
     </Dialog>

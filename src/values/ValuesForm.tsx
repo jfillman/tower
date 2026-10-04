@@ -1016,6 +1016,7 @@ export function ConfigEditor({
   title,
   prod = false,
   layout = 'side',
+  copyFrom,
 }: {
   owner: string;
   appName: string;
@@ -1024,6 +1025,8 @@ export function ConfigEditor({
   title: string;
   prod?: boolean;
   layout?: 'side' | 'inline';
+  /** Other environments whose values can be loaded into this form as staged edits. */
+  copyFrom?: { options: Array<{ id: string; label: string }>; load: (id: string) => Promise<Partial<Record<ConfigTopLevelField, unknown>>> };
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1081,6 +1084,36 @@ export function ConfigEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg.data]);
+
+  const [copyNote, setCopyNote] = useState<{ text: string; bad?: boolean } | undefined>();
+  // Loads another environment's values into the form as edits (the saved values are untouched until a pull request merges).
+  // rollout.image is the one field never copied: deploy automation owns each environment's own image.
+  const applyValues = (incoming: Partial<Record<ConfigTopLevelField, unknown>>) => {
+    const values = { ...incoming } as Partial<Record<ConfigTopLevelField, unknown>>;
+    if (values.rollout && typeof values.rollout === 'object') {
+      const { image: _image, ...rest } = values.rollout as Record<string, unknown>;
+      values.rollout = rest;
+    }
+    setForm(buildFormState(values));
+    setAdvanced(buildAdvancedYaml(values));
+    setRolloutEnabled(values.rollout !== undefined && values.rollout !== null);
+    const rollout = asRecord(values.rollout);
+    const simple = parseStepsSimple(rollout.steps);
+    setStepsMode(simple ? 'simple' : 'raw');
+    setStepsSimple(simple ?? []);
+    setStepsRaw(dumpOrBlank(rollout.steps));
+  };
+  const copyValues = async (id: string) => {
+    if (!copyFrom || !id) return;
+    const label = copyFrom.options.find(o => o.id === id)?.label ?? id;
+    setCopyNote({ text: `Loading the values of ${label}…` });
+    try {
+      applyValues(await copyFrom.load(id));
+      setCopyNote({ text: `Copied the values of ${label}. Review them in the pending changes; Discard all undoes it.` });
+    } catch (e) {
+      setCopyNote({ text: `Could not load the values of ${label}: ${String(e)}`, bad: true });
+    }
+  };
 
   // The error first: with no data there is never a form, so checking "no form yet" first would show a spinner forever.
   if (cfg.error && !cfg.data) return <ResponseErrorPanel error={new Error(cfg.error)} />;
@@ -1428,6 +1461,19 @@ export function ConfigEditor({
           <Typography className={classes.note}>Live values from GitHub - not polled, use refresh for the latest commit.</Typography>
           <RefreshButton onClick={source.refresh} />
         </div>
+        {copyFrom && copyFrom.options.length > 0 && (
+          <div className={classes.row}>
+            <select className={classes.input} aria-label="Copy values from" value="" onChange={e => void copyValues(e.target.value)} style={{ maxWidth: 260 }}>
+              <option value="">Copy values from…</option>
+              {copyFrom.options.map(o => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {copyNote && <span className={copyNote.bad ? ui.problem : ui.note}>{copyNote.text}</span>}
+          </div>
+        )}
         <Subtabs label="Values sections" value={tab} onChange={setTab} tabs={VALUES_TABS.map(x => ({ ...x, marked: tabDirty[x.id] }))} />
         {tab === 'advanced' && (
           <>
