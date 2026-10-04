@@ -7,13 +7,18 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 import Button from '@material-ui/core/Button';
+import Radio from '@material-ui/core/Radio';
+import RadioGroup from '@material-ui/core/RadioGroup';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import Link from '@material-ui/core/Link';
 import TextField from '@material-ui/core/TextField';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, describeChanges, validateEnvironments, followUps, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
+import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, followUps, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
-import { PrResultDialog } from '../PrResultDialog.esm.js';
 import { preventFocusScroll } from '../preventFocusScroll.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
@@ -156,6 +161,10 @@ function EnvironmentsTab() {
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
   const submit = useSubmitCicdConfigChange();
+  const launcher = useLaunchApplicationEnvironment();
+  const [phase, setPhase] = useState("idle");
+  const [launched, setLaunched] = useState({});
+  const [failure, setFailure] = useState();
   const [staged, setStaged] = useState([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState();
@@ -171,7 +180,11 @@ function EnvironmentsTab() {
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
   const changes = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
-  const problems = useMemo(() => validateEnvironments(after, targetId), [after, targetId]);
+  const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
+  const problems = useMemo(
+    () => [...validateEnvironments(after, targetId), ...validateAddedFlight(before, after, targetId)],
+    [before, after, targetId]
+  );
   const notes = useMemo(() => followUps(before, after, targetId), [before, after, targetId]);
   const rows = useMemo(() => {
     const live = new Map(liveRows.map((r) => [r.name, r]));
@@ -211,14 +224,38 @@ function EnvironmentsTab() {
     else delete current[field];
     setStaged((s) => stageSetBlock(s, env.name, block, current));
   };
-  const openPr = () => {
+  const openPr = async () => {
     if (!owner || !appName) return;
-    submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map((c) => c.title) });
+    setFailure(void 0);
+    const done = { ...launched };
+    for (const e of flightAdds) {
+      if (done[e.name]) continue;
+      setPhase("launching");
+      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster });
+      if (r.status !== "done") {
+        setLaunched(done);
+        setPhase("idle");
+        setFailure(
+          `Creating ${e.name} failed: ${r.status === "failed" ? r.error : "the request did not finish"}. Nothing was changed in cicd.yaml.`
+        );
+        return;
+      }
+      done[e.name] = r.prUrl;
+    }
+    setLaunched(done);
+    setPhase("submitting");
+    await submit.submit({ owner, appName, patch: { deploy: buildDeploy(deploy, after) }, summary: changes.map((c) => c.title) });
+    setPhase("idle");
   };
   const closeResult = () => {
+    const succeeded = Boolean(submit.result);
     submit.reset();
-    setStaged([]);
-    setNonce((n) => n + 1);
+    setFailure(void 0);
+    if (succeeded) {
+      setStaged([]);
+      setLaunched({});
+      setNonce((n) => n + 1);
+    }
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
@@ -334,8 +371,14 @@ function EnvironmentsTab() {
             c.detail && /* @__PURE__ */ jsx("div", { className: classes.lineDetail, children: c.detail })
           ] }, `${c.kind}-${c.title}-${i}`)),
           problems.map((p) => /* @__PURE__ */ jsx("div", { className: classes.problem, children: p }, p)),
-          /* @__PURE__ */ jsx("div", { className: classes.label, style: { marginTop: 12 }, children: "Pull request this opens" }),
+          /* @__PURE__ */ jsx("div", { className: classes.label, style: { marginTop: 12 }, children: flightAdds.length > 0 ? "Pull requests this opens, in this order" : "Pull request this opens" }),
+          flightAdds.map((e) => /* @__PURE__ */ jsxs("div", { className: classes.lineDetail, style: { marginTop: 4 }, children: [
+            "1. tenants repo: ApplicationEnvironment request for ",
+            e.name,
+            launched[e.name] ? " (already opened)" : ""
+          ] }, e.name)),
           /* @__PURE__ */ jsxs("div", { className: classes.lineDetail, style: { marginTop: 4 }, children: [
+            flightAdds.length > 0 ? "2. " : "",
             owner,
             "/",
             appName,
@@ -350,10 +393,10 @@ function EnvironmentsTab() {
                 size: "small",
                 variant: "contained",
                 className: classes.primary,
-                disabled: problems.length > 0 || submit.loading,
+                disabled: problems.length > 0 || phase !== "idle",
                 onMouseDown: preventFocusScroll,
                 onClick: openPr,
-                children: submit.loading ? "Opening\u2026" : "Open pull request"
+                children: phase === "launching" ? "Requesting environment\u2026" : phase === "submitting" ? "Opening\u2026" : flightAdds.length > 0 ? "Open pull requests" : "Open pull request"
               }
             )
           ] })
@@ -377,7 +420,16 @@ function EnvironmentsTab() {
         classes
       }
     ),
-    (submit.result || submit.error) && /* @__PURE__ */ jsx(PrResultDialog, { result: submit.result, error: submit.error, onClose: closeResult })
+    (submit.result || submit.error || failure) && /* @__PURE__ */ jsx(
+      ChangeResultDialog,
+      {
+        requests: flightAdds.filter((e) => launched[e.name]).map((e) => ({ env: e.name, url: launched[e.name] })),
+        cicdPrUrl: submit.result?.prUrl,
+        error: failure ?? submit.error,
+        onClose: closeResult,
+        classes
+      }
+    )
   ] });
 }
 function AddEnvironmentDialog({
@@ -392,15 +444,28 @@ function AddEnvironmentDialog({
   classes
 }) {
   const [name, setName] = useState("");
+  const [tier, setTier] = useState("ground");
+  const [cluster, setCluster] = useState("");
   const [override, setOverride] = useState("");
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
-  const candidate = { name: name.trim(), tier: "ground" };
-  if (cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
-  const fresh = name.trim() ? validateEnvironments(applyStaged(current, [{ kind: "add", env: candidate }]), targetId).filter((p) => !problems.includes(p)) : [];
+  const flightAllowed = !cloudBlock;
+  const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
+  const candidate = { name: name.trim(), tier };
+  if (tier === "flight" && cluster.trim()) candidate.cluster = cluster.trim();
+  if (tier === "ground" && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  const withCandidate = applyStaged(current, [{ kind: "add", env: candidate }]);
+  const fresh = name.trim() ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
+    (p) => !problems.includes(p)
+  ) : [];
   const ok = Boolean(name.trim()) && fresh.length === 0;
-  const close = () => {
+  const reset = () => {
     setName("");
+    setTier("ground");
+    setCluster("");
     setOverride("");
+  };
+  const close = () => {
+    reset();
     onClose();
   };
   return /* @__PURE__ */ jsxs(Dialog, { open, onClose: close, PaperProps: { className: classes.dialogPaper }, children: [
@@ -419,11 +484,52 @@ function AddEnvironmentDialog({
           helperText: "Lowercase letters, digits and '-', for example qa."
         }
       ),
-      /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
-        /* @__PURE__ */ jsx("b", { children: "Ground" }),
-        ": deploys on every push. Flight environments (deployed through an approved release) are created another way for now and arrive here in a later release."
+      /* @__PURE__ */ jsxs(
+        RadioGroup,
+        {
+          "aria-label": "Tier",
+          value: tier,
+          onChange: (e) => setTier(e.target.value),
+          style: { marginTop: 10 },
+          children: [
+            /* @__PURE__ */ jsx(FormControlLabel, { value: "ground", control: /* @__PURE__ */ jsx(Radio, { size: "small" }), label: "Ground: deploys on every push" }),
+            /* @__PURE__ */ jsx(
+              FormControlLabel,
+              {
+                value: "flight",
+                disabled: !flightAllowed,
+                control: /* @__PURE__ */ jsx(Radio, { size: "small" }),
+                label: "Flight: deploys only through an approved release"
+              }
+            )
+          ]
+        }
+      ),
+      !flightAllowed && /* @__PURE__ */ jsxs("div", { className: classes.dialogNote, children: [
+        "Flight environments are not available for ",
+        targetLabel,
+        " yet: a cloud target has no approval path for them."
       ] }),
-      cloudBlock && mainField && /* @__PURE__ */ jsx(
+      tier === "flight" && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx(
+          TextField,
+          {
+            id: "add-env-cluster",
+            fullWidth: true,
+            size: "small",
+            style: { marginTop: 12 },
+            label: "Cluster",
+            value: cluster,
+            onChange: (e) => setCluster(e.target.value),
+            inputProps: { list: "flight-clusters" },
+            helperText: "The registered upper cluster it runs on, for example kind-prod.",
+            InputLabelProps: { shrink: true }
+          }
+        ),
+        /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((c) => /* @__PURE__ */ jsx("option", { value: c }, c)) }),
+        /* @__PURE__ */ jsx("div", { className: classes.dialogNote, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first. The pipeline step that releases to it is not added; edit the pipeline in the Glidepath tab." })
+      ] }),
+      tier === "ground" && cloudBlock && mainField && /* @__PURE__ */ jsx(
         TextField,
         {
           id: "add-env-override",
@@ -441,12 +547,49 @@ function AddEnvironmentDialog({
     ] }),
     /* @__PURE__ */ jsxs(DialogActions, { children: [
       /* @__PURE__ */ jsx(Button, { onClick: close, children: "Cancel" }),
-      /* @__PURE__ */ jsx(Button, { disabled: !ok, onClick: () => {
-        onStage(candidate);
-        setName("");
-        setOverride("");
-      }, children: "Stage environment" })
+      /* @__PURE__ */ jsx(
+        Button,
+        {
+          disabled: !ok,
+          onClick: () => {
+            onStage(candidate);
+            reset();
+          },
+          children: "Stage environment"
+        }
+      )
     ] })
+  ] });
+}
+function ChangeResultDialog({
+  requests,
+  cicdPrUrl,
+  error,
+  onClose,
+  classes
+}) {
+  return /* @__PURE__ */ jsxs(Dialog, { open: true, onClose, PaperProps: { className: classes.dialogPaper }, children: [
+    /* @__PURE__ */ jsx(DialogTitle, { children: error ? "Something needs attention" : "Pull requests opened" }),
+    /* @__PURE__ */ jsxs(DialogContent, { children: [
+      error && /* @__PURE__ */ jsx(DialogContentText, { className: classes.problem, children: error }),
+      requests.length > 0 && /* @__PURE__ */ jsx(DialogContentText, { component: "div", children: requests.map((r, i) => /* @__PURE__ */ jsxs("div", { children: [
+        i + 1,
+        ". ApplicationEnvironment request for ",
+        r.env,
+        ":",
+        " ",
+        /* @__PURE__ */ jsx(Link, { href: r.url, target: "_blank", rel: "noopener noreferrer", children: r.url })
+      ] }, r.env)) }),
+      cicdPrUrl && /* @__PURE__ */ jsxs(DialogContentText, { component: "div", children: [
+        requests.length > 0 ? `${requests.length + 1}. ` : "",
+        "cicd.yaml change:",
+        " ",
+        /* @__PURE__ */ jsx(Link, { href: cicdPrUrl, target: "_blank", rel: "noopener noreferrer", children: cicdPrUrl })
+      ] }),
+      requests.length > 0 && cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "Merge the ApplicationEnvironment request first, then the cicd.yaml change." }),
+      error && requests.length > 0 && !cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "The request(s) above are already open and will not be opened again if you try again." })
+    ] }),
+    /* @__PURE__ */ jsx(DialogActions, { children: /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" }) })
   ] });
 }
 

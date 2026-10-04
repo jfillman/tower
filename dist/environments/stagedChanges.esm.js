@@ -173,12 +173,30 @@ function followUps(before, after, target) {
   const cloud = (target) !== "k8s-rollout";
   for (const e of after) {
     if (had.has(e.name)) continue;
+    if (e.tier === "flight" && !cloud) {
+      out.push(
+        `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application. The release step in the pipeline that deploys to ${e.name} is not added: edit the pipeline in the Glidepath tab.`
+      );
+    }
     if (e.tier === "ground" && !cloud) {
       out.push(`Glidepath then opens a pull request on the source repo adding platform/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
   return out;
 }
+function addedFlightEnvs(before, after) {
+  const had = new Set(before.map((e) => e.name));
+  return after.filter((e) => e.tier === "flight" && !had.has(e.name));
+}
+function validateAddedFlight(before, after, target) {
+  const out = [];
+  const cloud = (target || "k8s-rollout") !== "k8s-rollout";
+  for (const e of addedFlightEnvs(before, after)) {
+    if (cloud) continue;
+    if (!e.cluster) out.push(`Flight environment "${e.name}" needs the cluster it runs on, for example kind-prod.`);
+  }
+  return out;
+}
 
-export { CLOUD_BLOCKS, applyStaged, buildDeploy, describeChanges, followUps, readEnvironments, stageSetBlock, validateEnvironments };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, describeChanges, followUps, readEnvironments, stageSetBlock, validateAddedFlight, validateEnvironments };
 //# sourceMappingURL=stagedChanges.esm.js.map
