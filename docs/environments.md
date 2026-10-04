@@ -47,9 +47,20 @@ Application. The row's Danger zone lists the manual steps in order.
 Not here yet: the full App Configuration *form* for a Ground environment. Its values are edited as YAML (the same
 editor as the Glidepath tab's Platform files); generalising App Configuration's form to platform files is a larger change. The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
+## The table
+
+Filter chips (All / Ground / Flight / Cloud, with counts) sit above a panel of rows: drag handle (Ground rows that can move), name
+with a *staged* chip, tier, target, where, health, live image with its age, and an actions menu (Edit details, Move
+earlier / later, Remove, Undo removal). A row staged for removal stays in place, struck through, until the change is opened.
+Clicking a row opens four sub-tabs: **Settings** (a cloud environment's resource fields with a "set here" / "app-level" tag; for
+Kubernetes the read-only facts), **Values**, **Promotion** (how it deploys and which pipeline step reaches it) and **Danger zone**.
+Drag a handle onto another Ground row to reorder, or use the menu. The layout follows the mockup; the shared pieces are in
+[the design system](design-system.md).
+
 ## Where the code is
 
 - `src/environments/stagedChanges.ts`: the pure model (read either shape, apply staged changes, validate,
   build the `deploy` block, describe the changes). Heavily tested; the rules live here, not in the component.
-- `src/tabs/EnvironmentsTab.tsx`: the table, row editors, the Pending changes panel and the Add dialog.
+- `src/tabs/EnvironmentsTab.tsx`: state and handlers; `src/tabs/environments/`: `RowDetail` (the sub-tabs), `PendingChanges`, `dialogs`, `shared`.
+- `src/ui/`: the shared kit.
 - `src/environmentRows.ts`: the read-only row builder.

@@ -114,6 +114,21 @@ const stageFlight = async (name: string, cluster?: string) => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   }
 };
+// The row menu: open it for a row, then pick an item (items can be disabled, so it also reads them).
+const openMenu = (name: string) => fireEvent.click(screen.getByRole('button', { name: `Actions for ${name}` }));
+const menuItem = (label: string) => screen.queryByRole('menuitem', { name: label });
+const chooseAction = async (name: string, label: string) => {
+  openMenu(name);
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+  await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+};
+const confirmRemoveFromMenu = async (name: string) => {
+  openMenu(name);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Remove…' }));
+  fireEvent.change(screen.getByLabelText(`Type ${name} to confirm`), { target: { value: name } });
+  fireEvent.click(screen.getByRole('button', { name: 'Stage removal' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+};
 const openRow = (name: string) => screen.getAllByRole('row').find(r => within(r).queryByText(name))!;
 const panel = () => within(screen.getByLabelText('Pending changes'));
 
@@ -188,7 +203,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     // and says what Glidepath does afterwards
     expect(panel().getByText(/platform\/envs\/qa\.yaml/)).toBeTruthy();
     expect(screen.getByText('staged: new')).toBeTruthy();
-    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[0].textContent);
+    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'qastaged: new', 'staging']);
   });
 
@@ -241,20 +256,55 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
 });
 
 describe('EnvironmentsTab: reordering', () => {
-  it('moves a Ground environment, stages the new order, and keeps Flight where it is', () => {
+  it('moves a Ground environment from its row menu, stages the new order, and keeps Flight where it is', async () => {
     k8sOld();
     renderTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Move test earlier' }));
+    await chooseAction('test', 'Move earlier');
     expect(panel().getByText('Change the promotion order')).toBeTruthy();
     expect(panel().getByText('test to dev to staging')).toBeTruthy();
     // order is now test, dev, then Flight: test is first (cannot go earlier), dev is the last Ground one
     // (cannot go later: a Ground environment never passes a Flight one), dev can still go earlier
-    const disabled = (name: string) => (screen.getByRole('button', { name }) as HTMLButtonElement).disabled;
-    expect(disabled('Move test earlier')).toBe(true);
-    expect(disabled('Move test later')).toBe(false);
-    expect(disabled('Move dev earlier')).toBe(false);
-    expect(disabled('Move dev later')).toBe(true);
-    expect(screen.queryByRole('button', { name: /Move staging/ })).toBeNull(); // Flight has no order controls yet
+    const disabled = (label: string) => menuItem(label)!.getAttribute('aria-disabled') === 'true';
+    openMenu('test');
+    expect(disabled('Move earlier')).toBe(true);
+    expect(disabled('Move later')).toBe(false);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    openMenu('dev');
+    expect(disabled('Move earlier')).toBe(false);
+    expect(disabled('Move later')).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    // Flight has no order controls yet
+    openMenu('staging');
+    expect(menuItem('Move earlier')).toBeNull();
+  });
+
+  const dragRow = (from: string, to: string) => {
+    fireEvent.dragStart(screen.getByRole('img', { name: `Drag ${from} to reorder` }));
+    fireEvent.dragOver(openRow(to));
+    fireEvent.drop(openRow(to));
+  };
+
+  it('drags a Ground environment onto another and stages the same order change', () => {
+    k8sOld();
+    renderTab();
+    dragRow('test', 'dev');
+    expect(panel().getByText('test to dev to staging')).toBeTruthy();
+  });
+
+  it('does not let a Ground environment be dropped onto a Flight one', () => {
+    k8sOld();
+    renderTab();
+    fireEvent.dragStart(screen.getByRole('img', { name: 'Drag dev to reorder' }));
+    fireEvent.drop(openRow('staging'));
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+  });
+
+  it('has no drag handle on a Flight environment', () => {
+    k8sOld();
+    renderTab();
+    expect(screen.queryByRole('img', { name: 'Drag staging to reorder' })).toBeNull();
   });
 });
 
@@ -264,7 +314,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     renderTab();
     const testRow = screen.getAllByRole('row').find(r => within(r).queryByText('test'))!;
     fireEvent.click(testRow);
-    const field = screen.getByLabelText('functionName') as HTMLInputElement;
+    const field = screen.getByLabelText(/^functionName/) as HTMLInputElement;
     expect(field.placeholder).toBe('app-fn'); // the app-level value
     fireEvent.change(field, { target: { value: 'app-fn-test' } });
     fireEvent.change(field, { target: { value: 'app-fn-test2' } });
@@ -300,7 +350,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     renderTab();
     fireEvent.click(screen.getAllByRole('row').find(r => within(r).queryByText('test'))!);
     expect(screen.getByText('Values: platform/envs/test.yaml')).toBeTruthy();
-    expect(screen.queryByLabelText('functionName')).toBeNull();
+    expect(screen.queryByLabelText(/^functionName/)).toBeNull();
   });
 });
 
@@ -355,12 +405,15 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     await stageFlight('prod', 'kind-prod');
     expect(panel().getByText('Add environment prod')).toBeTruthy();
     expect(panel().getByText('Pull requests this opens, in this order')).toBeTruthy();
-    expect(panel().getByText(/1\. tenants repo: ApplicationEnvironment request for prod/)).toBeTruthy();
-    expect(panel().getByText(/2\. jfillman\/air-traffic-api: cicd\.yaml/)).toBeTruthy();
+    expect(panel().getByText('tenants repo')).toBeTruthy();
+    expect(panel().getByText('ApplicationEnvironment request for prod')).toBeTruthy();
+    expect(panel().getByText('jfillman/air-traffic-api')).toBeTruthy();
+    expect(panel().getByText('1')).toBeTruthy(); // numbered in the order they open
+    expect(panel().getByText('2')).toBeTruthy();
     expect(panel().getByText(/Merge that one before the cicd\.yaml change/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open pull requests' })).toBeTruthy();
     // a Flight environment goes at the end, after the existing Flight one
-    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[0].textContent);
+    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'staging', 'prodstaged: new']);
   });
 
@@ -437,7 +490,8 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
 describe('EnvironmentsTab: removing a Ground environment', () => {
   const confirmRemove = async (name: string) => {
-    fireEvent.click(screen.getByRole('button', { name: `Remove ${name}` }));
+    openMenu(name);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove…' }));
     fireEvent.change(screen.getByLabelText(`Type ${name} to confirm`), { target: { value: name } });
     fireEvent.click(screen.getByRole('button', { name: 'Stage removal' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -446,7 +500,8 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
   it('previews the impact, needs the name typed, and only then stages the removal', () => {
     k8sOld();
     renderTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
+    openMenu('test');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove…' }));
     expect(screen.getByText('platform/envs/test.yaml')).toBeTruthy();
     expect(screen.getByText('app-air-traffic-api-test')).toBeTruthy();
     const stage = screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement;
@@ -479,7 +534,8 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     k8sOld();
     cicdData.values.pipelines = { ci: { steps: [{ stage: 'deploy', env: 'test' }] } };
     renderTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove test' }));
+    openMenu('test');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove…' }));
     expect(screen.getByText(/Pipeline "ci" still has a step for test/)).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByLabelText('Type test to confirm')).toBeNull();
@@ -504,12 +560,15 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
   });
 
-  it('offers no Remove button for a Flight environment and shows the manual steps instead', () => {
+  it('offers no Remove for a Flight environment and shows the manual steps in its Danger zone', () => {
     k8sOld();
     renderTab();
-    expect(screen.queryByRole('button', { name: 'Remove staging' })).toBeNull();
+    openMenu('staging');
+    expect(menuItem('Remove…')).toBeNull();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(openRow('staging'));
-    expect(screen.getByText(/Danger zone: removing a Flight environment/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Danger zone' }));
+    expect(screen.getByText('Removing a Flight environment')).toBeTruthy();
     expect(screen.getByText('tenants/air-traffic-api/staging/')).toBeTruthy();
     expect(screen.getByText('kind-prod/staging/')).toBeTruthy();
   });
@@ -637,5 +696,71 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
     await stageFlight('prod', 'kind-prod');
     fireEvent.click(panel().getByRole('button', { name: 'Discard all' }));
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+  });
+});
+
+describe('EnvironmentsTab: the table', () => {
+  it('filters by tier and by cloud, with counts', () => {
+    k8sOld();
+    renderTab();
+    const names = () => screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
+    const filter = within(screen.getByRole('group', { name: 'Filter environments' }));
+    expect(filter.getByRole('button', { name: 'All 3' })).toBeTruthy();
+    expect(filter.getByRole('button', { name: 'Ground 2' })).toBeTruthy();
+    expect(filter.getByRole('button', { name: 'Flight 1' })).toBeTruthy();
+    expect(filter.getByRole('button', { name: 'Cloud 0' })).toBeTruthy();
+    fireEvent.click(filter.getByRole('button', { name: 'Flight 1' }));
+    expect(names()).toEqual(['staging']);
+    fireEvent.click(filter.getByRole('button', { name: 'Ground 2' }));
+    expect(names()).toEqual(['dev', 'test']);
+    fireEvent.click(filter.getByRole('button', { name: 'Cloud 0' }));
+    expect(screen.getByText('No environments match this filter.')).toBeTruthy();
+  });
+
+  it('counts every row of a cloud app as cloud', () => {
+    lambdaNew();
+    renderTab();
+    expect(screen.getByRole('button', { name: 'Cloud 2' })).toBeTruthy();
+  });
+
+  it('keeps a removed environment in its place, struck through, and can undo it', async () => {
+    k8sOld();
+    renderTab();
+    await confirmRemoveFromMenu('test');
+    const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
+    expect(names).toEqual(['dev', 'teststaged: remove', 'staging']);
+    await chooseAction('test', 'Undo removal');
+    expect(panel().getByText(/Nothing staged/)).toBeTruthy();
+    expect(screen.queryByText('staged: remove')).toBeNull();
+  });
+
+  it('shows the four sections of a row and starts a cloud environment on Settings, a Kubernetes one on Values', () => {
+    lambdaNew();
+    renderTab();
+    fireEvent.click(openRow('test'));
+    const tabs = within(screen.getByRole('tablist', { name: 'test sections' })).getAllByRole('tab').map(t => t.textContent);
+    expect(tabs).toEqual(['Settings', 'Values', 'Promotion', 'Danger zone']);
+    expect(screen.getByRole('tab', { name: 'Settings' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('says in Promotion whether a pipeline step reaches the environment', () => {
+    k8sOld();
+    cicdData.values.pipelines = { ci: { steps: [{ stage: 'deploy', env: 'dev' }, { stage: 'release', env: 'staging' }] } };
+    renderTab();
+    fireEvent.click(openRow('dev'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Promotion' }));
+    expect(screen.getByText(/Deploy step in pipeline "ci"/)).toBeTruthy();
+    fireEvent.click(openRow('test'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Promotion' }));
+    expect(screen.getByText(/No pipeline step deploys to test/)).toBeTruthy();
+  });
+
+  it('tags each cloud field with where its value comes from', () => {
+    lambdaNew();
+    cicdData.values.deploy.environments[1].lambda = { functionName: 'app-fn-test' };
+    renderTab();
+    fireEvent.click(openRow('test'));
+    expect(within(screen.getByText('functionName').closest('label')!).getByText('set here')).toBeTruthy();
+    expect(within(screen.getByText('region').closest('label')!).getByText('app-level')).toBeTruthy();
   });
 });
