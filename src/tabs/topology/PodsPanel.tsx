@@ -6,7 +6,7 @@ import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { relativeTime, formatDateTime } from '../../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { PodLogsView } from '../../PodLogsView';
-import { preventFocusScroll } from '../../preventFocusScroll';
+import { keepScrollPosition, preventFocusScroll } from '../../preventFocusScroll';
 import { MetricsPanel } from './MetricsPanel';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, K8sResourceRef, PodSummary } from '../../types';
@@ -298,14 +298,14 @@ function PodDetail({
       )}
 
       <div className={classes.actionsRow}>
-        <button type="button" className={`${classes.actionBtn} ${panel === 'logs' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => setPanel(p => (p === 'logs' ? null : 'logs'))}>
+        <button type="button" className={`${classes.actionBtn} ${panel === 'logs' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepScrollPosition(e.currentTarget, () => setPanel(p => (p === 'logs' ? null : 'logs')))}>
           Logs
         </button>
-        <button type="button" className={`${classes.actionBtn} ${panel === 'metrics' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => setPanel(p => (p === 'metrics' ? null : 'metrics'))}>
+        <button type="button" className={`${classes.actionBtn} ${panel === 'metrics' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepScrollPosition(e.currentTarget, () => setPanel(p => (p === 'metrics' ? null : 'metrics')))}>
           Metrics
         </button>
         {resource && (
-          <button type="button" className={`${classes.actionBtn} ${panel === 'yaml' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => setPanel(p => (p === 'yaml' ? null : 'yaml'))}>
+          <button type="button" className={`${classes.actionBtn} ${panel === 'yaml' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepScrollPosition(e.currentTarget, () => setPanel(p => (p === 'yaml' ? null : 'yaml')))}>
             YAML
           </button>
         )}
