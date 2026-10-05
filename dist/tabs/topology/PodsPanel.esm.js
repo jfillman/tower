@@ -6,7 +6,7 @@ import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { PodLogsView } from '../../PodLogsView.esm.js';
-import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
+import { preventFocusScroll, keepScrollPosition } from '../../preventFocusScroll.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { YamlView } from './YamlView.esm.js';
 
@@ -210,9 +210,9 @@ function PodDetail({
       ] }, c.type)) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.actionsRow, children: [
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "logs" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => setPanel((p) => p === "logs" ? null : "logs"), children: "Logs" }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "metrics" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => setPanel((p) => p === "metrics" ? null : "metrics"), children: "Metrics" }),
-      resource && /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "yaml" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => setPanel((p) => p === "yaml" ? null : "yaml"), children: "YAML" }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "logs" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepScrollPosition(e.currentTarget, () => setPanel((p) => p === "logs" ? null : "logs")), children: "Logs" }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "metrics" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepScrollPosition(e.currentTarget, () => setPanel((p) => p === "metrics" ? null : "metrics")), children: "Metrics" }),
+      resource && /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "yaml" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepScrollPosition(e.currentTarget, () => setPanel((p) => p === "yaml" ? null : "yaml")), children: "YAML" }),
       /* @__PURE__ */ jsxs(
         "button",
         {

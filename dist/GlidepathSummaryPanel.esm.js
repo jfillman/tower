@@ -1,7 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { envListsOf } from './environmentRows.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { load } from 'js-yaml';
@@ -9,11 +8,14 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { useCicdConfig, usePlatformEnvs, usePlatformFile } from './useConfigData.esm.js';
 import { PipelineFlowPreview } from './PipelineFlowPreview.esm.js';
+import { readEnvironments, pipelinesNamingEnv } from './environments/stagedChanges.esm.js';
+import { DEPLOY_TARGETS } from './serviceClass.esm.js';
+import { Button, TierChip, ColumnLabel } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   panel: {
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 8,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 6,
     padding: "14px 18px",
     marginBottom: 20,
     backgroundColor: ({ t }) => t.panel,
@@ -23,33 +25,21 @@ const useStyles = makeStyles(() => ({
   },
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },
   headLeft: { display: "flex", alignItems: "center", gap: 8 },
+  headRight: { display: "flex", gap: 8, alignItems: "center" },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  grid: { display: "flex", gap: 24, flexWrap: "wrap" },
-  col: { display: "flex", flexDirection: "column", gap: 6, minWidth: 180 },
-  label: { fontFamily: fontMono, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.4, color: ({ t }) => t.textFaint },
+  chain: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  chainItem: { display: "inline-flex", alignItems: "center", gap: 6 },
+  chainName: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
+  arrow: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 12 },
+  grid: { display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" },
+  col: { display: "flex", flexDirection: "column", gap: 6, minWidth: 200 },
   value: { fontSize: 12.5, color: ({ t }) => t.textHi },
-  envChips: { display: "flex", gap: 6, flexWrap: "wrap" },
-  envChip: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "2px 8px",
-    borderRadius: 10,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    color: ({ t }) => t.textLo
-  },
+  muted: { fontSize: 12, color: ({ t }) => t.textLo },
+  envRows: { display: "flex", flexDirection: "column", gap: 6 },
+  envRow: { display: "grid", gridTemplateColumns: "90px 70px 1fr", gap: 10, alignItems: "center", fontSize: 12.5 },
+  mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   pipelinesList: { display: "flex", flexDirection: "column", gap: 10 },
-  configureLink: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0,
-    "&:hover": { textDecoration: "underline" }
-  },
-  strategyWarn: { fontSize: 10.5, fontStyle: "italic", color: ({ t }) => t.amberInk },
+  strategyWarn: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.amberInk },
   // A visible stand-in for loading/error/no-data, replacing what used to be
   // a silent `return null` (2026-09-18 bug report: "the new glidepath panel
   // on the pipelines tab disappeared" - a transient cicd.yaml fetch hiccup
@@ -79,7 +69,9 @@ function GlidepathSummaryPanel({ owner, appName }) {
   else if (cicd.error) statusNote = `couldn't load cicd.yaml: ${cicd.error}`;
   else if (!cicd.data) statusNote = "no cicd.yaml found yet for this app";
   const deploy = cicd.data?.values.deploy ?? {};
-  const { lower: lowerEnvironments, order: promotionOrder } = envListsOf(deploy);
+  const { envs: environments } = readEnvironments(deploy);
+  const targetId = typeof deploy.target === "string" ? deploy.target : "k8s-rollout";
+  const targetLabel = DEPLOY_TARGETS[targetId]?.label ?? targetId;
   const strategy = deploy.strategy === "rollout" ? "rollout" : "deployment";
   const configuredEnvs = new Set(envs.data?.envs ?? []);
   const pipelines = cicd.data?.values.pipelines ?? {};
@@ -98,6 +90,11 @@ function GlidepathSummaryPanel({ owner, appName }) {
     } catch {
     }
   }
+  const whereOf = (e) => {
+    if (e.tier === "flight") return `${e.cluster ?? "same cluster"} \xB7 gitops values`;
+    if (targetId !== "k8s-rollout") return targetLabel;
+    return configuredEnvs.has(e.name) ? `platform/envs/${e.name}.yaml` : "chart defaults, no values file yet";
+  };
   return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
@@ -105,31 +102,43 @@ function GlidepathSummaryPanel({ owner, appName }) {
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Glidepath at a glance" }),
         statusNote && /* @__PURE__ */ jsx(Typography, { className: cicd.error ? classes.statusNoteError : classes.statusNote, children: statusNote })
       ] }),
-      /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 14, alignItems: "center" }, children: [
-        !statusNote && /* @__PURE__ */ jsx("button", { type: "button", className: classes.configureLink, onClick: () => setExpanded((v) => !v), children: expanded ? "hide details" : "show details" }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.configureLink, onClick: goToGlidepath, children: "Configure in Glidepath \u2192" })
+      /* @__PURE__ */ jsxs("div", { className: classes.headRight, children: [
+        !statusNote && /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setExpanded((v) => !v), "aria-expanded": expanded, children: expanded ? "Hide details" : "Show details" }),
+        /* @__PURE__ */ jsx(Button, { small: true, onClick: goToGlidepath, children: "Configure in Glidepath \u2192" })
       ] })
+    ] }),
+    !statusNote && cicd.data && /* @__PURE__ */ jsxs("div", { className: classes.chain, "aria-label": "Environments in promotion order", children: [
+      environments.map((e, i) => /* @__PURE__ */ jsxs("span", { className: classes.chainItem, children: [
+        i > 0 && /* @__PURE__ */ jsx("span", { className: classes.arrow, children: "\u2192" }),
+        /* @__PURE__ */ jsx("span", { className: classes.chainName, children: e.name }),
+        /* @__PURE__ */ jsx(TierChip, { tier: e.tier })
+      ] }, e.name)),
+      environments.length === 0 && /* @__PURE__ */ jsx("span", { className: classes.muted, children: "No environments declared." })
     ] }),
     expanded && !statusNote && cicd.data && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.label, children: "Lower environments" }),
-          /* @__PURE__ */ jsx("div", { className: classes.envChips, children: lowerEnvironments.map((env) => /* @__PURE__ */ jsxs("span", { className: classes.envChip, children: [
-            env,
-            configuredEnvs.has(env) ? "" : " (defaults)"
-          ] }, env)) })
+          /* @__PURE__ */ jsx(ColumnLabel, { children: "Environments" }),
+          /* @__PURE__ */ jsx("div", { className: classes.envRows, children: environments.map((e) => /* @__PURE__ */ jsxs("div", { className: classes.envRow, children: [
+            /* @__PURE__ */ jsx("span", { className: classes.chainName, children: e.name }),
+            /* @__PURE__ */ jsx(TierChip, { tier: e.tier }),
+            /* @__PURE__ */ jsx("span", { className: classes.mono, children: whereOf(e) }),
+            pipelinesNamingEnv(pipelines, e.name).length === 0 && pipelineEntries.length > 0 && /* @__PURE__ */ jsxs("span", { className: classes.strategyWarn, style: { gridColumn: "3 / -1", marginTop: -4 }, children: [
+              "No pipeline step ",
+              e.tier === "flight" ? "releases" : "deploys",
+              " to ",
+              e.name,
+              "."
+            ] })
+          ] }, e.name)) })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.label, children: "Promotion order" }),
-          /* @__PURE__ */ jsx("span", { className: classes.value, children: promotionOrder.length > 0 ? promotionOrder.join(" \u2192 ") : "(not set)" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.label, children: "Deploy strategy" }),
+          /* @__PURE__ */ jsx(ColumnLabel, { children: "Deploy strategy" }),
           /* @__PURE__ */ jsx("span", { className: classes.value, children: strategy }),
           strategy === "deployment" && /* @__PURE__ */ jsx("span", { className: classes.strategyWarn, children: "Every deploy actually provisions an Argo Rollout today, regardless of this setting." })
         ] }),
         previewPorts && /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.label, children: "Preview env template" }),
+          /* @__PURE__ */ jsx(ColumnLabel, { children: "Preview environments (template)" }),
           /* @__PURE__ */ jsxs("span", { className: classes.value, children: [
             "Ports: ",
             previewPorts
@@ -137,7 +146,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
           /* @__PURE__ */ jsx("span", { className: classes.strategyWarn, children: "Image is stamped per-PR by the ArgoCD ApplicationSet, not shown here." })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.label, children: "Ephemeral environments" }),
+          /* @__PURE__ */ jsx(ColumnLabel, { children: "Ephemeral environments" }),
           /* @__PURE__ */ jsxs("span", { className: classes.value, children: [
             "Branch-triggered: ",
             ephBranch.enabled ? "on" : "off",
@@ -155,7 +164,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
         ] })
       ] }),
       pipelineEntries.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.pipelinesList, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.label, children: "Configured pipelines" }),
+        /* @__PURE__ */ jsx(ColumnLabel, { children: "Configured pipelines" }),
         pipelineEntries.map(([name, pipeline]) => /* @__PURE__ */ jsx(PipelineFlowPreview, { name, pipeline }, name))
       ] })
     ] })

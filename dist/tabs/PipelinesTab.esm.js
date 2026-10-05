@@ -68,38 +68,7 @@ const useStyles = makeStyles(() => ({
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
-  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  // Cross-link back to Deployments (2026-09-16 handoff: "now that CI and CD
-  // are visually separate tabs, the Pipelines tab loses the CD panel's
-  // context - worth a one-line cross-link back to Deployments"). Uses the
-  // same tab-switch URL param TowerPage.tsx's own tab bar does, not a full
-  // navigation, so app-entity context isn't lost.
-  crossLink: {
-    marginTop: 20,
-    padding: "10px 16px",
-    borderRadius: 8,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    flexWrap: "wrap"
-  },
-  crossLinkBtn: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0,
-    "&:hover": { textDecoration: "underline" }
-  }
+  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint }
 }));
 function PipelinesTab() {
   const t = useHangarTokens();
@@ -150,7 +119,7 @@ function PipelinesTab() {
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   const activeRunItems = pipelineRuns.runs.filter((r) => r.phase === "running");
-  const hasActivity = activeRunItems.length > 0;
+  const hasActivity = activeRunItems.length > 0 || pendingDeployCount > 0;
   let ciBody;
   if (pipelineRuns.error && !pipelineRuns.loading && pipelineRuns.runs.length === 0) {
     ciBody = /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(pipelineRuns.error) });
@@ -189,19 +158,30 @@ function PipelinesTab() {
         /* @__PURE__ */ jsx("span", { className: classes.dotLive }),
         "Active now"
       ] }),
-      /* @__PURE__ */ jsx("div", { className: classes.activityList, children: activeRunItems.map((run) => /* @__PURE__ */ jsxs(
-        "button",
-        {
-          type: "button",
-          className: classes.activityChip,
-          onClick: () => selectRun(run.name),
-          children: [
-            /* @__PURE__ */ jsx("span", { className: classes.activityChipLabel, children: run.pipelineName ?? run.name }),
-            /* @__PURE__ */ jsx("span", { className: classes.activityChipSub, children: "running \xB7 CI" })
-          ]
-        },
-        `run-${run.name}`
-      )) })
+      /* @__PURE__ */ jsxs("div", { className: classes.activityList, children: [
+        activeRunItems.map((run) => /* @__PURE__ */ jsxs(
+          "button",
+          {
+            type: "button",
+            className: classes.activityChip,
+            onClick: () => selectRun(run.name),
+            children: [
+              /* @__PURE__ */ jsx("span", { className: classes.activityChipLabel, children: run.pipelineName ?? run.name }),
+              /* @__PURE__ */ jsx("span", { className: classes.activityChipSub, children: "running \xB7 CI" })
+            ]
+          },
+          `run-${run.name}`
+        )),
+        pendingDeployCount > 0 && /* @__PURE__ */ jsxs("button", { type: "button", className: classes.activityChip, onClick: goToDeployments, children: [
+          /* @__PURE__ */ jsxs("span", { className: classes.activityChipLabel, children: [
+            pendingDeployCount,
+            " deliver",
+            pendingDeployCount === 1 ? "y" : "ies",
+            " in flight"
+          ] }),
+          /* @__PURE__ */ jsx("span", { className: classes.activityChipSub, children: "rolling out \xB7 open Deployments \u2192" })
+        ] })
+      ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx("div", { className: classes.sectionHead, children: /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
@@ -209,10 +189,6 @@ function PipelinesTab() {
         " \xB7 kind-dev"
       ] }) }),
       ciBody
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.crossLink, children: [
-      /* @__PURE__ */ jsx("span", { children: pendingDeployCount > 0 ? `${pendingDeployCount} environment${pendingDeployCount === 1 ? "" : "s"} with a delivery in flight right now.` : "No deliveries currently in flight." }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.crossLinkBtn, onClick: goToDeployments, children: "View in Deployments \u2192" })
     ] })
   ] });
 }
