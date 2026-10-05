@@ -19,6 +19,8 @@ import { deepEqual } from '../deepEqual';
 import type { ConfigTopLevelField } from '../types';
 import { useStyles, type Cls } from './styles';
 import { SloPresets } from './SloPresets';
+import { ComponentsEditor, parseComponents } from './ComponentsEditor';
+import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { analysisProblems, templateRefs } from './analysis';
 import { declaredComponents, matchComponentOutput, outputsOf } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
@@ -891,7 +893,7 @@ const ADVANCED_META: Record<
 > = {
   // `promoted` sections render as regular sections, not behind the "Show advanced" toggle.
   components: {
-    title: 'Attached components',
+    title: 'Attached components (YAML)',
     hint: 'Backing services provisioned alongside this app in this environment (Redis today; OAuth server, database and queue are declared kinds without an installed composition yet). Each entry needs a type and a name; spec is the kind\'s own settings.',
     example: COMPONENTS_EXAMPLE,
     field: 'components',
@@ -1138,13 +1140,14 @@ function validateBeforeSubmit(form: FormState, rolloutEnabled: boolean): string[
   return errors;
 }
 
-export type ValuesTab = 'workload' | 'release' | 'networking' | 'config' | 'access' | 'advanced';
+export type ValuesTab = 'workload' | 'release' | 'networking' | 'config' | 'components' | 'access' | 'advanced';
 
 const VALUES_TABS: Array<{ id: ValuesTab; label: string }> = [
   { id: 'workload', label: 'Workload' },
   { id: 'release', label: 'Release' },
   { id: 'networking', label: 'Networking' },
   { id: 'config', label: 'Config' },
+  { id: 'components', label: 'Components' },
   { id: 'access', label: 'Access' },
   { id: 'advanced', label: 'Advanced' },
 ];
@@ -1156,7 +1159,7 @@ const ADVANCED_TAB: Record<AdvancedKey, ValuesTab> = {
   analysisTemplates: 'release',
   slos: 'release',
   volumes: 'config',
-  components: 'config',
+  components: 'components',
   cronJobs: 'advanced',
   jobs: 'advanced',
   extraManifests: 'advanced',
@@ -1179,6 +1182,7 @@ export function ConfigEditor({
   analysisCluster,
   clusterAnalysisTemplates,
   sloContext,
+  componentCatalog,
 }: {
   owner: string;
   appName: string;
@@ -1194,6 +1198,8 @@ export function ConfigEditor({
   clusterAnalysisTemplates?: string[];
   /** Where the common-SLO toggles look for data: the cluster, the namespace and the app. Without it they are not offered. */
   sloContext?: { cluster: string; namespace: string; app: string };
+  /** The attachable components from airframe (undefined while loading or when it could not be read: the YAML editor is the fallback). */
+  componentCatalog?: ComponentDefinition[];
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1330,7 +1336,10 @@ export function ConfigEditor({
 
   // The components this values file declares, for env rows that take a value from one (fromComponent).
   const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
-  const componentOutputs = (name: string) => outputsOf(declared.find(c => c.name === name)?.type ?? '');
+  const componentOutputs = (name: string) => {
+    const type = declared.find(c => c.name === name)?.type ?? '';
+    return catalogOutputs(componentCatalog, type) ?? outputsOf(type);
+  };
   const matchOf = (row: EnvRow) =>
     row.kind === 'configMap' || row.kind === 'secret'
       ? matchComponentOutput(declared, row.kind === 'configMap' ? 'configMapKeyRef' : 'secretKeyRef', row.refName, row.refKey)
@@ -1356,7 +1365,8 @@ export function ConfigEditor({
         analysisCluster,
       )
     : [];
-  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues];
+  const componentIssues = componentCatalog ? componentProblems(componentCatalog, parseComponents(advanced.components) ?? []) : [];
+  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues, ...componentIssues];
 
   const discard = () => {
     const builtForm = buildFormState(cfg.data!.values);
@@ -1662,7 +1672,8 @@ export function ConfigEditor({
       advanced.rolloutPod !== originalAdvanced.rolloutPod,
     release: stepsCurrentText !== originalStepsRaw || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || dirty.has('notifications') || dirty.has('analysisTemplates') || dirty.has('slos'),
     networking: dirty.has('ingress') || dirty.has('httpRoute') || dirty.has('networkPolicy'),
-    config: dirty.has('env') || dirty.has('configMaps') || dirty.has('volumes') || dirty.has('components'),
+    config: dirty.has('env') || dirty.has('configMaps') || dirty.has('volumes'),
+    components: dirty.has('components'),
     access: dirty.has('serviceAccount') || dirty.has('secrets'),
     advanced: dirty.has('cronJobs') || dirty.has('jobs') || dirty.has('extraManifests'),
   };
@@ -2303,6 +2314,16 @@ export function ConfigEditor({
       <Section title="Secrets" dirty={dirty.has('secrets')} classes={classes}>
         <SecretsSection rows={form.secrets} onChange={rows => setF('secrets', rows)} classes={classes} />
       </Section>
+      )}
+
+      {tab === 'components' && (
+        <Section title="Components" dirty={dirty.has('components')} classes={classes}>
+          <Typography className={classes.hint} style={{ marginTop: 0, marginBottom: 10 }}>
+            Backing services attached to this environment: a cache, a database, a message broker. Each is created next to your app and
+            hands it a connection through a Secret or ConfigMap.
+          </Typography>
+          <ComponentsEditor text={advanced.components} onChange={text => setAdv('components', text)} defs={componentCatalog} />
+        </Section>
       )}
 
       {(Object.keys(ADVANCED_META) as AdvancedKey[])

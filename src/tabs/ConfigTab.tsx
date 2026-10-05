@@ -8,6 +8,7 @@ import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
 import { ConfigEditor } from '../values/ValuesForm';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../values/FlightPanels';
+import { useComponentCatalog } from '../values/componentCatalog';
 import { useFlightValuesSource } from '../values/sources';
 import { useStyles } from '../values/styles';
 
@@ -167,5 +168,6 @@ export function ConfigTab() {
 
 function FlightValuesEditor({ owner, appName, cluster, env, prod }: { owner: string; appName: string; cluster: string; env: string; prod: boolean }) {
   const source = useFlightValuesSource({ owner, appName, cluster, env });
-  return <ConfigEditor owner={owner} appName={appName} source={source} title={`${env.toUpperCase()} (${cluster})`} prod={prod} layout="side" />;
+  const componentCatalog = useComponentCatalog(owner);
+  return <ConfigEditor owner={owner} appName={appName} source={source} componentCatalog={componentCatalog} title={`${env.toUpperCase()} (${cluster})`} prod={prod} layout="side" />;
 }

@@ -1,0 +1,517 @@
+[
+ {
+  "type": "dex",
+  "kind": "Dex",
+  "summary": "attach mode: a confidential OAuth2 client on an existing shared Dex server, for machine-to-machine client_credentials auth. server mode (no outputs below apply): the shared OIDC server itself.",
+  "spec": {
+   "type": "object",
+   "required": [
+    "environmentRef",
+    "mode"
+   ],
+   "properties": {
+    "environmentRef": {
+     "type": "object",
+     "description": "Names the owning ApplicationEnvironment (app + cluster + env identity). Labeling/audit only, not a live lookup. Auto-stamped by airframe-application's components.yaml renderer.",
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "minLength": 1,
+       "description": "The ApplicationEnvironment XR's own name."
+      }
+     }
+    },
+    "mode": {
+     "type": "string",
+     "description": "`server` runs the shared Dex OIDC provider; `attach` registers an app as a machine-to-machine OAuth2 client on an existing one. See the header.",
+     "enum": [
+      "server",
+      "attach"
+     ]
+    },
+    "size": {
+     "type": "string",
+     "description": "(server) CPU/memory for the Dex pod.",
+     "enum": [
+      "small",
+      "medium",
+      "large"
+     ],
+     "default": "small"
+    },
+    "storageSize": {
+     "type": "string",
+     "description": "(server) Size of the sqlite storage volume (a Kubernetes quantity).",
+     "pattern": "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$",
+     "default": "1Gi"
+    },
+    "allowedNamespaces": {
+     "type": "array",
+     "description": "(server) Namespaces whose apps may reach the token/JWKS HTTP endpoint (5556). The gRPC Admin port (5557) is separately restricted to crossplane-system only (only function-dex calls it) regardless of this list.",
+     "items": {
+      "type": "string",
+      "description": "A namespace name, e.g. app-flight-api-dev."
+     }
+    },
+    "serverRef": {
+     "type": "object",
+     "description": "(attach) The Dex server XR's Deployment/Service - its name and namespace.",
+     "required": [
+      "name",
+      "namespace"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "description": "The server Dex XR's own name (mode server)."
+      },
+      "namespace": {
+       "type": "string",
+       "description": "The namespace the server XR was created in - not necessarily this app's own namespace, since the server is shared."
+      }
+     }
+    },
+    "clientId": {
+     "type": "string",
+     "description": "(attach) The OAuth2 client_id to register. Defaults to this XR's own name if unset (set explicitly only if two attach XRs would otherwise collide).",
+     "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "scopes": {
+     "type": "array",
+     "description": "(attach) Informational only today - Dex's client_credentials grant does not scope-gate per client; recorded here so a future policy layer has it.",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "x-kubernetes-validations": [
+    {
+     "rule": "self.mode != 'attach' || has(self.serverRef)",
+     "message": "serverRef is required when mode == attach"
+    }
+   ]
+  },
+  "outputs": {
+   "clientId": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-oauth-credentials",
+    "key": "client-id"
+   },
+   "clientSecret": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-oauth-credentials",
+    "key": "client-secret"
+   },
+   "issuer": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-oauth-credentials",
+    "key": "issuer"
+   },
+   "tokenUrl": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-oauth-credentials",
+    "key": "token-url"
+   },
+   "jwksUrl": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-oauth-credentials",
+    "key": "jwks-url"
+   }
+  }
+ },
+ {
+  "type": "mongodb",
+  "kind": "MongoDB",
+  "summary": "A dedicated MongoDB replica set, one per application environment.",
+  "spec": {
+   "type": "object",
+   "required": [
+    "environmentRef"
+   ],
+   "properties": {
+    "environmentRef": {
+     "type": "object",
+     "description": "Names the owning ApplicationEnvironment XR (app+cluster+env identity). Labeling/ audit only - not a live lookup, same convention as every other Attached-tier XRD in this catalog. Auto-stamped by airframe-application's own components.yaml renderer - a developer adding `- type: mongodb` to a `components:` list never types this by hand.",
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "description": "The ApplicationEnvironment XR's own name.",
+       "minLength": 1
+      }
+     }
+    },
+    "members": {
+     "type": "integer",
+     "description": "1 is a single member with no failover. 3 is a real replica set with automatic failover, for real environments. MongoDB elections need an odd count, same constraint RabbitMQ's broker mode documents.",
+     "enum": [
+      1,
+      3
+     ],
+     "default": 1
+    },
+    "storageSize": {
+     "type": "string",
+     "description": "Size of each member's volume (a Kubernetes quantity, e.g. 5Gi).",
+     "pattern": "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$",
+     "default": "5Gi"
+    },
+    "databaseName": {
+     "type": "string",
+     "description": "Name of the database AND of the user that owns it (dbOwner role, scoped to this one database - same \"one database, one owning identity\" shape PostgreSQL already uses here). Defaults to the XR's own name with hyphens turned into underscores. Lowercase letters, digits and underscores only.",
+     "pattern": "^[a-z][a-z0-9_]{0,62}$"
+    }
+   }
+  },
+  "outputs": {
+   "username": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "username"
+   },
+   "password": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "password"
+   },
+   "uri": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "connectionString.standard",
+    "description": "A full mongodb:// connection string, credentials and all replica set members included. The key itself contains a literal dot - it is one flat Secret key, \"connectionString.standard\", not a nested field."
+   },
+   "uriSrv": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "connectionString.standardSrv",
+    "description": "The same connection string, using mongodb+srv:// DNS seedlist discovery instead of listing every member."
+   }
+  }
+ },
+ {
+  "type": "postgresql",
+  "kind": "PostgreSQL",
+  "summary": "A dedicated PostgreSQL database (CloudNativePG), one per application environment.",
+  "spec": {
+   "type": "object",
+   "required": [
+    "environmentRef"
+   ],
+   "properties": {
+    "environmentRef": {
+     "type": "object",
+     "description": "Names the owning ApplicationEnvironment (app + cluster + env identity). Labeling/audit only, not a live lookup. Auto-stamped by airframe-application's components.yaml renderer.",
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "minLength": 1,
+       "description": "The ApplicationEnvironment XR's own name."
+      }
+     }
+    },
+    "size": {
+     "type": "string",
+     "description": "CPU/memory requests and limits for each instance.",
+     "enum": [
+      "small",
+      "medium",
+      "large"
+     ],
+     "default": "small"
+    },
+    "instances": {
+     "type": "integer",
+     "description": "1 is a single instance with no failover. 2-3 give a primary plus streaming replicas with automatic failover, for real environments. Each instance gets its own volume.",
+     "enum": [
+      1,
+      2,
+      3
+     ],
+     "default": 1
+    },
+    "storageSize": {
+     "type": "string",
+     "description": "Size of each instance's volume (a Kubernetes quantity, e.g. 1Gi).",
+     "pattern": "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$",
+     "default": "1Gi"
+    },
+    "databaseName": {
+     "type": "string",
+     "description": "Name of the database AND of the role that owns it (they must match, see above). Defaults to the XR's own name with hyphens turned into underscores. Lowercase letters, digits and underscores only.",
+     "pattern": "^[a-z][a-z0-9_]{0,62}$"
+    }
+   }
+  },
+  "outputs": {
+   "host": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "host"
+   },
+   "port": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "port"
+   },
+   "username": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "username"
+   },
+   "password": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "password"
+   },
+   "database": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "dbname"
+   },
+   "uri": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "uri",
+    "description": "A full postgres:// connection string, credentials included."
+   },
+   "jdbcUri": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-app",
+    "key": "jdbc-uri"
+   }
+  }
+ },
+ {
+  "type": "rabbitmq",
+  "kind": "RabbitMQ",
+  "summary": "attach mode: a user + permissions on an existing shared broker, scoped to this app's own queue prefix and exchanges. broker mode (no outputs below apply): the shared broker itself.",
+  "spec": {
+   "type": "object",
+   "required": [
+    "environmentRef",
+    "mode"
+   ],
+   "properties": {
+    "environmentRef": {
+     "type": "object",
+     "description": "Names the owning ApplicationEnvironment (app + cluster + env identity). Labeling/audit only, not a live lookup. Auto-stamped by airframe-application's components.yaml renderer.",
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "minLength": 1,
+       "description": "The ApplicationEnvironment XR's own name."
+      }
+     }
+    },
+    "mode": {
+     "type": "string",
+     "description": "`broker` runs the shared RabbitMQ cluster; `attach` gets an app a user on an existing one. See the header.",
+     "enum": [
+      "broker",
+      "attach"
+     ]
+    },
+    "size": {
+     "type": "string",
+     "description": "(broker) CPU/memory for each node.",
+     "enum": [
+      "small",
+      "medium",
+      "large"
+     ],
+     "default": "small"
+    },
+    "instances": {
+     "type": "integer",
+     "description": "(broker) 1 is a single node with no failover. 3 is a quorum-replicated cluster for real environments (RabbitMQ needs an odd count).",
+     "enum": [
+      1,
+      3
+     ],
+     "default": 1
+    },
+    "storageSize": {
+     "type": "string",
+     "description": "(broker) Size of each node's volume (a Kubernetes quantity).",
+     "pattern": "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ti)$",
+     "default": "1Gi"
+    },
+    "vhosts": {
+     "type": "array",
+     "description": "(broker) Virtual hosts to create. One per domain (e.g. `flights`): every app that exchanges messages must share one.",
+     "items": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$",
+      "description": "One vhost name, e.g. flights."
+     }
+    },
+    "allowedNamespaces": {
+     "type": "array",
+     "description": "(broker) Namespaces whose apps may attach (create a user here) and reach the AMQP port. Everything else is refused/blocked.",
+     "items": {
+      "type": "string",
+      "description": "A namespace name, e.g. app-baggage-api-dev."
+     }
+    },
+    "brokerRef": {
+     "type": "object",
+     "description": "(attach) The broker XR's RabbitmqCluster - its name and namespace.",
+     "required": [
+      "name",
+      "namespace"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "description": "The broker RabbitMQ XR's own name (mode broker)."
+      },
+      "namespace": {
+       "type": "string",
+       "description": "The namespace the broker XR was created in - not necessarily this app's own namespace, since the broker is shared."
+      }
+     }
+    },
+    "vhost": {
+     "type": "string",
+     "description": "(attach) The vhost this app works in.",
+     "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "queuePrefix": {
+     "type": "string",
+     "description": "(attach) The app may create, bind and consume queues named `<queuePrefix>.*`, and no others.",
+     "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "publish": {
+     "type": "array",
+     "description": "(attach) Exchanges the app may declare and publish to.",
+     "items": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]+$",
+      "description": "An exchange name, e.g. flights.events."
+     }
+    },
+    "consume": {
+     "type": "array",
+     "description": "(attach) Exchanges the app may bind its queues to (read). It cannot publish to them.",
+     "items": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]+$",
+      "description": "An exchange name, e.g. flights.events."
+     }
+    }
+   },
+   "x-kubernetes-validations": [
+    {
+     "rule": "self.mode != 'attach' || has(self.brokerRef)",
+     "message": "brokerRef is required when mode == attach"
+    },
+    {
+     "rule": "self.mode != 'attach' || has(self.vhost)",
+     "message": "vhost is required when mode == attach"
+    }
+   ]
+  },
+  "outputs": {
+   "username": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-user-credentials",
+    "key": "username"
+   },
+   "password": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-user-credentials",
+    "key": "password"
+   },
+   "host": {
+    "kind": "configMapKeyRef",
+    "configMap": "{name}-connection",
+    "key": "host"
+   },
+   "port": {
+    "kind": "configMapKeyRef",
+    "configMap": "{name}-connection",
+    "key": "port"
+   },
+   "vhost": {
+    "kind": "configMapKeyRef",
+    "configMap": "{name}-connection",
+    "key": "vhost"
+   }
+  }
+ },
+ {
+  "type": "redis",
+  "kind": "Redis",
+  "summary": "A Redis cache or shared-counter store, dedicated to one application environment.",
+  "spec": {
+   "type": "object",
+   "required": [
+    "environmentRef"
+   ],
+   "properties": {
+    "environmentRef": {
+     "type": "object",
+     "description": "Names the owning ApplicationEnvironment XR (app+cluster+env identity) this Redis instance belongs to. Labeling/audit only - not a live lookup, same convention as every other Attached-tier XRD in this catalog (see xrds/slo.yaml's own copy of this field). Auto-stamped by airframe-application's own components.yaml renderer - a developer adding `- type: redis` to a `components:` list never types this by hand.",
+     "required": [
+      "name"
+     ],
+     "properties": {
+      "name": {
+       "type": "string",
+       "minLength": 1,
+       "description": "The ApplicationEnvironment XR's own name."
+      }
+     }
+    },
+    "size": {
+     "type": "string",
+     "description": "Maps directly onto the wrapped Bitnami redis chart's own `master.resourcesPreset`/`replica.resourcesPreset` fields (compositions/redis's own values mapping) - reusing Bitnami's own vetted cpu/memory presets rather than this catalog inventing its own numbers. `large` is the biggest exposed here deliberately (bigger presets exist upstream - xlarge/2xlarge - but nothing in this catalog's real usage has asked for them yet; widen the enum, don't bypass it, if that changes).",
+     "enum": [
+      "small",
+      "medium",
+      "large"
+     ],
+     "default": "small"
+    },
+    "persistence": {
+     "type": "boolean",
+     "description": "Whether Redis data survives a pod restart (a real PVC) vs. pure in-memory cache semantics (emptyDir-equivalent, `persistence.enabled: false` on the wrapped chart - data is lost on every restart/reschedule). Default true matches the wrapped chart's own upstream default, not a platform override.",
+     "default": true
+    }
+   }
+  },
+  "outputs": {
+   "host": {
+    "kind": "literal",
+    "value": "{name}-master.{namespace}.svc.cluster.local",
+    "description": "The master Service's in-cluster DNS name."
+   },
+   "port": {
+    "kind": "literal",
+    "value": 6379
+   },
+   "url": {
+    "kind": "literal",
+    "value": "redis://{name}-master.{namespace}.svc.cluster.local:6379",
+    "description": "host:port only, no credentials embedded (auth.enabled is true on this component, so a connection still needs the password output supplied separately - e.g. as its own env var)."
+   },
+   "password": {
+    "kind": "secretKeyRef",
+    "secret": "{name}-connection",
+    "key": "password",
+    "description": "The Crossplane-composed connection Secret (writeConnectionSecretToRef), not the raw Bitnami chart Secret (which also exists, named `{name}`, key `redis-password` - the connection Secret copies the same value here so every component type has one canonical `<name>-connection` output surface)."
+   }
+  }
+ }
+]
