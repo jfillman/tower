@@ -36,4 +36,4 @@ panel or button style of its own.
 |---|---|---|
 | Environments | none | done |
 | Overview, Pipelines, Deployments, Releases, Images, SLOs, Pull requests, Topology, Notifications, Cloud deployments | title / section title / chip / table / panel | not started |
-| App Configuration, Glidepath | own `sectionTitle`, `btn`, `submitBtn`, fields | to be restructured into sub-tabs with the shared pending-changes panel |
+| App Configuration, Glidepath | `PageHeader`, `Subtabs`, `PendingPanel` | done (their form inputs and section cards are still the older MUI ones) |

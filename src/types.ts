@@ -833,7 +833,7 @@ export interface CicdConfigChangeResult {
 // platform/pr-env.yaml and platform/envs/<env>.yaml both render through the
 // same airframe-application chart as gitops-<app>/values.yaml, so they reuse
 // Config's own ConfigTopLevelField allowlist rather than a separate one.
-export type PlatformEnvSelector = { kind: 'pr-env' } | { kind: 'env'; env: string };
+export type PlatformEnvSelector = { kind: 'pr-env' } | { kind: 'base' } | { kind: 'env'; env: string };
 
 export interface PlatformFileResponse {
   repo: string;

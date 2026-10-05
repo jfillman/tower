@@ -44,12 +44,11 @@ Tekton pipeline execution visibility:
 
 ### Config ("App Configuration")
 
-Cluster configuration inspection:
-- Current cluster context and API endpoint
-- Active environments and their namespaces
-- ArgoCD application mappings
-- Tekton pipeline triggers and secrets
-- Raw YAML viewer for cluster resources
+The config an app shares across its environments, as two sub-tabs that each use the values form and its Pending changes panel:
+- **Shared values**: `platform/base.yaml`, the values every Ground environment starts from
+- **Preview environments**: `platform/pr-env.yaml`, the template of each pull request preview
+
+An environment's own values are edited in its row on the Environments tab. Every change is a pull request on the app's repo.
 
 **Key exports:** `ConfigTab`
 
