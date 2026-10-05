@@ -13,13 +13,13 @@ import AddIcon from '@material-ui/icons/Add';
 import { dump, load } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
-import { HangarMark } from '../brand/HangarMark.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
-import { useCicdConfig, useSubmitCicdConfigChange, usePlatformEnvs } from '../useConfigData.esm.js';
+import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
-import { PlatformFileEditor } from '../PlatformFileEditor.esm.js';
+import { PageHeader, Subtabs } from '../ui/index.esm.js';
+import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
 
@@ -253,6 +253,27 @@ const useStyles = makeStyles(() => ({
     borderRadius: 4
   }
 }));
+const GLIDEPATH_TABS = [
+  { id: "build", label: "Build" },
+  { id: "test", label: "Test" },
+  { id: "deploy", label: "Deploy" },
+  { id: "preview", label: "Preview environments" },
+  { id: "governance", label: "Governance" },
+  { id: "notifications", label: "Notifications" },
+  { id: "secrets", label: "Secrets" },
+  { id: "pipelines", label: "Pipelines" },
+  { id: "advanced", label: "Advanced" }
+];
+const TAB_OF_FIELD = {
+  build: "build",
+  test: "test",
+  deploy: "deploy",
+  ephemeralEnvironments: "preview",
+  governance: "governance",
+  notifications: "notifications",
+  secrets: "secrets",
+  pipelines: "pipelines"
+};
 function GlidepathTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -262,8 +283,7 @@ function GlidepathTab() {
   const cicd = useCicdConfig(target, refreshNonce);
   const submitCicd = useSubmitCicdConfigChange();
   const [form, setForm] = useState(void 0);
-  const [showRaw, setShowRaw] = useState(false);
-  const [platformSelector, setPlatformSelector] = useState({ kind: "pr-env" });
+  const [tab, setTab] = useState("build");
   useEffect(() => {
     if (cicd.data) setForm(buildFormFromValues(cicd.data.values));
   }, [cicd.data]);
@@ -278,6 +298,9 @@ function GlidepathTab() {
       (text) => validateYamlBlock(text).valid
     );
   }, [form]);
+  const dirtyTabs = new Set(Object.keys(patch).map((k) => TAB_OF_FIELD[k] ?? "advanced"));
+  const lines = Object.keys(patch).map((k) => ({ title: `Update ${k}`, detail: `cicd.yaml \u203A ${k}` }));
+  const problems = yamlBlocksValid ? [] : ["A YAML block (deploy environments or pipelines) is not valid YAML. Fix it before opening the pull request."];
   if (contextLoading) return /* @__PURE__ */ jsx(Progress, {});
   if (contextError) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(contextError) });
   if (!owner || !appName) {
@@ -307,21 +330,16 @@ function GlidepathTab() {
     });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.root, children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.headerRow, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.headerTitle, children: [
-        /* @__PURE__ */ jsx(HangarMark, { glyph: "glidepath", size: 28 }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Glidepath" })
-      ] }),
-      /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
-    ] }),
-    /* @__PURE__ */ jsxs(Typography, { className: classes.sectionHint, children: [
-      "Full management of ",
-      appName,
-      "'s cicd.yaml (the Glidepath CI/CD engine's own config) and its platform/ folder. Every change here opens a real PR against ",
-      appName,
-      " - nothing is committed directly."
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Glidepath",
+        subtitle: `${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName} repo; nothing is committed directly.`,
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
+      }
+    ),
+    /* @__PURE__ */ jsx(Subtabs, { label: "Glidepath sections", value: tab, onChange: setTab, tabs: GLIDEPATH_TABS.map((x) => ({ ...x, marked: dirtyTabs.has(x.id) })) }),
+    tab === "build" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Build" }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsx(Select, { value: form.buildAgent, onChange: (e) => setForm((f) => f ? { ...f, buildAgent: e.target.value } : f), children: BUILD_AGENTS.map((a) => /* @__PURE__ */ jsx(MenuItem, { value: a, children: a }, a)) }),
@@ -415,7 +433,7 @@ function GlidepathTab() {
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "test" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Test" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(Switch, { checked: form.testEnabled, onChange: (e) => setForm((f) => f ? { ...f, testEnabled: e.target.checked } : f) }),
@@ -431,7 +449,7 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "deploy" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Deploy" }),
       form.usesEnvironments ? /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "This app declares its environments in deploy.environments, so the lists below are not used. See the Environments tab; editing them from Tower comes next. Until then change deploy.environments in cicd.yaml directly." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("div", { className: classes.row, children: /* @__PURE__ */ jsx(
@@ -470,7 +488,7 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "preview" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Ephemeral Environments" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(
@@ -522,7 +540,7 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "governance" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Governance" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.govCaption, children: [
         "Pre-flight checks only. The release-blocking gate on ",
@@ -555,7 +573,7 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "notifications" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Notifications" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(
@@ -599,7 +617,7 @@ function GlidepathTab() {
         /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Backstage notifications" })
       ] })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "secrets" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Secrets" }),
       form.secrets.map((s, i) => /* @__PURE__ */ jsxs("div", { className: classes.secretRow, children: [
         /* @__PURE__ */ jsx(
@@ -638,7 +656,7 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+    tab === "pipelines" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Pipelines" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "Raw YAML - named-flow map (trigger + steps, or the legacy list form)." }),
       /* @__PURE__ */ jsx(
@@ -651,100 +669,34 @@ function GlidepathTab() {
         }
       )
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.submitBar, children: [
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: classes.submitBtn,
-          disabled: !dirty || !yamlBlocksValid || submitCicd.loading,
-          onClick: handleSubmit,
-          children: submitCicd.loading ? "Opening PR\u2026" : "Open PR for cicd.yaml"
-        }
-      ),
-      !yamlBlocksValid && /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "Fix invalid YAML above before submitting." })
+    tab === "advanced" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
+      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Committed cicd.yaml" }),
+      /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges." }),
+      /* @__PURE__ */ jsx("pre", { className: classes.rawView, children: cicd.data?.raw || "(no cicd.yaml committed yet)" })
     ] }),
-    submitCicd.result && /* @__PURE__ */ jsxs(Typography, { children: [
-      submitCicd.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
-      /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitCicd.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitCicd.result.prUrl })
-    ] }),
-    submitCicd.error && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(submitCicd.error) }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.row, style: { justifyContent: "space-between" }, children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "View full committed cicd.yaml" }),
-        /* @__PURE__ */ jsx(Link, { component: "button", onClick: () => setShowRaw((v) => !v), className: classes.resultLink, children: showRaw ? "hide" : "show" })
-      ] }),
-      showRaw && /* @__PURE__ */ jsx("pre", { className: classes.rawView, children: cicd.data?.raw || "(no cicd.yaml committed yet)" })
-    ] }),
-    /* @__PURE__ */ jsx(PlatformFilesSection, { owner, appName, selector: platformSelector, onSelectorChange: setPlatformSelector })
-  ] });
-}
-function PlatformFilesSection({
-  owner,
-  appName,
-  selector,
-  onSelectorChange
-}) {
-  const t = useHangarTokens();
-  const classes = useStyles({ t });
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const envs = usePlatformEnvs({ owner, appName }, refreshNonce);
-  const [newEnvName, setNewEnvName] = useState("");
-  const [newEnvError, setNewEnvError] = useState(void 0);
-  return /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-    /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Platform files" }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "platform/pr-env.yaml (the PR-preview environment template) and platform/envs/<env>.yaml (one per lower/dev environment) - the same airframe-application chart values as App Configuration, minus rollout.image (owned by the ArgoCD ApplicationSet / deploy automation). platform/envs/<env>.yaml's own envName is set automatically to match whichever env is selected - never edited by hand." }),
-    /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-      /* @__PURE__ */ jsx(
-        TextField,
-        {
-          label: "New environment name",
-          value: newEnvName,
-          onChange: (e) => {
-            setNewEnvName(e.target.value);
-            setNewEnvError(void 0);
-          },
-          size: "small"
-        }
-      ),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: classes.submitBtn,
-          onClick: () => {
-            const name = newEnvName.trim();
-            if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) {
-              setNewEnvError("Lowercase letters, digits, hyphens only.");
-              return;
-            }
-            if ((envs.data?.envs ?? []).includes(name)) {
-              setNewEnvError(`${name} already exists - select it below to edit it.`);
-              return;
-            }
-            onSelectorChange({ kind: "env", env: name });
-            setNewEnvName("");
-          },
-          children: "Create"
-        }
-      ),
-      newEnvError && /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: newEnvError })
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-      /* @__PURE__ */ jsxs(Select, { value: selector.kind === "pr-env" ? "__pr-env__" : selector.env, onChange: (e) => {
-        const v = e.target.value;
-        onSelectorChange(v === "__pr-env__" ? { kind: "pr-env" } : { kind: "env", env: v });
-      }, children: [
-        /* @__PURE__ */ jsx(MenuItem, { value: "__pr-env__", children: "Preview env template (pr-env.yaml)" }),
-        (envs.data?.envs ?? []).map((env) => /* @__PURE__ */ jsx(MenuItem, { value: env, children: env }, env)),
-        selector.kind === "env" && !(envs.data?.envs ?? []).includes(selector.env) && /* @__PURE__ */ jsxs(MenuItem, { value: selector.env, children: [
-          selector.env,
-          " (new)"
-        ] })
-      ] }),
-      /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
-    ] }),
-    /* @__PURE__ */ jsx(PlatformFileEditor, { owner, appName, selector, refreshNonce })
+    /* @__PURE__ */ jsxs(
+      PendingPanel,
+      {
+        heading: "Pending changes to cicd.yaml",
+        stick: "bottom",
+        lines,
+        problems,
+        emptyText: "Nothing staged. Edit a field above and it is listed here.",
+        busy: submitCicd.loading,
+        busyLabel: "Opening pull request\u2026",
+        submitLabel: "Open pull request",
+        onDiscard: () => cicd.data && setForm(buildFormFromValues(cicd.data.values)),
+        onSubmit: handleSubmit,
+        notes: ["cicd.yaml is one file per app, so these changes go in one pull request."],
+        children: [
+          submitCicd.result && /* @__PURE__ */ jsxs(Typography, { children: [
+            submitCicd.result.alreadyOpen ? "A pull request for this exact change is already open: " : "Pull request opened: ",
+            /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitCicd.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitCicd.result.prUrl })
+          ] }),
+          submitCicd.error && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(submitCicd.error) })
+        ]
+      }
+    )
   ] });
 }
 

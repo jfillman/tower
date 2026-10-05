@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { useAppConfig, useSubmitConfigChange, usePlatformFile, useSubmitPlatformFileChange } from '../useConfigData.esm.js';
+import { usePlatformFile, useSubmitPlatformFileChange, useAppConfig, useSubmitConfigChange } from '../useConfigData.esm.js';
 
 function useFlightValuesSource(target) {
   const [nonce, setNonce] = useState(0);
@@ -19,8 +19,11 @@ function useFlightValuesSource(target) {
   };
 }
 function useGroundValuesSource(target) {
+  return usePlatformValuesSource({ owner: target.owner, appName: target.appName, selector: { kind: "env", env: target.env } });
+}
+function usePlatformValuesSource(target) {
   const [nonce, setNonce] = useState(0);
-  const selector = { kind: "env", env: target.env };
+  const { selector } = target;
   const file = usePlatformFile({ owner: target.owner, appName: target.appName, selector }, nonce);
   const sub = useSubmitPlatformFileChange();
   return {
@@ -58,5 +61,5 @@ function useEnvValuesLoader() {
   );
 }
 
-export { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource };
+export { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, usePlatformValuesSource };
 //# sourceMappingURL=sources.esm.js.map

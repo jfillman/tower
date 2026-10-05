@@ -115,29 +115,6 @@ function isRolloutActive(env) {
   if (weight !== void 0 && weight < 100) return true;
   return env.rolloutPhase === "Progressing";
 }
-const CONFIG_TOP_LEVEL_FIELDS = [
-  "serviceAccount",
-  "rollout",
-  "analysisTemplates",
-  "env",
-  "configMaps",
-  "secrets",
-  "notifications",
-  "volumes",
-  "cronJobs",
-  "jobs",
-  "autoscaling",
-  "podDisruptionBudget",
-  "ingress",
-  "httpRoute",
-  "serviceMonitor",
-  "networkPolicy",
-  // Attached-tier (2026-09-24): a Config tab section for `components:` (Redis, ...) and
-  // `slos:` - previously not editable here at all.
-  "components",
-  "slos",
-  "extraManifests"
-];
 const CICD_TOP_LEVEL_FIELDS = [
   "build",
   "test",
@@ -149,5 +126,5 @@ const CICD_TOP_LEVEL_FIELDS = [
   "pipelines"
 ];
 
-export { CICD_TOP_LEVEL_FIELDS, CONFIG_TOP_LEVEL_FIELDS, ENV_TIER_LABEL, classifyGhcrVersion, envStageRank, envTierOf, extractShortShaFromImageTag, extractSource, health, imageTag, isPreviewEnvName, isRolloutActive, parseGhcrOwnerRepo, parseGithubUrl, previewPrNumber, splitImageRef };
+export { CICD_TOP_LEVEL_FIELDS, ENV_TIER_LABEL, classifyGhcrVersion, envStageRank, envTierOf, extractShortShaFromImageTag, extractSource, health, imageTag, isPreviewEnvName, isRolloutActive, parseGhcrOwnerRepo, parseGithubUrl, previewPrNumber, splitImageRef };
 //# sourceMappingURL=types.esm.js.map

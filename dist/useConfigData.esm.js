@@ -258,7 +258,7 @@ function useSubmitCicdConfigChange() {
   return { ...state, submit, reset };
 }
 function platformEnvKey(selector) {
-  return selector.kind === "pr-env" ? "pr-env" : `env:${selector.env}`;
+  return selector.kind === "env" ? `env:${selector.env}` : selector.kind;
 }
 function usePlatformFile(target, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
@@ -279,6 +279,7 @@ function usePlatformFile(target, refreshNonce = 0) {
         const baseUrl = await discoveryApi.getBaseUrl("glidepath");
         const params = new URLSearchParams({ owner: target.owner, appName: target.appName });
         if (target.selector.kind === "env") params.set("env", target.selector.env);
+        if (target.selector.kind === "base") params.set("file", "base");
         const res = await fetchApi.fetch(`${baseUrl}/config/platform-env?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => void 0);
@@ -313,6 +314,7 @@ function useSubmitPlatformFileChange() {
           owner: request.owner,
           appName: request.appName,
           env: request.selector.kind === "env" ? request.selector.env : void 0,
+          file: request.selector.kind === "base" ? "base" : void 0,
           patch: request.patch,
           summary: request.summary
         })

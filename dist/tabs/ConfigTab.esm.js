@@ -1,38 +1,47 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useMemo, useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Typography from '@material-ui/core/Typography';
-import WarningRoundedIcon from '@material-ui/icons/WarningRounded';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { useHangarTokens } from '../brand/tokens.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { ConfigEditor } from '../values/ValuesForm.esm.js';
-import { EnvXrPanel, ConfigMapFilesPanel } from '../values/FlightPanels.esm.js';
 import { useChartValues } from '../values/annotatedValues.esm.js';
 import { useComponentCatalog } from '../values/componentCatalog.esm.js';
-import { useFlightValuesSource } from '../values/sources.esm.js';
-import { useStyles } from '../values/styles.esm.js';
+import { usePlatformValuesSource } from '../values/sources.esm.js';
+import { PageHeader, Panel, Subtabs } from '../ui/index.esm.js';
+import { useUi } from '../ui/styles.esm.js';
+import { useHangarTokens } from '../brand/tokens.esm.js';
 
-function isProdEnv(env) {
-  return /^(prod|production)$/i.test(env);
+const SECTIONS = [
+  {
+    id: "base",
+    label: "Shared values",
+    selector: { kind: "base" },
+    path: "platform/base.yaml",
+    title: "Shared values (platform/base.yaml)",
+    hint: "The values every Ground environment starts from. An environment overrides any of them in its own file, so a change here reaches each environment that has not."
+  },
+  {
+    id: "preview",
+    label: "Preview environments",
+    selector: { kind: "pr-env" },
+    path: "platform/pr-env.yaml",
+    title: "Preview environment template (platform/pr-env.yaml)",
+    hint: "The template every pull request preview environment is built from. Its name and image are set by the platform."
+  }
+];
+function PlatformValues({ owner, appName, section }) {
+  const source = usePlatformValuesSource({ owner, appName, selector: section.selector });
+  const componentCatalog = useComponentCatalog(owner);
+  const chart = useChartValues(owner);
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: section.title, layout: "side", componentCatalog, chart });
 }
 function ConfigTab() {
   const t = useHangarTokens();
-  const classes = useStyles({ t });
-  const { owner, appName, pipelineOrder, loading, error } = useReleaseContext();
-  const flightEnvs = useMemo(() => {
-    if (!pipelineOrder.upper) return [];
-    return pipelineOrder.upper.map((name) => ({
-      env: name,
-      cluster: pipelineOrder.upperClusters?.[name] ?? ""
-    }));
-  }, [pipelineOrder.upper, pipelineOrder.upperClusters]);
-  const [searchParams] = useSearchParams();
-  const [selectedEnv, setSelectedEnv] = useState(searchParams.get("env") ?? void 0);
-  useEffect(() => {
-    if (!selectedEnv && flightEnvs.length > 0) setSelectedEnv(flightEnvs[0].env);
-  }, [flightEnvs, selectedEnv]);
+  const ui = useUi({ t });
+  const { owner, appName, loading, error } = useReleaseContext();
+  const [section, setSection] = useState("base");
+  const [searchParams, setSearchParams] = useSearchParams();
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   if (!owner || !appName) {
@@ -40,58 +49,36 @@ function ConfigTab() {
       TowerEmptyState,
       {
         title: "Can't resolve this app's source repo",
-        description: "App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which gitops-<app> repo to read."
+        description: "App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's platform/ folder to read."
       }
     );
   }
-  if (pipelineOrder.loading || !pipelineOrder.data && !pipelineOrder.error) return /* @__PURE__ */ jsx(Progress, {});
-  if (pipelineOrder.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(pipelineOrder.error) });
-  if (flightEnvs.length === 0) {
-    return /* @__PURE__ */ jsx(
-      TowerEmptyState,
-      {
-        title: "No flight environments yet",
-        description: `App Configuration only supports flight (upper) environments, and ${appName}'s cicd.yaml doesn't declare any yet. This is expected until CI/CD is set up for this app - it's not an error.`
-      }
-    );
-  }
-  const active = flightEnvs.find((e) => e.env === selectedEnv) ?? flightEnvs[0];
-  const prod = isProdEnv(active.env);
+  const active = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
+  const legacyEnv = searchParams.get("env");
+  const toEnvironments = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("env");
+    next.set("tab", "environments");
+    setSearchParams(next);
+  };
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: `${classes.envBanner} ${prod ? classes.envBannerProd : classes.envBannerOther}`, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.envBannerLeft, children: [
-        prod && /* @__PURE__ */ jsx(WarningRoundedIcon, { style: { color: t.bad } }),
-        /* @__PURE__ */ jsxs(Typography, { className: `${classes.envBannerTitle} ${prod ? classes.envBannerTitleProd : classes.envBannerTitleOther}`, children: [
-          "Editing ",
-          active.env.toUpperCase()
-        ] }),
-        /* @__PURE__ */ jsx("select", { className: classes.select, value: active.env, onChange: (e) => setSelectedEnv(e.target.value), children: flightEnvs.map((e) => /* @__PURE__ */ jsxs("option", { value: e.env, children: [
-          e.env,
-          " (",
-          e.cluster,
-          ")"
-        ] }, e.env)) })
-      ] }),
-      /* @__PURE__ */ jsxs(Typography, { className: classes.envBannerPath, children: [
-        "gitops-",
-        appName,
-        "/",
-        active.cluster,
-        "/",
-        active.env,
-        "/values.yaml"
-      ] })
+    /* @__PURE__ */ jsx(PageHeader, { title: "App Configuration", subtitle: `What ${appName} shares across its environments. Every change opens a pull request on the ${appName} repo; nothing is committed directly.` }),
+    /* @__PURE__ */ jsx(Panel, { style: { padding: 12, marginBottom: 16 }, children: /* @__PURE__ */ jsxs("span", { className: ui.note, children: [
+      legacyEnv ? `${legacyEnv}'s own values moved: ` : "An environment's own values are edited in its row on the ",
+      /* @__PURE__ */ jsx("a", { href: "#environments", onClick: (e) => {
+        e.preventDefault();
+        toEnvironments();
+      }, children: "Environments tab" }),
+      "."
+    ] }) }),
+    /* @__PURE__ */ jsx(Subtabs, { label: "App configuration sections", value: section, onChange: setSection, tabs: SECTIONS.map((s) => ({ id: s.id, label: s.label })) }),
+    /* @__PURE__ */ jsxs("div", { className: ui.note, style: { margin: "12px 0" }, children: [
+      active.hint,
+      " ",
+      /* @__PURE__ */ jsx("code", { children: active.path })
     ] }),
-    /* @__PURE__ */ jsx(EnvXrPanel, { owner, appName, env: active.env, classes }),
-    /* @__PURE__ */ jsx(ConfigMapFilesPanel, { owner, appName, cluster: active.cluster, env: active.env, classes }),
-    /* @__PURE__ */ jsx(FlightValuesEditor, { owner, appName, cluster: active.cluster, env: active.env, prod })
+    /* @__PURE__ */ jsx(PlatformValues, { owner, appName, section: active }, active.id)
   ] });
-}
-function FlightValuesEditor({ owner, appName, cluster, env, prod }) {
-  const source = useFlightValuesSource({ owner, appName, cluster, env });
-  const componentCatalog = useComponentCatalog(owner);
-  const chart = useChartValues(owner);
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, componentCatalog, chart, title: `${env.toUpperCase()} (${cluster})`, prod, layout: "side" });
 }
 
 export { ConfigTab };
