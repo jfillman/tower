@@ -1,6 +1,6 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { fontDisplay, fontMono, type HangarTokens } from '../brand/tokens';
+import { fontBody, fontDisplay, fontMono, type HangarTokens } from '../brand/tokens';
 
 // The class set the values form (and App Configuration's own panels) share. Moved out of tabs/ConfigTab.tsx unchanged.
 export const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -62,6 +62,8 @@ export const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.bgRaised,
     color: ({ t }) => t.textHi,
     '&:focus': { outline: 'none', borderColor: ({ t }) => t.sky },
+    // Ghost text, not a value: italic, in the body face (values are mono) and faint, so an empty field never reads as filled.
+    '&::placeholder': { fontFamily: fontBody, fontStyle: 'italic', color: ({ t }) => t.textFaint, opacity: 0.85 },
   },
   textarea: {
     fontFamily: fontMono,
@@ -73,6 +75,7 @@ export const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     resize: 'vertical',
     '&:focus': { outline: 'none', borderColor: ({ t }) => t.sky },
+    '&::placeholder': { fontFamily: fontBody, fontStyle: 'italic', color: ({ t }) => t.textFaint, opacity: 0.85 },
   },
   switchRow: { display: 'flex', alignItems: 'center', gap: 8 },
   switchLabel: { fontSize: 13, color: ({ t }) => t.textHi },

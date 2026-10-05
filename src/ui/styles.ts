@@ -146,7 +146,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '8px 10px',
     fontFamily: fontMono,
     fontSize: 13,
-    '&::placeholder': { color: ({ t }) => t.textFaint },
+    '&::placeholder': { fontFamily: fontBody, fontStyle: 'italic', color: ({ t }) => t.textFaint, opacity: 0.85 },
     '&:focus': { outline: 'none', borderColor: ({ t }) => t.amber },
   },
   formSection: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 14, marginTop: 14 },

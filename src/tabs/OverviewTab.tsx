@@ -76,6 +76,9 @@ const HEALTH_LABEL: Record<Health, string> = {
 const TRACK_CARD_W = 260;
 const TRACK_GAP = 16;
 
+// Height reserved above a release track's cards for its tag pill and band; an undeployed card sitting beside a track uses the same offset.
+const TRACK_RAIL_H = 44;
+
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   monitoringCard: {
     backgroundColor: ({ t }) => t.panel,
@@ -188,7 +191,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignSelf: 'flex-start',
     display: 'flex',
     columnGap: 16,
-    paddingTop: 44,
+    paddingTop: TRACK_RAIL_H,
   },
   // maxWidth caps the pill to its own trackRow's width (position: relative,
   // set below) so a single narrow card's tag - which can render wider than
@@ -234,6 +237,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // A declared-but-undeployed environment has almost nothing to show, so it keeps its own height instead of
   // stretching to its row's tallest sibling (which made it a tall, nearly empty box).
   cardUndeployed: { alignSelf: 'flex-start' },
+  // Next to a release track, an undeployed card starts where the track's cards do (below the rail), not at the rail's top.
+  cardBelowRail: { marginTop: TRACK_RAIL_H },
   trackCard: {
     flex: `0 1 ${TRACK_CARD_W}px`,
     minWidth: 175,
@@ -549,6 +554,8 @@ export function OverviewTab() {
   const gitopsUrl = owner && appName ? `https://github.com/${owner}/gitops-${appName}` : undefined;
   const previewEnvs = environments.filter(env => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter(env => !isPreviewEnvName(env.env));
+  // Whether the grid shows a release rail at all (some environment has been deployed).
+  const hasRail = pipelineEnvs.some(env => env.deployed !== false);
 
   // skipImage: true for a card inside a release track - the track's own
   // label already shows the shared image once, so repeating it per card
@@ -562,7 +569,10 @@ export function OverviewTab() {
     // like a fetch failure instead of an honest "nothing here yet".
     if (env.deployed === false) {
       return (
-        <div key={env.key} className={`${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ''}`}>
+        <div
+          key={env.key}
+          className={`${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ''} ${!opts?.skipImage && hasRail ? classes.cardBelowRail : ''}`}
+        >
           <div className={classes.cardHead}>
             <span className={classes.envName}>{env.env}</span>
           </div>
