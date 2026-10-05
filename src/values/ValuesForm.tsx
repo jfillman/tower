@@ -18,7 +18,10 @@ import { validateAgainstSchema, type JsonSchema, type SchemaIssue } from '../sch
 import { deepEqual } from '../deepEqual';
 import type { ConfigTopLevelField } from '../types';
 import { useStyles, type Cls } from './styles';
+import { SloPresets } from './SloPresets';
+import { analysisProblems, templateRefs } from './analysis';
 import { declaredComponents, matchComponentOutput, outputsOf } from './components';
+import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
 import { blankPeer, buildPeers, gatewayNamespaceOf, parsePeers, validatePeers, withGatewayNamespace, type PeerRow } from './networkPolicy';
 
 
@@ -279,10 +282,16 @@ function ProbeFields({ label, probe, onChange, classes }: { label: string; probe
 
 // --- canary steps builder (item 6) ------------------------------------------
 
+/** One template an analysis step uses. `cluster` is Argo's clusterScope: a ClusterAnalysisTemplate instead of one in the app's namespace. */
+interface AnalysisTemplateRow {
+  name: string;
+  cluster: boolean;
+}
+
 type StepForm =
   | { kind: 'weight'; weight: number | '' }
   | { kind: 'pause'; duration: string }
-  | { kind: 'analysis'; templates: string; extraArgs: Array<{ name: string; value: string }> };
+  | { kind: 'analysis'; templates: AnalysisTemplateRow[]; extraArgs: Array<{ name: string; value: string }> };
 
 // The one arg every analysis step in this platform's real examples carries
 // (Argo Rollouts' own live pod-template-hash value) - generated
@@ -321,10 +330,14 @@ function parseStepsSimple(steps: unknown): StepForm[] | undefined {
       if (!aKeys.has('templates') || !Array.isArray(a.templates)) return undefined;
       const extraKeys = [...aKeys].filter(k => k !== 'templates' && k !== 'args');
       if (extraKeys.length > 0) return undefined;
-      const templateNames = (a.templates as Array<Record<string, unknown>>).map(t =>
-        typeof t.templateName === 'string' ? t.templateName : undefined,
-      );
-      if (templateNames.some(name => name === undefined)) return undefined;
+      const templateRows: AnalysisTemplateRow[] = [];
+      for (const t of a.templates as Array<Record<string, unknown>>) {
+        if (!t || typeof t !== 'object' || typeof t.templateName !== 'string') return undefined;
+        // Anything besides the name and clusterScope would be lost on the next edit: leave such a step to the raw editor.
+        if (Object.keys(t).some(k => k !== 'templateName' && k !== 'clusterScope')) return undefined;
+        if (t.clusterScope !== undefined && typeof t.clusterScope !== 'boolean') return undefined;
+        templateRows.push({ name: t.templateName, cluster: t.clusterScope === true });
+      }
 
       const extraArgs: Array<{ name: string; value: string }> = [];
       if (a.args !== undefined) {
@@ -338,7 +351,7 @@ function parseStepsSimple(steps: unknown): StepForm[] | undefined {
           extraArgs.push({ name: r.name, value: r.value });
         }
       }
-      result.push({ kind: 'analysis', templates: (templateNames as string[]).join(', '), extraArgs });
+      result.push({ kind: 'analysis', templates: templateRows, extraArgs });
     } else {
       return undefined;
     }
@@ -350,7 +363,9 @@ function buildStepsValue(steps: StepForm[]): unknown[] {
   return steps.map(s => {
     if (s.kind === 'weight') return { setWeight: s.weight === '' ? 0 : s.weight };
     if (s.kind === 'pause') return s.duration.trim() ? { pause: { duration: s.duration.trim() } } : { pause: {} };
-    const templates = s.templates.split(',').map(x => x.trim()).filter(Boolean).map(templateName => ({ templateName }));
+    const templates = s.templates
+      .filter(t => t.name.trim())
+      .map(t => ({ templateName: t.name.trim(), ...(t.cluster ? { clusterScope: true } : {}) }));
     // A fresh object/array literal per step (not a shared constant) -
     // reusing one reference here made js-yaml's dumper emit YAML anchors/
     // aliases (`&ref_0`/`*ref_0`) for the raw-YAML fallback view, since it
@@ -365,18 +380,26 @@ function buildStepsValue(steps: StepForm[]): unknown[] {
 function defaultStep(kind: StepForm['kind']): StepForm {
   if (kind === 'weight') return { kind, weight: 50 };
   if (kind === 'pause') return { kind, duration: '30s' };
-  return { kind, templates: '', extraArgs: [] };
+  return { kind, templates: [], extraArgs: [] };
+}
+
+function clusterTemplatesSentence(names: string[] | undefined): string {
+  if (names === undefined) return " Cluster templates: Tower could not read the cluster's list, so a cluster template name is not checked.";
+  return names.length > 0 ? ` Cluster templates: ${names.join(', ')}.` : ' This cluster has no cluster templates.';
 }
 
 function StepsBuilder({
   steps,
   onChange,
   declaredTemplateNames,
+  clusterTemplateNames,
   classes,
 }: {
   steps: StepForm[];
   onChange: (s: StepForm[]) => void;
   declaredTemplateNames: string[];
+  /** The cluster's ClusterAnalysisTemplates, or undefined when unknown. */
+  clusterTemplateNames?: string[];
   classes: Cls;
 }) {
   const update = (i: number, next: StepForm) => {
@@ -459,13 +482,45 @@ function StepsBuilder({
               />
             )}
             {s.kind === 'analysis' && (
-              <input
-                className={classes.input}
-                style={{ minWidth: 240 }}
-                placeholder="template names, comma-separated"
-                value={s.templates}
-                onChange={e => update(i, { ...s, templates: e.target.value })}
-              />
+              <div className={classes.rowList} style={{ flex: 1, minWidth: 280 }}>
+                {s.templates.map((tpl, k) => {
+                  const setTpl = (patch: Partial<AnalysisTemplateRow>) =>
+                    update(i, { ...s, templates: s.templates.map((x, j) => (j === k ? { ...x, ...patch } : x)) });
+                  const suggestions = tpl.cluster ? (clusterTemplateNames ?? []) : declaredTemplateNames;
+                  return (
+                    <div className={classes.row} key={k}>
+                      <select
+                        className={classes.select}
+                        aria-label={`Step ${i + 1} template ${k + 1} scope`}
+                        value={tpl.cluster ? 'cluster' : 'namespace'}
+                        onChange={e => setTpl({ cluster: e.target.value === 'cluster' })}
+                      >
+                        <option value="namespace">Declared in this file</option>
+                        <option value="cluster">Cluster template</option>
+                      </select>
+                      <input
+                        className={classes.input}
+                        list={`analysis-templates-${i}-${k}`}
+                        aria-label={`Step ${i + 1} template ${k + 1}`}
+                        placeholder="not set: a template name"
+                        value={tpl.name}
+                        onChange={e => setTpl({ name: e.target.value })}
+                      />
+                      <datalist id={`analysis-templates-${i}-${k}`}>
+                        {suggestions.map(n => (
+                          <option key={n} value={n} />
+                        ))}
+                      </datalist>
+                      <button type="button" className={classes.removeBtn} onClick={() => update(i, { ...s, templates: s.templates.filter((_, j) => j !== k) })}>
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+                <button type="button" className={classes.addBtn} onClick={() => update(i, { ...s, templates: [...s.templates, { name: '', cluster: false }] })}>
+                  + Add template
+                </button>
+              </div>
             )}
             <button type="button" className={classes.removeBtn} onClick={() => remove(i)}>
               Remove
@@ -500,9 +555,9 @@ function StepsBuilder({
       <Typography className={classes.hint}>
         An analysis step's first arg (canary-hash) is always generated automatically - add more above only if a
         template's own query references another one (e.g. a custom threshold).
-        {declaredTemplateNames.length > 0
-          ? ` Declared in this file: ${declaredTemplateNames.join(', ')} - a step can also name a platform-wide ClusterAnalysisTemplate not declared here.`
-          : ' A step can name any app-declared or platform-wide ClusterAnalysisTemplate.'}
+        {declaredTemplateNames.length > 0 ? ` Declared in this file: ${declaredTemplateNames.join(', ')}.` : ' None are declared in this file yet.'}
+        {clusterTemplatesSentence(clusterTemplateNames)}
+        {' '}A template is looked up in the app&apos;s namespace unless it is marked as a cluster template; a wrong choice makes Argo reject the whole Rollout.
       </Typography>
     </div>
   );
@@ -698,6 +753,8 @@ interface FormState {
   serviceMonitorInterval: string;
   serviceMonitorPort: string;
   serviceMonitorLabels: Array<{ key: string; value: string }>;
+  /** rollout.labels/annotations, podLabels/podAnnotations, serviceLabels/serviceAnnotations (chart v0.3.115+). */
+  meta: Record<MetadataField, KeyValueRow[]>;
   slackEnabled: boolean;
   slackChannel: string;
   envVars: EnvRow[];
@@ -752,15 +809,18 @@ const ANALYSIS_TEMPLATES_EXAMPLE = `- name: boarding-api-no-restarts
 const ROLLOUT_STRATEGY_EXAMPLE = `# How a release rolls out. Canary steps (the Release tab's builder) are separate fields and are merged in on submit.
 strategy: canary          # or: blueGreen
 
-# canaryAnalysis: a background AnalysisTemplate that runs for the whole canary revision
-# (a SIBLING of the steps builder, not one of its steps). Only used with strategy: canary.
-canaryAnalysis:
-  templates:
-    - templateName: boarding-api-no-restarts
-  args:
-    - name: canary-hash
-      valueFrom: { podTemplateHashValue: Latest }
-  startingStep: 1
+# canaryAnalysis: a background analysis that runs for the whole canary revision (a SIBLING of the steps builder, not one
+# of its steps). Only used with strategy: canary. Every template it names must exist: either declared under Custom
+# AnalysisTemplates in this file, or a cluster template (clusterScope: true). Tower checks this before a pull request opens.
+# canaryAnalysis:
+#   templates:
+#     - templateName: boarding-api-no-restarts   # declared in this file
+#     - templateName: pod-health-check           # a cluster template:
+#       clusterScope: true
+#   args:
+#     - name: canary-hash
+#       valueFrom: { podTemplateHashValue: Latest }
+#   startingStep: 1
 
 # blueGreen: only used with strategy: blueGreen. activeService and previewService are chart-owned.
 # blueGreen:
@@ -900,6 +960,19 @@ function annotationsPatch(original: Record<string, unknown>, rows: Array<{ key: 
   return original.annotations !== undefined ? { annotations: {} } : {};
 }
 
+/** One of the rollout's extra label/annotation maps for the patch: the rows as a map; left out when empty and the file had none, `{}` when it had some. */
+function annotationsPatchFor(original: Record<string, unknown>, field: MetadataField, rows: KeyValueRow[]): Record<string, unknown> {
+  const entries = rows.filter(a => a.key.trim()).map(a => [a.key.trim(), a.value] as const);
+  if (entries.length > 0) return { [field]: Object.fromEntries(entries) };
+  return original[field] !== undefined ? { [field]: {} } : {};
+}
+
+/** `{[key]: value}`, or nothing when the value is an empty object or list and the file did not have the key (so an edit elsewhere does not add `key: {}`). */
+function omitIfEmptyAndAbsent(original: Record<string, unknown>, key: string, value: unknown): Record<string, unknown> {
+  const empty = Array.isArray(value) ? value.length === 0 : value !== null && typeof value === 'object' && Object.keys(value as object).length === 0;
+  return empty && original[key] === undefined ? {} : { [key]: value };
+}
+
 function parseAnnotationRows(v: unknown): Array<{ key: string; value: string }> {
   const rec = asRecord(v);
   return Object.entries(rec).map(([key, value]) => ({ key, value: String(value ?? '') }));
@@ -980,6 +1053,7 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     serviceMonitorInterval: typeof serviceMonitor.interval === 'string' ? serviceMonitor.interval : '30s',
     serviceMonitorPort: typeof serviceMonitor.port === 'string' ? serviceMonitor.port : '',
     serviceMonitorLabels: parseAnnotationRows(serviceMonitor.additionalLabels),
+    meta: Object.fromEntries(METADATA_FIELDS.map(m => [m.field, parseAnnotationRows(rollout[m.field])])) as Record<MetadataField, KeyValueRow[]>,
     slackEnabled: Boolean(slack.enabled ?? false),
     slackChannel: typeof slack.channel === 'string' ? slack.channel : '',
     envVars: envList.map(parseEnvRow),
@@ -1031,6 +1105,9 @@ function validateBeforeSubmit(form: FormState, rolloutEnabled: boolean): string[
     if (dupeNames.length > 0) {
       errors.push(`Service port names must be unique - duplicate: ${Array.from(new Set(dupeNames)).join(', ')}.`);
     }
+  }
+  if (rolloutEnabled) {
+    for (const m of METADATA_FIELDS) errors.push(...metadataProblems(m.field, m.title, form.meta[m.field]));
   }
   if (form.ingressEnabled && !form.ingressHost.trim()) {
     errors.push('Ingress is enabled but has no host set.');
@@ -1099,6 +1176,9 @@ export function ConfigEditor({
   prod = false,
   layout = 'side',
   copyFrom,
+  analysisCluster,
+  clusterAnalysisTemplates,
+  sloContext,
 }: {
   owner: string;
   appName: string;
@@ -1109,6 +1189,11 @@ export function ConfigEditor({
   layout?: 'side' | 'inline';
   /** Other environments whose values can be loaded into this form as staged edits. */
   copyFrom?: { options: Array<{ id: string; label: string }>; load: (id: string) => Promise<Partial<Record<ConfigTopLevelField, unknown>>> };
+  /** The cluster this environment runs on, and its ClusterAnalysisTemplates (undefined when Tower could not read them). */
+  analysisCluster?: string;
+  clusterAnalysisTemplates?: string[];
+  /** Where the common-SLO toggles look for data: the cluster, the namespace and the app. Without it they are not offered. */
+  sloContext?: { cluster: string; namespace: string; app: string };
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1259,7 +1344,19 @@ export function ConfigEditor({
 
   const advancedInvalid = (Object.keys(advanced) as AdvancedKey[]).filter(k => !validateYamlBlock(advanced[k]).valid);
   const stepsInvalid = stepsMode === 'raw' && !validateYamlBlock(stepsRaw).valid;
-  const structuralErrors = validateBeforeSubmit(form, rolloutEnabled);
+  // Template references that Argo would reject, from what is in the form now (steps, canaryAnalysis, blueGreen analyses).
+  const analysisIssues = rolloutEnabled
+    ? analysisProblems(
+        templateRefs(
+          stepsMode === 'simple' ? buildStepsValue(stepsSimple) : validateYamlBlock(stepsRaw).parsed,
+          asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed),
+        ),
+        declaredTemplateNames,
+        clusterAnalysisTemplates,
+        analysisCluster,
+      )
+    : [];
+  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues];
 
   const discard = () => {
     const builtForm = buildFormState(cfg.data!.values);
@@ -1289,7 +1386,7 @@ export function ConfigEditor({
   if (
     rolloutEnabled !== originalRolloutEnabled ||
     (rolloutEnabled &&
-      (fieldsChanged(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness']) ||
+      (fieldsChanged(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness', 'meta']) ||
         advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy ||
         advanced.rolloutPod !== originalAdvanced.rolloutPod ||
         stepsCurrentText !== originalStepsRaw))
@@ -1333,7 +1430,8 @@ export function ConfigEditor({
         ...asRecord(validateYamlBlock(advanced.rolloutPod).parsed),
       };
       const hasResources = Boolean(form.resourcesRequestsCpu || form.resourcesRequestsMemory || form.resourcesLimitsCpu || form.resourcesLimitsMemory);
-      const originalHadResources = asRecord(cfg.data!.values.rollout).resources !== undefined;
+      const origRollout = asRecord(cfg.data!.values.rollout);
+      const originalHadResources = origRollout.resources !== undefined;
       const stepsValue =
         stepsMode === 'simple' ? buildStepsValue(stepsSimple) : (validateYamlBlock(stepsRaw).parsed ?? []);
       patch.rollout = {
@@ -1361,9 +1459,10 @@ export function ConfigEditor({
               },
             }
           : {}),
-        steps: stepsValue,
-        livenessProbe: buildProbeValue(form.liveness),
-        readinessProbe: buildProbeValue(form.readiness),
+        ...Object.assign({}, ...METADATA_FIELDS.map(m => annotationsPatchFor(asRecord(cfg.data!.values.rollout), m.field, form.meta[m.field]))),
+        ...omitIfEmptyAndAbsent(origRollout, 'steps', stepsValue),
+        ...omitIfEmptyAndAbsent(origRollout, 'livenessProbe', buildProbeValue(form.liveness)),
+        ...omitIfEmptyAndAbsent(origRollout, 'readinessProbe', buildProbeValue(form.readiness)),
       };
       summary.push(
         originalRolloutEnabled
@@ -1522,6 +1621,14 @@ export function ConfigEditor({
           const isDirty = dirty.has(meta.field as ConfigTopLevelField) && (ROLLOUT_RAW_KEYS.includes(key) ? dirty.has('rollout') : true);
           return (
             <Section title={meta.title} dirty={isDirty} classes={classes} key={key}>
+              {key === 'slos' && sloContext && (
+                <SloPresets
+                  ctx={{ app: sloContext.app, namespace: sloContext.namespace }}
+                  cluster={sloContext.cluster}
+                  text={advanced.slos}
+                  onChange={text => setAdv('slos', text)}
+                />
+              )}
               <YamlBlockEditor label={meta.title} hint={meta.hint} value={advanced[key]} onChange={text => setAdv(key, text)} />
               {meta.example && (
                 <>
@@ -1548,7 +1655,7 @@ export function ConfigEditor({
   const tabDirty: Record<ValuesTab, boolean> = {
     workload:
       rolloutEnabled !== originalRolloutEnabled ||
-      fieldsDirty(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness']) ||
+      fieldsDirty(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness', 'meta']) ||
       dirty.has('autoscaling') ||
       dirty.has('podDisruptionBudget') ||
       dirty.has('serviceMonitor') ||
@@ -1732,6 +1839,25 @@ export function ConfigEditor({
       )}
 
       {tab === 'workload' && (
+      <Section title="Labels and annotations" dirty={fieldsChanged(['meta'])} classes={classes}>
+        <Typography className={classes.hint}>
+          Extra labels and annotations on the pods, the Rollout and the Service. Labels and annotations the chart sets itself cannot be overridden.
+        </Typography>
+        {METADATA_FIELDS.map(m => (
+          <AnnotationRows
+            key={m.field}
+            title={m.title}
+            noun={m.noun}
+            hint={m.hint}
+            rows={form.meta[m.field]}
+            onChange={rows => setF('meta', { ...form.meta, [m.field]: rows }, 'rollout')}
+            classes={classes}
+          />
+        ))}
+      </Section>
+      )}
+
+      {tab === 'workload' && (
       <Section title="Health checks" dirty={dirty.has('rollout')} classes={classes}>
         <ProbeFields label="Liveness probe" probe={form.liveness} onChange={p => setF('liveness', p, 'rollout')} classes={classes} />
         <div style={{ marginTop: 16 }}>
@@ -1740,10 +1866,21 @@ export function ConfigEditor({
       </Section>
       )}
 
+      {tab === 'release' && analysisIssues.length > 0 && (
+        <div role="alert" className={ui.problem} style={{ border: `1px solid ${tokens.bad}`, borderRadius: 6, padding: '10px 12px', marginTop: 10 }}>
+          <b>Argo would reject this Rollout:</b> it refers to an analysis template that does not exist where it is looked up.
+          <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+            {analysisIssues.map(m => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {tab === 'release' && (
       <Section title="Canary steps" dirty={dirty.has('rollout')} classes={classes}>
         {stepsMode === 'simple' ? (
-          <StepsBuilder steps={stepsSimple} onChange={setSteps} declaredTemplateNames={declaredTemplateNames} classes={classes} />
+          <StepsBuilder steps={stepsSimple} onChange={setSteps} declaredTemplateNames={declaredTemplateNames} clusterTemplateNames={clusterAnalysisTemplates} classes={classes} />
         ) : (
           <YamlBlockEditor
             label="rollout.steps"

@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
-import { preventFocusScroll } from '../preventFocusScroll';
+import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
 import { useUi } from './styles';
 
@@ -103,7 +103,7 @@ export function Segmented<T extends string>({
           aria-pressed={o.id === value}
           onMouseDown={preventFocusScroll}
           className={cx(ui.segment, o.id === value && ui.segmentOn)}
-          onClick={() => onChange(o.id)}
+          onClick={e => keepAnchored(e.currentTarget, () => onChange(o.id))}
         >
           {o.label}
           {o.count !== undefined ? ` ${o.count}` : ''}
@@ -135,7 +135,7 @@ export function Subtabs<T extends string>({
           aria-selected={tab.id === value}
           onMouseDown={preventFocusScroll}
           className={cx(ui.subtab, tab.id === value && ui.subtabOn)}
-          onClick={() => onChange(tab.id)}
+          onClick={e => keepAnchored(e.currentTarget, () => onChange(tab.id))}
         >
           {tab.label}
           {tab.marked && <i className={ui.marker} role="img" aria-label="has staged changes" />}

@@ -5,6 +5,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
 import { ConfigEditor } from '../../values/ValuesForm';
 import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
+import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates';
 import { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, type ValuesSource } from '../../values/sources';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle';
 import { EnvLifecycle } from './EnvLifecycle';
@@ -240,7 +241,7 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
         </div>
       );
     }
-    return gate(source) ?? <GroundValues ctx={ctx} env={row.name} source={source as ValuesSource} />;
+    return gate(source) ?? <GroundValues ctx={ctx} env={row.name} cluster={row.where} source={source as ValuesSource} />;
   }
   return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} />;
 }
@@ -257,13 +258,27 @@ function useCopyFrom(ctx: RowDetailContext, env: string) {
   };
 }
 
-function GroundValues({ ctx, env, source }: { ctx: RowDetailContext; env: string; source: ValuesSource }) {
+function GroundValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource }) {
   const copyFrom = useCopyFrom(ctx, env);
-  return <ConfigEditor owner={ctx.owner as string} appName={ctx.appName as string} source={source} title={env.toUpperCase()} layout="inline" copyFrom={copyFrom} />;
+  const clusterTemplates = useClusterAnalysisTemplates(cluster);
+  return (
+    <ConfigEditor
+      owner={ctx.owner as string}
+      appName={ctx.appName as string}
+      source={source}
+      title={env.toUpperCase()}
+      layout="inline"
+      copyFrom={copyFrom}
+      analysisCluster={cluster}
+      clusterAnalysisTemplates={clusterTemplates}
+      sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
+    />
+  );
 }
 
 function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource }) {
   const copyFrom = useCopyFrom(ctx, env);
+  const clusterTemplates = useClusterAnalysisTemplates(cluster);
   return (
     <ConfigEditor
       owner={ctx.owner as string}
@@ -273,6 +288,9 @@ function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
       prod={/^prod/i.test(env)}
       layout="inline"
       copyFrom={copyFrom}
+      analysisCluster={cluster}
+      clusterAnalysisTemplates={clusterTemplates}
+      sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
     />
   );
 }
