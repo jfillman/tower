@@ -1,6 +1,6 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useHangarTokens } from '../brand/tokens.esm.js';
-import { preventFocusScroll } from '../preventFocusScroll.esm.js';
+import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
 import { useUi } from './styles.esm.js';
 
 const cx = (...c) => c.filter(Boolean).join(" ");
@@ -74,7 +74,7 @@ function Segmented({
       "aria-pressed": o.id === value,
       onMouseDown: preventFocusScroll,
       className: cx(ui.segment, o.id === value && ui.segmentOn),
-      onClick: () => onChange(o.id),
+      onClick: (e) => keepAnchored(e.currentTarget, () => onChange(o.id)),
       children: [
         o.label,
         o.count !== void 0 ? ` ${o.count}` : ""
@@ -98,7 +98,7 @@ function Subtabs({
       "aria-selected": tab.id === value,
       onMouseDown: preventFocusScroll,
       className: cx(ui.subtab, tab.id === value && ui.subtabOn),
-      onClick: () => onChange(tab.id),
+      onClick: (e) => keepAnchored(e.currentTarget, () => onChange(tab.id)),
       children: [
         tab.label,
         tab.marked && /* @__PURE__ */ jsx("i", { className: ui.marker, role: "img", "aria-label": "has staged changes" })

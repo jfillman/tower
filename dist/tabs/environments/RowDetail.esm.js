@@ -5,6 +5,7 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
 import { ConfigEditor } from '../../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
+import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates.esm.js';
 import { useFlightValuesSource, useGroundValuesSource, useEnvValuesLoader } from '../../values/sources.esm.js';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle.esm.js';
 import { EnvLifecycle } from './EnvLifecycle.esm.js';
@@ -200,7 +201,7 @@ function Values({ row, ctx, source }) {
         ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
       ] });
     }
-    return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, source });
+    return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, cluster: row.where, source });
   }
   return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source });
 }
@@ -215,12 +216,27 @@ function useCopyFrom(ctx, env) {
     }
   };
 }
-function GroundValues({ ctx, env, source }) {
+function GroundValues({ ctx, env, cluster, source }) {
   const copyFrom = useCopyFrom(ctx, env);
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner: ctx.owner, appName: ctx.appName, source, title: env.toUpperCase(), layout: "inline", copyFrom });
+  const clusterTemplates = useClusterAnalysisTemplates(cluster);
+  return /* @__PURE__ */ jsx(
+    ConfigEditor,
+    {
+      owner: ctx.owner,
+      appName: ctx.appName,
+      source,
+      title: env.toUpperCase(),
+      layout: "inline",
+      copyFrom,
+      analysisCluster: cluster,
+      clusterAnalysisTemplates: clusterTemplates,
+      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
+    }
+  );
 }
 function FlightValues({ ctx, env, cluster, source }) {
   const copyFrom = useCopyFrom(ctx, env);
+  const clusterTemplates = useClusterAnalysisTemplates(cluster);
   return /* @__PURE__ */ jsx(
     ConfigEditor,
     {
@@ -230,7 +246,10 @@ function FlightValues({ ctx, env, cluster, source }) {
       title: `${env.toUpperCase()} (${cluster})`,
       prod: /^prod/i.test(env),
       layout: "inline",
-      copyFrom
+      copyFrom,
+      analysisCluster: cluster,
+      clusterAnalysisTemplates: clusterTemplates,
+      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
     }
   );
 }

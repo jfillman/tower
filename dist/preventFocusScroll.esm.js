@@ -23,6 +23,27 @@ function scrollPanelIntoView(getEl, delayMs = 120, block = "start") {
     getEl()?.scrollIntoView({ behavior: "smooth", block });
   }, delayMs);
 }
+function scrollParent(el) {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = window.getComputedStyle(p).overflowY;
+    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight) return p;
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
+function keepAnchored(el, change) {
+  const before = el?.getBoundingClientRect().top;
+  keepScrollPosition(el, change);
+  if (!el || before === void 0) return;
+  const settle = () => {
+    if (!el.isConnected) return;
+    const delta = el.getBoundingClientRect().top - before;
+    if (Math.abs(delta) > 1) scrollParent(el).scrollTop += delta;
+  };
+  requestAnimationFrame(() => {
+    requestAnimationFrame(settle);
+    requestAnimationFrame(() => requestAnimationFrame(settle));
+  });
+}
 
-export { keepScrollPosition, preventFocusScroll, scrollPanelIntoView };
+export { keepAnchored, keepScrollPosition, preventFocusScroll, scrollPanelIntoView };
 //# sourceMappingURL=preventFocusScroll.esm.js.map

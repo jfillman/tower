@@ -16,7 +16,10 @@ import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
 import { validateAgainstSchema } from '../schemaValidate.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { useStyles } from './styles.esm.js';
+import { SloPresets } from './SloPresets.esm.js';
+import { analysisProblems, templateRefs } from './analysis.esm.js';
 import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
+import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
 import { parsePeers, gatewayNamespaceOf, validatePeers, buildPeers, withGatewayNamespace, blankPeer } from './networkPolicy.esm.js';
 
 function asRecord(v) {
@@ -197,10 +200,13 @@ function parseStepsSimple(steps) {
       if (!aKeys.has("templates") || !Array.isArray(a.templates)) return void 0;
       const extraKeys = [...aKeys].filter((k) => k !== "templates" && k !== "args");
       if (extraKeys.length > 0) return void 0;
-      const templateNames = a.templates.map(
-        (t) => typeof t.templateName === "string" ? t.templateName : void 0
-      );
-      if (templateNames.some((name) => name === void 0)) return void 0;
+      const templateRows = [];
+      for (const t of a.templates) {
+        if (!t || typeof t !== "object" || typeof t.templateName !== "string") return void 0;
+        if (Object.keys(t).some((k) => k !== "templateName" && k !== "clusterScope")) return void 0;
+        if (t.clusterScope !== void 0 && typeof t.clusterScope !== "boolean") return void 0;
+        templateRows.push({ name: t.templateName, cluster: t.clusterScope === true });
+      }
       const extraArgs = [];
       if (a.args !== void 0) {
         if (!Array.isArray(a.args) || a.args.length === 0) return void 0;
@@ -213,7 +219,7 @@ function parseStepsSimple(steps) {
           extraArgs.push({ name: r.name, value: r.value });
         }
       }
-      result.push({ kind: "analysis", templates: templateNames.join(", "), extraArgs });
+      result.push({ kind: "analysis", templates: templateRows, extraArgs });
     } else {
       return void 0;
     }
@@ -224,7 +230,7 @@ function buildStepsValue(steps) {
   return steps.map((s) => {
     if (s.kind === "weight") return { setWeight: s.weight === "" ? 0 : s.weight };
     if (s.kind === "pause") return s.duration.trim() ? { pause: { duration: s.duration.trim() } } : { pause: {} };
-    const templates = s.templates.split(",").map((x) => x.trim()).filter(Boolean).map((templateName) => ({ templateName }));
+    const templates = s.templates.filter((t) => t.name.trim()).map((t) => ({ templateName: t.name.trim(), ...t.cluster ? { clusterScope: true } : {} }));
     const args = [{ name: "canary-hash", valueFrom: { podTemplateHashValue: "Latest" } }, ...s.extraArgs.filter((a) => a.name.trim()).map((a) => ({ name: a.name.trim(), value: a.value }))];
     return { analysis: { templates, args } };
   });
@@ -232,12 +238,17 @@ function buildStepsValue(steps) {
 function defaultStep(kind) {
   if (kind === "weight") return { kind, weight: 50 };
   if (kind === "pause") return { kind, duration: "30s" };
-  return { kind, templates: "", extraArgs: [] };
+  return { kind, templates: [], extraArgs: [] };
+}
+function clusterTemplatesSentence(names) {
+  if (names === void 0) return " Cluster templates: Tower could not read the cluster's list, so a cluster template name is not checked.";
+  return names.length > 0 ? ` Cluster templates: ${names.join(", ")}.` : " This cluster has no cluster templates.";
 }
 function StepsBuilder({
   steps,
   onChange,
   declaredTemplateNames,
+  clusterTemplateNames,
   classes
 }) {
   const update = (i, next) => {
@@ -317,16 +328,41 @@ function StepsBuilder({
             onChange: (e) => update(i, { kind: "pause", duration: e.target.value })
           }
         ),
-        s.kind === "analysis" && /* @__PURE__ */ jsx(
-          "input",
-          {
-            className: classes.input,
-            style: { minWidth: 240 },
-            placeholder: "template names, comma-separated",
-            value: s.templates,
-            onChange: (e) => update(i, { ...s, templates: e.target.value })
-          }
-        ),
+        s.kind === "analysis" && /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { flex: 1, minWidth: 280 }, children: [
+          s.templates.map((tpl, k) => {
+            const setTpl = (patch) => update(i, { ...s, templates: s.templates.map((x, j) => j === k ? { ...x, ...patch } : x) });
+            const suggestions = tpl.cluster ? clusterTemplateNames ?? [] : declaredTemplateNames;
+            return /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
+              /* @__PURE__ */ jsxs(
+                "select",
+                {
+                  className: classes.select,
+                  "aria-label": `Step ${i + 1} template ${k + 1} scope`,
+                  value: tpl.cluster ? "cluster" : "namespace",
+                  onChange: (e) => setTpl({ cluster: e.target.value === "cluster" }),
+                  children: [
+                    /* @__PURE__ */ jsx("option", { value: "namespace", children: "Declared in this file" }),
+                    /* @__PURE__ */ jsx("option", { value: "cluster", children: "Cluster template" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  className: classes.input,
+                  list: `analysis-templates-${i}-${k}`,
+                  "aria-label": `Step ${i + 1} template ${k + 1}`,
+                  placeholder: "not set: a template name",
+                  value: tpl.name,
+                  onChange: (e) => setTpl({ name: e.target.value })
+                }
+              ),
+              /* @__PURE__ */ jsx("datalist", { id: `analysis-templates-${i}-${k}`, children: suggestions.map((n) => /* @__PURE__ */ jsx("option", { value: n }, n)) }),
+              /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => update(i, { ...s, templates: s.templates.filter((_, j) => j !== k) }), children: "Remove" })
+            ] }, k);
+          }),
+          /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => update(i, { ...s, templates: [...s.templates, { name: "", cluster: false }] }), children: "+ Add template" })
+        ] }),
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => remove(i), children: "Remove" })
       ] }),
       s.kind === "analysis" && /* @__PURE__ */ jsxs("div", { style: { marginTop: 8, paddingLeft: 40 }, children: [
@@ -348,7 +384,10 @@ function StepsBuilder({
     ] }),
     /* @__PURE__ */ jsxs(Typography, { className: classes.hint, children: [
       "An analysis step's first arg (canary-hash) is always generated automatically - add more above only if a template's own query references another one (e.g. a custom threshold).",
-      declaredTemplateNames.length > 0 ? ` Declared in this file: ${declaredTemplateNames.join(", ")} - a step can also name a platform-wide ClusterAnalysisTemplate not declared here.` : " A step can name any app-declared or platform-wide ClusterAnalysisTemplate."
+      declaredTemplateNames.length > 0 ? ` Declared in this file: ${declaredTemplateNames.join(", ")}.` : " None are declared in this file yet.",
+      clusterTemplatesSentence(clusterTemplateNames),
+      " ",
+      "A template is looked up in the app's namespace unless it is marked as a cluster template; a wrong choice makes Argo reject the whole Rollout."
     ] })
   ] });
 }
@@ -492,15 +531,18 @@ const ANALYSIS_TEMPLATES_EXAMPLE = `- name: boarding-api-no-restarts
 const ROLLOUT_STRATEGY_EXAMPLE = `# How a release rolls out. Canary steps (the Release tab's builder) are separate fields and are merged in on submit.
 strategy: canary          # or: blueGreen
 
-# canaryAnalysis: a background AnalysisTemplate that runs for the whole canary revision
-# (a SIBLING of the steps builder, not one of its steps). Only used with strategy: canary.
-canaryAnalysis:
-  templates:
-    - templateName: boarding-api-no-restarts
-  args:
-    - name: canary-hash
-      valueFrom: { podTemplateHashValue: Latest }
-  startingStep: 1
+# canaryAnalysis: a background analysis that runs for the whole canary revision (a SIBLING of the steps builder, not one
+# of its steps). Only used with strategy: canary. Every template it names must exist: either declared under Custom
+# AnalysisTemplates in this file, or a cluster template (clusterScope: true). Tower checks this before a pull request opens.
+# canaryAnalysis:
+#   templates:
+#     - templateName: boarding-api-no-restarts   # declared in this file
+#     - templateName: pod-health-check           # a cluster template:
+#       clusterScope: true
+#   args:
+#     - name: canary-hash
+#       valueFrom: { podTemplateHashValue: Latest }
+#   startingStep: 1
 
 # blueGreen: only used with strategy: blueGreen. activeService and previewService are chart-owned.
 # blueGreen:
@@ -619,6 +661,15 @@ function annotationsPatch(original, rows) {
   if (entries.length > 0) return { annotations: Object.fromEntries(entries) };
   return original.annotations !== void 0 ? { annotations: {} } : {};
 }
+function annotationsPatchFor(original, field, rows) {
+  const entries = rows.filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value]);
+  if (entries.length > 0) return { [field]: Object.fromEntries(entries) };
+  return original[field] !== void 0 ? { [field]: {} } : {};
+}
+function omitIfEmptyAndAbsent(original, key, value) {
+  const empty = Array.isArray(value) ? value.length === 0 : value !== null && typeof value === "object" && Object.keys(value).length === 0;
+  return empty && original[key] === void 0 ? {} : { [key]: value };
+}
 function parseAnnotationRows(v) {
   const rec = asRecord(v);
   return Object.entries(rec).map(([key, value]) => ({ key, value: String(value ?? "") }));
@@ -690,6 +741,7 @@ function buildFormState(values) {
     serviceMonitorInterval: typeof serviceMonitor.interval === "string" ? serviceMonitor.interval : "30s",
     serviceMonitorPort: typeof serviceMonitor.port === "string" ? serviceMonitor.port : "",
     serviceMonitorLabels: parseAnnotationRows(serviceMonitor.additionalLabels),
+    meta: Object.fromEntries(METADATA_FIELDS.map((m) => [m.field, parseAnnotationRows(rollout[m.field])])),
     slackEnabled: Boolean(slack.enabled ?? false),
     slackChannel: typeof slack.channel === "string" ? slack.channel : "",
     envVars: envList.map(parseEnvRow),
@@ -732,6 +784,9 @@ function validateBeforeSubmit(form, rolloutEnabled) {
     if (dupeNames.length > 0) {
       errors.push(`Service port names must be unique - duplicate: ${Array.from(new Set(dupeNames)).join(", ")}.`);
     }
+  }
+  if (rolloutEnabled) {
+    for (const m of METADATA_FIELDS) errors.push(...metadataProblems(m.field, m.title, form.meta[m.field]));
   }
   if (form.ingressEnabled && !form.ingressHost.trim()) {
     errors.push("Ingress is enabled but has no host set.");
@@ -787,7 +842,10 @@ function ConfigEditor({
   title,
   prod = false,
   layout = "side",
-  copyFrom
+  copyFrom,
+  analysisCluster,
+  clusterAnalysisTemplates,
+  sloContext
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -896,7 +954,16 @@ function ConfigEditor({
   })();
   const advancedInvalid = Object.keys(advanced).filter((k) => !validateYamlBlock(advanced[k]).valid);
   const stepsInvalid = stepsMode === "raw" && !validateYamlBlock(stepsRaw).valid;
-  const structuralErrors = validateBeforeSubmit(form, rolloutEnabled);
+  const analysisIssues = rolloutEnabled ? analysisProblems(
+    templateRefs(
+      stepsMode === "simple" ? buildStepsValue(stepsSimple) : validateYamlBlock(stepsRaw).parsed,
+      asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed)
+    ),
+    declaredTemplateNames,
+    clusterAnalysisTemplates,
+    analysisCluster
+  ) : [];
+  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues];
   const discard = () => {
     const builtForm = buildFormState(cfg.data.values);
     const builtAdvanced = buildAdvancedYaml(cfg.data.values);
@@ -918,7 +985,7 @@ function ConfigEditor({
   const fieldsChanged = (keys) => keys.some((k) => !deepEqual(form[k], originalForm[k]));
   const stepsCurrentText = stepsMode === "simple" ? dumpOrBlank(buildStepsValue(stepsSimple)) : stepsRaw;
   const dirty = /* @__PURE__ */ new Set();
-  if (rolloutEnabled !== originalRolloutEnabled || rolloutEnabled && (fieldsChanged(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || advanced.rolloutPod !== originalAdvanced.rolloutPod || stepsCurrentText !== originalStepsRaw)) {
+  if (rolloutEnabled !== originalRolloutEnabled || rolloutEnabled && (fieldsChanged(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness", "meta"]) || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || advanced.rolloutPod !== originalAdvanced.rolloutPod || stepsCurrentText !== originalStepsRaw)) {
     dirty.add("rollout");
   }
   if (fieldsChanged(["autoscalingEnabled", "autoscalingMin", "autoscalingMax", "autoscalingTargetCPUPercent"])) dirty.add("autoscaling");
@@ -949,7 +1016,8 @@ function ConfigEditor({
         ...asRecord(validateYamlBlock(advanced.rolloutPod).parsed)
       };
       const hasResources = Boolean(form.resourcesRequestsCpu || form.resourcesRequestsMemory || form.resourcesLimitsCpu || form.resourcesLimitsMemory);
-      const originalHadResources = asRecord(cfg.data.values.rollout).resources !== void 0;
+      const origRollout = asRecord(cfg.data.values.rollout);
+      const originalHadResources = origRollout.resources !== void 0;
       const stepsValue = stepsMode === "simple" ? buildStepsValue(stepsSimple) : validateYamlBlock(stepsRaw).parsed ?? [];
       patch.rollout = {
         ...advancedParsed,
@@ -972,9 +1040,10 @@ function ConfigEditor({
             }
           }
         } : {},
-        steps: stepsValue,
-        livenessProbe: buildProbeValue(form.liveness),
-        readinessProbe: buildProbeValue(form.readiness)
+        ...Object.assign({}, ...METADATA_FIELDS.map((m) => annotationsPatchFor(asRecord(cfg.data.values.rollout), m.field, form.meta[m.field]))),
+        ...omitIfEmptyAndAbsent(origRollout, "steps", stepsValue),
+        ...omitIfEmptyAndAbsent(origRollout, "livenessProbe", buildProbeValue(form.liveness)),
+        ...omitIfEmptyAndAbsent(origRollout, "readinessProbe", buildProbeValue(form.readiness))
       };
       summary.push(
         originalRolloutEnabled ? `rollout: replicas/resources/probes/steps and/or pod-template settings updated` : `rollout: enabled (was previously null - a container will now deploy in this environment)`
@@ -1113,6 +1182,15 @@ function ConfigEditor({
     const meta = ADVANCED_META[key];
     const isDirty = dirty.has(meta.field) && (ROLLOUT_RAW_KEYS.includes(key) ? dirty.has("rollout") : true);
     return /* @__PURE__ */ jsxs(Section, { title: meta.title, dirty: isDirty, classes, children: [
+      key === "slos" && sloContext && /* @__PURE__ */ jsx(
+        SloPresets,
+        {
+          ctx: { app: sloContext.app, namespace: sloContext.namespace },
+          cluster: sloContext.cluster,
+          text: advanced.slos,
+          onChange: (text) => setAdv("slos", text)
+        }
+      ),
       /* @__PURE__ */ jsx(YamlBlockEditor, { label: meta.title, hint: meta.hint, value: advanced[key], onChange: (text) => setAdv(key, text) }),
       meta.example && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, style: { marginTop: 8 }, onClick: () => toggleExample(key), children: exampleOpen.has(key) ? "Hide example" : "Show example" }),
@@ -1125,7 +1203,7 @@ function ConfigEditor({
   };
   const fieldsDirty = (keys) => fieldsChanged(keys);
   const tabDirty = {
-    workload: rolloutEnabled !== originalRolloutEnabled || fieldsDirty(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || dirty.has("autoscaling") || dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor") || advanced.rolloutPod !== originalAdvanced.rolloutPod,
+    workload: rolloutEnabled !== originalRolloutEnabled || fieldsDirty(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness", "meta"]) || dirty.has("autoscaling") || dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor") || advanced.rolloutPod !== originalAdvanced.rolloutPod,
     release: stepsCurrentText !== originalStepsRaw || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || dirty.has("notifications") || dirty.has("analysisTemplates") || dirty.has("slos"),
     networking: dirty.has("ingress") || dirty.has("httpRoute") || dirty.has("networkPolicy"),
     config: dirty.has("env") || dirty.has("configMaps") || dirty.has("volumes") || dirty.has("components"),
@@ -1251,12 +1329,32 @@ function ConfigEditor({
             /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("ports", [...form.ports, { name: "", containerPort: "", protocol: "" }], "rollout"), children: "+ Add port" })
           ] })
         ] }),
+        tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Labels and annotations", dirty: fieldsChanged(["meta"]), classes, children: [
+          /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: "Extra labels and annotations on the pods, the Rollout and the Service. Labels and annotations the chart sets itself cannot be overridden." }),
+          METADATA_FIELDS.map((m) => /* @__PURE__ */ jsx(
+            AnnotationRows,
+            {
+              title: m.title,
+              noun: m.noun,
+              hint: m.hint,
+              rows: form.meta[m.field],
+              onChange: (rows) => setF("meta", { ...form.meta, [m.field]: rows }, "rollout"),
+              classes
+            },
+            m.field
+          ))
+        ] }),
         tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Health checks", dirty: dirty.has("rollout"), classes, children: [
           /* @__PURE__ */ jsx(ProbeFields, { label: "Liveness probe", probe: form.liveness, onChange: (p) => setF("liveness", p, "rollout"), classes }),
           /* @__PURE__ */ jsx("div", { style: { marginTop: 16 }, children: /* @__PURE__ */ jsx(ProbeFields, { label: "Readiness probe", probe: form.readiness, onChange: (p) => setF("readiness", p, "rollout"), classes }) })
         ] }),
+        tab === "release" && analysisIssues.length > 0 && /* @__PURE__ */ jsxs("div", { role: "alert", className: ui.problem, style: { border: `1px solid ${tokens.bad}`, borderRadius: 6, padding: "10px 12px", marginTop: 10 }, children: [
+          /* @__PURE__ */ jsx("b", { children: "Argo would reject this Rollout:" }),
+          " it refers to an analysis template that does not exist where it is looked up.",
+          /* @__PURE__ */ jsx("ul", { style: { margin: "6px 0 0", paddingLeft: 18 }, children: analysisIssues.map((m) => /* @__PURE__ */ jsx("li", { children: m }, m)) })
+        ] }),
         tab === "release" && /* @__PURE__ */ jsxs(Section, { title: "Canary steps", dirty: dirty.has("rollout"), classes, children: [
-          stepsMode === "simple" ? /* @__PURE__ */ jsx(StepsBuilder, { steps: stepsSimple, onChange: setSteps, declaredTemplateNames, classes }) : /* @__PURE__ */ jsx(
+          stepsMode === "simple" ? /* @__PURE__ */ jsx(StepsBuilder, { steps: stepsSimple, onChange: setSteps, declaredTemplateNames, clusterTemplateNames: clusterAnalysisTemplates, classes }) : /* @__PURE__ */ jsx(
             YamlBlockEditor,
             {
               label: "rollout.steps",
