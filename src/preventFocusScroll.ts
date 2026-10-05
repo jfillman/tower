@@ -59,3 +59,34 @@ export function scrollPanelIntoView(
     getEl()?.scrollIntoView({ behavior: 'smooth', block });
   }, delayMs);
 }
+
+/** The nearest ancestor that actually scrolls vertically, else the page. */
+function scrollParent(el: Element): Element {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = window.getComputedStyle(p).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+  }
+  return document.scrollingElement ?? document.documentElement;
+}
+
+/**
+ * Runs `change` (a click that swaps the content below, like choosing a sub-tab) and keeps the clicked element where it was on
+ * screen. keepScrollPosition alone restores every ancestor's scrollTop, which is not enough when the new content is shorter:
+ * the browser clamps the position and the page appears to jump to the top (2026-10-05: pod Logs/Metrics/YAML and the values
+ * sub-tabs, in this page's nested-scroll layout). Anchoring on the element works whatever happens to the height.
+ */
+export function keepAnchored(el: Element | null, change: () => void) {
+  const before = el?.getBoundingClientRect().top;
+  keepScrollPosition(el, change);
+  if (!el || before === undefined) return;
+  const settle = () => {
+    if (!el.isConnected) return;
+    const delta = el.getBoundingClientRect().top - before;
+    if (Math.abs(delta) > 1) scrollParent(el).scrollTop += delta;
+  };
+  // After the first restore frame, and once more for content that finishes laying out a frame later.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(settle);
+    requestAnimationFrame(() => requestAnimationFrame(settle));
+  });
+}

@@ -9,6 +9,7 @@ jest.mock('@backstage/core-components', () => ({
   Progress: () => <div>loading</div>,
   ResponseErrorPanel: ({ error }: { error: Error }) => <div>{String(error)}</div>,
 }));
+jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
 jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false, data: undefined }) }));
 
 // The real staging values file of boarding-api (gitops-boarding-api, kind-prod/staging), as Crossplane and a person
@@ -18,10 +19,10 @@ const original = load(readFileSync(join(__dirname, '__fixtures__/boarding-api-st
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 const submit = jest.fn(async () => undefined);
-function open(values: Record<string, any> = original) {
+function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string } } = {}) {
   const data = { values: clone(values), raw: 'x', path: 'p' };
   const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitting: false, resetSubmit: jest.fn() };
-  render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" />);
+  render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" {...extra} />);
 }
 const tab = (name: string) => fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));
 const patchOf = () => {
@@ -399,19 +400,163 @@ describe('values form: rollout strategy and pod template are two panels', () => 
     expect(rollout.strategy).toBeUndefined();
   });
 
-  it('the strategy example is valid: its keys are written to the rollout, and the pod keys are untouched', () => {
+  it('the strategy example is safe to start from: it sets the strategy and holds the analysis as comments, so no template reference can dangle', () => {
     open({ rollout: { replicas: 1, command: ['/app'] } });
     tab('Release');
     startingPoint('Rollout strategy');
     const rollout = patchOf().rollout;
     expect(rollout.strategy).toBe('canary');
-    expect(rollout.canaryAnalysis.templates[0].templateName).toBe('boarding-api-no-restarts');
+    expect('canaryAnalysis' in rollout).toBe(false);
     expect(rollout.command).toEqual(['/app']);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('editing the strategy keeps the pod template and the other way round', () => {
     open({ rollout: { replicas: 1, strategy: 'blueGreen', podSpec: { terminationGracePeriodSeconds: 45 } } });
     fireEvent.change(screen.getByRole('spinbutton', { name: /^Replicas$/ }), { target: { value: '2' } });
     expect(patchOf().rollout).toEqual(expect.objectContaining({ replicas: 2, strategy: 'blueGreen', podSpec: { terminationGracePeriodSeconds: 45 } }));
+  });
+});
+
+describe('values form: labels and annotations on the Rollout, pods and Service', () => {
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+  const meta = {
+    labels: { team: 'platform' },
+    annotations: { owner: 'ops' },
+    podLabels: { tier: 'backend' },
+    podAnnotations: { 'prometheus.io/scrape': 'true' },
+    serviceLabels: { exposure: 'internal' },
+    serviceAnnotations: { 'example.com/lb': 'internal' },
+  };
+  const rollout = { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], ...meta };
+
+  it('keeps all six maps when an unrelated field changes (they would be dropped if the form did not know them)', () => {
+    open({ rollout });
+    edit(() => screen.getByRole('spinbutton', { name: /^Replicas$/ }), '2');
+    expect(patchOf().rollout).toEqual({ ...rollout, replicas: 2 });
+  });
+
+  it('shows each map under its own title and edits one without touching the others', () => {
+    open({ rollout });
+    for (const t of ['Pod annotations', 'Pod labels', 'Rollout annotations', 'Rollout labels', 'Service annotations', 'Service labels']) expect(screen.getByText(t)).toBeTruthy();
+    edit(() => screen.getByDisplayValue('backend'), 'frontend');
+    expect(patchOf().rollout).toEqual({ ...rollout, podLabels: { tier: 'frontend' } });
+  });
+
+  it('adds a pod annotation to a rollout that had none, and writes no empty maps for the others', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } });
+    fireEvent.click(within(screen.getByText('Pod annotations').parentElement as HTMLElement).getByRole('button', { name: '+ Add annotation' }));
+    edit(() => screen.getByLabelText('Pod annotations 1 key'), 'prometheus.io/scrape');
+    edit(() => screen.getByLabelText('Pod annotations 1 value'), 'true');
+    const out = patchOf().rollout;
+    expect(out.podAnnotations).toEqual({ 'prometheus.io/scrape': 'true' });
+    for (const k of ['labels', 'annotations', 'podLabels', 'serviceLabels', 'serviceAnnotations']) expect(k in out).toBe(false);
+  });
+
+  it('removing the last entry of a map the file had writes an empty map', () => {
+    open({ rollout: { ...rollout, podLabels: { tier: 'backend' } } });
+    fireEvent.click(within(screen.getByText('Pod labels').parentElement as HTMLElement).getByRole('button', { name: 'Remove' }));
+    expect(patchOf().rollout.podLabels).toEqual({});
+  });
+
+  it('refuses a key the chart owns, naming it, before a pull request is opened', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } });
+    fireEvent.click(within(screen.getByText('Pod labels').parentElement as HTMLElement).getByRole('button', { name: '+ Add label' }));
+    edit(() => screen.getByLabelText('Pod labels 1 key'), 'app.kubernetes.io/name');
+    edit(() => screen.getByLabelText('Pod labels 1 value'), 'x');
+    const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+    expect(region.getByText(/Pod labels: "app.kubernetes.io\/name" is a label the chart owns/)).toBeTruthy();
+    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('values form: analysis templates and their scope', () => {
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+  const stepsWith = (templates: any[]) => ({ replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], steps: [{ setWeight: 50 }, { analysis: { templates, args: [{ name: 'canary-hash', valueFrom: { podTemplateHashValue: 'Latest' } }] } }, { setWeight: 100 }] });
+  const region = () => within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+
+  it('keeps clusterScope on a step when something else changes (the builder used to drop it)', () => {
+    open({ rollout: stepsWith([{ templateName: 'pod-health-check', clusterScope: true }]) }, { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'kind-prod' });
+    edit(() => screen.getByRole('spinbutton', { name: /^Replicas$/ }), '2');
+    expect(patchOf().rollout.steps[1].analysis.templates).toEqual([{ templateName: 'pod-health-check', clusterScope: true }]);
+  });
+
+  it('shows the scope of each template and switches it', () => {
+    open({ rollout: stepsWith([{ templateName: 'mine' }, { templateName: 'pod-health-check', clusterScope: true }]) }, { clusterAnalysisTemplates: ['pod-health-check'] });
+    tab('Release');
+    expect((screen.getByLabelText('Step 2 template 1 scope') as HTMLSelectElement).value).toBe('namespace');
+    expect((screen.getByLabelText('Step 2 template 2 scope') as HTMLSelectElement).value).toBe('cluster');
+    edit(() => screen.getByLabelText('Step 2 template 2 scope'), 'namespace');
+    edit(() => screen.getByLabelText('Step 2 template 2'), 'other');
+    expect(region().getByText(/AnalysisTemplate "other" is not declared in this file/)).toBeTruthy();
+  });
+
+  it('leaves a template with any other key to the raw editor instead of dropping the key', () => {
+    open({ rollout: stepsWith([{ templateName: 'x', somethingElse: 1 }]) });
+    tab('Release');
+    expect(screen.queryByLabelText('Step 2 template 1')).toBeNull();
+    expect(screen.getByText(/doesn't fit the simplified builder/)).toBeTruthy();
+  });
+
+  it('warns at once about the boarding-api pre-prod case, naming the fix, without any edit', () => {
+    open(
+      { rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'pod-health-check' }], startingStep: 2 } } },
+      { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'kind-prod' },
+    );
+    tab('Release');
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(/Argo would reject this Rollout/);
+    expect(alert.textContent).toMatch(/"pod-health-check" is not declared in this file\. It is a ClusterAnalysisTemplate: mark the reference as a cluster template/);
+  });
+
+  it('blocks the pull request while a reference is wrong and allows it once it is declared', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'mine' }] } } });
+    edit(() => screen.getByRole('spinbutton', { name: /^Replicas$/ }), '2');
+    expect((region().getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(region().getByText(/canaryAnalysis: AnalysisTemplate "mine" is not declared in this file/)).toBeTruthy();
+  });
+
+  it('does not judge a cluster template when the cluster list is unknown, and says so', () => {
+    open({ rollout: stepsWith([{ templateName: 'x', clusterScope: true }]) }, { clusterAnalysisTemplates: undefined });
+    tab('Release');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText(/Tower could not read the cluster's list/)).toBeTruthy();
+  });
+
+  it('flags a cluster template the cluster does not have, listing the ones it has', () => {
+    open({ rollout: stepsWith([{ templateName: 'nope', clusterScope: true }]) }, { clusterAnalysisTemplates: ['a', 'b'], analysisCluster: 'kind-prod' });
+    tab('Release');
+    expect(screen.getByRole('alert').textContent).toMatch(/"nope" is not a ClusterAnalysisTemplate on kind-prod\. Available: a, b\./);
+  });
+
+  it('a new analysis step takes templates one by one and writes clusterScope only for a cluster one', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], steps: [] } }, { clusterAnalysisTemplates: ['pod-health-check'] });
+    tab('Release');
+    fireEvent.click(screen.getByRole('button', { name: '+ Analysis step' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Add template' }));
+    edit(() => screen.getByLabelText('Step 1 template 1 scope'), 'cluster');
+    edit(() => screen.getByLabelText('Step 1 template 1'), 'pod-health-check');
+    expect(patchOf().rollout.steps).toEqual([
+      { analysis: { templates: [{ templateName: 'pod-health-check', clusterScope: true }], args: [{ name: 'canary-hash', valueFrom: { podTemplateHashValue: 'Latest' } }] } },
+    ]);
+  });
+});
+
+describe('values form: common SLOs', () => {
+  it('offers the toggles on the Release tab when it knows where to look, stages the SLO, and writes it to slos', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { sloContext: { cluster: 'kind-dev', namespace: 'app-boarding-api-staging', app: 'boarding-api' } });
+    tab('Release');
+    expect(screen.getByText('Common SLOs')).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'SLO Readiness availability' }));
+    const out = patchOf();
+    expect(out.slos).toHaveLength(1);
+    expect(out.slos[0].name).toBe('boarding-api-readiness-availability');
+    expect(out.slos[0].indicator.metric).toBe('prober_probe_total');
+  });
+
+  it('does not offer them without a context (so nothing is queried)', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } });
+    tab('Release');
+    expect(screen.queryByText('Common SLOs')).toBeNull();
   });
 });

@@ -36,6 +36,9 @@ jest.mock('../environments/applicationEnvironment', () => ({
   useLaunchApplicationEnvironment: () => ({ state: { status: 'idle' }, launch: launchMock, reset: jest.fn() }),
 }));
 let lifecycleSteps: any[] = [];
+jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
+let clusterTemplates: string[] | undefined;
+jest.mock('../values/useClusterAnalysisTemplates', () => ({ useClusterAnalysisTemplates: () => clusterTemplates }));
 const loadValuesMock = jest.fn();
 jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources'), useEnvValuesLoader: () => loadValuesMock }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
@@ -74,6 +77,7 @@ beforeEach(() => {
   platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'platform/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: 'envName: test\n' } };
   lifecycleSteps = [];
   loadValuesMock.mockReset();
+  clusterTemplates = undefined;
   window.localStorage.clear();
   resetMock.mockReset();
   launchMock.mockReset();
@@ -1056,5 +1060,34 @@ describe('EnvironmentsTab: copying values into the form', () => {
     fireEvent.click(openRow('test'));
     fireEvent.change(screen.getByLabelText('Copy values from'), { target: { value: 'dev' } });
     await waitFor(() => expect(screen.getByText(/Could not load the values of dev/)).toBeTruthy());
+  });
+});
+
+describe('EnvironmentsTab: analysis templates in a row', () => {
+  it('warns about a canary template that does not exist, using the cluster\'s templates', () => {
+    k8sOld();
+    platformFile = {
+      loading: false,
+      data: { repo: 'o/x', path: 'platform/envs/test.yaml', values: { rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'pod-health-check' }] } } }, raw: 'rollout: {}\n' },
+    };
+    clusterTemplates = ['pod-health-check'];
+    renderTab();
+    fireEvent.click(openRow('test'));
+    fireEvent.click(screen.getByRole('tab', { name: /^Release/ }));
+    expect(screen.getByRole('alert').textContent).toMatch(/ClusterAnalysisTemplate: mark the reference as a cluster template/);
+  });
+});
+
+describe('EnvironmentsTab: sub-tabs keep the page where it is', () => {
+  it('switching a values sub-tab runs through the scroll anchoring (it used to jump to the top)', () => {
+    k8sOld();
+    renderTab();
+    fireEvent.click(openRow('test'));
+    const spy = jest.spyOn(Element.prototype, 'getBoundingClientRect');
+    fireEvent.click(screen.getByRole('tab', { name: /^Networking/ }));
+    // keepAnchored reads the clicked element's position before the change; that is the signal it ran
+    expect(spy).toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Networking' })).toBeTruthy();
+    spy.mockRestore();
   });
 });
