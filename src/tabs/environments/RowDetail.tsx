@@ -5,6 +5,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
 import { ConfigEditor } from '../../values/ValuesForm';
 import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
+import { useChartValues } from '../../values/annotatedValues';
 import { useComponentCatalog } from '../../values/componentCatalog';
 import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates';
 import { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, type ValuesSource } from '../../values/sources';
@@ -263,6 +264,7 @@ function GroundValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
   const copyFrom = useCopyFrom(ctx, env);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
+  const chart = useChartValues(ctx.owner);
   return (
     <ConfigEditor
       owner={ctx.owner as string}
@@ -273,7 +275,7 @@ function GroundValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
       copyFrom={copyFrom}
       analysisCluster={cluster}
       clusterAnalysisTemplates={clusterTemplates}
-      componentCatalog={componentCatalog}
+      componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
     />
   );
@@ -283,6 +285,7 @@ function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
   const copyFrom = useCopyFrom(ctx, env);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
+  const chart = useChartValues(ctx.owner);
   return (
     <ConfigEditor
       owner={ctx.owner as string}
@@ -294,7 +297,7 @@ function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
       copyFrom={copyFrom}
       analysisCluster={cluster}
       clusterAnalysisTemplates={clusterTemplates}
-      componentCatalog={componentCatalog}
+      componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
     />
   );

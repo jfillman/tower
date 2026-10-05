@@ -19,7 +19,7 @@ const original = load(readFileSync(join(__dirname, '__fixtures__/boarding-api-st
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 const submit = jest.fn(async () => undefined);
-function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[] } = {}) {
+function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[]; chart?: any } = {}) {
   const data = { values: clone(values), raw: 'x', path: 'p' };
   const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitting: false, resetSubmit: jest.fn() };
   render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" {...extra} />);
@@ -616,5 +616,22 @@ describe('values form: components', () => {
     open(original, { componentCatalog: catalog });
     tab('Components');
     expect(screen.getByRole('heading', { name: 'Attached components (YAML)' })).toBeTruthy();
+  });
+});
+
+describe('values form: full annotated values', () => {
+  it('shows the committed file marked as set, and a staged change in it', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    open(original, { chart: require('./__fixtures__/chartValues.json') });
+    fireEvent.click(screen.getByRole('button', { name: /View full values/ }));
+    const view = () => screen.getByLabelText('Full values').textContent ?? '';
+    expect(view()).toContain('# set here');
+    expect(view()).toContain('DNS-1123 label');
+    expect(view()).toContain('replicas: ');
+    const before = view();
+    tab('Workload');
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Replicas$/ }), { target: { value: '7' } });
+    expect(view()).not.toBe(before);
+    expect(view()).toContain('replicas: 7');
   });
 });

@@ -21,6 +21,7 @@ import { useStyles, type Cls } from './styles';
 import { SloPresets } from './SloPresets';
 import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
+import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
 import { declaredComponents, matchComponentOutput, outputsOf } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
@@ -1183,6 +1184,7 @@ export function ConfigEditor({
   clusterAnalysisTemplates,
   sloContext,
   componentCatalog,
+  chart,
 }: {
   owner: string;
   appName: string;
@@ -1200,6 +1202,8 @@ export function ConfigEditor({
   sloContext?: { cluster: string; namespace: string; app: string };
   /** The attachable components from airframe (undefined while loading or when it could not be read: the YAML editor is the fallback). */
   componentCatalog?: ComponentDefinition[];
+  /** The chart's schema and defaults (undefined when Tower could not read them). */
+  chart?: ChartValues;
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1230,6 +1234,7 @@ export function ConfigEditor({
   const [stepsRaw, setStepsRaw] = useState('');
   const [originalStepsRaw, setOriginalStepsRaw] = useState('');
   const [showRawFile, setShowRawFile] = useState(false);
+  const [showFull, setShowFull] = useState(false);
   const [exampleOpen, setExampleOpen] = useState<Set<AdvancedKey>>(new Set());
 
   useEffect(() => {
@@ -1694,6 +1699,22 @@ export function ConfigEditor({
           <Typography className={classes.note}>Live values from GitHub - not polled, use refresh for the latest commit.</Typography>
           <RefreshButton onClick={source.refresh} />
         </div>
+        <button type="button" className={classes.advancedToggle} onClick={() => setShowFull(v => !v)}>
+          {showFull ? '▾ Hide full values (annotated)' : '▸ View full values (annotated)'}
+        </button>
+        {showFull && (
+          <>
+            <Typography className={classes.hint}>
+              {chart
+                ? 'The chart defaults with this file laid over them, every field with its description; "# set here" marks what the file sets. Changes you have staged in the form are included.'
+                : "Tower could not read the chart's schema, so this shows only the committed file."}
+              {dirty.size > 0 ? ' (Showing your staged changes.)' : ''}
+            </Typography>
+            <pre className={classes.example} style={{ maxHeight: 480, overflow: 'auto' }} aria-label="Full values">
+              {annotateValues(chart, mergeValues(cfg.data.values, previewPatch) as Record<string, unknown>)}
+            </pre>
+          </>
+        )}
         {copyFrom && copyFrom.options.length > 0 && (
           <div className={classes.row}>
             <select className={classes.input} aria-label="Copy values from" value="" onChange={e => void copyValues(e.target.value)} style={{ maxWidth: 260 }}>
