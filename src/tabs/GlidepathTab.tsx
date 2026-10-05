@@ -13,19 +13,18 @@ import AddIcon from '@material-ui/icons/Add';
 import { dump as dumpYaml, load as loadYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
-import { HangarMark } from '../brand/HangarMark';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
 import {
   useCicdConfig,
-  usePlatformEnvs,
-  useSubmitCicdConfigChange,
+    useSubmitCicdConfigChange,
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { PlatformFileEditor } from '../PlatformFileEditor';
+import { PageHeader, Subtabs } from '../ui';
+import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
-import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField, type PlatformEnvSelector } from '../types';
+import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
 
 // Tower's Glidepath tab (2026-09-16): full management of an app's own
 // cicd.yaml (the file that configures the Glidepath CI/CD engine itself)
@@ -370,6 +369,29 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
 }));
 
+type GlidepathTabId = 'build' | 'test' | 'deploy' | 'preview' | 'governance' | 'notifications' | 'secrets' | 'pipelines' | 'advanced';
+const GLIDEPATH_TABS: Array<{ id: GlidepathTabId; label: string }> = [
+  { id: 'build', label: 'Build' },
+  { id: 'test', label: 'Test' },
+  { id: 'deploy', label: 'Deploy' },
+  { id: 'preview', label: 'Preview environments' },
+  { id: 'governance', label: 'Governance' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'secrets', label: 'Secrets' },
+  { id: 'pipelines', label: 'Pipelines' },
+  { id: 'advanced', label: 'Advanced' },
+];
+const TAB_OF_FIELD: Partial<Record<CicdTopLevelField, GlidepathTabId>> = {
+  build: 'build',
+  test: 'test',
+  deploy: 'deploy',
+  ephemeralEnvironments: 'preview',
+  governance: 'governance',
+  notifications: 'notifications',
+  secrets: 'secrets',
+  pipelines: 'pipelines',
+};
+
 export function GlidepathTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -381,8 +403,7 @@ export function GlidepathTab() {
   const submitCicd = useSubmitCicdConfigChange();
 
   const [form, setForm] = useState<CicdFormState | undefined>(undefined);
-  const [showRaw, setShowRaw] = useState(false);
-  const [platformSelector, setPlatformSelector] = useState<PlatformEnvSelector>({ kind: 'pr-env' });
+  const [tab, setTab] = useState<GlidepathTabId>('build');
 
   useEffect(() => {
     if (cicd.data) setForm(buildFormFromValues(cicd.data.values));
@@ -400,6 +421,10 @@ export function GlidepathTab() {
       text => validateYamlBlock(text).valid,
     );
   }, [form]);
+
+  const dirtyTabs = new Set<GlidepathTabId>((Object.keys(patch) as CicdTopLevelField[]).map(k => TAB_OF_FIELD[k] ?? 'advanced'));
+  const lines: PendingLine[] = (Object.keys(patch) as CicdTopLevelField[]).map(k => ({ title: `Update ${k}`, detail: `cicd.yaml › ${k}` }));
+  const problems = yamlBlocksValid ? [] : ['A YAML block (deploy environments or pipelines) is not valid YAML. Fix it before opening the pull request.'];
 
   if (contextLoading) return <Progress />;
   if (contextError) return <ResponseErrorPanel error={new Error(contextError)} />;
@@ -434,19 +459,15 @@ export function GlidepathTab() {
 
   return (
     <div className={classes.root}>
-      <div className={classes.headerRow}>
-        <div className={classes.headerTitle}>
-          <HangarMark glyph="glidepath" size={28} />
-          <Typography className={classes.title}>Glidepath</Typography>
-        </div>
-        <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} label="Refresh" />
-      </div>
-      <Typography className={classes.sectionHint}>
-        Full management of {appName}'s cicd.yaml (the Glidepath CI/CD engine's own config) and its platform/
-        folder. Every change here opens a real PR against {appName} - nothing is committed directly.
-      </Typography>
+      <PageHeader
+        title="Glidepath"
+        subtitle={`${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName} repo; nothing is committed directly.`}
+        actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} label="Refresh" />}
+      />
+      <Subtabs label="Glidepath sections" value={tab} onChange={setTab} tabs={GLIDEPATH_TABS.map(x => ({ ...x, marked: dirtyTabs.has(x.id) }))} />
 
       {/* --- Build --------------------------------------------------------*/}
+      {tab === 'build' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Build</Typography>
         <div className={classes.row}>
@@ -539,8 +560,10 @@ export function GlidepathTab() {
           </Select>
         </div>
       </div>
+      )}
 
       {/* --- Test -----------------------------------------------------------*/}
+      {tab === 'test' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Test</Typography>
         <div className={classes.switchRow}>
@@ -556,7 +579,9 @@ export function GlidepathTab() {
           />
         )}
       </div>
+      )}
 
+      {tab === 'deploy' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Deploy</Typography>
         {form.usesEnvironments ? (
@@ -605,8 +630,10 @@ export function GlidepathTab() {
           />
         )}
       </div>
+      )}
 
       {/* --- Ephemeral Environments ------------------------------------- */}
+      {tab === 'preview' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Ephemeral Environments</Typography>
         <div className={classes.switchRow}>
@@ -648,8 +675,10 @@ export function GlidepathTab() {
           size="small"
         />
       </div>
+      )}
 
       {/* --- Governance --------------------------------------------------*/}
+      {tab === 'governance' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Governance</Typography>
         <Typography className={classes.govCaption}>
@@ -680,8 +709,10 @@ export function GlidepathTab() {
           size="small"
         />
       </div>
+      )}
 
       {/* --- Notifications ------------------------------------------------*/}
+      {tab === 'notifications' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Notifications</Typography>
         <div className={classes.switchRow}>
@@ -716,8 +747,10 @@ export function GlidepathTab() {
           <Typography className={classes.switchLabel}>Backstage notifications</Typography>
         </div>
       </div>
+      )}
 
       {/* --- Secrets ------------------------------------------------------*/}
+      {tab === 'secrets' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Secrets</Typography>
         {form.secrets.map((s, i) => (
@@ -749,8 +782,10 @@ export function GlidepathTab() {
           <AddIcon fontSize="small" />
         </IconButton>
       </div>
+      )}
 
       {/* --- Pipelines (named flows) ---------------------------------------*/}
+      {tab === 'pipelines' && (
       <div className={classes.section}>
         <Typography className={classes.sectionTitle}>Pipelines</Typography>
         <Typography className={classes.sectionHint}>
@@ -763,124 +798,39 @@ export function GlidepathTab() {
           rows={10}
         />
       </div>
-
-      <div className={classes.submitBar}>
-        <button
-          type="button"
-          className={classes.submitBtn}
-          disabled={!dirty || !yamlBlocksValid || submitCicd.loading}
-          onClick={handleSubmit}
-        >
-          {submitCicd.loading ? 'Opening PR…' : 'Open PR for cicd.yaml'}
-        </button>
-        {!yamlBlocksValid && <Typography className={classes.govCaption}>Fix invalid YAML above before submitting.</Typography>}
-      </div>
-      {submitCicd.result && (
-        <Typography>
-          {submitCicd.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-          <Link className={classes.resultLink} href={submitCicd.result.prUrl} target="_blank" rel="noopener noreferrer">
-            {submitCicd.result.prUrl}
-          </Link>
-        </Typography>
       )}
-      {submitCicd.error && <ResponseErrorPanel error={new Error(submitCicd.error)} />}
 
-      <div className={classes.section}>
-        <div className={classes.row} style={{ justifyContent: 'space-between' }}>
-          <Typography className={classes.sectionTitle}>View full committed cicd.yaml</Typography>
-          <Link component="button" onClick={() => setShowRaw(v => !v)} className={classes.resultLink}>
-            {showRaw ? 'hide' : 'show'}
-          </Link>
+      {tab === 'advanced' && (
+        <div className={classes.section}>
+          <Typography className={classes.sectionTitle}>Committed cicd.yaml</Typography>
+          <Typography className={classes.sectionHint}>The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges.</Typography>
+          <pre className={classes.rawView}>{cicd.data?.raw || '(no cicd.yaml committed yet)'}</pre>
         </div>
-        {showRaw && <pre className={classes.rawView}>{cicd.data?.raw || '(no cicd.yaml committed yet)'}</pre>}
-      </div>
+      )}
 
-      {/* --- platform/ folder ---------------------------------------------*/}
-      <PlatformFilesSection owner={owner} appName={appName} selector={platformSelector} onSelectorChange={setPlatformSelector} />
-    </div>
-  );
-}
-
-function PlatformFilesSection({
-  owner,
-  appName,
-  selector,
-  onSelectorChange,
-}: {
-  owner: string;
-  appName: string;
-  selector: PlatformEnvSelector;
-  onSelectorChange: (s: PlatformEnvSelector) => void;
-}) {
-  const t = useHangarTokens();
-  const classes = useStyles({ t });
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const envs = usePlatformEnvs({ owner, appName }, refreshNonce);
-  const [newEnvName, setNewEnvName] = useState('');
-  const [newEnvError, setNewEnvError] = useState<string | undefined>(undefined);
-
-  return (
-    <div className={classes.section}>
-      <Typography className={classes.sectionTitle}>Platform files</Typography>
-      <Typography className={classes.sectionHint}>
-        platform/pr-env.yaml (the PR-preview environment template) and platform/envs/&lt;env&gt;.yaml (one per
-        lower/dev environment) - the same airframe-application chart values as App Configuration, minus
-        rollout.image (owned by the ArgoCD ApplicationSet / deploy automation). platform/envs/&lt;env&gt;.yaml's
-        own envName is set automatically to match whichever env is selected - never edited by hand.
-      </Typography>
-      <div className={classes.row}>
-        <TextField
-          label="New environment name"
-          value={newEnvName}
-          onChange={e => {
-            setNewEnvName(e.target.value);
-            setNewEnvError(undefined);
-          }}
-          size="small"
-        />
-        <button
-          type="button"
-          className={classes.submitBtn}
-          onClick={() => {
-            const name = newEnvName.trim();
-            if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) {
-              setNewEnvError('Lowercase letters, digits, hyphens only.');
-              return;
-            }
-            if ((envs.data?.envs ?? []).includes(name)) {
-              setNewEnvError(`${name} already exists - select it below to edit it.`);
-              return;
-            }
-            onSelectorChange({ kind: 'env', env: name });
-            setNewEnvName('');
-          }}
-        >
-          Create
-        </button>
-        {newEnvError && <Typography className={classes.govCaption}>{newEnvError}</Typography>}
-      </div>
-      <div className={classes.row}>
-        <Select value={selector.kind === 'pr-env' ? '__pr-env__' : selector.env} onChange={e => {
-          const v = e.target.value as string;
-          onSelectorChange(v === '__pr-env__' ? { kind: 'pr-env' } : { kind: 'env', env: v });
-        }}>
-          <MenuItem value="__pr-env__">Preview env template (pr-env.yaml)</MenuItem>
-          {(envs.data?.envs ?? []).map(env => (
-            <MenuItem key={env} value={env}>
-              {env}
-            </MenuItem>
-          ))}
-          {/* The env just typed into "New environment" above, before its first
-          PR has ever merged - not yet in envs.data.envs (that's a real
-          directory listing), but the Select needs a matching option or React
-          silently shows nothing selected. */}
-          {selector.kind === 'env' && !(envs.data?.envs ?? []).includes(selector.env) && (
-            <MenuItem value={selector.env}>{selector.env} (new)</MenuItem>
-          )}
-        </Select>
-        <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} label="Refresh" />
-      </div>
-      <PlatformFileEditor owner={owner} appName={appName} selector={selector} refreshNonce={refreshNonce} />
+      <PendingPanel
+        heading="Pending changes to cicd.yaml"
+        stick="bottom"
+        lines={lines}
+        problems={problems}
+        emptyText="Nothing staged. Edit a field above and it is listed here."
+        busy={submitCicd.loading}
+        busyLabel="Opening pull request…"
+        submitLabel="Open pull request"
+        onDiscard={() => cicd.data && setForm(buildFormFromValues(cicd.data.values))}
+        onSubmit={handleSubmit}
+        notes={['cicd.yaml is one file per app, so these changes go in one pull request.']}
+      >
+        {submitCicd.result && (
+          <Typography>
+            {submitCicd.result.alreadyOpen ? 'A pull request for this exact change is already open: ' : 'Pull request opened: '}
+            <Link className={classes.resultLink} href={submitCicd.result.prUrl} target="_blank" rel="noopener noreferrer">
+              {submitCicd.result.prUrl}
+            </Link>
+          </Typography>
+        )}
+        {submitCicd.error && <ResponseErrorPanel error={new Error(submitCicd.error)} />}
+      </PendingPanel>
     </div>
   );
 }

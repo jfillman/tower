@@ -6,7 +6,7 @@ import {
   useSubmitConfigChange,
   useSubmitPlatformFileChange,
 } from '../useConfigData';
-import type { ConfigTopLevelField } from '../types';
+import type { ConfigTopLevelField, PlatformEnvSelector } from '../types';
 
 // Where the values form reads an environment's chart values from and where its pull request goes. A Flight
 // environment's values are gitops-<app>/<cluster>/<env>/values.yaml; a Ground environment's are the source repo's
@@ -41,8 +41,13 @@ export function useFlightValuesSource(target: { owner: string; appName: string; 
 }
 
 export function useGroundValuesSource(target: { owner: string; appName: string; env: string }): ValuesSource {
+  return usePlatformValuesSource({ owner: target.owner, appName: target.appName, selector: { kind: 'env', env: target.env } });
+}
+
+/** One file of the source repo's platform/ folder: an environment's, the shared base.yaml, or the preview template. */
+export function usePlatformValuesSource(target: { owner: string; appName: string; selector: PlatformEnvSelector }): ValuesSource {
   const [nonce, setNonce] = useState(0);
-  const selector = { kind: 'env' as const, env: target.env };
+  const { selector } = target;
   const file = usePlatformFile({ owner: target.owner, appName: target.appName, selector }, nonce);
   const sub = useSubmitPlatformFileChange();
   return {

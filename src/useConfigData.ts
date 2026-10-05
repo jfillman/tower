@@ -363,7 +363,7 @@ export function useCicdSchema(owner: string | undefined) {
 // --- Glidepath tab: platform/ folder (mirrors glidepathPlatformConfig.ts) -
 
 function platformEnvKey(selector: PlatformEnvSelector): string {
-  return selector.kind === 'pr-env' ? 'pr-env' : `env:${selector.env}`;
+  return selector.kind === 'env' ? `env:${selector.env}` : selector.kind;
 }
 
 export function usePlatformFile(
@@ -389,6 +389,7 @@ export function usePlatformFile(
         const baseUrl = await discoveryApi.getBaseUrl('glidepath');
         const params = new URLSearchParams({ owner: target.owner, appName: target.appName });
         if (target.selector.kind === 'env') params.set('env', target.selector.env);
+        if (target.selector.kind === 'base') params.set('file', 'base');
         const res = await fetchApi.fetch(`${baseUrl}/config/platform-env?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => undefined);
@@ -427,6 +428,7 @@ export function useSubmitPlatformFileChange() {
           owner: request.owner,
           appName: request.appName,
           env: request.selector.kind === 'env' ? request.selector.env : undefined,
+          file: request.selector.kind === 'base' ? 'base' : undefined,
           patch: request.patch,
           summary: request.summary,
         }),
