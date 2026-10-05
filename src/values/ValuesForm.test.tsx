@@ -67,7 +67,7 @@ describe('values form sub-tabs', () => {
     const where: Record<string, string> = {};
     for (const id of ['Workload', 'Release', 'Networking', 'Config', 'Access', 'Advanced']) {
       fireEvent.click(tab(id));
-      for (const title of ['Rollout strategy & pod template', 'Custom AnalysisTemplates', 'SLOs', 'Volumes (PVCs)', 'Attached components', 'Cron jobs', 'One-off jobs', 'Extra manifests']) {
+      for (const title of ['Pod template', 'Rollout strategy', 'Custom AnalysisTemplates', 'SLOs', 'Volumes (PVCs)', 'Attached components', 'Cron jobs', 'One-off jobs', 'Extra manifests']) {
         if (screen.queryByRole('heading', { name: title })) {
           expect(where[title]).toBeUndefined();
           where[title] = id;
@@ -75,7 +75,8 @@ describe('values form sub-tabs', () => {
       }
     }
     expect(where).toEqual({
-      'Rollout strategy & pod template': 'Workload',
+      'Pod template': 'Workload',
+      'Rollout strategy': 'Release',
       'Custom AnalysisTemplates': 'Release',
       SLOs: 'Release',
       'Volumes (PVCs)': 'Config',
@@ -145,7 +146,7 @@ describe('values form pending changes', () => {
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
     const textarea = screen.getAllByRole('textbox').find(t => t.tagName === 'TEXTAREA') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'a: [' } });
-    expect(panel().getByText(/Rollout strategy & pod template: fix the YAML syntax error/)).toBeTruthy();
+    expect(panel().getByText(/Pod template: fix the YAML syntax error/)).toBeTruthy();
     expect((panel().getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
   });
 

@@ -192,3 +192,226 @@ describe('values form: the chart fields it gained', () => {
     expect(patchOf().serviceMonitor).toEqual(expected);
   });
 });
+
+describe('values form: network policy', () => {
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+  // The chart's own default block, as pasted in the bug report: every field of it must be reachable and survive.
+  const np = {
+    enabled: true,
+    allowIngressFromIngressController: true,
+    ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'kiac-gateway' } },
+    allowIngressFrom: [],
+    allowEgressTo: [],
+    extraIngressRules: [],
+    extraEgressRules: [],
+  };
+  const withNp = (over: Record<string, any> = {}) => ({ networkPolicy: { ...np, ...over }, rollout: { replicas: 1 } });
+
+  it('shows the gateway namespace and writes a new one, keeping the rest', () => {
+    open(withNp());
+    tab('Networking');
+    expect((screen.getByLabelText('Gateway namespace') as HTMLInputElement).value).toBe('kiac-gateway');
+    edit(() => screen.getByLabelText('Gateway namespace'), 'other-gateway');
+    expect(patchOf().networkPolicy).toEqual({ ...np, ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'other-gateway' } } });
+  });
+
+  it('adds an ingress source with pod labels and ports, and an egress CIDR', () => {
+    open(withNp());
+    tab('Networking');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add source' }));
+    edit(() => screen.getByLabelText('Also allow ingress from 1 namespace'), 'app-flight-api-staging');
+    edit(() => screen.getByLabelText('Also allow ingress from 1 pod labels'), 'app=flight-api');
+    edit(() => screen.getByLabelText('Also allow ingress from 1 ports'), '8080, 8443');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add destination' }));
+    edit(() => screen.getByLabelText('Allow egress to 1 kind'), 'cidr');
+    edit(() => screen.getByLabelText('Allow egress to 1 CIDR'), '10.0.0.0/8');
+    const out = patchOf().networkPolicy;
+    expect(out.allowIngressFrom).toEqual([{ namespace: 'app-flight-api-staging', podLabels: { app: 'flight-api' }, ports: [8080, 8443] }]);
+    expect(out.allowEgressTo).toEqual([{ cidr: '10.0.0.0/8' }]);
+    expect(out.extraIngressRules).toEqual([]);
+  });
+
+  it('edits existing peers and clearing the last one clears the list', () => {
+    open(withNp({ allowEgressTo: [{ namespace: 'db', ports: [5432] }] }));
+    tab('Networking');
+    edit(() => screen.getByDisplayValue('db'), 'db-prod');
+    expect(patchOf().networkPolicy.allowEgressTo).toEqual([{ namespace: 'db-prod', ports: [5432] }]);
+    submit.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard all' }));
+    tab('Networking');
+    fireEvent.click(within(screen.getByText('Allow egress to').parentElement as HTMLElement).getByRole('button', { name: 'Remove' }));
+    expect(patchOf().networkPolicy.allowEgressTo).toEqual([]);
+  });
+
+  it('takes raw extra rules as YAML lists and refuses invalid ones', () => {
+    open(withNp());
+    tab('Networking');
+    const boxes = () => screen.getAllByRole('textbox').filter(t => t.tagName === 'TEXTAREA') as HTMLTextAreaElement[];
+    edit(() => boxes()[0], '- from:\n    - namespaceSelector: {}\n  ports:\n    - protocol: UDP\n      port: 53\n');
+    expect(patchOf().networkPolicy.extraIngressRules).toEqual([{ from: [{ namespaceSelector: {} }], ports: [{ protocol: 'UDP', port: 53 }] }]);
+    submit.mockClear();
+    edit(() => boxes()[0], 'a: [');
+    const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+    expect(region.getByText(/Network policy extra rules: fix the YAML syntax error/)).toBeTruthy();
+    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    edit(() => boxes()[0], 'a: 1');
+    expect(region.getByText(/must be a YAML list of rules/)).toBeTruthy();
+  });
+
+  it('flags a source with no namespace and bad ports', () => {
+    open(withNp());
+    tab('Networking');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add source' }));
+    edit(() => screen.getByLabelText('Also allow ingress from 1 ports'), '99999');
+    const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+    expect(region.getByText(/Network policy ingress source 1 needs a namespace/)).toBeTruthy();
+    expect(region.getByText(/ports must be whole numbers from 1 to 65535/)).toBeTruthy();
+  });
+});
+
+describe('values form: env values from a component', () => {
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+  const withComponents = (env: any[]) => ({ components: [{ type: 'rabbitmq', name: 'board-mq', spec: {} }], env });
+
+  it('reads a fromComponent entry and writes it back unchanged when another variable changes', () => {
+    open(withComponents([{ name: 'RABBITMQ_HOST', fromComponent: { name: 'board-mq', output: 'host' } }, { name: 'A', value: '1' }]));
+    tab('Config');
+    expect((screen.getByLabelText('Variable 1 component') as HTMLSelectElement).value).toBe('board-mq');
+    expect((screen.getByLabelText('Variable 1 output') as HTMLSelectElement).value).toBe('host');
+    edit(() => screen.getByDisplayValue('1'), '2');
+    expect(patchOf().env).toEqual([{ name: 'RABBITMQ_HOST', fromComponent: { name: 'board-mq', output: 'host' } }, { name: 'A', value: '2' }]);
+  });
+
+  it('offers the declared components and their outputs', () => {
+    open(withComponents([{ name: 'X', fromComponent: { name: 'board-mq', output: 'host' } }]));
+    tab('Config');
+    const outputs = [...(screen.getByLabelText('Variable 1 output') as HTMLSelectElement).options].map(o => o.value).filter(Boolean);
+    expect(outputs).toEqual(['username', 'password', 'host', 'port', 'vhost']);
+  });
+
+  it('suggests the component reference for a hand-written one (AF-COMP-003) and converts on request', () => {
+    open(withComponents([{ name: 'RABBITMQ_HOST', valueFrom: { configMapKeyRef: { name: 'board-mq-connection', key: 'host' } } }]));
+    tab('Config');
+    fireEvent.click(screen.getByRole('button', { name: 'Use component board-mq.host instead' }));
+    expect(patchOf().env).toEqual([{ name: 'RABBITMQ_HOST', fromComponent: { name: 'board-mq', output: 'host' } }]);
+  });
+
+  it('gives no suggestion for a reference that is not a component output', () => {
+    open(withComponents([{ name: 'TOKEN', valueFrom: { secretKeyRef: { name: 'my-secret', key: 'token' } } }]));
+    tab('Config');
+    expect(screen.queryByRole('button', { name: /Use component/ })).toBeNull();
+  });
+
+  it('refuses a component variable with no output chosen', () => {
+    open(withComponents([{ name: 'A', value: '1' }]));
+    tab('Config');
+    edit(() => screen.getByLabelText('Variable 1 source'), 'component');
+    const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+    expect(region.getByText(/takes its value from a component: choose the component and the output/)).toBeTruthy();
+  });
+});
+
+describe('values form: placeholders are ghost text, not values', () => {
+  it('example values say so and defaults say default', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] }, httpRoute: { enabled: true, hostnames: [], parentRefs: [] } });
+    tab('Networking');
+    const placeholders = screen.getAllByRole('textbox').map(e => e.getAttribute('placeholder') ?? '');
+    expect(placeholders).toContain('e.g. boarding-api.prod.kiac.local');
+    expect(placeholders).not.toContain('checkout-api.prod.kiac.local');
+    expect(placeholders.filter(p => /^\/|^\d+$/.test(p))).toEqual([]); // no bare "/" or "3000" that reads as a value
+  });
+});
+
+describe('values form: annotations', () => {
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+
+  it('the Service account annotations are labelled as such, and are written to serviceAccount.annotations', () => {
+    open({ serviceAccount: { create: true, name: '', annotations: {}, imagePullSecrets: [] } });
+    tab('Access');
+    expect(screen.getByText('Service account annotations')).toBeTruthy();
+    expect(screen.getByText(/no field for annotations on the pods or the Deployment/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '+ Add annotation' }));
+    edit(() => screen.getByLabelText('Service account annotations 1 key'), 'riley');
+    edit(() => screen.getByLabelText('Service account annotations 1 value'), 'roo');
+    expect(patchOf().serviceAccount).toEqual({ create: true, name: '', annotations: { riley: 'roo' }, imagePullSecrets: [] });
+  });
+
+  it('ingress and HTTPRoute annotations are editable and keep the existing ones', () => {
+    open({ ingress: { enabled: true, host: 'a.example.com', annotations: { keep: 'me' } }, httpRoute: { enabled: true, hostnames: ['a'], parentRefs: [{ name: 'gw', namespace: 'g' }] } });
+    tab('Networking');
+    // the HTTPRoute block comes first; its add button is the first one
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add annotation' })[0]);
+    edit(() => screen.getByLabelText('HTTPRoute annotations 1 key'), 'x');
+    edit(() => screen.getByLabelText('HTTPRoute annotations 1 value'), 'y');
+    edit(() => screen.getByLabelText('Ingress annotations 1 value'), 'changed');
+    const p = patchOf();
+    expect(p.httpRoute.annotations).toEqual({ x: 'y' });
+    expect(p.ingress.annotations).toEqual({ keep: 'changed' });
+  });
+
+  it('removing the last annotation of a block that had some writes an empty map, and a block that had none writes no key', () => {
+    open({ ingress: { enabled: true, host: 'a.example.com', annotations: { keep: 'me' } } });
+    tab('Networking');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(patchOf().ingress.annotations).toEqual({});
+  });
+
+  it('a block that had no annotations writes no annotations key when nothing is added', () => {
+    open({ ingress: { enabled: true, host: 'a.example.com', path: '/' } });
+    tab('Networking');
+    edit(() => screen.getByDisplayValue('a.example.com'), 'b.example.com');
+    expect('annotations' in patchOf().ingress).toBe(false);
+  });
+
+  it('ServiceMonitor labels are editable and keep the existing ones', () => {
+    open({ serviceMonitor: { enabled: true, path: '/metrics', interval: '30s', additionalLabels: { release: 'prom' } } });
+    edit(() => screen.getByDisplayValue('prom'), 'kube-prometheus-stack');
+    expect(patchOf().serviceMonitor.additionalLabels).toEqual({ release: 'kube-prometheus-stack' });
+  });
+});
+
+describe('values form: rollout strategy and pod template are two panels', () => {
+  const startingPoint = (heading: string) => {
+    const section = screen.getByRole('heading', { name: heading }).parentElement as HTMLElement;
+    fireEvent.click(within(section).getByRole('button', { name: 'Show example' }));
+    fireEvent.click(within(section).getByRole('button', { name: 'Use this as a starting point' }));
+  };
+
+  it('Rollout strategy is on the Release tab and Pod template on the Workload tab, each with its own example', () => {
+    open({ rollout: { replicas: 1 } });
+    expect(screen.getByRole('heading', { name: 'Pod template' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Rollout strategy' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show example' }));
+    expect(screen.getByText(/podSpec is deep-merged onto the pod spec/)).toBeTruthy();
+    expect(screen.getByText(/extraContainers:/)).toBeTruthy();
+    tab('Release');
+    expect(screen.getByRole('heading', { name: 'Rollout strategy' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Pod template' })).toBeNull();
+  });
+
+  it('the pod template example is valid: its keys are written to the rollout', () => {
+    open({ rollout: { replicas: 1 } });
+    startingPoint('Pod template');
+    const rollout = patchOf().rollout;
+    expect(Object.keys(rollout)).toEqual(expect.arrayContaining(['command', 'args', 'podSecurityContext', 'containerSecurityContext', 'podSpec', 'extraContainers']));
+    expect(rollout.podSpec.tolerations[0].key).toBe('dedicated');
+    expect(rollout.extraContainers[0].name).toBe('log-shipper');
+    expect(rollout.strategy).toBeUndefined();
+  });
+
+  it('the strategy example is valid: its keys are written to the rollout, and the pod keys are untouched', () => {
+    open({ rollout: { replicas: 1, command: ['/app'] } });
+    tab('Release');
+    startingPoint('Rollout strategy');
+    const rollout = patchOf().rollout;
+    expect(rollout.strategy).toBe('canary');
+    expect(rollout.canaryAnalysis.templates[0].templateName).toBe('boarding-api-no-restarts');
+    expect(rollout.command).toEqual(['/app']);
+  });
+
+  it('editing the strategy keeps the pod template and the other way round', () => {
+    open({ rollout: { replicas: 1, strategy: 'blueGreen', podSpec: { terminationGracePeriodSeconds: 45 } } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /^Replicas$/ }), { target: { value: '2' } });
+    expect(patchOf().rollout).toEqual(expect.objectContaining({ replicas: 2, strategy: 'blueGreen', podSpec: { terminationGracePeriodSeconds: 45 } }));
+  });
+});

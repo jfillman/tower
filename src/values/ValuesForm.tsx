@@ -18,6 +18,8 @@ import { validateAgainstSchema, type JsonSchema, type SchemaIssue } from '../sch
 import { deepEqual } from '../deepEqual';
 import type { ConfigTopLevelField } from '../types';
 import { useStyles, type Cls } from './styles';
+import { declaredComponents, matchComponentOutput, outputsOf } from './components';
+import { blankPeer, buildPeers, gatewayNamespaceOf, parsePeers, validatePeers, withGatewayNamespace, type PeerRow } from './networkPolicy';
 
 
 // --- probe form (item 1) ----------------------------------------------------
@@ -56,13 +58,16 @@ function asRecord(v: unknown): Record<string, unknown> {
 // An env var is a literal value or a reference to a key of a ConfigMap or Secret (`valueFrom`). Dropping the reference to
 // a plain empty value on save destroyed real config (2026-10-04, found on boarding-api staging), so each form is its own
 // row kind; a reference the form cannot edit (fieldRef, resourceFieldRef) is kept as it was.
-type EnvKind = 'value' | 'configMap' | 'secret' | 'other';
+type EnvKind = 'value' | 'configMap' | 'secret' | 'component' | 'other';
 interface EnvRow {
   name: string;
   kind: EnvKind;
   value: string;
   refName: string;
   refKey: string;
+  /** component kind: the components[] entry and the output of it (`fromComponent`). */
+  component: string;
+  output: string;
   other?: unknown;
 }
 
@@ -71,10 +76,13 @@ function parseEnvRow(e: Record<string, unknown>): EnvRow {
   const from = asRecord(e.valueFrom);
   const cm = asRecord(from.configMapKeyRef);
   const sec = asRecord(from.secretKeyRef);
-  if (Object.keys(cm).length > 0) return { name, kind: 'configMap', value: '', refName: String(cm.name ?? ''), refKey: String(cm.key ?? '') };
-  if (Object.keys(sec).length > 0) return { name, kind: 'secret', value: '', refName: String(sec.name ?? ''), refKey: String(sec.key ?? '') };
-  if (Object.keys(from).length > 0) return { name, kind: 'other', value: '', refName: '', refKey: '', other: e.valueFrom };
-  return { name, kind: 'value', value: String(e.value ?? ''), refName: '', refKey: '' };
+  const fc = asRecord(e.fromComponent);
+  const blank = { value: '', refName: '', refKey: '', component: '', output: '' };
+  if (Object.keys(fc).length > 0) return { name, kind: 'component', ...blank, component: String(fc.name ?? ''), output: String(fc.output ?? '') };
+  if (Object.keys(cm).length > 0) return { name, kind: 'configMap', ...blank, refName: String(cm.name ?? ''), refKey: String(cm.key ?? '') };
+  if (Object.keys(sec).length > 0) return { name, kind: 'secret', ...blank, refName: String(sec.name ?? ''), refKey: String(sec.key ?? '') };
+  if (Object.keys(from).length > 0) return { name, kind: 'other', ...blank, other: e.valueFrom };
+  return { name, kind: 'value', ...blank, value: String(e.value ?? '') };
 }
 
 function buildEnvValue(rows: EnvRow[]): unknown[] {
@@ -84,6 +92,7 @@ function buildEnvValue(rows: EnvRow[]): unknown[] {
       const name = r.name.trim();
       if (r.kind === 'configMap') return { name, valueFrom: { configMapKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
       if (r.kind === 'secret') return { name, valueFrom: { secretKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
+      if (r.kind === 'component') return { name, fromComponent: { name: r.component.trim(), output: r.output.trim() } };
       if (r.kind === 'other') return { name, valueFrom: r.other };
       return { name, value: r.value };
     });
@@ -221,16 +230,16 @@ function ProbeFields({ label, probe, onChange, classes }: { label: string; probe
         {probe.kind === 'httpGet' && (
           <>
             <Field label="Path" classes={classes}>
-              <input className={classes.input} placeholder="/healthz" value={probe.path} onChange={e => onChange({ ...probe, path: e.target.value })} />
+              <input className={classes.input} placeholder="e.g. /healthz" value={probe.path} onChange={e => onChange({ ...probe, path: e.target.value })} />
             </Field>
             <Field label="Port" classes={classes}>
-              <input className={classes.input} placeholder="3000" value={probe.port} onChange={e => onChange({ ...probe, port: e.target.value })} />
+              <input className={classes.input} placeholder="e.g. 3000" value={probe.port} onChange={e => onChange({ ...probe, port: e.target.value })} />
             </Field>
           </>
         )}
         {probe.kind === 'tcpSocket' && (
           <Field label="Port" classes={classes}>
-            <input className={classes.input} placeholder="3000" value={probe.port} onChange={e => onChange({ ...probe, port: e.target.value })} />
+            <input className={classes.input} placeholder="e.g. 3000" value={probe.port} onChange={e => onChange({ ...probe, port: e.target.value })} />
           </Field>
         )}
       </div>
@@ -241,7 +250,7 @@ function ProbeFields({ label, probe, onChange, classes }: { label: string; probe
             rows={3}
             value={probe.command}
             onChange={e => onChange({ ...probe, command: e.target.value })}
-            placeholder={'cat\n/tmp/healthy'}
+            placeholder={'e.g. cat /tmp/healthy (one argument per line)'}
           />
         </Field>
       )}
@@ -444,7 +453,7 @@ function StepsBuilder({
             {s.kind === 'pause' && (
               <input
                 className={classes.input}
-                placeholder="30s (blank = manual/indefinite)"
+                placeholder="e.g. 30s (empty: waits until promoted by hand)"
                 value={s.duration}
                 onChange={e => update(i, { kind: 'pause', duration: e.target.value })}
               />
@@ -534,7 +543,7 @@ function ConfigMapsSection({ rows, onChange, classes }: { rows: ConfigMapRow[]; 
           </div>
           {row.as !== 'env' && (
             <Field label="Mount path (blank = /config/<name>)" classes={classes}>
-              <input className={classes.input} placeholder={`/config/${row.name || '<name>'}`} value={row.mountPath} onChange={e => update(i, { mountPath: e.target.value })} />
+              <input className={classes.input} placeholder={`default: /config/${row.name || '<name>'}`} value={row.mountPath} onChange={e => update(i, { mountPath: e.target.value })} />
             </Field>
           )}
           <div className={classes.radioRow}>
@@ -557,7 +566,7 @@ function ConfigMapsSection({ rows, onChange, classes }: { rows: ConfigMapRow[]; 
                   <div className={classes.row} key={j} style={{ alignItems: 'flex-start' }}>
                     <input
                       className={classes.input}
-                      placeholder={row.as === 'env' ? 'ENABLE_NEW_CHECKOUT' : 'app-config.yaml'}
+                      placeholder={row.as === 'env' ? 'e.g. ENABLE_NEW_FEATURE' : 'e.g. app-config.yaml'}
                       value={d.key}
                       onChange={e => updateDataRow(i, j, { key: e.target.value })}
                     />
@@ -621,12 +630,12 @@ function SecretsSection({ rows, onChange, classes }: { rows: SecretRow[]; onChan
           <div className={classes.grid}>
             {row.as !== 'volume' && (
               <Field label="Env var name (blank = NAME uppercased)" classes={classes}>
-                <input className={classes.input} placeholder={row.name ? row.name.toUpperCase() : 'DB_PASSWORD'} value={row.key} onChange={e => update(i, { key: e.target.value })} />
+                <input className={classes.input} placeholder={row.name ? `default: ${row.name.toUpperCase()}` : 'e.g. DB_PASSWORD'} value={row.key} onChange={e => update(i, { key: e.target.value })} />
               </Field>
             )}
             {row.as !== 'env' && (
               <Field label="Mount path (blank = /secrets/<name>)" classes={classes}>
-                <input className={classes.input} placeholder={`/secrets/${row.name || '<name>'}`} value={row.mountPath} onChange={e => update(i, { mountPath: e.target.value })} />
+                <input className={classes.input} placeholder={`default: /secrets/${row.name || '<name>'}`} value={row.mountPath} onChange={e => update(i, { mountPath: e.target.value })} />
               </Field>
             )}
           </div>
@@ -667,13 +676,20 @@ interface FormState {
   ingressPathType: string;
   ingressTls: boolean;
   ingressTlsSecretName: string;
+  ingressAnnotations: Array<{ key: string; value: string }>;
   httpRouteEnabled: boolean;
   httpRouteHostnames: string;
   httpRoutePath: string;
   httpRoutePathType: string;
+  httpRouteAnnotations: Array<{ key: string; value: string }>;
   httpRouteParentRefs: Array<{ name: string; namespace: string }>;
   networkPolicyEnabled: boolean;
   networkPolicyAllowIngressFromIngressController: boolean;
+  networkPolicyGatewayNs: string;
+  networkPolicyIngressFrom: PeerRow[];
+  networkPolicyEgressTo: PeerRow[];
+  networkPolicyExtraIngress: string;
+  networkPolicyExtraEgress: string;
   pdbEnabled: boolean;
   pdbMinAvailable: string;
   pdbMaxUnavailable: string;
@@ -681,6 +697,7 @@ interface FormState {
   serviceMonitorPath: string;
   serviceMonitorInterval: string;
   serviceMonitorPort: string;
+  serviceMonitorLabels: Array<{ key: string; value: string }>;
   slackEnabled: boolean;
   slackChannel: string;
   envVars: EnvRow[];
@@ -693,7 +710,8 @@ interface FormState {
 }
 
 type AdvancedKey =
-  | 'rolloutAdvanced'
+  | 'rolloutStrategy'
+  | 'rolloutPod'
   | 'analysisTemplates'
   | 'volumes'
   | 'cronJobs'
@@ -717,28 +735,69 @@ const JOBS_EXAMPLE = `- name: db-migrate
   command: ["./migrate.sh"]
   hook: true   # re-runs on every release (Helm pre-upgrade hook)`;
 
-const ANALYSIS_TEMPLATES_EXAMPLE = `- name: checkout-conversion-rate
+const ANALYSIS_TEMPLATES_EXAMPLE = `- name: boarding-api-no-restarts
   args:
     - name: canary-hash   # Argo Rollouts supplies the value; declare the NAME here
   metrics:
-    - name: conversion-rate
-      successCondition: "result[0] >= 0.95"
+    - name: container-restarts
+      interval: 1m
+      count: 5
+      successCondition: "result[0] == 0"
       provider:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
           query: |
-            sum(rate(checkout_completed_total{pod=~".*-{{args.canary-hash}}-.*"}[5m]))`;
+            sum(increase(kube_pod_container_status_restarts_total{namespace="app-boarding-api-staging",pod=~".*-{{args.canary-hash}}-.*"}[5m])) or vector(0)`;
 
-const ROLLOUT_ADVANCED_EXAMPLE = `# canaryAnalysis: a background AnalysisTemplate that runs for the whole
-# canary revision (a SIBLING of the steps builder above, not one of its
-# steps):
+const ROLLOUT_STRATEGY_EXAMPLE = `# How a release rolls out. Canary steps (the Release tab's builder) are separate fields and are merged in on submit.
+strategy: canary          # or: blueGreen
+
+# canaryAnalysis: a background AnalysisTemplate that runs for the whole canary revision
+# (a SIBLING of the steps builder, not one of its steps). Only used with strategy: canary.
 canaryAnalysis:
   templates:
-    - templateName: pod-health-check
+    - templateName: boarding-api-no-restarts
   args:
     - name: canary-hash
       valueFrom: { podTemplateHashValue: Latest }
-  startingStep: 1`;
+  startingStep: 1
+
+# blueGreen: only used with strategy: blueGreen. activeService and previewService are chart-owned.
+# blueGreen:
+#   autoPromotionEnabled: false
+#   scaleDownDelaySeconds: 60`;
+
+const ROLLOUT_POD_EXAMPLE = `# The pod itself. These are merged into the Rollout's pod template; the main container's image, ports,
+# resources and probes have their own fields (Workload tab) and are not set here.
+
+# Override the container's entrypoint and arguments:
+command: ["/app/boarding-api"]
+args: ["--log-level", "info"]
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 2000
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+# podSpec is deep-merged onto the pod spec: scheduling, DNS, lifecycle. NOT for the main container
+# (use the fields above) or more containers (use extraContainers).
+podSpec:
+  terminationGracePeriodSeconds: 45
+  nodeSelector:
+    disktype: ssd
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: apps
+      effect: NoSchedule
+
+# A sidecar, appended as-is to the pod's containers:
+extraContainers:
+  - name: log-shipper
+    image: ghcr.io/example/log-shipper:1.4.2
+    args: ["--source", "/var/log/app"]`;
 
 const EXTRA_MANIFESTS_EXAMPLE = `- apiVersion: v1
   kind: ConfigMap
@@ -757,13 +816,13 @@ const COMPONENTS_EXAMPLE = `# Attached-tier components (backing services this ap
     persistence: false # true = survive a pod restart (a real PVC)`;
 
 const SLOS_EXAMPLE = `# Service level objectives (rendered via Sloth into multi-window burn-rate alerts).
-- name: checkout-api-liveness-availability
-  service: checkout-api
+- name: boarding-api-readiness-availability
+  service: boarding-api
   objective: 99          # percent
   indicator:
     type: availability   # or: latency (needs latencyThreshold + a histogram with that le bucket)
     metric: prober_probe_total
-    totalFilter: 'namespace="app-checkout-api-prod",container="checkout-api",probe_type="Liveness"'
+    totalFilter: 'namespace="app-boarding-api-staging",container="boarding-api",probe_type="Readiness"'
     errorFilter: 'result!="successful"'`;
 
 const ADVANCED_META: Record<
@@ -785,10 +844,16 @@ const ADVANCED_META: Record<
     field: 'slos',
     promoted: true,
   },
-  rolloutAdvanced: {
-    title: 'Rollout strategy & pod template',
-    hint: 'strategy, canaryAnalysis, blueGreen, command/args, security contexts, extraContainers, podSpec. Canary steps, probes, replicas, resources, and the Service\'s ports have their own fields above and are merged back in on submit.',
-    example: ROLLOUT_ADVANCED_EXAMPLE,
+  rolloutStrategy: {
+    title: 'Rollout strategy',
+    hint: 'Strategy (canary or blueGreen), canaryAnalysis and blueGreen. The canary steps themselves have their own builder above and are merged in on submit. Only the keys that apply to the chosen strategy are used.',
+    example: ROLLOUT_STRATEGY_EXAMPLE,
+    field: 'rollout',
+  },
+  rolloutPod: {
+    title: 'Pod template',
+    hint: 'command and args, the pod and container security contexts, extra (sidecar) containers, and podSpec for scheduling and lifecycle. Replicas, resources, probes and the Service ports have their own fields and are merged in on submit.',
+    example: ROLLOUT_POD_EXAMPLE,
     field: 'rollout',
   },
   analysisTemplates: {
@@ -815,17 +880,9 @@ const ADVANCED_META: Record<
 // section below rather than living in this raw passthrough (2026-09-16:
 // "how do i configure the service, especially its port?" - buried in raw
 // YAML wasn't discoverable).
-const ROLLOUT_ADVANCED_KEYS = [
-  'strategy',
-  'canaryAnalysis',
-  'blueGreen',
-  'command',
-  'args',
-  'podSecurityContext',
-  'containerSecurityContext',
-  'extraContainers',
-  'podSpec',
-] as const;
+const ROLLOUT_STRATEGY_KEYS = ['strategy', 'canaryAnalysis', 'blueGreen'] as const;
+const ROLLOUT_POD_KEYS = ['command', 'args', 'podSecurityContext', 'containerSecurityContext', 'extraContainers', 'podSpec'] as const;
+const ROLLOUT_RAW_KEYS: AdvancedKey[] = ['rolloutStrategy', 'rolloutPod'];
 
 const DEFAULT_PORTS: FormState['ports'] = [{ name: 'http', containerPort: 8080, protocol: '' }];
 
@@ -834,6 +891,13 @@ function dumpOrBlank(v: unknown): string {
   if (Array.isArray(v) && v.length === 0) return '';
   if (typeof v === 'object' && Object.keys(v as object).length === 0) return '';
   return dumpYaml(v, { lineWidth: 100 }).trimEnd();
+}
+
+/** `annotations` for a block's patch: the rows as a map; left out when empty and the block had none, `{}` when it had some. */
+function annotationsPatch(original: Record<string, unknown>, rows: Array<{ key: string; value: string }>): Record<string, unknown> {
+  const entries = rows.filter(a => a.key.trim()).map(a => [a.key.trim(), a.value] as const);
+  if (entries.length > 0) return { annotations: Object.fromEntries(entries) };
+  return original.annotations !== undefined ? { annotations: {} } : {};
 }
 
 function parseAnnotationRows(v: unknown): Array<{ key: string; value: string }> {
@@ -889,10 +953,12 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     ingressPathType: typeof ingress.pathType === 'string' ? ingress.pathType : 'Prefix',
     ingressTls: Boolean(ingress.tls ?? false),
     ingressTlsSecretName: typeof ingress.tlsSecretName === 'string' ? ingress.tlsSecretName : '',
+    ingressAnnotations: parseAnnotationRows(ingress.annotations),
     httpRouteEnabled: Boolean(httpRoute.enabled ?? false),
     httpRouteHostnames: Array.isArray(httpRoute.hostnames) ? (httpRoute.hostnames as string[]).join(', ') : '',
     httpRoutePath: typeof httpRoute.path === 'string' ? httpRoute.path : '',
     httpRoutePathType: typeof httpRoute.pathType === 'string' ? httpRoute.pathType : '',
+    httpRouteAnnotations: parseAnnotationRows(httpRoute.annotations),
     httpRouteParentRefs: Array.isArray(httpRoute.parentRefs)
       ? (httpRoute.parentRefs as Array<{ name: string; namespace?: string }>).map(p => ({
           name: p.name ?? '',
@@ -901,6 +967,11 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
       : [],
     networkPolicyEnabled: Boolean(networkPolicy.enabled ?? true),
     networkPolicyAllowIngressFromIngressController: Boolean(networkPolicy.allowIngressFromIngressController ?? true),
+    networkPolicyGatewayNs: gatewayNamespaceOf(networkPolicy.ingressControllerNamespaceSelector),
+    networkPolicyIngressFrom: parsePeers(networkPolicy.allowIngressFrom),
+    networkPolicyEgressTo: parsePeers(networkPolicy.allowEgressTo),
+    networkPolicyExtraIngress: dumpOrBlank(networkPolicy.extraIngressRules),
+    networkPolicyExtraEgress: dumpOrBlank(networkPolicy.extraEgressRules),
     pdbEnabled: Boolean(pdb.enabled ?? false),
     pdbMinAvailable: pdb.minAvailable !== undefined && pdb.minAvailable !== null ? String(pdb.minAvailable) : '1',
     pdbMaxUnavailable: pdb.maxUnavailable !== undefined && pdb.maxUnavailable !== null ? String(pdb.maxUnavailable) : '',
@@ -908,6 +979,7 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     serviceMonitorPath: typeof serviceMonitor.path === 'string' ? serviceMonitor.path : '/metrics',
     serviceMonitorInterval: typeof serviceMonitor.interval === 'string' ? serviceMonitor.interval : '30s',
     serviceMonitorPort: typeof serviceMonitor.port === 'string' ? serviceMonitor.port : '',
+    serviceMonitorLabels: parseAnnotationRows(serviceMonitor.additionalLabels),
     slackEnabled: Boolean(slack.enabled ?? false),
     slackChannel: typeof slack.channel === 'string' ? slack.channel : '',
     envVars: envList.map(parseEnvRow),
@@ -922,12 +994,10 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
 
 function buildAdvancedYaml(values: Partial<Record<ConfigTopLevelField, unknown>>): Record<AdvancedKey, string> {
   const rollout = asRecord(values.rollout);
-  const rolloutAdvanced: Record<string, unknown> = {};
-  for (const key of ROLLOUT_ADVANCED_KEYS) {
-    if (rollout[key] !== undefined) rolloutAdvanced[key] = rollout[key];
-  }
+  const pick = (keys: readonly string[]) => Object.fromEntries(keys.filter(k => rollout[k] !== undefined).map(k => [k, rollout[k]]));
   return {
-    rolloutAdvanced: dumpOrBlank(rolloutAdvanced),
+    rolloutStrategy: dumpOrBlank(pick(ROLLOUT_STRATEGY_KEYS)),
+    rolloutPod: dumpOrBlank(pick(ROLLOUT_POD_KEYS)),
     analysisTemplates: dumpOrBlank(values.analysisTemplates),
     volumes: dumpOrBlank(values.volumes),
     cronJobs: dumpOrBlank(values.cronJobs),
@@ -974,6 +1044,17 @@ function validateBeforeSubmit(form: FormState, rolloutEnabled: boolean): string[
   if (form.autoscalingEnabled && form.autoscalingMin !== '' && form.autoscalingMax !== '' && form.autoscalingMin > form.autoscalingMax) {
     errors.push('Autoscaling min replicas is greater than max replicas.');
   }
+  errors.push(...validatePeers(form.networkPolicyIngressFrom, 'Network policy ingress source'));
+  errors.push(...validatePeers(form.networkPolicyEgressTo, 'Network policy egress destination'));
+  for (const [what, text] of [['Network policy extra ingress rules', form.networkPolicyExtraIngress], ['Network policy extra egress rules', form.networkPolicyExtraEgress]] as const) {
+    const { valid, parsed } = validateYamlBlock(text);
+    if (valid && parsed !== undefined && !Array.isArray(parsed)) errors.push(`${what} must be a YAML list of rules.`);
+  }
+  form.envVars.forEach((v, i) => {
+    if (v.kind === 'component' && v.name.trim() && (!v.component.trim() || !v.output.trim())) errors.push(`Environment variable ${v.name.trim()} takes its value from a component: choose the component and the output.`);
+    if ((v.kind === 'configMap' || v.kind === 'secret') && v.name.trim() && (!v.refName.trim() || !v.refKey.trim())) errors.push(`Environment variable ${v.name.trim()} needs both a ${v.kind === 'configMap' ? 'config map' : 'secret'} name and a key.`);
+    if (!v.name.trim() && (v.value || v.refName || v.component)) errors.push(`Environment variable ${i + 1} has a value but no name.`);
+  });
   if (form.pdbEnabled && form.pdbMinAvailable.trim() && form.pdbMaxUnavailable.trim()) {
     errors.push('PodDisruptionBudget: set at most one of minAvailable/maxUnavailable, not both.');
   }
@@ -993,7 +1074,8 @@ const VALUES_TABS: Array<{ id: ValuesTab; label: string }> = [
 
 // Which sub-tab each raw-YAML block lives in.
 const ADVANCED_TAB: Record<AdvancedKey, ValuesTab> = {
-  rolloutAdvanced: 'workload',
+  rolloutStrategy: 'release',
+  rolloutPod: 'workload',
   analysisTemplates: 'release',
   slos: 'release',
   volumes: 'config',
@@ -1161,6 +1243,14 @@ export function ConfigEditor({
     }
   };
 
+  // The components this values file declares, for env rows that take a value from one (fromComponent).
+  const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
+  const componentOutputs = (name: string) => outputsOf(declared.find(c => c.name === name)?.type ?? '');
+  const matchOf = (row: EnvRow) =>
+    row.kind === 'configMap' || row.kind === 'secret'
+      ? matchComponentOutput(declared, row.kind === 'configMap' ? 'configMapKeyRef' : 'secretKeyRef', row.refName, row.refKey)
+      : undefined;
+
   const declaredTemplateNames = (() => {
     const { parsed, valid } = validateYamlBlock(advanced.analysisTemplates);
     if (!valid || !Array.isArray(parsed)) return [];
@@ -1200,24 +1290,25 @@ export function ConfigEditor({
     rolloutEnabled !== originalRolloutEnabled ||
     (rolloutEnabled &&
       (fieldsChanged(['replicas', 'ports', 'resourcesRequestsCpu', 'resourcesRequestsMemory', 'resourcesLimitsCpu', 'resourcesLimitsMemory', 'liveness', 'readiness']) ||
-        advanced.rolloutAdvanced !== originalAdvanced.rolloutAdvanced ||
+        advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy ||
+        advanced.rolloutPod !== originalAdvanced.rolloutPod ||
         stepsCurrentText !== originalStepsRaw))
   ) {
     dirty.add('rollout');
   }
   if (fieldsChanged(['autoscalingEnabled', 'autoscalingMin', 'autoscalingMax', 'autoscalingTargetCPUPercent'])) dirty.add('autoscaling');
-  if (fieldsChanged(['ingressEnabled', 'ingressHost', 'ingressPath', 'ingressPathType', 'ingressTls', 'ingressTlsSecretName'])) dirty.add('ingress');
-  if (fieldsChanged(['httpRouteEnabled', 'httpRouteHostnames', 'httpRouteParentRefs', 'httpRoutePath', 'httpRoutePathType'])) dirty.add('httpRoute');
-  if (fieldsChanged(['networkPolicyEnabled', 'networkPolicyAllowIngressFromIngressController'])) dirty.add('networkPolicy');
+  if (fieldsChanged(['ingressEnabled', 'ingressHost', 'ingressPath', 'ingressPathType', 'ingressTls', 'ingressTlsSecretName', 'ingressAnnotations'])) dirty.add('ingress');
+  if (fieldsChanged(['httpRouteEnabled', 'httpRouteHostnames', 'httpRouteParentRefs', 'httpRoutePath', 'httpRoutePathType', 'httpRouteAnnotations'])) dirty.add('httpRoute');
+  if (fieldsChanged(['networkPolicyEnabled', 'networkPolicyAllowIngressFromIngressController', 'networkPolicyGatewayNs', 'networkPolicyIngressFrom', 'networkPolicyEgressTo', 'networkPolicyExtraIngress', 'networkPolicyExtraEgress'])) dirty.add('networkPolicy');
   if (fieldsChanged(['pdbEnabled', 'pdbMinAvailable', 'pdbMaxUnavailable'])) dirty.add('podDisruptionBudget');
-  if (fieldsChanged(['serviceMonitorEnabled', 'serviceMonitorPath', 'serviceMonitorInterval', 'serviceMonitorPort'])) dirty.add('serviceMonitor');
+  if (fieldsChanged(['serviceMonitorEnabled', 'serviceMonitorPath', 'serviceMonitorInterval', 'serviceMonitorPort', 'serviceMonitorLabels'])) dirty.add('serviceMonitor');
   if (fieldsChanged(['slackEnabled', 'slackChannel'])) dirty.add('notifications');
   if (fieldsChanged(['envVars'])) dirty.add('env');
   if (fieldsChanged(['configMaps'])) dirty.add('configMaps');
   if (fieldsChanged(['secrets'])) dirty.add('secrets');
   if (fieldsChanged(['serviceAccountCreate', 'serviceAccountName', 'serviceAccountAnnotations', 'serviceAccountImagePullSecrets'])) dirty.add('serviceAccount');
   (Object.keys(ADVANCED_META) as AdvancedKey[]).forEach(key => {
-    if (key === 'rolloutAdvanced') return; // folded into 'rollout' above
+    if (ROLLOUT_RAW_KEYS.includes(key)) return; // folded into 'rollout' above
     if (advanced[key] !== originalAdvanced[key]) dirty.add(ADVANCED_META[key].field as ConfigTopLevelField);
   });
 
@@ -1237,7 +1328,10 @@ export function ConfigEditor({
       patch.rollout = null;
       summary.push('rollout: disabled (no container deployed in this environment)');
     } else if (dirty.has('rollout')) {
-      const advancedParsed = asRecord(validateYamlBlock(advanced.rolloutAdvanced).parsed);
+      const advancedParsed = {
+        ...asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed),
+        ...asRecord(validateYamlBlock(advanced.rolloutPod).parsed),
+      };
       const hasResources = Boolean(form.resourcesRequestsCpu || form.resourcesRequestsMemory || form.resourcesLimitsCpu || form.resourcesLimitsMemory);
       const originalHadResources = asRecord(cfg.data!.values.rollout).resources !== undefined;
       const stepsValue =
@@ -1301,6 +1395,7 @@ export function ConfigEditor({
         pathType: form.ingressPathType,
         tls: form.ingressTls,
         tlsSecretName: form.ingressTlsSecretName.trim() || undefined,
+        ...annotationsPatch(asRecord(values.ingress), form.ingressAnnotations),
       };
       summary.push(`ingress: ${form.ingressEnabled ? `enabled for ${form.ingressHost}` : 'disabled'}`);
     }
@@ -1311,15 +1406,30 @@ export function ConfigEditor({
         hostnames: form.httpRouteHostnames.split(',').map(h => h.trim()).filter(Boolean),
         path: form.httpRoutePath.trim() || undefined,
         pathType: form.httpRoutePathType || undefined,
+        ...annotationsPatch(asRecord(values.httpRoute), form.httpRouteAnnotations),
         parentRefs: form.httpRouteParentRefs.filter(p => p.name.trim()),
       };
       summary.push(`httpRoute: ${form.httpRouteEnabled ? `enabled for ${form.httpRouteHostnames}` : 'disabled'}`);
     }
     if (dirty.has('networkPolicy')) {
+      const orig = asRecord(values.networkPolicy);
+      // A list is written when it has entries, or when the file already had one (so clearing it clears it); otherwise left out.
+      const list = (key: string, rows: unknown[]) => (rows.length > 0 || orig[key] !== undefined ? { [key]: rows } : {});
+      const rawList = (key: string, text: string) => {
+        const parsed = validateYamlBlock(text).parsed;
+        return Array.isArray(parsed) ? list(key, parsed) : list(key, []);
+      };
       patch.networkPolicy = {
-        ...asRecord(values.networkPolicy),
+        ...orig,
         enabled: form.networkPolicyEnabled,
         allowIngressFromIngressController: form.networkPolicyAllowIngressFromIngressController,
+        ...(form.networkPolicyGatewayNs.trim() && form.networkPolicyGatewayNs.trim() !== gatewayNamespaceOf(orig.ingressControllerNamespaceSelector)
+          ? { ingressControllerNamespaceSelector: withGatewayNamespace(orig.ingressControllerNamespaceSelector, form.networkPolicyGatewayNs.trim()) }
+          : {}),
+        ...list('allowIngressFrom', buildPeers(form.networkPolicyIngressFrom)),
+        ...list('allowEgressTo', buildPeers(form.networkPolicyEgressTo)),
+        ...rawList('extraIngressRules', form.networkPolicyExtraIngress),
+        ...rawList('extraEgressRules', form.networkPolicyExtraEgress),
       };
       summary.push(`networkPolicy: ${form.networkPolicyEnabled ? 'enabled' : 'disabled'}`);
     }
@@ -1339,6 +1449,10 @@ export function ConfigEditor({
         path: form.serviceMonitorPath,
         interval: form.serviceMonitorInterval,
         port: form.serviceMonitorPort.trim() || undefined,
+        ...(() => {
+          const a = annotationsPatch(asRecord(values.serviceMonitor).additionalLabels === undefined ? {} : { annotations: 1 }, form.serviceMonitorLabels);
+          return a.annotations === undefined ? {} : { additionalLabels: a.annotations };
+        })(),
       };
       summary.push(`serviceMonitor: ${form.serviceMonitorEnabled ? `enabled, scraping ${form.serviceMonitorPath} every ${form.serviceMonitorInterval}` : 'disabled'}`);
     }
@@ -1371,7 +1485,7 @@ export function ConfigEditor({
       summary.push('serviceAccount: updated');
     }
     (Object.keys(ADVANCED_META) as AdvancedKey[]).forEach(key => {
-      if (key === 'rolloutAdvanced') return; // folded into rollout above
+      if (ROLLOUT_RAW_KEYS.includes(key)) return; // folded into rollout above
       const meta = ADVANCED_META[key];
       if (!dirty.has(meta.field as ConfigTopLevelField)) return;
       const { parsed } = validateYamlBlock(advanced[key]);
@@ -1396,7 +1510,7 @@ export function ConfigEditor({
     : [];
 
   const canSubmit =
-    dirty.size > 0 && advancedInvalid.length === 0 && !stepsInvalid && structuralErrors.length === 0 && schemaIssues.length === 0 && !submitCfg.loading;
+    dirty.size > 0 && advancedInvalid.length === 0 && !stepsInvalid && validateYamlBlock(form.networkPolicyExtraIngress).valid && validateYamlBlock(form.networkPolicyExtraEgress).valid && structuralErrors.length === 0 && schemaIssues.length === 0 && !submitCfg.loading;
 
   const onSubmit = () => {
     const { patch, summary } = buildPatchAndSummary();
@@ -1405,7 +1519,7 @@ export function ConfigEditor({
 
   const renderAdvancedSection = (key: AdvancedKey) => {
           const meta = ADVANCED_META[key];
-          const isDirty = dirty.has(meta.field as ConfigTopLevelField) && (key !== 'rolloutAdvanced' ? true : dirty.has('rollout'));
+          const isDirty = dirty.has(meta.field as ConfigTopLevelField) && (ROLLOUT_RAW_KEYS.includes(key) ? dirty.has('rollout') : true);
           return (
             <Section title={meta.title} dirty={isDirty} classes={classes} key={key}>
               <YamlBlockEditor label={meta.title} hint={meta.hint} value={advanced[key]} onChange={text => setAdv(key, text)} />
@@ -1438,8 +1552,8 @@ export function ConfigEditor({
       dirty.has('autoscaling') ||
       dirty.has('podDisruptionBudget') ||
       dirty.has('serviceMonitor') ||
-      advanced.rolloutAdvanced !== originalAdvanced.rolloutAdvanced,
-    release: stepsCurrentText !== originalStepsRaw || dirty.has('notifications') || dirty.has('analysisTemplates') || dirty.has('slos'),
+      advanced.rolloutPod !== originalAdvanced.rolloutPod,
+    release: stepsCurrentText !== originalStepsRaw || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || dirty.has('notifications') || dirty.has('analysisTemplates') || dirty.has('slos'),
     networking: dirty.has('ingress') || dirty.has('httpRoute') || dirty.has('networkPolicy'),
     config: dirty.has('env') || dirty.has('configMaps') || dirty.has('volumes') || dirty.has('components'),
     access: dirty.has('serviceAccount') || dirty.has('secrets'),
@@ -1449,6 +1563,7 @@ export function ConfigEditor({
   const problems = [
     ...advancedInvalid.map(k => `${ADVANCED_META[k].title}: fix the YAML syntax error before submitting.`),
     ...(stepsInvalid ? ['Canary steps: fix the YAML syntax error before submitting.'] : []),
+    ...(form.networkPolicyEnabled && (!validateYamlBlock(form.networkPolicyExtraIngress).valid || !validateYamlBlock(form.networkPolicyExtraEgress).valid) ? ['Network policy extra rules: fix the YAML syntax error before submitting.'] : []),
     ...structuralErrors,
     ...schemaIssues.map(i => `${i.path}: ${i.message}`),
   ];
@@ -1675,10 +1790,10 @@ export function ConfigEditor({
           <div style={{ marginTop: 10 }}>
             <div className={classes.grid}>
               <Field label="Hostnames (comma-separated)" classes={classes}>
-                <input className={classes.input} placeholder="checkout-api.prod.kiac.local" value={form.httpRouteHostnames} onChange={e => setF('httpRouteHostnames', e.target.value, 'httpRoute')} />
+                <input className={classes.input} placeholder="e.g. boarding-api.prod.kiac.local" value={form.httpRouteHostnames} onChange={e => setF('httpRouteHostnames', e.target.value, 'httpRoute')} />
               </Field>
               <Field label="Path (optional)" classes={classes}>
-                <input className={classes.input} placeholder="/" value={form.httpRoutePath} onChange={e => setF('httpRoutePath', e.target.value, 'httpRoute')} />
+                <input className={classes.input} placeholder="e.g. /api" value={form.httpRoutePath} onChange={e => setF('httpRoutePath', e.target.value, 'httpRoute')} />
               </Field>
               <Field label="Path type" classes={classes}>
                 <select className={classes.input} value={form.httpRoutePathType} onChange={e => setF('httpRoutePathType', e.target.value, 'httpRoute')}>
@@ -1689,6 +1804,12 @@ export function ConfigEditor({
                 </select>
               </Field>
             </div>
+            <AnnotationRows
+              title="HTTPRoute annotations"
+              rows={form.httpRouteAnnotations}
+              onChange={rows => setF('httpRouteAnnotations', rows, 'httpRoute')}
+              classes={classes}
+            />
             <Typography className={classes.fieldLabel} style={{ marginTop: 10 }}>Parent gateways</Typography>
             <div className={classes.rowList} style={{ marginTop: 6 }}>
               {form.httpRouteParentRefs.map((ref, i) => (
@@ -1729,6 +1850,7 @@ export function ConfigEditor({
           <Typography className={classes.switchLabel}>Classic Ingress</Typography>
         </div>
         {form.ingressEnabled && (
+          <>
           <div className={classes.grid} style={{ marginTop: 10 }}>
             <Field label="Host" classes={classes}>
               <input className={classes.input} value={form.ingressHost} onChange={e => setF('ingressHost', e.target.value, 'ingress')} />
@@ -1753,18 +1875,71 @@ export function ConfigEditor({
               </Field>
             )}
           </div>
+            <AnnotationRows
+              title="Ingress annotations"
+              rows={form.ingressAnnotations}
+              onChange={rows => setF('ingressAnnotations', rows, 'ingress')}
+              classes={classes}
+            />
+          </>
         )}
         <div className={classes.switchRow} style={{ marginTop: 16 }}>
           <Switch checked={form.networkPolicyEnabled} onChange={e => setF('networkPolicyEnabled', e.target.checked, 'networkPolicy')} />
           <Typography className={classes.switchLabel}>NetworkPolicy</Typography>
         </div>
         {form.networkPolicyEnabled && (
-          <div className={classes.switchRow} style={{ marginTop: 8 }}>
-            <Switch
-              checked={form.networkPolicyAllowIngressFromIngressController}
-              onChange={e => setF('networkPolicyAllowIngressFromIngressController', e.target.checked, 'networkPolicy')}
+          <div style={{ marginTop: 8 }}>
+            <div className={classes.switchRow}>
+              <Switch
+                checked={form.networkPolicyAllowIngressFromIngressController}
+                onChange={e => setF('networkPolicyAllowIngressFromIngressController', e.target.checked, 'networkPolicy')}
+              />
+              <Typography className={classes.switchLabel}>Allow ingress from the gateway/ingress controller</Typography>
+            </div>
+            {form.networkPolicyAllowIngressFromIngressController && (
+              <div className={classes.grid} style={{ marginTop: 8 }}>
+                <Field label="Gateway namespace" classes={classes}>
+                  <input
+                    className={classes.input}
+                    placeholder="not set: the chart default applies"
+                    value={form.networkPolicyGatewayNs}
+                    onChange={e => setF('networkPolicyGatewayNs', e.target.value, 'networkPolicy')}
+                  />
+                </Field>
+              </div>
+            )}
+            <PeerList
+              title="Also allow ingress from"
+              noun="source"
+              rows={form.networkPolicyIngressFrom}
+              onChange={rows => setF('networkPolicyIngressFrom', rows, 'networkPolicy')}
+              classes={classes}
             />
-            <Typography className={classes.switchLabel}>Allow ingress from the gateway/ingress controller</Typography>
+            <PeerList
+              title="Allow egress to"
+              noun="destination"
+              rows={form.networkPolicyEgressTo}
+              onChange={rows => setF('networkPolicyEgressTo', rows, 'networkPolicy')}
+              classes={classes}
+            />
+            <div style={{ marginTop: 12 }}>
+              <YamlBlockEditor
+                label="Extra ingress rules (raw)"
+                hint="Real Kubernetes NetworkPolicy ingress rules, for shapes the lists above cannot say (UDP or SCTP, several peers ORed in one rule)."
+                value={form.networkPolicyExtraIngress}
+                onChange={t => setF('networkPolicyExtraIngress', t, 'networkPolicy')}
+                rows={4}
+              />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <YamlBlockEditor
+                label="Extra egress rules (raw)"
+                hint="Same shape, for egress."
+                value={form.networkPolicyExtraEgress}
+                onChange={t => setF('networkPolicyExtraEgress', t, 'networkPolicy')}
+                rows={4}
+              />
+            </div>
           </div>
         )}
       </Section>
@@ -1799,8 +1974,20 @@ export function ConfigEditor({
               <input className={classes.input} value={form.serviceMonitorInterval} onChange={e => setF('serviceMonitorInterval', e.target.value, 'serviceMonitor')} />
             </Field>
             <Field label="Port name (optional)" classes={classes}>
-              <input className={classes.input} placeholder="the service port" value={form.serviceMonitorPort} onChange={e => setF('serviceMonitorPort', e.target.value, 'serviceMonitor')} />
+              <input className={classes.input} placeholder="default: the service port" value={form.serviceMonitorPort} onChange={e => setF('serviceMonitorPort', e.target.value, 'serviceMonitor')} />
             </Field>
+          </div>
+        )}
+        {form.serviceMonitorEnabled && (
+          <div>
+            <AnnotationRows
+              title="ServiceMonitor labels"
+              noun="label"
+              hint="Extra labels on the ServiceMonitor, for example the release label a Prometheus selects monitors by."
+              rows={form.serviceMonitorLabels}
+              onChange={rows => setF('serviceMonitorLabels', rows, 'serviceMonitor')}
+              classes={classes}
+            />
           </div>
         )}
       </Section>
@@ -1816,42 +2003,16 @@ export function ConfigEditor({
           <>
             <div className={classes.grid} style={{ marginTop: 10 }}>
               <Field label="Name (blank = app name)" classes={classes}>
-                <input className={classes.input} placeholder={appName} value={form.serviceAccountName} onChange={e => setF('serviceAccountName', e.target.value, 'serviceAccount')} />
+                <input className={classes.input} placeholder={`default: ${appName}`} value={form.serviceAccountName} onChange={e => setF('serviceAccountName', e.target.value, 'serviceAccount')} />
               </Field>
             </div>
-            <Typography className={classes.fieldLabel} style={{ marginTop: 12 }}>Annotations</Typography>
-            <div className={classes.rowList} style={{ marginTop: 6 }}>
-              {form.serviceAccountAnnotations.map((a, i) => (
-                <div className={classes.row} key={i}>
-                  <input
-                    className={classes.input}
-                    placeholder="annotation key"
-                    value={a.key}
-                    onChange={e => {
-                      const next = [...form.serviceAccountAnnotations];
-                      next[i] = { ...next[i], key: e.target.value };
-                      setF('serviceAccountAnnotations', next, 'serviceAccount');
-                    }}
-                  />
-                  <input
-                    className={classes.input}
-                    placeholder="value"
-                    value={a.value}
-                    onChange={e => {
-                      const next = [...form.serviceAccountAnnotations];
-                      next[i] = { ...next[i], value: e.target.value };
-                      setF('serviceAccountAnnotations', next, 'serviceAccount');
-                    }}
-                  />
-                  <button type="button" className={classes.removeBtn} onClick={() => setF('serviceAccountAnnotations', form.serviceAccountAnnotations.filter((_, j) => j !== i), 'serviceAccount')}>
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button type="button" className={classes.addBtn} onClick={() => setF('serviceAccountAnnotations', [...form.serviceAccountAnnotations, { key: '', value: '' }], 'serviceAccount')}>
-                + Add annotation
-              </button>
-            </div>
+            <AnnotationRows
+              title="Service account annotations"
+              hint="Annotations on the ServiceAccount (for example a cloud IAM role). The chart has no field for annotations on the pods or the Deployment."
+              rows={form.serviceAccountAnnotations}
+              onChange={rows => setF('serviceAccountAnnotations', rows, 'serviceAccount')}
+              classes={classes}
+            />
             <Typography className={classes.fieldLabel} style={{ marginTop: 12 }}>Extra image pull secrets</Typography>
             <div className={classes.rowList} style={{ marginTop: 6 }}>
               {form.serviceAccountImagePullSecrets.map((s, i) => (
@@ -1893,7 +2054,7 @@ export function ConfigEditor({
         {form.slackEnabled && (
           <div className={classes.grid} style={{ marginTop: 10 }}>
             <Field label="Channel (optional)" classes={classes}>
-              <input className={classes.input} placeholder="#your-channel" value={form.slackChannel} onChange={e => setF('slackChannel', e.target.value, 'notifications')} />
+              <input className={classes.input} placeholder="e.g. #your-channel" value={form.slackChannel} onChange={e => setF('slackChannel', e.target.value, 'notifications')} />
             </Field>
           </div>
         )}
@@ -1923,10 +2084,39 @@ export function ConfigEditor({
                       <option value="value">Value</option>
                       <option value="configMap">From config map</option>
                       <option value="secret">From secret</option>
+                      <option value="component">From component</option>
                     </select>
-                    {v.kind === 'value' ? (
+                    {v.kind === 'value' && (
                       <input className={classes.input} placeholder="value" aria-label={`Variable ${i + 1} value`} value={v.value} onChange={e => setRow({ value: e.target.value })} />
-                    ) : (
+                    )}
+                    {v.kind === 'component' && (
+                      <>
+                        <select
+                          className={classes.input}
+                          aria-label={`Variable ${i + 1} component`}
+                          value={v.component}
+                          onChange={e => setRow({ component: e.target.value, output: '' })}
+                        >
+                          <option value="">Choose a component…</option>
+                          {declared.map(c => (
+                            <option key={c.name} value={c.name}>
+                              {c.name} ({c.type})
+                            </option>
+                          ))}
+                          {v.component && !declared.some(c => c.name === v.component) && <option value={v.component}>{v.component} (not declared)</option>}
+                        </select>
+                        <select className={classes.input} aria-label={`Variable ${i + 1} output`} value={v.output} onChange={e => setRow({ output: e.target.value })}>
+                          <option value="">Choose an output…</option>
+                          {componentOutputs(v.component).map(o => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                          {v.output && !componentOutputs(v.component).includes(v.output) && <option value={v.output}>{v.output}</option>}
+                        </select>
+                      </>
+                    )}
+                    {(v.kind === 'configMap' || v.kind === 'secret') && (
                       <>
                         <input
                           className={classes.input}
@@ -1936,6 +2126,19 @@ export function ConfigEditor({
                           onChange={e => setRow({ refName: e.target.value })}
                         />
                         <input className={classes.input} placeholder="key" aria-label={`Variable ${i + 1} key`} value={v.refKey} onChange={e => setRow({ refKey: e.target.value })} />
+                        {matchOf(v) && (
+                          <button
+                            type="button"
+                            className={classes.linkBtn}
+                            title="airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently"
+                            onClick={() => {
+                              const m = matchOf(v);
+                              if (m) setRow({ kind: 'component', component: m.name, output: m.output, refName: '', refKey: '' });
+                            }}
+                          >
+                            Use component {matchOf(v)?.name}.{matchOf(v)?.output} instead
+                          </button>
+                        )}
                       </>
                     )}
                   </>
@@ -1946,7 +2149,7 @@ export function ConfigEditor({
               </div>
             );
           })}
-          <button type="button" className={classes.addBtn} onClick={() => setF('envVars', [...form.envVars, { name: '', kind: 'value', value: '', refName: '', refKey: '' }], 'env')}>
+          <button type="button" className={classes.addBtn} onClick={() => setF('envVars', [...form.envVars, { name: '', kind: 'value', value: '', refName: '', refKey: '', component: '', output: '' }], 'env')}>
             + Add variable
           </button>
         </div>
@@ -2012,6 +2215,105 @@ function Section({ title, dirty, children }: { title: string; dirty: boolean; cl
         {dirty && <i className={ui.marker} role="img" aria-label="changed" />}
       </h3>
       {children}
+    </div>
+  );
+}
+
+function AnnotationRows({
+  title,
+  hint,
+  rows,
+  onChange,
+  classes,
+  noun = 'annotation',
+}: {
+  title: string;
+  hint?: string;
+  noun?: string;
+  rows: Array<{ key: string; value: string }>;
+  onChange: (rows: Array<{ key: string; value: string }>) => void;
+  classes: Cls;
+}) {
+  const set = (i: number, patch: Partial<{ key: string; value: string }>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <div style={{ marginTop: 12 }}>
+      <Typography className={classes.fieldLabel}>{title}</Typography>
+      {hint && <Typography className={classes.hint}>{hint}</Typography>}
+      <div className={classes.rowList} style={{ marginTop: 6 }}>
+        {rows.map((a, i) => (
+          <div className={classes.row} key={i}>
+            <input className={classes.input} placeholder={`${noun} key`} aria-label={`${title} ${i + 1} key`} value={a.key} onChange={e => set(i, { key: e.target.value })} />
+            <input className={classes.input} placeholder="value" aria-label={`${title} ${i + 1} value`} value={a.value} onChange={e => set(i, { value: e.target.value })} />
+            <button type="button" className={classes.removeBtn} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+              Remove
+            </button>
+          </div>
+        ))}
+        <button type="button" className={classes.addBtn} onClick={() => onChange([...rows, { key: '', value: '' }])}>
+          + Add {noun}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PeerList({
+  title,
+  noun,
+  rows,
+  onChange,
+  classes,
+}: {
+  title: string;
+  noun: string;
+  rows: PeerRow[];
+  onChange: (rows: PeerRow[]) => void;
+  classes: Cls;
+}) {
+  const set = (i: number, patch: Partial<PeerRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <div style={{ marginTop: 12 }}>
+      <Typography className={classes.fieldLabel}>{title}</Typography>
+      <div className={classes.rowList} style={{ marginTop: 6 }}>
+        {rows.map((r, i) => (
+          <div className={classes.row} key={i}>
+            <select className={classes.input} aria-label={`${title} ${i + 1} kind`} value={r.kind} onChange={e => set(i, { kind: e.target.value as PeerRow['kind'] })}>
+              <option value="namespace">Namespace</option>
+              <option value="cidr">CIDR</option>
+            </select>
+            <input
+              className={classes.input}
+              aria-label={`${title} ${i + 1} ${r.kind === 'cidr' ? 'CIDR' : 'namespace'}`}
+              placeholder={r.kind === 'cidr' ? 'not set: a CIDR such as 10.0.0.0/8' : 'not set: a namespace name'}
+              value={r.target}
+              onChange={e => set(i, { target: e.target.value })}
+            />
+            {r.kind === 'namespace' && (
+              <input
+                className={classes.input}
+                aria-label={`${title} ${i + 1} pod labels`}
+                placeholder="pod labels: key=value, key=value (optional)"
+                value={r.podLabels}
+                onChange={e => set(i, { podLabels: e.target.value })}
+              />
+            )}
+            <input
+              className={classes.input}
+              style={{ maxWidth: 150 }}
+              aria-label={`${title} ${i + 1} ports`}
+              placeholder="ports (all if empty)"
+              value={r.ports}
+              onChange={e => set(i, { ports: e.target.value })}
+            />
+            <button type="button" className={classes.removeBtn} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+              Remove
+            </button>
+          </div>
+        ))}
+        <button type="button" className={classes.addBtn} onClick={() => onChange([...rows, blankPeer()])}>
+          + Add {noun}
+        </button>
+      </div>
     </div>
   );
 }
