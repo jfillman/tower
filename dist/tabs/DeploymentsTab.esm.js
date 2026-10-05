@@ -15,6 +15,7 @@ import { EnvPicker } from '../EnvPicker.esm.js';
 import { buildCdEnvDelivery } from '../useCdDelivery.esm.js';
 import { ArgoCommandPanel } from './deployments/ArgoCommandPanel.esm.js';
 import { TroubleshootBanner } from './deployments/TroubleshootBanner.esm.js';
+import { useNamespaceEvents } from '../deployment/useNamespaceEvents.esm.js';
 import { StageDetail } from './deployments/StageDetail.esm.js';
 import { isPreviewEnvName, isRolloutActive, envTierOf, imageTag, health, envStageRank } from '../types.esm.js';
 
@@ -129,6 +130,8 @@ function DeploymentsTab() {
   const preSelected = deliveries.find((d) => d.env.env === selectedEnv) ?? deliveries[0];
   const preActiveSteps = preSelected?.delivery.current?.steps ?? preSelected?.delivery.previous?.steps;
   const liveCurrentKey = preActiveSteps?.find((s) => s.status === "current")?.key;
+  const preEnv = preSelected?.env;
+  const namespaceEvents = useNamespaceEvents(preEnv?.cluster, preEnv?.namespace, Boolean(preEnv) && preEnv?.deployed !== false && !preEnv?.cloud);
   const [selectedStepKey, setSelectedStepKey] = useState(void 0);
   const selectedStepKeyRef = useRef(void 0);
   selectedStepKeyRef.current = selectedStepKey;
@@ -221,7 +224,15 @@ function DeploymentsTab() {
     ),
     /* @__PURE__ */ jsx(Typography, { className: classes.title, children: env.env }),
     /* @__PURE__ */ jsx(ArgoCommandPanel, { env, argoActions, currentImage: liveImage, incomingImage }),
-    /* @__PURE__ */ jsx(TroubleshootBanner, { env, currentSteps: activeSteps }),
+    /* @__PURE__ */ jsx(
+      TroubleshootBanner,
+      {
+        env,
+        currentSteps: activeSteps,
+        pods: (env.resources ?? []).filter((r) => r.kind === "Pod").map((r) => r.raw),
+        events: namespaceEvents
+      }
+    ),
     /* @__PURE__ */ jsxs("div", { className: classes.dagCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.dagInner, children: activeSteps && activeSteps.length > 0 ? /* @__PURE__ */ jsx(
         Rail,

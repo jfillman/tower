@@ -9,6 +9,8 @@ import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { ConfigEditor } from '../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../values/FlightPanels.esm.js';
+import { useChartValues } from '../values/annotatedValues.esm.js';
+import { useComponentCatalog } from '../values/componentCatalog.esm.js';
 import { useFlightValuesSource } from '../values/sources.esm.js';
 import { useStyles } from '../values/styles.esm.js';
 
@@ -87,7 +89,9 @@ function ConfigTab() {
 }
 function FlightValuesEditor({ owner, appName, cluster, env, prod }) {
   const source = useFlightValuesSource({ owner, appName, cluster, env });
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: `${env.toUpperCase()} (${cluster})`, prod, layout: "side" });
+  const componentCatalog = useComponentCatalog(owner);
+  const chart = useChartValues(owner);
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, componentCatalog, chart, title: `${env.toUpperCase()} (${cluster})`, prod, layout: "side" });
 }
 
 export { ConfigTab };

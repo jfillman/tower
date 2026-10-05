@@ -5,6 +5,8 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
 import { ConfigEditor } from '../../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
+import { useChartValues } from '../../values/annotatedValues.esm.js';
+import { useComponentCatalog } from '../../values/componentCatalog.esm.js';
 import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates.esm.js';
 import { useFlightValuesSource, useGroundValuesSource, useEnvValuesLoader } from '../../values/sources.esm.js';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle.esm.js';
@@ -219,6 +221,8 @@ function useCopyFrom(ctx, env) {
 function GroundValues({ ctx, env, cluster, source }) {
   const copyFrom = useCopyFrom(ctx, env);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
+  const componentCatalog = useComponentCatalog(ctx.owner);
+  const chart = useChartValues(ctx.owner);
   return /* @__PURE__ */ jsx(
     ConfigEditor,
     {
@@ -230,6 +234,8 @@ function GroundValues({ ctx, env, cluster, source }) {
       copyFrom,
       analysisCluster: cluster,
       clusterAnalysisTemplates: clusterTemplates,
+      componentCatalog,
+      chart,
       sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
     }
   );
@@ -237,6 +243,8 @@ function GroundValues({ ctx, env, cluster, source }) {
 function FlightValues({ ctx, env, cluster, source }) {
   const copyFrom = useCopyFrom(ctx, env);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
+  const componentCatalog = useComponentCatalog(ctx.owner);
+  const chart = useChartValues(ctx.owner);
   return /* @__PURE__ */ jsx(
     ConfigEditor,
     {
@@ -249,6 +257,8 @@ function FlightValues({ ctx, env, cluster, source }) {
       copyFrom,
       analysisCluster: cluster,
       clusterAnalysisTemplates: clusterTemplates,
+      componentCatalog,
+      chart,
       sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
     }
   );

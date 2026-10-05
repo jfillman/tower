@@ -17,6 +17,9 @@ import { validateAgainstSchema } from '../schemaValidate.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { useStyles } from './styles.esm.js';
 import { SloPresets } from './SloPresets.esm.js';
+import { parseComponents, ComponentsEditor } from './ComponentsEditor.esm.js';
+import { componentProblems, catalogOutputs } from './componentCatalog.esm.js';
+import { annotateValues, mergeValues } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
 import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
@@ -605,7 +608,7 @@ const SLOS_EXAMPLE = `# Service level objectives (rendered via Sloth into multi-
 const ADVANCED_META = {
   // `promoted` sections render as regular sections, not behind the "Show advanced" toggle.
   components: {
-    title: "Attached components",
+    title: "Attached components (YAML)",
     hint: "Backing services provisioned alongside this app in this environment (Redis today; OAuth server, database and queue are declared kinds without an installed composition yet). Each entry needs a type and a name; spec is the kind's own settings.",
     example: COMPONENTS_EXAMPLE,
     field: "components",
@@ -821,6 +824,7 @@ const VALUES_TABS = [
   { id: "release", label: "Release" },
   { id: "networking", label: "Networking" },
   { id: "config", label: "Config" },
+  { id: "components", label: "Components" },
   { id: "access", label: "Access" },
   { id: "advanced", label: "Advanced" }
 ];
@@ -830,7 +834,7 @@ const ADVANCED_TAB = {
   analysisTemplates: "release",
   slos: "release",
   volumes: "config",
-  components: "config",
+  components: "components",
   cronJobs: "advanced",
   jobs: "advanced",
   extraManifests: "advanced"
@@ -845,7 +849,9 @@ function ConfigEditor({
   copyFrom,
   analysisCluster,
   clusterAnalysisTemplates,
-  sloContext
+  sloContext,
+  componentCatalog,
+  chart
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -865,6 +871,7 @@ function ConfigEditor({
   const [stepsRaw, setStepsRaw] = useState("");
   const [originalStepsRaw, setOriginalStepsRaw] = useState("");
   const [showRawFile, setShowRawFile] = useState(false);
+  const [showFull, setShowFull] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(/* @__PURE__ */ new Set());
   useEffect(() => {
     if (cfg.data) {
@@ -945,7 +952,10 @@ function ConfigEditor({
     }
   };
   const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
-  const componentOutputs = (name) => outputsOf(declared.find((c) => c.name === name)?.type ?? "");
+  const componentOutputs = (name) => {
+    const type = declared.find((c) => c.name === name)?.type ?? "";
+    return catalogOutputs(componentCatalog, type) ?? outputsOf(type);
+  };
   const matchOf = (row) => row.kind === "configMap" || row.kind === "secret" ? matchComponentOutput(declared, row.kind === "configMap" ? "configMapKeyRef" : "secretKeyRef", row.refName, row.refKey) : void 0;
   const declaredTemplateNames = (() => {
     const { parsed, valid } = validateYamlBlock(advanced.analysisTemplates);
@@ -963,7 +973,8 @@ function ConfigEditor({
     clusterAnalysisTemplates,
     analysisCluster
   ) : [];
-  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues];
+  const componentIssues = componentCatalog ? componentProblems(componentCatalog, parseComponents(advanced.components) ?? []) : [];
+  const structuralErrors = [...validateBeforeSubmit(form, rolloutEnabled), ...analysisIssues, ...componentIssues];
   const discard = () => {
     const builtForm = buildFormState(cfg.data.values);
     const builtAdvanced = buildAdvancedYaml(cfg.data.values);
@@ -1206,7 +1217,8 @@ function ConfigEditor({
     workload: rolloutEnabled !== originalRolloutEnabled || fieldsDirty(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness", "meta"]) || dirty.has("autoscaling") || dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor") || advanced.rolloutPod !== originalAdvanced.rolloutPod,
     release: stepsCurrentText !== originalStepsRaw || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || dirty.has("notifications") || dirty.has("analysisTemplates") || dirty.has("slos"),
     networking: dirty.has("ingress") || dirty.has("httpRoute") || dirty.has("networkPolicy"),
-    config: dirty.has("env") || dirty.has("configMaps") || dirty.has("volumes") || dirty.has("components"),
+    config: dirty.has("env") || dirty.has("configMaps") || dirty.has("volumes"),
+    components: dirty.has("components"),
     access: dirty.has("serviceAccount") || dirty.has("secrets"),
     advanced: dirty.has("cronJobs") || dirty.has("jobs") || dirty.has("extraManifests")
   };
@@ -1223,6 +1235,14 @@ function ConfigEditor({
       /* @__PURE__ */ jsxs("div", { className: classes.sectionTitleRow, style: { marginBottom: 0 }, children: [
         /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Live values from GitHub - not polled, use refresh for the latest commit." }),
         /* @__PURE__ */ jsx(RefreshButton, { onClick: source.refresh })
+      ] }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: classes.advancedToggle, onClick: () => setShowFull((v) => !v), children: showFull ? "\u25BE Hide full values (annotated)" : "\u25B8 View full values (annotated)" }),
+      showFull && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs(Typography, { className: classes.hint, children: [
+          chart ? 'The chart defaults with this file laid over them, every field with its description; "# set here" marks what the file sets. Changes you have staged in the form are included.' : "Tower could not read the chart's schema, so this shows only the committed file.",
+          dirty.size > 0 ? " (Showing your staged changes.)" : ""
+        ] }),
+        /* @__PURE__ */ jsx("pre", { className: classes.example, style: { maxHeight: 480, overflow: "auto" }, "aria-label": "Full values", children: annotateValues(chart, mergeValues(cfg.data.values, previewPatch)) })
       ] }),
       copyFrom && copyFrom.options.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": "Copy values from", value: "", onChange: (e) => void copyValues(e.target.value), style: { maxWidth: 260 }, children: [
@@ -1699,6 +1719,10 @@ function ConfigEditor({
       ] }) }),
       tab === "config" && /* @__PURE__ */ jsx(Section, { title: "Config maps", dirty: dirty.has("configMaps"), classes, children: /* @__PURE__ */ jsx(ConfigMapsSection, { rows: form.configMaps, onChange: (rows) => setF("configMaps", rows), classes }) }),
       tab === "access" && /* @__PURE__ */ jsx(Section, { title: "Secrets", dirty: dirty.has("secrets"), classes, children: /* @__PURE__ */ jsx(SecretsSection, { rows: form.secrets, onChange: (rows) => setF("secrets", rows), classes }) }),
+      tab === "components" && /* @__PURE__ */ jsxs(Section, { title: "Components", dirty: dirty.has("components"), classes, children: [
+        /* @__PURE__ */ jsx(Typography, { className: classes.hint, style: { marginTop: 0, marginBottom: 10 }, children: "Backing services attached to this environment: a cache, a database, a message broker. Each is created next to your app and hands it a connection through a Secret or ConfigMap." }),
+        /* @__PURE__ */ jsx(ComponentsEditor, { text: advanced.components, onChange: (text) => setAdv("components", text), defs: componentCatalog })
+      ] }),
       Object.keys(ADVANCED_META).filter((key) => ADVANCED_TAB[key] === tab).map((key) => renderAdvancedSection(key))
     ] }),
     /* @__PURE__ */ jsxs(
