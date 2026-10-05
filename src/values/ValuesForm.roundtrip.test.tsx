@@ -19,7 +19,7 @@ const original = load(readFileSync(join(__dirname, '__fixtures__/boarding-api-st
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 const submit = jest.fn(async () => undefined);
-function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string } } = {}) {
+function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[] } = {}) {
   const data = { values: clone(values), raw: 'x', path: 'p' };
   const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitting: false, resetSubmit: jest.fn() };
   render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" {...extra} />);
@@ -558,5 +558,63 @@ describe('values form: common SLOs', () => {
     open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } });
     tab('Release');
     expect(screen.queryByText('Common SLOs')).toBeNull();
+  });
+});
+
+describe('values form: components', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const catalog = require('./__fixtures__/componentCatalog.json');
+  const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
+
+  it('shows the staging components on the Components tab and writes an edit back to components, nothing else changed', () => {
+    open(original, { componentCatalog: catalog });
+    tab('Components');
+    expect((screen.getByLabelText('Component 2 vhost') as HTMLInputElement).value).toBe('flights');
+    edit(() => screen.getByLabelText('Component 2 vhost'), 'airports');
+    const out = patchOf();
+    expect(Object.keys(out)).toEqual(['components']);
+    expect(out.components).toEqual([
+      { type: 'redis', name: 'cache', spec: { size: 'small', persistence: false } },
+      { type: 'rabbitmq', name: 'board-mq', spec: { ...original.components[1].spec, vhost: 'airports' } },
+    ]);
+  });
+
+  it('adding a component stages it and the env rows can then take its outputs from the catalog', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { componentCatalog: catalog });
+    tab('Components');
+    edit(() => screen.getByLabelText('Component type to add'), 'postgresql');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    tab('Config');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add variable' }));
+    edit(() => screen.getByLabelText('Variable 1 name'), 'DATABASE_URL');
+    edit(() => screen.getByLabelText('Variable 1 source'), 'component');
+    edit(() => screen.getByLabelText('Variable 1 component'), 'postgresql');
+    const outputs = [...(screen.getByLabelText('Variable 1 output') as HTMLSelectElement).options].map(o => o.value).filter(Boolean);
+    expect(outputs).toEqual(['host', 'port', 'username', 'password', 'database', 'uri', 'jdbcUri']);
+    edit(() => screen.getByLabelText('Variable 1 output'), 'uri');
+    const out = patchOf();
+    expect(out.components).toEqual([{ type: 'postgresql', name: 'postgresql' }]);
+    expect(out.env).toEqual([{ name: 'DATABASE_URL', fromComponent: { name: 'postgresql', output: 'uri' } }]);
+  });
+
+  it('blocks the pull request while a component is incomplete, naming what it needs', () => {
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { componentCatalog: catalog });
+    tab('Components');
+    edit(() => screen.getByLabelText('Component type to add'), 'rabbitmq');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
+    expect(region.getByText('Component rabbitmq: brokerRef is required when mode is attach.')).toBeTruthy();
+    expect(region.getByText('Component rabbitmq: vhost is required when mode is attach.')).toBeTruthy();
+    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    edit(() => screen.getByLabelText('Component 1 vhost'), 'flights');
+    edit(() => screen.getByLabelText('Component 1 brokerRef name'), 'b');
+    edit(() => screen.getByLabelText('Component 1 brokerRef namespace'), 'n');
+    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('keeps the raw YAML editor on the same tab, so a shape the form cannot draw is still editable', () => {
+    open(original, { componentCatalog: catalog });
+    tab('Components');
+    expect(screen.getByRole('heading', { name: 'Attached components (YAML)' })).toBeTruthy();
   });
 });

@@ -36,6 +36,7 @@ jest.mock('../environments/applicationEnvironment', () => ({
   useLaunchApplicationEnvironment: () => ({ state: { status: 'idle' }, launch: launchMock, reset: jest.fn() }),
 }));
 let lifecycleSteps: any[] = [];
+jest.mock('../values/componentCatalog', () => ({ ...jest.requireActual('../values/componentCatalog'), useComponentCatalog: () => undefined }));
 jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
 let clusterTemplates: string[] | undefined;
 jest.mock('../values/useClusterAnalysisTemplates', () => ({ useClusterAnalysisTemplates: () => clusterTemplates }));
@@ -636,7 +637,7 @@ describe('EnvironmentsTab: the values of a Ground environment', () => {
     renderTab();
     fireEvent.click(openRow('test'));
     const tabs = within(screen.getByRole('tablist', { name: 'Values sections' })).getAllByRole('tab').map(t => t.textContent);
-    expect(tabs).toEqual(['Workload', 'Release', 'Networking', 'Config', 'Access', 'Advanced']);
+    expect(tabs).toEqual(['Workload', 'Release', 'Networking', 'Config', 'Components', 'Access', 'Advanced']);
     expect(replicas().value).toBe('1');
     expect(screen.getByRole('region', { name: 'Pending changes to the values of TEST' })).toBeTruthy();
   });

@@ -65,9 +65,9 @@ describe('values form sub-tabs', () => {
   it('puts every raw YAML block in exactly one sub-tab', () => {
     renderForm();
     const where: Record<string, string> = {};
-    for (const id of ['Workload', 'Release', 'Networking', 'Config', 'Access', 'Advanced']) {
+    for (const id of ['Workload', 'Release', 'Networking', 'Config', 'Components', 'Access', 'Advanced']) {
       fireEvent.click(tab(id));
-      for (const title of ['Pod template', 'Rollout strategy', 'Custom AnalysisTemplates', 'SLOs', 'Volumes (PVCs)', 'Attached components', 'Cron jobs', 'One-off jobs', 'Extra manifests']) {
+      for (const title of ['Pod template', 'Rollout strategy', 'Custom AnalysisTemplates', 'SLOs', 'Volumes (PVCs)', 'Attached components (YAML)', 'Cron jobs', 'One-off jobs', 'Extra manifests']) {
         if (screen.queryByRole('heading', { name: title })) {
           expect(where[title]).toBeUndefined();
           where[title] = id;
@@ -80,7 +80,7 @@ describe('values form sub-tabs', () => {
       'Custom AnalysisTemplates': 'Release',
       SLOs: 'Release',
       'Volumes (PVCs)': 'Config',
-      'Attached components': 'Config',
+      'Attached components (YAML)': 'Components',
       'Cron jobs': 'Advanced',
       'One-off jobs': 'Advanced',
       'Extra manifests': 'Advanced',
@@ -91,7 +91,7 @@ describe('values form sub-tabs', () => {
     renderForm();
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
     expect(within(tab('Workload')).getByRole('img', { name: 'has staged changes' })).toBeTruthy();
-    for (const id of ['Release', 'Networking', 'Config', 'Access', 'Advanced']) expect(within(tab(id)).queryByRole('img')).toBeNull();
+    for (const id of ['Release', 'Networking', 'Config', 'Components', 'Access', 'Advanced']) expect(within(tab(id)).queryByRole('img')).toBeNull();
   });
 });
 
