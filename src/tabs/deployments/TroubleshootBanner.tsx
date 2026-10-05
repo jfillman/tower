@@ -4,6 +4,10 @@ import Typography from '@material-ui/core/Typography';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { CdStep } from '../../useCdDelivery';
 import type { EnvironmentSummary } from '../../types';
+import { podIssues, warningGroups, type PodIssue, type RawEvent, type RawPod, type WarningGroup } from '../../deployment/problems';
+import { relativeTime } from '../../shared/format';
+import { NamespaceEvents } from '../../NamespaceEvents';
+import { useState } from 'react';
 
 // The plain-language ArgoCD/Rollouts troubleshooting banner
 // (HANDOFF-tower-cicd-redesign.md: "the state of the ArgoCD app, and how to
@@ -29,7 +33,12 @@ function stepByKey(steps: CdStep[] | undefined, key: CdStep['key']): CdStep | un
   return steps?.find(s => s.key === key);
 }
 
-export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undefined): Diagnosis {
+/** Warning reasons that stop a rollout on their own. Probe failures and back-offs are left out: they are noise during a normal rollout. */
+const BLOCKING_WARNINGS = new Set(['FailedCreate', 'FailedScheduling', 'FailedMount', 'FailedAttachVolume', 'InvalidImageName', 'ErrImagePull']);
+/** A blocking warning older than this is history, not the reason a rollout is stuck now. */
+const BLOCKING_RECENT_MS = 10 * 60 * 1000;
+
+export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undefined, issues: PodIssue[] = [], warnings: WarningGroup[] = [], now = Date.now()): Diagnosis {
   const guardrails = stepByKey(currentSteps, 'guardrails');
   if (guardrails?.status === 'bad') {
     return {
@@ -66,6 +75,28 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
       body: env.rolloutMessage
         ? `Argo Rollouts reports this Rollout as Degraded: ${env.rolloutMessage} ArgoCD's own sync status above may still read as still-applying while this settles - that's a separate, secondary symptom, not a different problem.`
         : "Argo Rollouts reports this Rollout as Degraded - the canary did not complete (e.g. a failed analysis run, or a step that never recovered). ArgoCD's own sync status above may still read as still-applying while this settles - that's a separate, secondary symptom, not a different problem. Check the Rollout starts stage below for the step graph and pod logs.",
+    };
+  }
+
+  // Pods that cannot start (image pull errors, crash loops, unschedulable, missing config) while the Rollout is not Healthy.
+  // None of the rules below can see this: a canary stuck on Pending pods is an ordinary Progressing Rollout, and ArgoCD reports
+  // Progressing too, so it used to read as "canary in progress" (or nothing at all) for as long as it stayed stuck.
+  if (issues.length > 0 && env.rolloutPhase !== 'Healthy') {
+    const total = issues.reduce((n, i) => n + i.pods.length, 0);
+    return {
+      tone: 'bad',
+      title: issues.length === 1 ? issues[0].title : `${issues.length} problems are keeping this environment's pods from running`,
+      body: `${total === 1 ? '1 pod is affected' : `${total} pods are affected`}. What Kubernetes reports, and what to try first, is listed below.`,
+    };
+  }
+
+  // No pod to inspect (a ReplicaSet that cannot create any, a quota, a missing ServiceAccount) but the namespace says why.
+  const blocking = warnings.filter(w => BLOCKING_WARNINGS.has(w.reason) && now - w.lastSeen < BLOCKING_RECENT_MS);
+  if (issues.length === 0 && blocking.length > 0 && env.rolloutPhase !== 'Healthy') {
+    return {
+      tone: 'bad',
+      title: `Kubernetes is warning: ${blocking[0].reason}`,
+      body: `${blocking[0].object}: ${blocking[0].message} ${blocking[0].hint ?? ''}`.trim(),
     };
   }
 
@@ -231,17 +262,103 @@ const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone; live: b
   body: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.55 },
 }));
 
-export function TroubleshootBanner({ env, currentSteps }: { env: EnvironmentSummary; currentSteps: CdStep[] | undefined }) {
+const useDetailStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  details: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 12 },
+  head: { fontFamily: fontMono, fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: ({ t }) => t.textLo, marginBottom: 4 },
+  issue: { borderLeft: ({ t }) => `2px solid ${t.bad}`, paddingLeft: 10 },
+  issueTitle: { fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
+  mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5, wordBreak: 'break-word' },
+  hint: { fontSize: 12.5, color: ({ t }) => t.textHi, marginTop: 2 },
+  warn: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, fontSize: 12, padding: '3px 0' },
+  link: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky, '&:hover': { textDecoration: 'underline' } },
+}));
+
+/** What Kubernetes reports about the pods and the namespace, with a next step for each. */
+function ProblemDetails({ env, issues, warnings }: { env: EnvironmentSummary; issues: PodIssue[]; warnings: WarningGroup[] }) {
   const t = useHangarTokens();
-  const diagnosis = diagnose(env, currentSteps);
+  const classes = useDetailStyles({ t });
+  const [all, setAll] = useState(false);
+  const [showAllWarnings, setShowAllWarnings] = useState(false);
+  const shownWarnings = showAllWarnings ? warnings : warnings.slice(0, 5);
+  return (
+    <div className={classes.details} aria-label="What Kubernetes reports">
+      {issues.length > 0 && (
+        <div>
+          <div className={classes.head}>Problems with the pods</div>
+          {issues.map(i => (
+            <div key={i.key} className={classes.issue} style={{ marginBottom: 8 }}>
+              <div className={classes.issueTitle}>
+                {i.title} <span className={classes.mono}>({i.pods.length} pod{i.pods.length === 1 ? '' : 's'}: {i.pods.slice(0, 2).join(', ')}{i.pods.length > 2 ? ', …' : ''})</span>
+              </div>
+              <div className={classes.mono}>{i.detail}</div>
+              <div className={classes.hint}>{i.hint}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div>
+          <div className={classes.head}>Warnings in the last 30 minutes</div>
+          {shownWarnings.map(w => (
+            <div key={`${w.reason}-${w.message}`} className={classes.warn}>
+              <span className={classes.mono}>
+                {w.reason}
+                {w.count > 1 ? ` ×${w.count}` : ''}
+                <br />
+                {relativeTime(new Date(w.lastSeen).toISOString())}
+              </span>
+              <span>
+                <span className={classes.mono}>{w.object}</span>: {w.message}
+                {w.hint && <div className={classes.hint}>{w.hint}</div>}
+              </span>
+            </div>
+          ))}
+          {warnings.length > 5 && (
+            <button type="button" className={classes.link} onClick={() => setShowAllWarnings(v => !v)}>
+              {showAllWarnings ? 'Show fewer warnings' : `Show ${warnings.length - 5} more`}
+            </button>
+          )}
+        </div>
+      )}
+      <div>
+        <button type="button" className={classes.link} onClick={() => setAll(v => !v)} aria-expanded={all}>
+          {all ? 'Hide all events' : `Show all events in ${env.namespace}`}
+        </button>
+        {all && <NamespaceEvents cluster={env.cluster} namespace={env.namespace} />}
+      </div>
+    </div>
+  );
+}
+
+export function TroubleshootBanner({
+  env,
+  currentSteps,
+  pods,
+  events,
+}: {
+  env: EnvironmentSummary;
+  currentSteps: CdStep[] | undefined;
+  /** The environment's pods as the API returned them (for what each one is stuck on). */
+  pods?: RawPod[];
+  /** The namespace's events, or undefined when they could not be read. */
+  events?: RawEvent[];
+}) {
+  const t = useHangarTokens();
+  const now = Date.now();
+  const issues = podIssues(pods ?? [], now);
+  const warnings = warningGroups(events ?? [], now);
+  const diagnosis = diagnose(env, currentSteps, issues, warnings, now);
   const classes = useStyles({ t, tone: diagnosis.tone, live: Boolean(diagnosis.live) });
   const icon = toneColors(t, diagnosis.tone, diagnosis.live).icon;
+  // Details are for when something is wrong: with a calm "synced and healthy" nothing extra, even if an old warning is still listed.
+  const showDetails = issues.length > 0 || (diagnosis.tone !== 'ok' && warnings.length > 0);
   return (
     <div className={classes.banner}>
       <span className={classes.icon}>{icon}</span>
-      <div>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <Typography className={`${classes.title} ${diagnosis.live ? classes.livePulse : ''}`}>{diagnosis.title}</Typography>
         <Typography className={classes.body}>{diagnosis.body}</Typography>
+        {showDetails && <ProblemDetails env={env} issues={issues} warnings={warnings} />}
       </div>
     </div>
   );

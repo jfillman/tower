@@ -15,6 +15,8 @@ import { EnvPicker, type EnvPickerGroup } from '../EnvPicker';
 import { buildCdEnvDelivery, type CdDelivery, type CdStep, type CdStepKey } from '../useCdDelivery';
 import { ArgoCommandPanel } from './deployments/ArgoCommandPanel';
 import { TroubleshootBanner } from './deployments/TroubleshootBanner';
+import { useNamespaceEvents } from '../deployment/useNamespaceEvents';
+import type { RawPod } from '../deployment/problems';
 import { StageDetail } from './deployments/StageDetail';
 import {
   envStageRank,
@@ -227,6 +229,10 @@ export function DeploymentsTab() {
   const preSelected = deliveries.find(d => d.env.env === selectedEnv) ?? deliveries[0];
   const preActiveSteps: CdStep[] | undefined = preSelected?.delivery.current?.steps ?? preSelected?.delivery.previous?.steps;
   const liveCurrentKey = preActiveSteps?.find(s => s.status === 'current')?.key;
+  // The namespace's events for the environment being looked at, refreshed while it is open: what Kubernetes says is stopping a
+  // deployment is not in the Rollout or ArgoCD signals the banner reasons from. A cloud environment has no namespace.
+  const preEnv = preSelected?.env;
+  const namespaceEvents = useNamespaceEvents(preEnv?.cluster, preEnv?.namespace, Boolean(preEnv) && preEnv?.deployed !== false && !preEnv?.cloud);
   const [selectedStepKey, setSelectedStepKey] = useState<CdStepKey | undefined>(undefined);
   const selectedStepKeyRef = useRef<CdStepKey | undefined>(undefined);
   selectedStepKeyRef.current = selectedStepKey;
@@ -368,7 +374,12 @@ export function DeploymentsTab() {
 
       <ArgoCommandPanel env={env} argoActions={argoActions} currentImage={liveImage} incomingImage={incomingImage} />
 
-      <TroubleshootBanner env={env} currentSteps={activeSteps} />
+      <TroubleshootBanner
+        env={env}
+        currentSteps={activeSteps}
+        pods={(env.resources ?? []).filter(r => r.kind === 'Pod').map(r => r.raw as RawPod)}
+        events={namespaceEvents}
+      />
 
       <div className={classes.dagCard}>
         <div className={classes.dagInner}>
