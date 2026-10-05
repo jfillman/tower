@@ -16,6 +16,8 @@ import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
 import { validateAgainstSchema } from '../schemaValidate.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { useStyles } from './styles.esm.js';
+import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
+import { parsePeers, gatewayNamespaceOf, validatePeers, buildPeers, withGatewayNamespace, blankPeer } from './networkPolicy.esm.js';
 
 function asRecord(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -25,16 +27,20 @@ function parseEnvRow(e) {
   const from = asRecord(e.valueFrom);
   const cm = asRecord(from.configMapKeyRef);
   const sec = asRecord(from.secretKeyRef);
-  if (Object.keys(cm).length > 0) return { name, kind: "configMap", value: "", refName: String(cm.name ?? ""), refKey: String(cm.key ?? "") };
-  if (Object.keys(sec).length > 0) return { name, kind: "secret", value: "", refName: String(sec.name ?? ""), refKey: String(sec.key ?? "") };
-  if (Object.keys(from).length > 0) return { name, kind: "other", value: "", refName: "", refKey: "", other: e.valueFrom };
-  return { name, kind: "value", value: String(e.value ?? ""), refName: "", refKey: "" };
+  const fc = asRecord(e.fromComponent);
+  const blank = { value: "", refName: "", refKey: "", component: "", output: "" };
+  if (Object.keys(fc).length > 0) return { name, kind: "component", ...blank, component: String(fc.name ?? ""), output: String(fc.output ?? "") };
+  if (Object.keys(cm).length > 0) return { name, kind: "configMap", ...blank, refName: String(cm.name ?? ""), refKey: String(cm.key ?? "") };
+  if (Object.keys(sec).length > 0) return { name, kind: "secret", ...blank, refName: String(sec.name ?? ""), refKey: String(sec.key ?? "") };
+  if (Object.keys(from).length > 0) return { name, kind: "other", ...blank, other: e.valueFrom };
+  return { name, kind: "value", ...blank, value: String(e.value ?? "") };
 }
 function buildEnvValue(rows) {
   return rows.filter((r) => r.name.trim()).map((r) => {
     const name = r.name.trim();
     if (r.kind === "configMap") return { name, valueFrom: { configMapKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
     if (r.kind === "secret") return { name, valueFrom: { secretKeyRef: { name: r.refName.trim(), key: r.refKey.trim() } } };
+    if (r.kind === "component") return { name, fromComponent: { name: r.component.trim(), output: r.output.trim() } };
     if (r.kind === "other") return { name, valueFrom: r.other };
     return { name, value: r.value };
   });
@@ -143,10 +149,10 @@ function ProbeFields({ label, probe, onChange, classes }) {
         }
       ) }),
       probe.kind === "httpGet" && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx(Field, { label: "Path", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "/healthz", value: probe.path, onChange: (e) => onChange({ ...probe, path: e.target.value }) }) }),
-        /* @__PURE__ */ jsx(Field, { label: "Port", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "3000", value: probe.port, onChange: (e) => onChange({ ...probe, port: e.target.value }) }) })
+        /* @__PURE__ */ jsx(Field, { label: "Path", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. /healthz", value: probe.path, onChange: (e) => onChange({ ...probe, path: e.target.value }) }) }),
+        /* @__PURE__ */ jsx(Field, { label: "Port", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. 3000", value: probe.port, onChange: (e) => onChange({ ...probe, port: e.target.value }) }) })
       ] }),
-      probe.kind === "tcpSocket" && /* @__PURE__ */ jsx(Field, { label: "Port", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "3000", value: probe.port, onChange: (e) => onChange({ ...probe, port: e.target.value }) }) })
+      probe.kind === "tcpSocket" && /* @__PURE__ */ jsx(Field, { label: "Port", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. 3000", value: probe.port, onChange: (e) => onChange({ ...probe, port: e.target.value }) }) })
     ] }),
     probe.kind === "exec" && /* @__PURE__ */ jsx(Field, { label: "Command (one argument per line)", classes, children: /* @__PURE__ */ jsx(
       "textarea",
@@ -155,7 +161,7 @@ function ProbeFields({ label, probe, onChange, classes }) {
         rows: 3,
         value: probe.command,
         onChange: (e) => onChange({ ...probe, command: e.target.value }),
-        placeholder: "cat\n/tmp/healthy"
+        placeholder: "e.g. cat /tmp/healthy (one argument per line)"
       }
     ) }),
     probe.kind !== "none" && /* @__PURE__ */ jsxs("div", { className: classes.grid, style: { marginTop: 10 }, children: [
@@ -306,7 +312,7 @@ function StepsBuilder({
           "input",
           {
             className: classes.input,
-            placeholder: "30s (blank = manual/indefinite)",
+            placeholder: "e.g. 30s (empty: waits until promoted by hand)",
             value: s.duration,
             onChange: (e) => update(i, { kind: "pause", duration: e.target.value })
           }
@@ -372,7 +378,7 @@ function ConfigMapsSection({ rows, onChange, classes }) {
         ] }),
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => remove(i), children: "Remove" })
       ] }),
-      row.as !== "env" && /* @__PURE__ */ jsx(Field, { label: "Mount path (blank = /config/<name>)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `/config/${row.name || "<name>"}`, value: row.mountPath, onChange: (e) => update(i, { mountPath: e.target.value }) }) }),
+      row.as !== "env" && /* @__PURE__ */ jsx(Field, { label: "Mount path (blank = /config/<name>)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `default: /config/${row.name || "<name>"}`, value: row.mountPath, onChange: (e) => update(i, { mountPath: e.target.value }) }) }),
       /* @__PURE__ */ jsxs("div", { className: classes.radioRow, children: [
         /* @__PURE__ */ jsxs("label", { children: [
           /* @__PURE__ */ jsx("input", { type: "radio", checked: row.source === "data", onChange: () => update(i, { source: "data" }) }),
@@ -391,7 +397,7 @@ function ConfigMapsSection({ rows, onChange, classes }) {
               "input",
               {
                 className: classes.input,
-                placeholder: row.as === "env" ? "ENABLE_NEW_CHECKOUT" : "app-config.yaml",
+                placeholder: row.as === "env" ? "e.g. ENABLE_NEW_FEATURE" : "e.g. app-config.yaml",
                 value: d.key,
                 onChange: (e) => updateDataRow(i, j, { key: e.target.value })
               }
@@ -446,8 +452,8 @@ function SecretsSection({ rows, onChange, classes }) {
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => remove(i), children: "Remove" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
-        row.as !== "volume" && /* @__PURE__ */ jsx(Field, { label: "Env var name (blank = NAME uppercased)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: row.name ? row.name.toUpperCase() : "DB_PASSWORD", value: row.key, onChange: (e) => update(i, { key: e.target.value }) }) }),
-        row.as !== "env" && /* @__PURE__ */ jsx(Field, { label: "Mount path (blank = /secrets/<name>)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `/secrets/${row.name || "<name>"}`, value: row.mountPath, onChange: (e) => update(i, { mountPath: e.target.value }) }) })
+        row.as !== "volume" && /* @__PURE__ */ jsx(Field, { label: "Env var name (blank = NAME uppercased)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: row.name ? `default: ${row.name.toUpperCase()}` : "e.g. DB_PASSWORD", value: row.key, onChange: (e) => update(i, { key: e.target.value }) }) }),
+        row.as !== "env" && /* @__PURE__ */ jsx(Field, { label: "Mount path (blank = /secrets/<name>)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `default: /secrets/${row.name || "<name>"}`, value: row.mountPath, onChange: (e) => update(i, { mountPath: e.target.value }) }) })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(Switch, { checked: row.shared, onChange: (e) => update(i, { shared: e.target.checked }) }),
@@ -470,27 +476,67 @@ const CRONJOBS_EXAMPLE = `- name: nightly-cleanup
 const JOBS_EXAMPLE = `- name: db-migrate
   command: ["./migrate.sh"]
   hook: true   # re-runs on every release (Helm pre-upgrade hook)`;
-const ANALYSIS_TEMPLATES_EXAMPLE = `- name: checkout-conversion-rate
+const ANALYSIS_TEMPLATES_EXAMPLE = `- name: boarding-api-no-restarts
   args:
     - name: canary-hash   # Argo Rollouts supplies the value; declare the NAME here
   metrics:
-    - name: conversion-rate
-      successCondition: "result[0] >= 0.95"
+    - name: container-restarts
+      interval: 1m
+      count: 5
+      successCondition: "result[0] == 0"
       provider:
         prometheus:
           address: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
           query: |
-            sum(rate(checkout_completed_total{pod=~".*-{{args.canary-hash}}-.*"}[5m]))`;
-const ROLLOUT_ADVANCED_EXAMPLE = `# canaryAnalysis: a background AnalysisTemplate that runs for the whole
-# canary revision (a SIBLING of the steps builder above, not one of its
-# steps):
+            sum(increase(kube_pod_container_status_restarts_total{namespace="app-boarding-api-staging",pod=~".*-{{args.canary-hash}}-.*"}[5m])) or vector(0)`;
+const ROLLOUT_STRATEGY_EXAMPLE = `# How a release rolls out. Canary steps (the Release tab's builder) are separate fields and are merged in on submit.
+strategy: canary          # or: blueGreen
+
+# canaryAnalysis: a background AnalysisTemplate that runs for the whole canary revision
+# (a SIBLING of the steps builder, not one of its steps). Only used with strategy: canary.
 canaryAnalysis:
   templates:
-    - templateName: pod-health-check
+    - templateName: boarding-api-no-restarts
   args:
     - name: canary-hash
       valueFrom: { podTemplateHashValue: Latest }
-  startingStep: 1`;
+  startingStep: 1
+
+# blueGreen: only used with strategy: blueGreen. activeService and previewService are chart-owned.
+# blueGreen:
+#   autoPromotionEnabled: false
+#   scaleDownDelaySeconds: 60`;
+const ROLLOUT_POD_EXAMPLE = `# The pod itself. These are merged into the Rollout's pod template; the main container's image, ports,
+# resources and probes have their own fields (Workload tab) and are not set here.
+
+# Override the container's entrypoint and arguments:
+command: ["/app/boarding-api"]
+args: ["--log-level", "info"]
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 2000
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+
+# podSpec is deep-merged onto the pod spec: scheduling, DNS, lifecycle. NOT for the main container
+# (use the fields above) or more containers (use extraContainers).
+podSpec:
+  terminationGracePeriodSeconds: 45
+  nodeSelector:
+    disktype: ssd
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: apps
+      effect: NoSchedule
+
+# A sidecar, appended as-is to the pod's containers:
+extraContainers:
+  - name: log-shipper
+    image: ghcr.io/example/log-shipper:1.4.2
+    args: ["--source", "/var/log/app"]`;
 const EXTRA_MANIFESTS_EXAMPLE = `- apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -506,13 +552,13 @@ const COMPONENTS_EXAMPLE = `# Attached-tier components (backing services this ap
     size: small        # small | medium | large
     persistence: false # true = survive a pod restart (a real PVC)`;
 const SLOS_EXAMPLE = `# Service level objectives (rendered via Sloth into multi-window burn-rate alerts).
-- name: checkout-api-liveness-availability
-  service: checkout-api
+- name: boarding-api-readiness-availability
+  service: boarding-api
   objective: 99          # percent
   indicator:
     type: availability   # or: latency (needs latencyThreshold + a histogram with that le bucket)
     metric: prober_probe_total
-    totalFilter: 'namespace="app-checkout-api-prod",container="checkout-api",probe_type="Liveness"'
+    totalFilter: 'namespace="app-boarding-api-staging",container="boarding-api",probe_type="Readiness"'
     errorFilter: 'result!="successful"'`;
 const ADVANCED_META = {
   // `promoted` sections render as regular sections, not behind the "Show advanced" toggle.
@@ -530,10 +576,16 @@ const ADVANCED_META = {
     field: "slos",
     promoted: true
   },
-  rolloutAdvanced: {
-    title: "Rollout strategy & pod template",
-    hint: "strategy, canaryAnalysis, blueGreen, command/args, security contexts, extraContainers, podSpec. Canary steps, probes, replicas, resources, and the Service's ports have their own fields above and are merged back in on submit.",
-    example: ROLLOUT_ADVANCED_EXAMPLE,
+  rolloutStrategy: {
+    title: "Rollout strategy",
+    hint: "Strategy (canary or blueGreen), canaryAnalysis and blueGreen. The canary steps themselves have their own builder above and are merged in on submit. Only the keys that apply to the chosen strategy are used.",
+    example: ROLLOUT_STRATEGY_EXAMPLE,
+    field: "rollout"
+  },
+  rolloutPod: {
+    title: "Pod template",
+    hint: "command and args, the pod and container security contexts, extra (sidecar) containers, and podSpec for scheduling and lifecycle. Replicas, resources, probes and the Service ports have their own fields and are merged in on submit.",
+    example: ROLLOUT_POD_EXAMPLE,
     field: "rollout"
   },
   analysisTemplates: {
@@ -552,23 +604,20 @@ const ADVANCED_META = {
     field: "extraManifests"
   }
 };
-const ROLLOUT_ADVANCED_KEYS = [
-  "strategy",
-  "canaryAnalysis",
-  "blueGreen",
-  "command",
-  "args",
-  "podSecurityContext",
-  "containerSecurityContext",
-  "extraContainers",
-  "podSpec"
-];
+const ROLLOUT_STRATEGY_KEYS = ["strategy", "canaryAnalysis", "blueGreen"];
+const ROLLOUT_POD_KEYS = ["command", "args", "podSecurityContext", "containerSecurityContext", "extraContainers", "podSpec"];
+const ROLLOUT_RAW_KEYS = ["rolloutStrategy", "rolloutPod"];
 const DEFAULT_PORTS = [{ name: "http", containerPort: 8080, protocol: "" }];
 function dumpOrBlank(v) {
   if (v === void 0 || v === null) return "";
   if (Array.isArray(v) && v.length === 0) return "";
   if (typeof v === "object" && Object.keys(v).length === 0) return "";
   return dump(v, { lineWidth: 100 }).trimEnd();
+}
+function annotationsPatch(original, rows) {
+  const entries = rows.filter((a) => a.key.trim()).map((a) => [a.key.trim(), a.value]);
+  if (entries.length > 0) return { annotations: Object.fromEntries(entries) };
+  return original.annotations !== void 0 ? { annotations: {} } : {};
 }
 function parseAnnotationRows(v) {
   const rec = asRecord(v);
@@ -616,16 +665,23 @@ function buildFormState(values) {
     ingressPathType: typeof ingress.pathType === "string" ? ingress.pathType : "Prefix",
     ingressTls: Boolean(ingress.tls ?? false),
     ingressTlsSecretName: typeof ingress.tlsSecretName === "string" ? ingress.tlsSecretName : "",
+    ingressAnnotations: parseAnnotationRows(ingress.annotations),
     httpRouteEnabled: Boolean(httpRoute.enabled ?? false),
     httpRouteHostnames: Array.isArray(httpRoute.hostnames) ? httpRoute.hostnames.join(", ") : "",
     httpRoutePath: typeof httpRoute.path === "string" ? httpRoute.path : "",
     httpRoutePathType: typeof httpRoute.pathType === "string" ? httpRoute.pathType : "",
+    httpRouteAnnotations: parseAnnotationRows(httpRoute.annotations),
     httpRouteParentRefs: Array.isArray(httpRoute.parentRefs) ? httpRoute.parentRefs.map((p) => ({
       name: p.name ?? "",
       namespace: p.namespace ?? ""
     })) : [],
     networkPolicyEnabled: Boolean(networkPolicy.enabled ?? true),
     networkPolicyAllowIngressFromIngressController: Boolean(networkPolicy.allowIngressFromIngressController ?? true),
+    networkPolicyGatewayNs: gatewayNamespaceOf(networkPolicy.ingressControllerNamespaceSelector),
+    networkPolicyIngressFrom: parsePeers(networkPolicy.allowIngressFrom),
+    networkPolicyEgressTo: parsePeers(networkPolicy.allowEgressTo),
+    networkPolicyExtraIngress: dumpOrBlank(networkPolicy.extraIngressRules),
+    networkPolicyExtraEgress: dumpOrBlank(networkPolicy.extraEgressRules),
     pdbEnabled: Boolean(pdb.enabled ?? false),
     pdbMinAvailable: pdb.minAvailable !== void 0 && pdb.minAvailable !== null ? String(pdb.minAvailable) : "1",
     pdbMaxUnavailable: pdb.maxUnavailable !== void 0 && pdb.maxUnavailable !== null ? String(pdb.maxUnavailable) : "",
@@ -633,6 +689,7 @@ function buildFormState(values) {
     serviceMonitorPath: typeof serviceMonitor.path === "string" ? serviceMonitor.path : "/metrics",
     serviceMonitorInterval: typeof serviceMonitor.interval === "string" ? serviceMonitor.interval : "30s",
     serviceMonitorPort: typeof serviceMonitor.port === "string" ? serviceMonitor.port : "",
+    serviceMonitorLabels: parseAnnotationRows(serviceMonitor.additionalLabels),
     slackEnabled: Boolean(slack.enabled ?? false),
     slackChannel: typeof slack.channel === "string" ? slack.channel : "",
     envVars: envList.map(parseEnvRow),
@@ -646,12 +703,10 @@ function buildFormState(values) {
 }
 function buildAdvancedYaml(values) {
   const rollout = asRecord(values.rollout);
-  const rolloutAdvanced = {};
-  for (const key of ROLLOUT_ADVANCED_KEYS) {
-    if (rollout[key] !== void 0) rolloutAdvanced[key] = rollout[key];
-  }
+  const pick = (keys) => Object.fromEntries(keys.filter((k) => rollout[k] !== void 0).map((k) => [k, rollout[k]]));
   return {
-    rolloutAdvanced: dumpOrBlank(rolloutAdvanced),
+    rolloutStrategy: dumpOrBlank(pick(ROLLOUT_STRATEGY_KEYS)),
+    rolloutPod: dumpOrBlank(pick(ROLLOUT_POD_KEYS)),
     analysisTemplates: dumpOrBlank(values.analysisTemplates),
     volumes: dumpOrBlank(values.volumes),
     cronJobs: dumpOrBlank(values.cronJobs),
@@ -690,6 +745,17 @@ function validateBeforeSubmit(form, rolloutEnabled) {
   if (form.autoscalingEnabled && form.autoscalingMin !== "" && form.autoscalingMax !== "" && form.autoscalingMin > form.autoscalingMax) {
     errors.push("Autoscaling min replicas is greater than max replicas.");
   }
+  errors.push(...validatePeers(form.networkPolicyIngressFrom, "Network policy ingress source"));
+  errors.push(...validatePeers(form.networkPolicyEgressTo, "Network policy egress destination"));
+  for (const [what, text] of [["Network policy extra ingress rules", form.networkPolicyExtraIngress], ["Network policy extra egress rules", form.networkPolicyExtraEgress]]) {
+    const { valid, parsed } = validateYamlBlock(text);
+    if (valid && parsed !== void 0 && !Array.isArray(parsed)) errors.push(`${what} must be a YAML list of rules.`);
+  }
+  form.envVars.forEach((v, i) => {
+    if (v.kind === "component" && v.name.trim() && (!v.component.trim() || !v.output.trim())) errors.push(`Environment variable ${v.name.trim()} takes its value from a component: choose the component and the output.`);
+    if ((v.kind === "configMap" || v.kind === "secret") && v.name.trim() && (!v.refName.trim() || !v.refKey.trim())) errors.push(`Environment variable ${v.name.trim()} needs both a ${v.kind === "configMap" ? "config map" : "secret"} name and a key.`);
+    if (!v.name.trim() && (v.value || v.refName || v.component)) errors.push(`Environment variable ${i + 1} has a value but no name.`);
+  });
   if (form.pdbEnabled && form.pdbMinAvailable.trim() && form.pdbMaxUnavailable.trim()) {
     errors.push("PodDisruptionBudget: set at most one of minAvailable/maxUnavailable, not both.");
   }
@@ -704,7 +770,8 @@ const VALUES_TABS = [
   { id: "advanced", label: "Advanced" }
 ];
 const ADVANCED_TAB = {
-  rolloutAdvanced: "workload",
+  rolloutStrategy: "release",
+  rolloutPod: "workload",
   analysisTemplates: "release",
   slos: "release",
   volumes: "config",
@@ -819,6 +886,9 @@ function ConfigEditor({
       }
     }
   };
+  const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
+  const componentOutputs = (name) => outputsOf(declared.find((c) => c.name === name)?.type ?? "");
+  const matchOf = (row) => row.kind === "configMap" || row.kind === "secret" ? matchComponentOutput(declared, row.kind === "configMap" ? "configMapKeyRef" : "secretKeyRef", row.refName, row.refKey) : void 0;
   const declaredTemplateNames = (() => {
     const { parsed, valid } = validateYamlBlock(advanced.analysisTemplates);
     if (!valid || !Array.isArray(parsed)) return [];
@@ -848,22 +918,22 @@ function ConfigEditor({
   const fieldsChanged = (keys) => keys.some((k) => !deepEqual(form[k], originalForm[k]));
   const stepsCurrentText = stepsMode === "simple" ? dumpOrBlank(buildStepsValue(stepsSimple)) : stepsRaw;
   const dirty = /* @__PURE__ */ new Set();
-  if (rolloutEnabled !== originalRolloutEnabled || rolloutEnabled && (fieldsChanged(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || advanced.rolloutAdvanced !== originalAdvanced.rolloutAdvanced || stepsCurrentText !== originalStepsRaw)) {
+  if (rolloutEnabled !== originalRolloutEnabled || rolloutEnabled && (fieldsChanged(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || advanced.rolloutPod !== originalAdvanced.rolloutPod || stepsCurrentText !== originalStepsRaw)) {
     dirty.add("rollout");
   }
   if (fieldsChanged(["autoscalingEnabled", "autoscalingMin", "autoscalingMax", "autoscalingTargetCPUPercent"])) dirty.add("autoscaling");
-  if (fieldsChanged(["ingressEnabled", "ingressHost", "ingressPath", "ingressPathType", "ingressTls", "ingressTlsSecretName"])) dirty.add("ingress");
-  if (fieldsChanged(["httpRouteEnabled", "httpRouteHostnames", "httpRouteParentRefs", "httpRoutePath", "httpRoutePathType"])) dirty.add("httpRoute");
-  if (fieldsChanged(["networkPolicyEnabled", "networkPolicyAllowIngressFromIngressController"])) dirty.add("networkPolicy");
+  if (fieldsChanged(["ingressEnabled", "ingressHost", "ingressPath", "ingressPathType", "ingressTls", "ingressTlsSecretName", "ingressAnnotations"])) dirty.add("ingress");
+  if (fieldsChanged(["httpRouteEnabled", "httpRouteHostnames", "httpRouteParentRefs", "httpRoutePath", "httpRoutePathType", "httpRouteAnnotations"])) dirty.add("httpRoute");
+  if (fieldsChanged(["networkPolicyEnabled", "networkPolicyAllowIngressFromIngressController", "networkPolicyGatewayNs", "networkPolicyIngressFrom", "networkPolicyEgressTo", "networkPolicyExtraIngress", "networkPolicyExtraEgress"])) dirty.add("networkPolicy");
   if (fieldsChanged(["pdbEnabled", "pdbMinAvailable", "pdbMaxUnavailable"])) dirty.add("podDisruptionBudget");
-  if (fieldsChanged(["serviceMonitorEnabled", "serviceMonitorPath", "serviceMonitorInterval", "serviceMonitorPort"])) dirty.add("serviceMonitor");
+  if (fieldsChanged(["serviceMonitorEnabled", "serviceMonitorPath", "serviceMonitorInterval", "serviceMonitorPort", "serviceMonitorLabels"])) dirty.add("serviceMonitor");
   if (fieldsChanged(["slackEnabled", "slackChannel"])) dirty.add("notifications");
   if (fieldsChanged(["envVars"])) dirty.add("env");
   if (fieldsChanged(["configMaps"])) dirty.add("configMaps");
   if (fieldsChanged(["secrets"])) dirty.add("secrets");
   if (fieldsChanged(["serviceAccountCreate", "serviceAccountName", "serviceAccountAnnotations", "serviceAccountImagePullSecrets"])) dirty.add("serviceAccount");
   Object.keys(ADVANCED_META).forEach((key) => {
-    if (key === "rolloutAdvanced") return;
+    if (ROLLOUT_RAW_KEYS.includes(key)) return;
     if (advanced[key] !== originalAdvanced[key]) dirty.add(ADVANCED_META[key].field);
   });
   const buildPatchAndSummary = () => {
@@ -874,7 +944,10 @@ function ConfigEditor({
       patch.rollout = null;
       summary.push("rollout: disabled (no container deployed in this environment)");
     } else if (dirty.has("rollout")) {
-      const advancedParsed = asRecord(validateYamlBlock(advanced.rolloutAdvanced).parsed);
+      const advancedParsed = {
+        ...asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed),
+        ...asRecord(validateYamlBlock(advanced.rolloutPod).parsed)
+      };
       const hasResources = Boolean(form.resourcesRequestsCpu || form.resourcesRequestsMemory || form.resourcesLimitsCpu || form.resourcesLimitsMemory);
       const originalHadResources = asRecord(cfg.data.values.rollout).resources !== void 0;
       const stepsValue = stepsMode === "simple" ? buildStepsValue(stepsSimple) : validateYamlBlock(stepsRaw).parsed ?? [];
@@ -930,7 +1003,8 @@ function ConfigEditor({
         path: form.ingressPath,
         pathType: form.ingressPathType,
         tls: form.ingressTls,
-        tlsSecretName: form.ingressTlsSecretName.trim() || void 0
+        tlsSecretName: form.ingressTlsSecretName.trim() || void 0,
+        ...annotationsPatch(asRecord(values.ingress), form.ingressAnnotations)
       };
       summary.push(`ingress: ${form.ingressEnabled ? `enabled for ${form.ingressHost}` : "disabled"}`);
     }
@@ -941,15 +1015,27 @@ function ConfigEditor({
         hostnames: form.httpRouteHostnames.split(",").map((h) => h.trim()).filter(Boolean),
         path: form.httpRoutePath.trim() || void 0,
         pathType: form.httpRoutePathType || void 0,
+        ...annotationsPatch(asRecord(values.httpRoute), form.httpRouteAnnotations),
         parentRefs: form.httpRouteParentRefs.filter((p) => p.name.trim())
       };
       summary.push(`httpRoute: ${form.httpRouteEnabled ? `enabled for ${form.httpRouteHostnames}` : "disabled"}`);
     }
     if (dirty.has("networkPolicy")) {
+      const orig = asRecord(values.networkPolicy);
+      const list = (key, rows) => rows.length > 0 || orig[key] !== void 0 ? { [key]: rows } : {};
+      const rawList = (key, text) => {
+        const parsed = validateYamlBlock(text).parsed;
+        return Array.isArray(parsed) ? list(key, parsed) : list(key, []);
+      };
       patch.networkPolicy = {
-        ...asRecord(values.networkPolicy),
+        ...orig,
         enabled: form.networkPolicyEnabled,
-        allowIngressFromIngressController: form.networkPolicyAllowIngressFromIngressController
+        allowIngressFromIngressController: form.networkPolicyAllowIngressFromIngressController,
+        ...form.networkPolicyGatewayNs.trim() && form.networkPolicyGatewayNs.trim() !== gatewayNamespaceOf(orig.ingressControllerNamespaceSelector) ? { ingressControllerNamespaceSelector: withGatewayNamespace(orig.ingressControllerNamespaceSelector, form.networkPolicyGatewayNs.trim()) } : {},
+        ...list("allowIngressFrom", buildPeers(form.networkPolicyIngressFrom)),
+        ...list("allowEgressTo", buildPeers(form.networkPolicyEgressTo)),
+        ...rawList("extraIngressRules", form.networkPolicyExtraIngress),
+        ...rawList("extraEgressRules", form.networkPolicyExtraEgress)
       };
       summary.push(`networkPolicy: ${form.networkPolicyEnabled ? "enabled" : "disabled"}`);
     }
@@ -968,7 +1054,11 @@ function ConfigEditor({
         enabled: form.serviceMonitorEnabled,
         path: form.serviceMonitorPath,
         interval: form.serviceMonitorInterval,
-        port: form.serviceMonitorPort.trim() || void 0
+        port: form.serviceMonitorPort.trim() || void 0,
+        ...(() => {
+          const a = annotationsPatch(asRecord(values.serviceMonitor).additionalLabels === void 0 ? {} : { annotations: 1 }, form.serviceMonitorLabels);
+          return a.annotations === void 0 ? {} : { additionalLabels: a.annotations };
+        })()
       };
       summary.push(`serviceMonitor: ${form.serviceMonitorEnabled ? `enabled, scraping ${form.serviceMonitorPath} every ${form.serviceMonitorInterval}` : "disabled"}`);
     }
@@ -1001,7 +1091,7 @@ function ConfigEditor({
       summary.push("serviceAccount: updated");
     }
     Object.keys(ADVANCED_META).forEach((key) => {
-      if (key === "rolloutAdvanced") return;
+      if (ROLLOUT_RAW_KEYS.includes(key)) return;
       const meta = ADVANCED_META[key];
       if (!dirty.has(meta.field)) return;
       const { parsed } = validateYamlBlock(advanced[key]);
@@ -1014,14 +1104,14 @@ function ConfigEditor({
   const schemaIssues = schema.data ? Object.keys(previewPatch).flatMap(
     (key) => validateAgainstSchema(schema.data.properties?.[key], schema.data, previewPatch[key], key)
   ) : [];
-  const canSubmit = dirty.size > 0 && advancedInvalid.length === 0 && !stepsInvalid && structuralErrors.length === 0 && schemaIssues.length === 0 && !submitCfg.loading;
+  const canSubmit = dirty.size > 0 && advancedInvalid.length === 0 && !stepsInvalid && validateYamlBlock(form.networkPolicyExtraIngress).valid && validateYamlBlock(form.networkPolicyExtraEgress).valid && structuralErrors.length === 0 && schemaIssues.length === 0 && !submitCfg.loading;
   const onSubmit = () => {
     const { patch, summary } = buildPatchAndSummary();
     source.submit(patch, summary);
   };
   const renderAdvancedSection = (key) => {
     const meta = ADVANCED_META[key];
-    const isDirty = dirty.has(meta.field) && (key !== "rolloutAdvanced" ? true : dirty.has("rollout"));
+    const isDirty = dirty.has(meta.field) && (ROLLOUT_RAW_KEYS.includes(key) ? dirty.has("rollout") : true);
     return /* @__PURE__ */ jsxs(Section, { title: meta.title, dirty: isDirty, classes, children: [
       /* @__PURE__ */ jsx(YamlBlockEditor, { label: meta.title, hint: meta.hint, value: advanced[key], onChange: (text) => setAdv(key, text) }),
       meta.example && /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -1035,8 +1125,8 @@ function ConfigEditor({
   };
   const fieldsDirty = (keys) => fieldsChanged(keys);
   const tabDirty = {
-    workload: rolloutEnabled !== originalRolloutEnabled || fieldsDirty(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || dirty.has("autoscaling") || dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor") || advanced.rolloutAdvanced !== originalAdvanced.rolloutAdvanced,
-    release: stepsCurrentText !== originalStepsRaw || dirty.has("notifications") || dirty.has("analysisTemplates") || dirty.has("slos"),
+    workload: rolloutEnabled !== originalRolloutEnabled || fieldsDirty(["replicas", "ports", "resourcesRequestsCpu", "resourcesRequestsMemory", "resourcesLimitsCpu", "resourcesLimitsMemory", "liveness", "readiness"]) || dirty.has("autoscaling") || dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor") || advanced.rolloutPod !== originalAdvanced.rolloutPod,
+    release: stepsCurrentText !== originalStepsRaw || advanced.rolloutStrategy !== originalAdvanced.rolloutStrategy || dirty.has("notifications") || dirty.has("analysisTemplates") || dirty.has("slos"),
     networking: dirty.has("ingress") || dirty.has("httpRoute") || dirty.has("networkPolicy"),
     config: dirty.has("env") || dirty.has("configMaps") || dirty.has("volumes") || dirty.has("components"),
     access: dirty.has("serviceAccount") || dirty.has("secrets"),
@@ -1045,6 +1135,7 @@ function ConfigEditor({
   const problems = [
     ...advancedInvalid.map((k) => `${ADVANCED_META[k].title}: fix the YAML syntax error before submitting.`),
     ...stepsInvalid ? ["Canary steps: fix the YAML syntax error before submitting."] : [],
+    ...form.networkPolicyEnabled && (!validateYamlBlock(form.networkPolicyExtraIngress).valid || !validateYamlBlock(form.networkPolicyExtraEgress).valid) ? ["Network policy extra rules: fix the YAML syntax error before submitting."] : [],
     ...structuralErrors,
     ...schemaIssues.map((i) => `${i.path}: ${i.message}`)
   ];
@@ -1195,8 +1286,8 @@ function ConfigEditor({
         ] }),
         form.httpRouteEnabled && /* @__PURE__ */ jsxs("div", { style: { marginTop: 10 }, children: [
           /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
-            /* @__PURE__ */ jsx(Field, { label: "Hostnames (comma-separated)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "checkout-api.prod.kiac.local", value: form.httpRouteHostnames, onChange: (e) => setF("httpRouteHostnames", e.target.value, "httpRoute") }) }),
-            /* @__PURE__ */ jsx(Field, { label: "Path (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "/", value: form.httpRoutePath, onChange: (e) => setF("httpRoutePath", e.target.value, "httpRoute") }) }),
+            /* @__PURE__ */ jsx(Field, { label: "Hostnames (comma-separated)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. boarding-api.prod.kiac.local", value: form.httpRouteHostnames, onChange: (e) => setF("httpRouteHostnames", e.target.value, "httpRoute") }) }),
+            /* @__PURE__ */ jsx(Field, { label: "Path (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. /api", value: form.httpRoutePath, onChange: (e) => setF("httpRoutePath", e.target.value, "httpRoute") }) }),
             /* @__PURE__ */ jsx(Field, { label: "Path type", classes, children: /* @__PURE__ */ jsxs("select", { className: classes.input, value: form.httpRoutePathType, onChange: (e) => setF("httpRoutePathType", e.target.value, "httpRoute"), children: [
               /* @__PURE__ */ jsx("option", { value: "", children: "Chart default" }),
               /* @__PURE__ */ jsx("option", { value: "PathPrefix", children: "PathPrefix" }),
@@ -1204,6 +1295,15 @@ function ConfigEditor({
               /* @__PURE__ */ jsx("option", { value: "RegularExpression", children: "RegularExpression" })
             ] }) })
           ] }),
+          /* @__PURE__ */ jsx(
+            AnnotationRows,
+            {
+              title: "HTTPRoute annotations",
+              rows: form.httpRouteAnnotations,
+              onChange: (rows) => setF("httpRouteAnnotations", rows, "httpRoute"),
+              classes
+            }
+          ),
           /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, style: { marginTop: 10 }, children: "Parent gateways" }),
           /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { marginTop: 6 }, children: [
             form.httpRouteParentRefs.map((ref, i) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
@@ -1242,33 +1342,95 @@ function ConfigEditor({
           /* @__PURE__ */ jsx(Switch, { checked: form.ingressEnabled, onChange: (e) => setF("ingressEnabled", e.target.checked, "ingress") }),
           /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Classic Ingress" })
         ] }),
-        form.ingressEnabled && /* @__PURE__ */ jsxs("div", { className: classes.grid, style: { marginTop: 10 }, children: [
-          /* @__PURE__ */ jsx(Field, { label: "Host", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressHost, onChange: (e) => setF("ingressHost", e.target.value, "ingress") }) }),
-          /* @__PURE__ */ jsx(Field, { label: "Path", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressPath, onChange: (e) => setF("ingressPath", e.target.value, "ingress") }) }),
-          /* @__PURE__ */ jsx(Field, { label: "Path type", classes, children: /* @__PURE__ */ jsxs("select", { className: classes.select, value: form.ingressPathType, onChange: (e) => setF("ingressPathType", e.target.value, "ingress"), children: [
-            /* @__PURE__ */ jsx("option", { children: "Prefix" }),
-            /* @__PURE__ */ jsx("option", { children: "Exact" }),
-            /* @__PURE__ */ jsx("option", { children: "ImplementationSpecific" })
-          ] }) }),
-          /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
-            /* @__PURE__ */ jsx(Switch, { checked: form.ingressTls, onChange: (e) => setF("ingressTls", e.target.checked, "ingress") }),
-            /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "TLS (cert-manager)" })
+        form.ingressEnabled && /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsxs("div", { className: classes.grid, style: { marginTop: 10 }, children: [
+            /* @__PURE__ */ jsx(Field, { label: "Host", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressHost, onChange: (e) => setF("ingressHost", e.target.value, "ingress") }) }),
+            /* @__PURE__ */ jsx(Field, { label: "Path", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressPath, onChange: (e) => setF("ingressPath", e.target.value, "ingress") }) }),
+            /* @__PURE__ */ jsx(Field, { label: "Path type", classes, children: /* @__PURE__ */ jsxs("select", { className: classes.select, value: form.ingressPathType, onChange: (e) => setF("ingressPathType", e.target.value, "ingress"), children: [
+              /* @__PURE__ */ jsx("option", { children: "Prefix" }),
+              /* @__PURE__ */ jsx("option", { children: "Exact" }),
+              /* @__PURE__ */ jsx("option", { children: "ImplementationSpecific" })
+            ] }) }),
+            /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
+              /* @__PURE__ */ jsx(Switch, { checked: form.ingressTls, onChange: (e) => setF("ingressTls", e.target.checked, "ingress") }),
+              /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "TLS (cert-manager)" })
+            ] }),
+            form.ingressTls && /* @__PURE__ */ jsx(Field, { label: "TLS secret name (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressTlsSecretName, onChange: (e) => setF("ingressTlsSecretName", e.target.value, "ingress") }) })
           ] }),
-          form.ingressTls && /* @__PURE__ */ jsx(Field, { label: "TLS secret name (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.ingressTlsSecretName, onChange: (e) => setF("ingressTlsSecretName", e.target.value, "ingress") }) })
+          /* @__PURE__ */ jsx(
+            AnnotationRows,
+            {
+              title: "Ingress annotations",
+              rows: form.ingressAnnotations,
+              onChange: (rows) => setF("ingressAnnotations", rows, "ingress"),
+              classes
+            }
+          )
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, style: { marginTop: 16 }, children: [
           /* @__PURE__ */ jsx(Switch, { checked: form.networkPolicyEnabled, onChange: (e) => setF("networkPolicyEnabled", e.target.checked, "networkPolicy") }),
           /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "NetworkPolicy" })
         ] }),
-        form.networkPolicyEnabled && /* @__PURE__ */ jsxs("div", { className: classes.switchRow, style: { marginTop: 8 }, children: [
-          /* @__PURE__ */ jsx(
-            Switch,
+        form.networkPolicyEnabled && /* @__PURE__ */ jsxs("div", { style: { marginTop: 8 }, children: [
+          /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
+            /* @__PURE__ */ jsx(
+              Switch,
+              {
+                checked: form.networkPolicyAllowIngressFromIngressController,
+                onChange: (e) => setF("networkPolicyAllowIngressFromIngressController", e.target.checked, "networkPolicy")
+              }
+            ),
+            /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Allow ingress from the gateway/ingress controller" })
+          ] }),
+          form.networkPolicyAllowIngressFromIngressController && /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 8 }, children: /* @__PURE__ */ jsx(Field, { label: "Gateway namespace", classes, children: /* @__PURE__ */ jsx(
+            "input",
             {
-              checked: form.networkPolicyAllowIngressFromIngressController,
-              onChange: (e) => setF("networkPolicyAllowIngressFromIngressController", e.target.checked, "networkPolicy")
+              className: classes.input,
+              placeholder: "not set: the chart default applies",
+              value: form.networkPolicyGatewayNs,
+              onChange: (e) => setF("networkPolicyGatewayNs", e.target.value, "networkPolicy")
+            }
+          ) }) }),
+          /* @__PURE__ */ jsx(
+            PeerList,
+            {
+              title: "Also allow ingress from",
+              noun: "source",
+              rows: form.networkPolicyIngressFrom,
+              onChange: (rows) => setF("networkPolicyIngressFrom", rows, "networkPolicy"),
+              classes
             }
           ),
-          /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Allow ingress from the gateway/ingress controller" })
+          /* @__PURE__ */ jsx(
+            PeerList,
+            {
+              title: "Allow egress to",
+              noun: "destination",
+              rows: form.networkPolicyEgressTo,
+              onChange: (rows) => setF("networkPolicyEgressTo", rows, "networkPolicy"),
+              classes
+            }
+          ),
+          /* @__PURE__ */ jsx("div", { style: { marginTop: 12 }, children: /* @__PURE__ */ jsx(
+            YamlBlockEditor,
+            {
+              label: "Extra ingress rules (raw)",
+              hint: "Real Kubernetes NetworkPolicy ingress rules, for shapes the lists above cannot say (UDP or SCTP, several peers ORed in one rule).",
+              value: form.networkPolicyExtraIngress,
+              onChange: (t) => setF("networkPolicyExtraIngress", t, "networkPolicy"),
+              rows: 4
+            }
+          ) }),
+          /* @__PURE__ */ jsx("div", { style: { marginTop: 12 }, children: /* @__PURE__ */ jsx(
+            YamlBlockEditor,
+            {
+              label: "Extra egress rules (raw)",
+              hint: "Same shape, for egress.",
+              value: form.networkPolicyExtraEgress,
+              onChange: (t) => setF("networkPolicyExtraEgress", t, "networkPolicy"),
+              rows: 4
+            }
+          ) })
         ] })
       ] }),
       tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Availability", dirty: dirty.has("podDisruptionBudget") || dirty.has("serviceMonitor"), classes, children: [
@@ -1287,8 +1449,19 @@ function ConfigEditor({
         form.serviceMonitorEnabled && /* @__PURE__ */ jsxs("div", { className: classes.grid, style: { marginTop: 10 }, children: [
           /* @__PURE__ */ jsx(Field, { label: "Metrics path", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.serviceMonitorPath, onChange: (e) => setF("serviceMonitorPath", e.target.value, "serviceMonitor") }) }),
           /* @__PURE__ */ jsx(Field, { label: "Scrape interval", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, value: form.serviceMonitorInterval, onChange: (e) => setF("serviceMonitorInterval", e.target.value, "serviceMonitor") }) }),
-          /* @__PURE__ */ jsx(Field, { label: "Port name (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "the service port", value: form.serviceMonitorPort, onChange: (e) => setF("serviceMonitorPort", e.target.value, "serviceMonitor") }) })
-        ] })
+          /* @__PURE__ */ jsx(Field, { label: "Port name (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "default: the service port", value: form.serviceMonitorPort, onChange: (e) => setF("serviceMonitorPort", e.target.value, "serviceMonitor") }) })
+        ] }),
+        form.serviceMonitorEnabled && /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(
+          AnnotationRows,
+          {
+            title: "ServiceMonitor labels",
+            noun: "label",
+            hint: "Extra labels on the ServiceMonitor, for example the release label a Prometheus selects monitors by.",
+            rows: form.serviceMonitorLabels,
+            onChange: (rows) => setF("serviceMonitorLabels", rows, "serviceMonitor"),
+            classes
+          }
+        ) })
       ] }),
       tab === "access" && /* @__PURE__ */ jsxs(Section, { title: "Service account", dirty: dirty.has("serviceAccount"), classes, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
@@ -1296,40 +1469,17 @@ function ConfigEditor({
           /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Create a dedicated ServiceAccount" })
         ] }),
         form.serviceAccountCreate && /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(Field, { label: "Name (blank = app name)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: appName, value: form.serviceAccountName, onChange: (e) => setF("serviceAccountName", e.target.value, "serviceAccount") }) }) }),
-          /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, style: { marginTop: 12 }, children: "Annotations" }),
-          /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { marginTop: 6 }, children: [
-            form.serviceAccountAnnotations.map((a, i) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-              /* @__PURE__ */ jsx(
-                "input",
-                {
-                  className: classes.input,
-                  placeholder: "annotation key",
-                  value: a.key,
-                  onChange: (e) => {
-                    const next = [...form.serviceAccountAnnotations];
-                    next[i] = { ...next[i], key: e.target.value };
-                    setF("serviceAccountAnnotations", next, "serviceAccount");
-                  }
-                }
-              ),
-              /* @__PURE__ */ jsx(
-                "input",
-                {
-                  className: classes.input,
-                  placeholder: "value",
-                  value: a.value,
-                  onChange: (e) => {
-                    const next = [...form.serviceAccountAnnotations];
-                    next[i] = { ...next[i], value: e.target.value };
-                    setF("serviceAccountAnnotations", next, "serviceAccount");
-                  }
-                }
-              ),
-              /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => setF("serviceAccountAnnotations", form.serviceAccountAnnotations.filter((_, j) => j !== i), "serviceAccount"), children: "Remove" })
-            ] }, i)),
-            /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("serviceAccountAnnotations", [...form.serviceAccountAnnotations, { key: "", value: "" }], "serviceAccount"), children: "+ Add annotation" })
-          ] }),
+          /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(Field, { label: "Name (blank = app name)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `default: ${appName}`, value: form.serviceAccountName, onChange: (e) => setF("serviceAccountName", e.target.value, "serviceAccount") }) }) }),
+          /* @__PURE__ */ jsx(
+            AnnotationRows,
+            {
+              title: "Service account annotations",
+              hint: "Annotations on the ServiceAccount (for example a cloud IAM role). The chart has no field for annotations on the pods or the Deployment.",
+              rows: form.serviceAccountAnnotations,
+              onChange: (rows) => setF("serviceAccountAnnotations", rows, "serviceAccount"),
+              classes
+            }
+          ),
           /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, style: { marginTop: 12 }, children: "Extra image pull secrets" }),
           /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { marginTop: 6 }, children: [
             form.serviceAccountImagePullSecrets.map((s, i) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
@@ -1358,7 +1508,7 @@ function ConfigEditor({
           /* @__PURE__ */ jsx(Switch, { checked: form.slackEnabled, onChange: (e) => setF("slackEnabled", e.target.checked, "notifications") }),
           /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "AI-triage Slack notifications" })
         ] }),
-        form.slackEnabled && /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(Field, { label: "Channel (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "#your-channel", value: form.slackChannel, onChange: (e) => setF("slackChannel", e.target.value, "notifications") }) }) }),
+        form.slackEnabled && /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(Field, { label: "Channel (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. #your-channel", value: form.slackChannel, onChange: (e) => setF("slackChannel", e.target.value, "notifications") }) }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: "The webhook URL itself is never edited here - it's an Infisical secret, not a values.yaml field." })
       ] }),
       tab === "config" && /* @__PURE__ */ jsx(Section, { title: "Environment variables", dirty: dirty.has("env"), classes, children: /* @__PURE__ */ jsxs("div", { className: classes.rowList, children: [
@@ -1378,9 +1528,40 @@ function ConfigEditor({
               /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": `Variable ${i + 1} source`, value: v.kind, onChange: (e) => setRow({ kind: e.target.value }), children: [
                 /* @__PURE__ */ jsx("option", { value: "value", children: "Value" }),
                 /* @__PURE__ */ jsx("option", { value: "configMap", children: "From config map" }),
-                /* @__PURE__ */ jsx("option", { value: "secret", children: "From secret" })
+                /* @__PURE__ */ jsx("option", { value: "secret", children: "From secret" }),
+                /* @__PURE__ */ jsx("option", { value: "component", children: "From component" })
               ] }),
-              v.kind === "value" ? /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "value", "aria-label": `Variable ${i + 1} value`, value: v.value, onChange: (e) => setRow({ value: e.target.value }) }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+              v.kind === "value" && /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "value", "aria-label": `Variable ${i + 1} value`, value: v.value, onChange: (e) => setRow({ value: e.target.value }) }),
+              v.kind === "component" && /* @__PURE__ */ jsxs(Fragment, { children: [
+                /* @__PURE__ */ jsxs(
+                  "select",
+                  {
+                    className: classes.input,
+                    "aria-label": `Variable ${i + 1} component`,
+                    value: v.component,
+                    onChange: (e) => setRow({ component: e.target.value, output: "" }),
+                    children: [
+                      /* @__PURE__ */ jsx("option", { value: "", children: "Choose a component\u2026" }),
+                      declared.map((c) => /* @__PURE__ */ jsxs("option", { value: c.name, children: [
+                        c.name,
+                        " (",
+                        c.type,
+                        ")"
+                      ] }, c.name)),
+                      v.component && !declared.some((c) => c.name === v.component) && /* @__PURE__ */ jsxs("option", { value: v.component, children: [
+                        v.component,
+                        " (not declared)"
+                      ] })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": `Variable ${i + 1} output`, value: v.output, onChange: (e) => setRow({ output: e.target.value }), children: [
+                  /* @__PURE__ */ jsx("option", { value: "", children: "Choose an output\u2026" }),
+                  componentOutputs(v.component).map((o) => /* @__PURE__ */ jsx("option", { value: o, children: o }, o)),
+                  v.output && !componentOutputs(v.component).includes(v.output) && /* @__PURE__ */ jsx("option", { value: v.output, children: v.output })
+                ] })
+              ] }),
+              (v.kind === "configMap" || v.kind === "secret") && /* @__PURE__ */ jsxs(Fragment, { children: [
                 /* @__PURE__ */ jsx(
                   "input",
                   {
@@ -1391,13 +1572,32 @@ function ConfigEditor({
                     onChange: (e) => setRow({ refName: e.target.value })
                   }
                 ),
-                /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "key", "aria-label": `Variable ${i + 1} key`, value: v.refKey, onChange: (e) => setRow({ refKey: e.target.value }) })
+                /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "key", "aria-label": `Variable ${i + 1} key`, value: v.refKey, onChange: (e) => setRow({ refKey: e.target.value }) }),
+                matchOf(v) && /* @__PURE__ */ jsxs(
+                  "button",
+                  {
+                    type: "button",
+                    className: classes.linkBtn,
+                    title: "airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently",
+                    onClick: () => {
+                      const m = matchOf(v);
+                      if (m) setRow({ kind: "component", component: m.name, output: m.output, refName: "", refKey: "" });
+                    },
+                    children: [
+                      "Use component ",
+                      matchOf(v)?.name,
+                      ".",
+                      matchOf(v)?.output,
+                      " instead"
+                    ]
+                  }
+                )
               ] })
             ] }),
             /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => setF("envVars", form.envVars.filter((_, j) => j !== i), "env"), children: "Remove" })
           ] }, i);
         }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("envVars", [...form.envVars, { name: "", kind: "value", value: "", refName: "", refKey: "" }], "env"), children: "+ Add variable" })
+        /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("envVars", [...form.envVars, { name: "", kind: "value", value: "", refName: "", refKey: "", component: "", output: "" }], "env"), children: "+ Add variable" })
       ] }) }),
       tab === "config" && /* @__PURE__ */ jsx(Section, { title: "Config maps", dirty: dirty.has("configMaps"), classes, children: /* @__PURE__ */ jsx(ConfigMapsSection, { rows: form.configMaps, onChange: (rows) => setF("configMaps", rows), classes }) }),
       tab === "access" && /* @__PURE__ */ jsx(Section, { title: "Secrets", dirty: dirty.has("secrets"), classes, children: /* @__PURE__ */ jsx(SecretsSection, { rows: form.secrets, onChange: (rows) => setF("secrets", rows), classes }) }),
@@ -1448,6 +1648,87 @@ function Section({ title, dirty, children }) {
       dirty && /* @__PURE__ */ jsx("i", { className: ui.marker, role: "img", "aria-label": "changed" })
     ] }),
     children
+  ] });
+}
+function AnnotationRows({
+  title,
+  hint,
+  rows,
+  onChange,
+  classes,
+  noun = "annotation"
+}) {
+  const set = (i, patch) => onChange(rows.map((r, j) => j === i ? { ...r, ...patch } : r));
+  return /* @__PURE__ */ jsxs("div", { style: { marginTop: 12 }, children: [
+    /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, children: title }),
+    hint && /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: hint }),
+    /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { marginTop: 6 }, children: [
+      rows.map((a, i) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
+        /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: `${noun} key`, "aria-label": `${title} ${i + 1} key`, value: a.key, onChange: (e) => set(i, { key: e.target.value }) }),
+        /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "value", "aria-label": `${title} ${i + 1} value`, value: a.value, onChange: (e) => set(i, { value: e.target.value }) }),
+        /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => onChange(rows.filter((_, j) => j !== i)), children: "Remove" })
+      ] }, i)),
+      /* @__PURE__ */ jsxs("button", { type: "button", className: classes.addBtn, onClick: () => onChange([...rows, { key: "", value: "" }]), children: [
+        "+ Add ",
+        noun
+      ] })
+    ] })
+  ] });
+}
+function PeerList({
+  title,
+  noun,
+  rows,
+  onChange,
+  classes
+}) {
+  const set = (i, patch) => onChange(rows.map((r, j) => j === i ? { ...r, ...patch } : r));
+  return /* @__PURE__ */ jsxs("div", { style: { marginTop: 12 }, children: [
+    /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, children: title }),
+    /* @__PURE__ */ jsxs("div", { className: classes.rowList, style: { marginTop: 6 }, children: [
+      rows.map((r, i) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
+        /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": `${title} ${i + 1} kind`, value: r.kind, onChange: (e) => set(i, { kind: e.target.value }), children: [
+          /* @__PURE__ */ jsx("option", { value: "namespace", children: "Namespace" }),
+          /* @__PURE__ */ jsx("option", { value: "cidr", children: "CIDR" })
+        ] }),
+        /* @__PURE__ */ jsx(
+          "input",
+          {
+            className: classes.input,
+            "aria-label": `${title} ${i + 1} ${r.kind === "cidr" ? "CIDR" : "namespace"}`,
+            placeholder: r.kind === "cidr" ? "not set: a CIDR such as 10.0.0.0/8" : "not set: a namespace name",
+            value: r.target,
+            onChange: (e) => set(i, { target: e.target.value })
+          }
+        ),
+        r.kind === "namespace" && /* @__PURE__ */ jsx(
+          "input",
+          {
+            className: classes.input,
+            "aria-label": `${title} ${i + 1} pod labels`,
+            placeholder: "pod labels: key=value, key=value (optional)",
+            value: r.podLabels,
+            onChange: (e) => set(i, { podLabels: e.target.value })
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "input",
+          {
+            className: classes.input,
+            style: { maxWidth: 150 },
+            "aria-label": `${title} ${i + 1} ports`,
+            placeholder: "ports (all if empty)",
+            value: r.ports,
+            onChange: (e) => set(i, { ports: e.target.value })
+          }
+        ),
+        /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => onChange(rows.filter((_, j) => j !== i)), children: "Remove" })
+      ] }, i)),
+      /* @__PURE__ */ jsxs("button", { type: "button", className: classes.addBtn, onClick: () => onChange([...rows, blankPeer()]), children: [
+        "+ Add ",
+        noun
+      ] })
+    ] })
   ] });
 }
 function Field({ label, classes, children }) {

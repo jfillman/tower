@@ -1,0 +1,73 @@
+const blankPeer = () => ({ kind: "namespace", target: "", podLabels: "", ports: "" });
+const asRecord = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : {};
+function parsePeers(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((p) => {
+    const r = asRecord(p);
+    const labels = asRecord(r.podLabels);
+    return {
+      kind: typeof r.cidr === "string" ? "cidr" : "namespace",
+      target: String(r.cidr ?? r.namespace ?? ""),
+      podLabels: Object.entries(labels).map(([k, v]) => `${k}=${String(v)}`).join(", "),
+      ports: Array.isArray(r.ports) ? r.ports.map(String).join(", ") : ""
+    };
+  });
+}
+function parseLabels(text) {
+  const bad = [];
+  const labels = {};
+  for (const part of text.split(",").map((x) => x.trim()).filter(Boolean)) {
+    const i = part.indexOf("=");
+    if (i <= 0 || i === part.length - 1) bad.push(part);
+    else labels[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return { labels: Object.keys(labels).length > 0 ? labels : void 0, bad };
+}
+function parsePorts(text) {
+  const bad = [];
+  const ports = [];
+  for (const part of text.split(",").map((x) => x.trim()).filter(Boolean)) {
+    const n = Number(part);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) bad.push(part);
+    else ports.push(n);
+  }
+  return { ports: ports.length > 0 ? ports : void 0, bad };
+}
+function buildPeers(rows) {
+  return rows.filter((r) => r.target.trim()).map((r) => {
+    const peer = r.kind === "cidr" ? { cidr: r.target.trim() } : { namespace: r.target.trim() };
+    if (r.kind === "namespace") {
+      const { labels } = parseLabels(r.podLabels);
+      if (labels) peer.podLabels = labels;
+    }
+    const { ports } = parsePorts(r.ports);
+    if (ports) peer.ports = ports;
+    return peer;
+  });
+}
+function validatePeers(rows, what) {
+  const errors = [];
+  rows.forEach((r, i) => {
+    const label = `${what} ${i + 1}`;
+    if (!r.target.trim()) errors.push(`${label} needs a ${r.kind === "cidr" ? "CIDR" : "namespace"}.`);
+    if (r.kind === "namespace") {
+      const { bad: bad2 } = parseLabels(r.podLabels);
+      if (bad2.length > 0) errors.push(`${label}: pod labels must be key=value, comma-separated (${bad2.join(", ")}).`);
+    }
+    const { bad } = parsePorts(r.ports);
+    if (bad.length > 0) errors.push(`${label}: ports must be whole numbers from 1 to 65535 (${bad.join(", ")}).`);
+  });
+  return errors;
+}
+const GATEWAY_NS_KEY = "kubernetes.io/metadata.name";
+const gatewayNamespaceOf = (selector) => {
+  const v = asRecord(asRecord(selector).matchLabels)[GATEWAY_NS_KEY];
+  return typeof v === "string" ? v : "";
+};
+function withGatewayNamespace(selector, ns) {
+  const s = asRecord(selector);
+  return { ...s, matchLabels: { ...asRecord(s.matchLabels), [GATEWAY_NS_KEY]: ns } };
+}
+
+export { GATEWAY_NS_KEY, blankPeer, buildPeers, gatewayNamespaceOf, parseLabels, parsePeers, parsePorts, validatePeers, withGatewayNamespace };
+//# sourceMappingURL=networkPolicy.esm.js.map

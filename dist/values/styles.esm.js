@@ -1,5 +1,5 @@
 import { makeStyles } from '@material-ui/core/styles';
-import { fontMono, fontDisplay } from '../brand/tokens.esm.js';
+import { fontMono, fontDisplay, fontBody } from '../brand/tokens.esm.js';
 
 const useStyles = makeStyles(() => ({
   envBanner: {
@@ -59,7 +59,9 @@ const useStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.bgRaised,
     color: ({ t }) => t.textHi,
-    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky }
+    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky },
+    // Ghost text, not a value: italic, in the body face (values are mono) and faint, so an empty field never reads as filled.
+    "&::placeholder": { fontFamily: fontBody, fontStyle: "italic", color: ({ t }) => t.textFaint, opacity: 0.85 }
   },
   textarea: {
     fontFamily: fontMono,
@@ -70,7 +72,8 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.bgRaised,
     color: ({ t }) => t.textHi,
     resize: "vertical",
-    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky }
+    "&:focus": { outline: "none", borderColor: ({ t }) => t.sky },
+    "&::placeholder": { fontFamily: fontBody, fontStyle: "italic", color: ({ t }) => t.textFaint, opacity: 0.85 }
   },
   switchRow: { display: "flex", alignItems: "center", gap: 8 },
   switchLabel: { fontSize: 13, color: ({ t }) => t.textHi },

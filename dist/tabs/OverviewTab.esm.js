@@ -44,6 +44,7 @@ const HEALTH_LABEL = {
 };
 const TRACK_CARD_W = 260;
 const TRACK_GAP = 16;
+const TRACK_RAIL_H = 44;
 const useStyles = makeStyles(() => ({
   monitoringCard: {
     backgroundColor: ({ t }) => t.panel,
@@ -156,7 +157,7 @@ const useStyles = makeStyles(() => ({
     alignSelf: "flex-start",
     display: "flex",
     columnGap: 16,
-    paddingTop: 44
+    paddingTop: TRACK_RAIL_H
   },
   // maxWidth caps the pill to its own trackRow's width (position: relative,
   // set below) so a single narrow card's tag - which can render wider than
@@ -202,6 +203,8 @@ const useStyles = makeStyles(() => ({
   // A declared-but-undeployed environment has almost nothing to show, so it keeps its own height instead of
   // stretching to its row's tallest sibling (which made it a tall, nearly empty box).
   cardUndeployed: { alignSelf: "flex-start" },
+  // Next to a release track, an undeployed card starts where the track's cards do (below the rail), not at the rail's top.
+  cardBelowRail: { marginTop: TRACK_RAIL_H },
   trackCard: {
     flex: `0 1 ${TRACK_CARD_W}px`,
     minWidth: 175,
@@ -465,26 +468,34 @@ function OverviewTab() {
   const gitopsUrl = owner && appName ? `https://github.com/${owner}/gitops-${appName}` : void 0;
   const previewEnvs = environments.filter((env) => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter((env) => !isPreviewEnvName(env.env));
+  const hasRail = pipelineEnvs.some((env) => env.deployed !== false);
   const renderEnvCard = (env, opts) => {
     if (env.deployed === false) {
-      return /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ""}`, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.cardHead, children: /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }) }),
-        /* @__PURE__ */ jsxs(
-          "span",
-          {
-            className: classes.pill,
-            style: { backgroundColor: t[STATUS_SOFT.unknown], color: t[STATUS_COLOR.unknown] },
-            children: [
-              /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR.unknown] } }),
-              "Not yet deployed"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { borderBottom: "none" }, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster" }),
-          /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cluster || "\u2014" })
-        ] })
-      ] }, env.key);
+      return /* @__PURE__ */ jsxs(
+        "div",
+        {
+          className: `${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ""} ${!opts?.skipImage && hasRail ? classes.cardBelowRail : ""}`,
+          children: [
+            /* @__PURE__ */ jsx("div", { className: classes.cardHead, children: /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }) }),
+            /* @__PURE__ */ jsxs(
+              "span",
+              {
+                className: classes.pill,
+                style: { backgroundColor: t[STATUS_SOFT.unknown], color: t[STATUS_COLOR.unknown] },
+                children: [
+                  /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR.unknown] } }),
+                  "Not yet deployed"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { borderBottom: "none" }, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster" }),
+              /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cluster || "\u2014" })
+            ] })
+          ]
+        },
+        env.key
+      );
     }
     const h = health(env);
     const provenance = env.image ? provenanceByImage[env.image] : void 0;
