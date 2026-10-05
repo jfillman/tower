@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { envListsOf } from './environmentRows';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -9,16 +8,22 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { HangarMark } from './brand/HangarMark';
 import { useCicdConfig, usePlatformEnvs, usePlatformFile } from './useConfigData';
 import { PipelineFlowPreview } from './PipelineFlowPreview';
+import { pipelinesNamingEnv, readEnvironments, type Deploy } from './environments/stagedChanges';
+import { DEPLOY_TARGETS } from './serviceClass';
+import { Button, ColumnLabel, TierChip } from './ui';
 
 // Read-only "what's configured" companion to the Glidepath tab's own editor
 // (GlidepathTab.tsx) - fed by the exact same hooks/routes, just rendered
 // without any form state, so there's one source of truth for what cicd.yaml
 // actually says rather than a second, drifting summary.
+//
+// The environment chain (every environment in promotion order, Ground and Flight, either way cicd.yaml
+// declares them) is always visible; the rest sits behind "Show details".
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   panel: {
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 8,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 6,
     padding: '14px 18px',
     marginBottom: 20,
     backgroundColor: ({ t }) => t.panel,
@@ -28,33 +33,21 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
   headLeft: { display: 'flex', alignItems: 'center', gap: 8 },
+  headRight: { display: 'flex', gap: 8, alignItems: 'center' },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  grid: { display: 'flex', gap: 24, flexWrap: 'wrap' },
-  col: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 180 },
-  label: { fontFamily: fontMono, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.4, color: ({ t }) => t.textFaint },
+  chain: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  chainItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
+  chainName: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
+  arrow: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 12 },
+  grid: { display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' },
+  col: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 },
   value: { fontSize: 12.5, color: ({ t }) => t.textHi },
-  envChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  envChip: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '2px 8px',
-    borderRadius: 10,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    color: ({ t }) => t.textLo,
-  },
+  muted: { fontSize: 12, color: ({ t }) => t.textLo },
+  envRows: { display: 'flex', flexDirection: 'column', gap: 6 },
+  envRow: { display: 'grid', gridTemplateColumns: '90px 70px 1fr', gap: 10, alignItems: 'center', fontSize: 12.5 },
+  mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   pipelinesList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  configureLink: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-    '&:hover': { textDecoration: 'underline' },
-  },
-  strategyWarn: { fontSize: 10.5, fontStyle: 'italic', color: ({ t }) => t.amberInk },
+  strategyWarn: { fontSize: 11, fontStyle: 'italic', color: ({ t }) => t.amberInk },
   // A visible stand-in for loading/error/no-data, replacing what used to be
   // a silent `return null` (2026-09-18 bug report: "the new glidepath panel
   // on the pipelines tab disappeared" - a transient cicd.yaml fetch hiccup
@@ -95,7 +88,9 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
   else if (!cicd.data) statusNote = 'no cicd.yaml found yet for this app';
 
   const deploy = (cicd.data?.values.deploy ?? {}) as Record<string, unknown>;
-  const { lower: lowerEnvironments, order: promotionOrder } = envListsOf(deploy);
+  const { envs: environments } = readEnvironments(deploy as Deploy);
+  const targetId = typeof deploy.target === 'string' ? deploy.target : 'k8s-rollout';
+  const targetLabel = DEPLOY_TARGETS[targetId]?.label ?? targetId;
   const strategy = deploy.strategy === 'rollout' ? 'rollout' : 'deployment';
   const configuredEnvs = new Set(envs.data?.envs ?? []);
   const pipelines = (cicd.data?.values.pipelines ?? {}) as Record<string, unknown>;
@@ -125,6 +120,13 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
     }
   }
 
+  // Where an environment's values come from: its gitops file (Flight), its platform file or the chart defaults (Ground), or the cloud target.
+  const whereOf = (e: { name: string; tier: 'ground' | 'flight'; cluster?: string }): string => {
+    if (e.tier === 'flight') return `${e.cluster ?? 'same cluster'} · gitops values`;
+    if (targetId !== 'k8s-rollout') return targetLabel;
+    return configuredEnvs.has(e.name) ? `platform/envs/${e.name}.yaml` : 'chart defaults, no values file yet';
+  };
+
   return (
     <div className={classes.panel}>
       <div className={classes.head}>
@@ -135,37 +137,51 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
             <Typography className={cicd.error ? classes.statusNoteError : classes.statusNote}>{statusNote}</Typography>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div className={classes.headRight}>
           {!statusNote && (
-            <button type="button" className={classes.configureLink} onClick={() => setExpanded(v => !v)}>
-              {expanded ? 'hide details' : 'show details'}
-            </button>
+            <Button small onClick={() => setExpanded(v => !v)} aria-expanded={expanded}>
+              {expanded ? 'Hide details' : 'Show details'}
+            </Button>
           )}
-          <button type="button" className={classes.configureLink} onClick={goToGlidepath}>
+          <Button small onClick={goToGlidepath}>
             Configure in Glidepath →
-          </button>
+          </Button>
         </div>
       </div>
+      {!statusNote && cicd.data && (
+        <div className={classes.chain} aria-label="Environments in promotion order">
+          {environments.map((e, i) => (
+            <span key={e.name} className={classes.chainItem}>
+              {i > 0 && <span className={classes.arrow}>→</span>}
+              <span className={classes.chainName}>{e.name}</span>
+              <TierChip tier={e.tier} />
+            </span>
+          ))}
+          {environments.length === 0 && <span className={classes.muted}>No environments declared.</span>}
+        </div>
+      )}
       {expanded && !statusNote && cicd.data && (
         <>
           <div className={classes.grid}>
             <div className={classes.col}>
-              <span className={classes.label}>Lower environments</span>
-              <div className={classes.envChips}>
-                {lowerEnvironments.map(env => (
-                  <span key={env} className={classes.envChip}>
-                    {env}
-                    {configuredEnvs.has(env) ? '' : ' (defaults)'}
-                  </span>
+              <ColumnLabel>Environments</ColumnLabel>
+              <div className={classes.envRows}>
+                {environments.map(e => (
+                  <div key={e.name} className={classes.envRow}>
+                    <span className={classes.chainName}>{e.name}</span>
+                    <TierChip tier={e.tier} />
+                    <span className={classes.mono}>{whereOf(e)}</span>
+                    {pipelinesNamingEnv(pipelines, e.name).length === 0 && pipelineEntries.length > 0 && (
+                      <span className={classes.strategyWarn} style={{ gridColumn: '3 / -1', marginTop: -4 }}>
+                        No pipeline step {e.tier === 'flight' ? 'releases' : 'deploys'} to {e.name}.
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
             <div className={classes.col}>
-              <span className={classes.label}>Promotion order</span>
-              <span className={classes.value}>{promotionOrder.length > 0 ? promotionOrder.join(' → ') : '(not set)'}</span>
-            </div>
-            <div className={classes.col}>
-              <span className={classes.label}>Deploy strategy</span>
+              <ColumnLabel>Deploy strategy</ColumnLabel>
               <span className={classes.value}>{strategy}</span>
               {strategy === 'deployment' && (
                 <span className={classes.strategyWarn}>
@@ -175,13 +191,13 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
             </div>
             {previewPorts && (
               <div className={classes.col}>
-                <span className={classes.label}>Preview env template</span>
+                <ColumnLabel>Preview environments (template)</ColumnLabel>
                 <span className={classes.value}>Ports: {previewPorts}</span>
                 <span className={classes.strategyWarn}>Image is stamped per-PR by the ArgoCD ApplicationSet, not shown here.</span>
               </div>
             )}
             <div className={classes.col}>
-              <span className={classes.label}>Ephemeral environments</span>
+              <ColumnLabel>Ephemeral environments</ColumnLabel>
               <span className={classes.value}>
                 Branch-triggered: {ephBranch.enabled ? 'on' : 'off'}
                 {ephBranch.enabled && Array.isArray(ephBranch.patterns) && ephBranch.patterns.length > 0
@@ -199,7 +215,7 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
           </div>
           {pipelineEntries.length > 0 && (
             <div className={classes.pipelinesList}>
-              <span className={classes.label}>Configured pipelines</span>
+              <ColumnLabel>Configured pipelines</ColumnLabel>
               {pipelineEntries.map(([name, pipeline]) => (
                 <PipelineFlowPreview key={name} name={name} pipeline={pipeline as never} />
               ))}

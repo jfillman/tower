@@ -78,37 +78,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
   activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  // Cross-link back to Deployments (2026-09-16 handoff: "now that CI and CD
-  // are visually separate tabs, the Pipelines tab loses the CD panel's
-  // context - worth a one-line cross-link back to Deployments"). Uses the
-  // same tab-switch URL param TowerPage.tsx's own tab bar does, not a full
-  // navigation, so app-entity context isn't lost.
-  crossLink: {
-    marginTop: 20,
-    padding: '10px 16px',
-    borderRadius: 8,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  crossLinkBtn: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 700,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-    '&:hover': { textDecoration: 'underline' },
-  },
 }));
 
 export function PipelinesTab() {
@@ -193,7 +162,8 @@ export function PipelinesTab() {
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
 
   const activeRunItems = pipelineRuns.runs.filter(r => r.phase === 'running');
-  const hasActivity = activeRunItems.length > 0;
+  // A delivery in flight (a rollout moving) belongs with the running pipelines: one place for what is active right now.
+  const hasActivity = activeRunItems.length > 0 || pendingDeployCount > 0;
 
   let ciBody: JSX.Element;
   if (pipelineRuns.error && !pipelineRuns.loading && pipelineRuns.runs.length === 0) {
@@ -247,6 +217,14 @@ export function PipelinesTab() {
                 <span className={classes.activityChipSub}>running &middot; CI</span>
               </button>
             ))}
+            {pendingDeployCount > 0 && (
+              <button type="button" className={classes.activityChip} onClick={goToDeployments}>
+                <span className={classes.activityChipLabel}>
+                  {pendingDeployCount} deliver{pendingDeployCount === 1 ? 'y' : 'ies'} in flight
+                </span>
+                <span className={classes.activityChipSub}>rolling out &middot; open Deployments &rarr;</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -260,16 +238,6 @@ export function PipelinesTab() {
           </span>
         </div>
         {ciBody}
-      </div>
-      <div className={classes.crossLink}>
-        <span>
-          {pendingDeployCount > 0
-            ? `${pendingDeployCount} environment${pendingDeployCount === 1 ? '' : 's'} with a delivery in flight right now.`
-            : 'No deliveries currently in flight.'}
-        </span>
-        <button type="button" className={classes.crossLinkBtn} onClick={goToDeployments}>
-          View in Deployments →
-        </button>
       </div>
     </div>
   );
