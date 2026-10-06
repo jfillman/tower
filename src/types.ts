@@ -855,8 +855,13 @@ export interface PlatformFileChangeResult {
   alreadyOpen: boolean;
 }
 
+/** The source repo's environments folder: platform/ until the repo moves to glidepath/ (glidepath ADR-0018). */
+export type EnvsRoot = 'platform' | 'glidepath';
+
 export interface PlatformEnvsResponse {
   envs: string[];
+  /** Absent from a backend older than the platform/ -> glidepath/ move: that backend only reads platform/. */
+  root?: EnvsRoot;
 }
 
 // Mirrors airframe's slos.catalog.hangar.io v1alpha1 XRD schema exactly (see

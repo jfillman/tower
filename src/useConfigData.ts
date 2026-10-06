@@ -13,6 +13,7 @@ import type {
   EnvXrResponse,
   PlatformEnvSelector,
   PlatformEnvsResponse,
+  EnvsRoot,
   PlatformFileChangeRequest,
   PlatformFileChangeResult,
   PlatformFileResponse,
@@ -486,6 +487,11 @@ export function usePlatformEnvs(target: { owner: string; appName: string } | und
   }, [key, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
+}
+
+/** The folder the source repo keeps environment values in (platform until the repo moves to glidepath). */
+export function useEnvsRoot(target: { owner: string; appName: string } | undefined): EnvsRoot {
+  return usePlatformEnvs(target).data?.root ?? 'platform';
 }
 
 export function useSubmitConfigMapFiles() {

@@ -45,6 +45,7 @@ const loadValuesMock = jest.fn();
 jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources'), useEnvValuesLoader: () => loadValuesMock }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
 jest.mock('../useConfigData', () => ({
+  useEnvsRoot: () => 'platform',
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
   usePlatformFile: () => platformFile,

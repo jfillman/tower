@@ -46,6 +46,8 @@ export interface EnvLifecycleTarget {
   deployed?: boolean;
   /** The environment's values file exists. */
   valuesFileExists?: boolean;
+  /** Ground: the values file's path in the source repo (platform/ or glidepath/). */
+  valuesFilePath?: string;
   /** Request pull request URLs already known from this session's submit (Flight). */
   knownRequestUrl?: string;
 }
@@ -172,7 +174,8 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
     valuesFileUrl:
       tier === 'flight' && cluster
         ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml`
-        : `https://github.com/${owner}/${appName}/blob/main/platform/envs/${env}.yaml`,
+        : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `platform/envs/${env}.yaml`}`,
+    valuesFilePath: target.valuesFilePath,
     ...extra,
     requestPr,
   });

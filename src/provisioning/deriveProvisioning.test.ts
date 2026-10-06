@@ -283,7 +283,7 @@ describe('deriveProvisioning', () => {
     };
     const p = deriveProvisioning({ xr: xr(live), build }, now);
     expect(p.steps[RUNNING].state).toBe('run');
-    expect(p.steps[RUNNING].detail).toContain('platform/envs/dev.yaml');
+    expect(p.steps[RUNNING].detail).toContain('envs/dev.yaml under platform/ or glidepath/');
     const fresh = deriveProvisioning({ xr: xr(live), build: { ...build, completedAt: now - 30000 } }, now);
     expect(fresh.steps[RUNNING].detail).toBeUndefined();
   });

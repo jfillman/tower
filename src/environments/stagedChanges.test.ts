@@ -220,6 +220,10 @@ describe('followUps', () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatch(/platform\/envs\/qa\.yaml/);
   });
+  it('names the glidepath/ folder once the repo has moved', () => {
+    expect(followUps([ground('dev')], [ground('dev'), ground('qa')], undefined, 'shop', 'glidepath')[0]).toMatch(/glidepath\/envs\/qa\.yaml/);
+    expect(followUps([ground('dev'), ground('qa')], [ground('dev')], undefined, 'shop', 'glidepath')[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
+  });
   it('says nothing for a cloud environment (no environment file) or when nothing was added', () => {
     expect(followUps([ground('dev')], [ground('dev'), ground('qa')], 'aws-lambda')).toEqual([]);
     expect(followUps([ground('dev')], [ground('dev')], undefined)).toEqual([]);

@@ -11,6 +11,7 @@ jest.mock('../useReleaseContext', () => ({ useReleaseContext: () => ({ owner: 'o
 jest.mock('../values/annotatedValues', () => ({ ...jest.requireActual('../values/annotatedValues'), useChartValues: () => undefined }));
 jest.mock('../values/componentCatalog', () => ({ ...jest.requireActual('../values/componentCatalog'), useComponentCatalog: () => undefined }));
 jest.mock('../useConfigData', () => ({
+  useEnvsRoot: () => 'platform',
   usePlatformFile: (target: any) => {
     selectors.push(target.selector);
     return files[target.selector.kind];
