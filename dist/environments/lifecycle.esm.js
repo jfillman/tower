@@ -15,9 +15,10 @@ function deriveEnvLifecycle(i) {
     links: i.cicdPrUrl ? [{ label: "Pull request", url: i.cicdPrUrl, state: "open" }] : void 0
   };
   if (i.tier === "ground") {
+    const valuesPath = i.valuesFilePath ?? `platform/envs/${i.env}.yaml`;
     const file = {
       id: "values",
-      title: `platform/envs/${i.env}.yaml exists`,
+      title: `${valuesPath} exists`,
       desc: "The values file the environment deploys from.",
       state: i.valuesFileExists ? "done" : "pend",
       links: i.valuesFileUrl && i.valuesFileExists ? [{ label: "View file", url: i.valuesFileUrl }] : void 0
@@ -25,7 +26,7 @@ function deriveEnvLifecycle(i) {
     const onboarding = prStep(
       "onboarding",
       "Onboarding pull request",
-      `Glidepath opens a pull request that adds platform/envs/${i.env}.yaml once cicd.yaml has merged.`,
+      `Glidepath opens a pull request that adds ${valuesPath} once cicd.yaml has merged.`,
       i.onboardingPr,
       i.declared ? "Not opened yet: Glidepath opens it shortly after the merge." : "Opens after the cicd.yaml change merges."
     );

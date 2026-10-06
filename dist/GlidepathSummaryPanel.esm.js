@@ -93,7 +93,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
   const whereOf = (e) => {
     if (e.tier === "flight") return `${e.cluster ?? "same cluster"} \xB7 gitops values`;
     if (targetId !== "k8s-rollout") return targetLabel;
-    return configuredEnvs.has(e.name) ? `platform/envs/${e.name}.yaml` : "chart defaults, no values file yet";
+    return configuredEnvs.has(e.name) ? `${envs.data?.root ?? "platform"}/envs/${e.name}.yaml` : "chart defaults, no values file yet";
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [

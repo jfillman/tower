@@ -72,11 +72,14 @@ function PromoteDialog({
               "Commits directly to",
               " ",
               /* @__PURE__ */ jsxs("span", { style: mono, children: [
-                appName,
-                "/platform/envs/",
+                "envs/",
                 target.target.env,
                 ".yaml"
               ] }),
+              " ",
+              "in ",
+              appName,
+              "'s environments folder (platform/ or glidepath/)",
               " ",
               "- no PR, no review. ArgoCD syncs it as soon as this commit lands."
             ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [

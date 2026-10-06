@@ -64,7 +64,8 @@ function RowDetailBody({ row, ctx, source }) {
       cicdPrUrl: pending?.prUrl,
       knownRequestUrl: pending?.requestUrl,
       deployed: row.deployed,
-      valuesFileExists
+      valuesFileExists,
+      valuesFilePath: source?.data?.path ?? `${ctx.envsRoot}/envs/${row.name}.yaml`
     },
     !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== "new" && row.state !== "removed"
   );
@@ -196,7 +197,8 @@ function Values({ row, ctx, source }) {
       return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
         "Its values file, ",
         /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
-          "platform/envs/",
+          ctx.envsRoot,
+          "/envs/",
           row.name,
           ".yaml"
         ] }),

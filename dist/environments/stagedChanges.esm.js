@@ -199,14 +199,14 @@ function deleteFilesFor(before, after, target) {
   if ((target) !== "k8s-rollout") return [];
   return removedEnvs(before, after).filter((e) => e.tier === "ground").flatMap((e) => envFilePaths(e.name));
 }
-function followUps(before, after, target, appName) {
+function followUps(before, after, target, appName, envsRoot = "platform") {
   const out = [];
   const had = new Set(before.map((e) => e.name));
   const cloud = (target) !== "k8s-rollout";
   for (const e of removedEnvs(before, after)) {
     if (e.tier !== "ground") continue;
     out.push(
-      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes platform/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
+      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${envsRoot}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
     );
   }
   for (const e of after) {
@@ -217,7 +217,7 @@ function followUps(before, after, target, appName) {
       );
     }
     if (e.tier === "ground" && !cloud) {
-      out.push(`Glidepath then opens a pull request on the source repo adding platform/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
+      out.push(`Glidepath then opens a pull request on the source repo adding ${envsRoot}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
   return out;

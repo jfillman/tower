@@ -115,7 +115,8 @@ function useEnvLifecycle(target, enabled) {
     valuesFileExists: target.valuesFileExists,
     tenantsRepoUrl: TENANTS_REPO_BY_CLUSTER[XR_CLUSTER] ? `https://github.com/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].owner}/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].repo}` : void 0,
     gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
-    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/platform/envs/${env}.yaml`,
+    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `platform/envs/${env}.yaml`}`,
+    valuesFilePath: target.valuesFilePath,
     ...extra,
     requestPr
   });

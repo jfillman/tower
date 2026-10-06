@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { useEnvsRoot } from '../useConfigData.esm.js';
 import { ConfigEditor } from '../values/ValuesForm.esm.js';
 import { useChartValues } from '../values/annotatedValues.esm.js';
 import { useComponentCatalog } from '../values/componentCatalog.esm.js';
@@ -17,29 +18,30 @@ const SECTIONS = [
     id: "base",
     label: "Shared values",
     selector: { kind: "base" },
-    path: "platform/base.yaml",
-    title: "Shared values (platform/base.yaml)",
+    file: "base.yaml",
+    title: "Shared values",
     hint: "The values every Ground environment starts from. An environment overrides any of them in its own file, so a change here reaches each environment that has not."
   },
   {
     id: "preview",
     label: "Preview environments",
     selector: { kind: "pr-env" },
-    path: "platform/pr-env.yaml",
-    title: "Preview environment template (platform/pr-env.yaml)",
+    file: "pr-env.yaml",
+    title: "Preview environment template",
     hint: "The template every pull request preview environment is built from. Its name and image are set by the platform."
   }
 ];
-function PlatformValues({ owner, appName, section }) {
+function PlatformValues({ owner, appName, section, path }) {
   const source = usePlatformValuesSource({ owner, appName, selector: section.selector });
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: section.title, layout: "side", componentCatalog, chart });
+  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: `${section.title} (${path})`, layout: "side", componentCatalog, chart });
 }
 function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
+  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : void 0);
   const [section, setSection] = useState("base");
   const [searchParams, setSearchParams] = useSearchParams();
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
@@ -49,11 +51,12 @@ function ConfigTab() {
       TowerEmptyState,
       {
         title: "Can't resolve this app's source repo",
-        description: "App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's platform/ folder to read."
+        description: "App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
       }
     );
   }
   const active = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
+  const activePath = `${envsRoot}/${active.file}`;
   const legacyEnv = searchParams.get("env");
   const toEnvironments = () => {
     const next = new URLSearchParams(searchParams);
@@ -75,9 +78,9 @@ function ConfigTab() {
     /* @__PURE__ */ jsxs("div", { className: ui.note, style: { margin: "12px 0" }, children: [
       active.hint,
       " ",
-      /* @__PURE__ */ jsx("code", { children: active.path })
+      /* @__PURE__ */ jsx("code", { children: activePath })
     ] }),
-    /* @__PURE__ */ jsx(PlatformValues, { owner, appName, section: active }, active.id)
+    /* @__PURE__ */ jsx(PlatformValues, { owner, appName, section: active, path: activePath }, active.id)
   ] });
 }
 

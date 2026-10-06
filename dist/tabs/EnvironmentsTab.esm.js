@@ -15,7 +15,7 @@ import { loadSubmitted, pendingFrom, saveSubmitted } from '../environments/submi
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
-import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
+import { useCicdConfig, useEnvsRoot, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { PageHeader, Button, Segmented, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
@@ -75,6 +75,7 @@ function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
+  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : void 0);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
   const loadValues = useEnvValuesLoader();
@@ -145,7 +146,7 @@ function EnvironmentsTab() {
   }, [before, after]);
   const notes = useMemo(
     () => [
-      ...followUps(before, after, targetId, appName),
+      ...followUps(before, after, targetId, appName, envsRoot),
       ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No release step added for ${k.env}: ${k.reason}.`)
@@ -271,7 +272,7 @@ function EnvironmentsTab() {
         if (!source) continue;
         try {
           const values = await loadValues({ owner, appName, env: from, tier: source.tier, cluster: source.cluster });
-          createFiles.push({ path: `platform/envs/${env.name}.yaml`, content: dump({ envName: env.name, ...values }, { lineWidth: -1 }) });
+          createFiles.push({ path: `${envsRoot}/envs/${env.name}.yaml`, content: dump({ envName: env.name, ...values }, { lineWidth: -1 }) });
         } catch (e) {
           setPhase("idle");
           setFailure(`Could not read the values of ${from} to copy them to ${env.name}: ${String(e)}. Nothing was changed in cicd.yaml.`);
@@ -317,6 +318,7 @@ function EnvironmentsTab() {
   const detailCtx = {
     owner,
     appName,
+    envsRoot,
     entity: searchParams.get("entity") ?? "",
     deploy,
     pipelines,
