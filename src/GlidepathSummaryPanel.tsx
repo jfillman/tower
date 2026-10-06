@@ -124,7 +124,7 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
   const whereOf = (e: { name: string; tier: 'ground' | 'flight'; cluster?: string }): string => {
     if (e.tier === 'flight') return `${e.cluster ?? 'same cluster'} · gitops values`;
     if (targetId !== 'k8s-rollout') return targetLabel;
-    return configuredEnvs.has(e.name) ? `platform/envs/${e.name}.yaml` : 'chart defaults, no values file yet';
+    return configuredEnvs.has(e.name) ? `${envs.data?.root ?? 'platform'}/envs/${e.name}.yaml` : 'chart defaults, no values file yet';
   };
 
   return (

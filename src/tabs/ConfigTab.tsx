@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
+import { useEnvsRoot } from '../useConfigData';
 import { ConfigEditor } from '../values/ValuesForm';
 import { useChartValues } from '../values/annotatedValues';
 import { useComponentCatalog } from '../values/componentCatalog';
@@ -22,36 +23,38 @@ import type { PlatformEnvSelector } from '../types';
 
 type Section = 'base' | 'preview';
 
-const SECTIONS: Array<{ id: Section; label: string; selector: PlatformEnvSelector; path: string; title: string; hint: string }> = [
+// `file` is relative to the source repo's environments folder (platform/ until it moves to glidepath/).
+const SECTIONS: Array<{ id: Section; label: string; selector: PlatformEnvSelector; file: string; title: string; hint: string }> = [
   {
     id: 'base',
     label: 'Shared values',
     selector: { kind: 'base' },
-    path: 'platform/base.yaml',
-    title: 'Shared values (platform/base.yaml)',
+    file: 'base.yaml',
+    title: 'Shared values',
     hint: 'The values every Ground environment starts from. An environment overrides any of them in its own file, so a change here reaches each environment that has not.',
   },
   {
     id: 'preview',
     label: 'Preview environments',
     selector: { kind: 'pr-env' },
-    path: 'platform/pr-env.yaml',
-    title: 'Preview environment template (platform/pr-env.yaml)',
+    file: 'pr-env.yaml',
+    title: 'Preview environment template',
     hint: 'The template every pull request preview environment is built from. Its name and image are set by the platform.',
   },
 ];
 
-function PlatformValues({ owner, appName, section }: { owner: string; appName: string; section: (typeof SECTIONS)[number] }) {
+function PlatformValues({ owner, appName, section, path }: { owner: string; appName: string; section: (typeof SECTIONS)[number]; path: string }) {
   const source = usePlatformValuesSource({ owner, appName, selector: section.selector });
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
-  return <ConfigEditor owner={owner} appName={appName} source={source} title={section.title} layout="side" componentCatalog={componentCatalog} chart={chart} />;
+  return <ConfigEditor owner={owner} appName={appName} source={source} title={`${section.title} (${path})`} layout="side" componentCatalog={componentCatalog} chart={chart} />;
 }
 
 export function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
+  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : undefined);
   const [section, setSection] = useState<Section>('base');
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -61,11 +64,12 @@ export function ConfigTab() {
     return (
       <TowerEmptyState
         title="Can't resolve this app's source repo"
-        description="App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's platform/ folder to read."
+        description="App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
       />
     );
   }
   const active = SECTIONS.find(s => s.id === section) ?? SECTIONS[0];
+  const activePath = `${envsRoot}/${active.file}`;
   const legacyEnv = searchParams.get('env');
   const toEnvironments = () => {
     const next = new URLSearchParams(searchParams);
@@ -85,9 +89,9 @@ export function ConfigTab() {
       </Panel>
       <Subtabs label="App configuration sections" value={section} onChange={setSection} tabs={SECTIONS.map(s => ({ id: s.id, label: s.label }))} />
       <div className={ui.note} style={{ margin: '12px 0' }}>
-        {active.hint} <code>{active.path}</code>
+        {active.hint} <code>{activePath}</code>
       </div>
-      <PlatformValues key={active.id} owner={owner} appName={appName} section={active} />
+      <PlatformValues key={active.id} owner={owner} appName={appName} section={active} path={activePath} />
     </div>
   );
 }

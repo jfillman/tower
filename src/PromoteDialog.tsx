@@ -107,8 +107,9 @@ export function PromoteDialog({
                   <>
                     Commits directly to{' '}
                     <span style={mono}>
-                      {appName}/platform/envs/{target.target.env}.yaml
+                      envs/{target.target.env}.yaml
                     </span>{' '}
+                    in {appName}&apos;s environments folder (platform/ or glidepath/){' '}
                     - no PR, no review. ArgoCD syncs it as soon as this commit lands.
                   </>
                 ) : (

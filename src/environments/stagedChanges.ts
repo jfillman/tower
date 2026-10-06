@@ -289,7 +289,7 @@ export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string
 }
 
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */
-export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string): string[] {
+export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string, envsRoot: 'platform' | 'glidepath' = 'platform'): string[] {
   const out: string[] = [];
   const had = new Set(before.map(e => e.name));
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
@@ -298,7 +298,7 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
     out.push(
       cloud
         ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.`
-        : `The pull request also deletes platform/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`,
+        : `The pull request also deletes ${envsRoot}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`,
     );
   }
   for (const e of after) {
@@ -309,7 +309,7 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
       );
     }
     if (e.tier === 'ground' && !cloud) {
-      out.push(`Glidepath then opens a pull request on the source repo adding platform/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
+      out.push(`Glidepath then opens a pull request on the source repo adding ${envsRoot}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
   return out;
