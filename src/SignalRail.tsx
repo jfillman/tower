@@ -407,7 +407,7 @@ export function formatGateName(name: string): string {
 // since this still lands in a plain pre-wrap <div>. Good enough to turn
 // "### ❌ `sast` failed" into "❌ sast failed" rather than showing the raw
 // markdown syntax verbatim.
-function stripLightMarkdown(s: string): string {
+export function stripLightMarkdown(s: string): string {
   return s
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
