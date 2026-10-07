@@ -451,6 +451,18 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(screen.queryByText(/needs the cluster it runs on/)).toBeNull();
   });
 
+  it('lists only the cicd.yaml pull request for a cloud Flight environment, not a tenants request', () => {
+    lambdaNew();
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
+    expect(screen.queryByText(/tenants repo/)).toBeNull();
+    expect(screen.queryByText(/ApplicationEnvironment request/)).toBeNull();
+    expect(screen.getByText('Pull request this opens')).toBeTruthy();
+  });
+
   it('will not stage a Flight environment without a cluster', () => {
     k8sOld();
     renderTab();
