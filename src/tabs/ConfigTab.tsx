@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
-import { useEnvsRoot } from '../useConfigData';
+import { ENVS_ROOT } from '../types';
 import { ConfigEditor } from '../values/ValuesForm';
 import { useChartValues } from '../values/annotatedValues';
 import { useComponentCatalog } from '../values/componentCatalog';
@@ -16,14 +16,14 @@ import type { PlatformEnvSelector } from '../types';
 // App Configuration: the config that belongs to the app as a whole, not to one environment. Two files of the app's source
 // repo, each edited with the same values form (and the same Pending changes panel) an environment's row uses:
 //
-//  - platform/base.yaml: the values every Ground environment starts from, so a change here reaches all of them.
-//  - platform/pr-env.yaml: the template each preview environment is built from.
+//  - glidepath/base.yaml: the values every Ground environment starts from, so a change here reaches all of them.
+//  - glidepath/pr-env.yaml: the template each preview environment is built from.
 //
 // An environment's own values (Ground and Flight) are edited in the Environments tab, in that environment's row.
 
 type Section = 'base' | 'preview';
 
-// `file` is relative to the source repo's environments folder (platform/ until it moves to glidepath/).
+// `file` is relative to the source repo's environments folder (glidepath/).
 const SECTIONS: Array<{ id: Section; label: string; selector: PlatformEnvSelector; file: string; title: string; hint: string }> = [
   {
     id: 'base',
@@ -54,7 +54,6 @@ export function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
-  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : undefined);
   const [section, setSection] = useState<Section>('base');
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -69,7 +68,7 @@ export function ConfigTab() {
     );
   }
   const active = SECTIONS.find(s => s.id === section) ?? SECTIONS[0];
-  const activePath = `${envsRoot}/${active.file}`;
+  const activePath = `${ENVS_ROOT}/${active.file}`;
   const legacyEnv = searchParams.get('env');
   const toEnvironments = () => {
     const next = new URLSearchParams(searchParams);

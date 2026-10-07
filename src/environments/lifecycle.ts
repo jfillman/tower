@@ -1,4 +1,5 @@
 import type { ManagedSnapshot, PrSnapshot, SecretsSnapshot, StepLink, StepState } from '../provisioning/deriveProvisioning';
+import { ENVS_ROOT } from '../types';
 
 // What happens to a new environment between "the pull request is open" and "it is running", as ordered steps. The
 // facts come from places Tower can read (GitHub through the backend, the ApplicationEnvironment XR and the objects it
@@ -25,20 +26,20 @@ export interface EnvLifecycleInputs {
   cicdPrUrl?: string;
   /** Flight: the ApplicationEnvironment request on the tenants repo. */
   requestPr?: PrSnapshot;
-  /** Ground: the onboarding pull request that adds platform/envs/<env>.yaml. */
+  /** Ground: the onboarding pull request that adds glidepath/envs/<env>.yaml. */
   onboardingPr?: PrSnapshot;
   xr?: { found: boolean; synced?: boolean; failed?: string; workloadDeployed?: boolean; workloadReason?: string };
   files?: ManagedSnapshot[];
   secrets?: SecretsSnapshot;
   infisicalUrl?: string;
-  /** The environment's values file exists (gitops values.yaml, or platform/envs/<env>.yaml). */
+  /** The environment's values file exists (gitops values.yaml, or glidepath/envs/<env>.yaml). */
   valuesFileExists?: boolean;
   /** The environment is live in the cluster (a workload was discovered). */
   deployed?: boolean;
   tenantsRepoUrl?: string;
   gitopsRepoUrl?: string;
   valuesFileUrl?: string;
-  /** Ground: the values file's path in the source repo (platform/ or glidepath/, glidepath ADR-0018). */
+  /** Ground: the values file's path in the source repo (under glidepath/). */
   valuesFilePath?: string;
 }
 
@@ -65,7 +66,7 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
       };
 
   if (i.tier === 'ground') {
-    const valuesPath = i.valuesFilePath ?? `platform/envs/${i.env}.yaml`;
+    const valuesPath = i.valuesFilePath ?? `${ENVS_ROOT}/envs/${i.env}.yaml`;
     const file: EnvLifecycleStep = {
       id: 'values',
       title: `${valuesPath} exists`,

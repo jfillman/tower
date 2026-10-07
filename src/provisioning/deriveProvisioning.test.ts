@@ -283,7 +283,7 @@ describe('deriveProvisioning', () => {
     };
     const p = deriveProvisioning({ xr: xr(live), build }, now);
     expect(p.steps[RUNNING].state).toBe('run');
-    expect(p.steps[RUNNING].detail).toContain('envs/dev.yaml under platform/ or glidepath/');
+    expect(p.steps[RUNNING].detail).toContain('glidepath/envs/dev.yaml');
     const fresh = deriveProvisioning({ xr: xr(live), build: { ...build, completedAt: now - 30000 } }, now);
     expect(fresh.steps[RUNNING].detail).toBeUndefined();
   });
@@ -476,7 +476,7 @@ describe('function XRs (Lambda, Azure Functions): no GitOps repo, no Rollout', (
     expect(last.title).toBe('Deployed to the cloud target');
     expect(last.state).toBe('run');
     expect(last.detail).toBe('Waiting for the deploy stage to start');
-    expect(last.detail).not.toMatch(/rollout|platform\/envs/i);
+    expect(last.detail).not.toMatch(/rollout|glidepath\/envs/i);
   });
 
   it('names the target once the deploy has resolved it, and links the console when done', () => {

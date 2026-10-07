@@ -15,7 +15,7 @@ import { useStyles as useValuesStyles } from '../../values/styles';
 import { Button, ColumnLabel, Field, Subtabs } from '../../ui';
 import { useUi } from '../../ui/styles';
 import { BLOCK_FIELDS, type DisplayRow } from './shared';
-import type { EnvsRoot } from '../../types';
+import { ENVS_ROOT } from '../../types';
 
 type SubtabId = 'settings' | 'values' | 'promotion' | 'danger';
 
@@ -32,8 +32,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 export interface RowDetailContext {
   owner?: string;
   appName?: string;
-  /** The source repo's environments folder (platform/ until it moves to glidepath/). */
-  envsRoot: EnvsRoot;
   entity: string;
   deploy?: Deploy;
   pipelines: unknown;
@@ -94,7 +92,7 @@ function RowDetailBody({ row, ctx, source }: RowProps & { source?: ValuesSource 
       knownRequestUrl: pending?.requestUrl,
       deployed: row.deployed,
       valuesFileExists,
-      valuesFilePath: source?.data?.path ?? `${ctx.envsRoot}/envs/${row.name}.yaml`,
+      valuesFilePath: source?.data?.path ?? `${ENVS_ROOT}/envs/${row.name}.yaml`,
     },
     !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== 'new' && row.state !== 'removed',
   );
@@ -242,7 +240,7 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
     if (row.state === 'new') {
       return (
         <div className={ui.note}>
-          Its values file, <span className={c.mono}>{ctx.envsRoot}/envs/{row.name}.yaml</span>, is created by a second pull request after the
+          Its values file, <span className={c.mono}>{ENVS_ROOT}/envs/{row.name}.yaml</span>, is created by a second pull request after the
           cicd.yaml change merges. Edit its values here once that is merged.
         </div>
       );

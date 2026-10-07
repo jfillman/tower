@@ -13,7 +13,6 @@ import type {
   EnvXrResponse,
   PlatformEnvSelector,
   PlatformEnvsResponse,
-  EnvsRoot,
   PlatformFileChangeRequest,
   PlatformFileChangeResult,
   PlatformFileResponse,
@@ -361,7 +360,7 @@ export function useCicdSchema(owner: string | undefined) {
   return state;
 }
 
-// --- Glidepath tab: platform/ folder (mirrors glidepathPlatformConfig.ts) -
+// --- Glidepath tab: glidepath/ folder (mirrors glidepathPlatformConfig.ts) -
 
 function platformEnvKey(selector: PlatformEnvSelector): string {
   return selector.kind === 'env' ? `env:${selector.env}` : selector.kind;
@@ -487,11 +486,6 @@ export function usePlatformEnvs(target: { owner: string; appName: string } | und
   }, [key, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
-}
-
-/** The folder the source repo keeps environment values in (platform until the repo moves to glidepath). */
-export function useEnvsRoot(target: { owner: string; appName: string } | undefined): EnvsRoot {
-  return usePlatformEnvs(target).data?.root ?? 'platform';
 }
 
 export function useSubmitConfigMapFiles() {

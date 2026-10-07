@@ -12,7 +12,7 @@ import { Button } from './ui';
 import { deepEqual } from './deepEqual';
 import { CONFIG_TOP_LEVEL_FIELDS, type ConfigTopLevelField, type PlatformEnvSelector } from './types';
 
-// One platform file (platform/pr-env.yaml or platform/envs/<env>.yaml) as YAML, with its own "Open PR for this
+// One platform file (glidepath/pr-env.yaml or glidepath/envs/<env>.yaml) as YAML, with its own "Open PR for this
 // file" button. Shared by the Glidepath tab (any file) and the Environments tab (one Ground environment's row).
 
 function safeYamlDump(value: unknown): string {
@@ -60,7 +60,7 @@ export function PlatformFileEditor({
   useEffect(() => {
     if (!file.data) return;
     // Brand-new env (nothing committed yet): seed the minimal bootstrap stub this platform documents as the safe
-    // starting point (platform/envs/dev.yaml: "rollout: null" renders the clean namespace-only stub; leaving the
+    // starting point (glidepath/envs/dev.yaml: "rollout: null" renders the clean namespace-only stub; leaving the
     // key out rendered a Rollout with two InvalidImageName pods). Not for pr-env.yaml, which must already have
     // real content and has no envName of its own.
     if (Object.keys(file.data.values).length === 0 && selector.kind === 'env') {

@@ -11,6 +11,7 @@ import { PipelineFlowPreview } from './PipelineFlowPreview.esm.js';
 import { readEnvironments, pipelinesNamingEnv } from './environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from './serviceClass.esm.js';
 import { Button, TierChip, ColumnLabel } from './ui/index.esm.js';
+import { ENVS_ROOT } from './types.esm.js';
 
 const useStyles = makeStyles(() => ({
   panel: {
@@ -93,7 +94,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
   const whereOf = (e) => {
     if (e.tier === "flight") return `${e.cluster ?? "same cluster"} \xB7 gitops values`;
     if (targetId !== "k8s-rollout") return targetLabel;
-    return configuredEnvs.has(e.name) ? `${envs.data?.root ?? "platform"}/envs/${e.name}.yaml` : "chart defaults, no values file yet";
+    return configuredEnvs.has(e.name) ? `${ENVS_ROOT}/envs/${e.name}.yaml` : "chart defaults, no values file yet";
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [

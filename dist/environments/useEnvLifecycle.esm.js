@@ -4,6 +4,7 @@ import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { infisicalProjectUrl } from '../provisioning/deriveProvisioning.esm.js';
 import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toSecrets, toOnboardingPrs } from '../provisioning/useProvisioning.esm.js';
 import { deriveEnvLifecycle } from './lifecycle.esm.js';
+import { ENVS_ROOT } from '../types.esm.js';
 
 const POLL_MS = 8e3;
 const GITHUB_POLL_MS = 45e3;
@@ -115,7 +116,7 @@ function useEnvLifecycle(target, enabled) {
     valuesFileExists: target.valuesFileExists,
     tenantsRepoUrl: TENANTS_REPO_BY_CLUSTER[XR_CLUSTER] ? `https://github.com/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].owner}/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].repo}` : void 0,
     gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
-    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `platform/envs/${env}.yaml`}`,
+    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     ...extra,
     requestPr

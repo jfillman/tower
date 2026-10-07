@@ -10,6 +10,7 @@ import {
 } from '../provisioning/deriveProvisioning';
 import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toOnboardingPrs, toSecrets } from '../provisioning/useProvisioning';
 import { deriveEnvLifecycle, type EnvLifecycleInputs, type EnvLifecycleStep } from './lifecycle';
+import { ENVS_ROOT } from '../types';
 
 // Reads what is observable about one environment's creation and turns it into steps (see lifecycle.ts). Polled while
 // it is on screen: the cluster every few seconds, GitHub (through the backend, which answers repeats with conditional
@@ -46,7 +47,7 @@ export interface EnvLifecycleTarget {
   deployed?: boolean;
   /** The environment's values file exists. */
   valuesFileExists?: boolean;
-  /** Ground: the values file's path in the source repo (platform/ or glidepath/). */
+  /** Ground: the values file's path in the source repo (under glidepath/). */
   valuesFilePath?: string;
   /** Request pull request URLs already known from this session's submit (Flight). */
   knownRequestUrl?: string;
@@ -174,7 +175,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
     valuesFileUrl:
       tier === 'flight' && cluster
         ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml`
-        : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `platform/envs/${env}.yaml`}`,
+        : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     ...extra,
     requestPr,

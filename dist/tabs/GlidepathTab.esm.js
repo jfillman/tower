@@ -442,7 +442,7 @@ function GlidepathTab() {
       form.testEnabled && /* @__PURE__ */ jsx(
         TextField,
         {
-          label: "TestWorkflow name (<name>.yaml under platform/ or glidepath/)",
+          label: "TestWorkflow name (<name>.yaml under glidepath/)",
           value: form.testName,
           onChange: (e) => setForm((f) => f ? { ...f, testName: e.target.value } : f),
           size: "small"

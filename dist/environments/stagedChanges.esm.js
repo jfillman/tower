@@ -1,3 +1,5 @@
+import { ENVS_ROOT } from '../types.esm.js';
+
 const CLOUD_BLOCKS = ["ecs", "lambda", "azureContainerApps"];
 const TARGET_BLOCK = {
   "aws-ecs": "ecs",
@@ -168,7 +170,7 @@ function describeChanges(before, after, shape) {
   return lines;
 }
 function envFilePaths(env) {
-  return ["platform", "glidepath"].flatMap((dir) => [`${dir}/envs/${env}.yaml`, `${dir}/envs/${env}.release.yaml`]);
+  return [`${ENVS_ROOT}/envs/${env}.yaml`, `${ENVS_ROOT}/envs/${env}.release.yaml`];
 }
 function pipelinesNamingEnv(pipelines, env) {
   let entries = [];
@@ -199,14 +201,14 @@ function deleteFilesFor(before, after, target) {
   if ((target) !== "k8s-rollout") return [];
   return removedEnvs(before, after).filter((e) => e.tier === "ground").flatMap((e) => envFilePaths(e.name));
 }
-function followUps(before, after, target, appName, envsRoot = "platform") {
+function followUps(before, after, target, appName) {
   const out = [];
   const had = new Set(before.map((e) => e.name));
   const cloud = (target) !== "k8s-rollout";
   for (const e of removedEnvs(before, after)) {
     if (e.tier !== "ground") continue;
     out.push(
-      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${envsRoot}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
+      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${ENVS_ROOT}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
     );
   }
   for (const e of after) {
@@ -222,7 +224,7 @@ function followUps(before, after, target, appName, envsRoot = "platform") {
       );
     }
     if (e.tier === "ground" && !cloud) {
-      out.push(`Glidepath then opens a pull request on the source repo adding ${envsRoot}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
+      out.push(`Glidepath then opens a pull request on the source repo adding ${ENVS_ROOT}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
   return out;

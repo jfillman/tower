@@ -1,3 +1,5 @@
+import { ENVS_ROOT } from '../types.esm.js';
+
 const prLink = (label, pr) => pr ? [{ label, url: pr.url, state: pr.state }] : void 0;
 function prStep(id, title, desc, pr, waiting) {
   if (!pr) return { id, title, desc, state: "pend", detail: waiting };
@@ -15,7 +17,7 @@ function deriveEnvLifecycle(i) {
     links: i.cicdPrUrl ? [{ label: "Pull request", url: i.cicdPrUrl, state: "open" }] : void 0
   };
   if (i.tier === "ground") {
-    const valuesPath = i.valuesFilePath ?? `platform/envs/${i.env}.yaml`;
+    const valuesPath = i.valuesFilePath ?? `${ENVS_ROOT}/envs/${i.env}.yaml`;
     const file = {
       id: "values",
       title: `${valuesPath} exists`,

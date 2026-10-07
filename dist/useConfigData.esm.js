@@ -367,9 +367,6 @@ function usePlatformEnvs(target, refreshNonce = 0) {
   }, [key, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
-function useEnvsRoot(target) {
-  return usePlatformEnvs(target).data?.root ?? "platform";
-}
 function useSubmitConfigMapFiles() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -399,5 +396,5 @@ function useSubmitConfigMapFiles() {
   return { ...state, submit, reset };
 }
 
-export { useAppConfig, useCicdConfig, useConfigMapFiles, useEnvXr, useEnvsRoot, usePlatformEnvs, usePlatformFile, useSubmitCicdConfigChange, useSubmitConfigChange, useSubmitConfigMapFiles, useSubmitEnvXrChange, useSubmitPlatformFileChange, useValuesSchema };
+export { useAppConfig, useCicdConfig, useConfigMapFiles, useEnvXr, usePlatformEnvs, usePlatformFile, useSubmitCicdConfigChange, useSubmitConfigChange, useSubmitConfigMapFiles, useSubmitEnvXrChange, useSubmitPlatformFileChange, useValuesSchema };
 //# sourceMappingURL=useConfigData.esm.js.map

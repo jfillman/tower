@@ -79,7 +79,7 @@ function PromoteDialog({
               " ",
               "in ",
               appName,
-              "'s environments folder (platform/ or glidepath/)",
+              "'s glidepath/ folder",
               " ",
               "- no PR, no review. ArgoCD syncs it as soon as this commit lands."
             ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [

@@ -15,6 +15,7 @@ import { useStyles as useStyles$1 } from '../../values/styles.esm.js';
 import { Subtabs, Field, ColumnLabel, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 import { BLOCK_FIELDS } from './shared.esm.js';
+import { ENVS_ROOT } from '../../types.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px 18px 48px", backgroundColor: ({ t }) => t.panelAlt, borderTop: ({ t }) => `1px solid ${t.line}` },
@@ -65,7 +66,7 @@ function RowDetailBody({ row, ctx, source }) {
       knownRequestUrl: pending?.requestUrl,
       deployed: row.deployed,
       valuesFileExists,
-      valuesFilePath: source?.data?.path ?? `${ctx.envsRoot}/envs/${row.name}.yaml`
+      valuesFilePath: source?.data?.path ?? `${ENVS_ROOT}/envs/${row.name}.yaml`
     },
     !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== "new" && row.state !== "removed"
   );
@@ -197,7 +198,7 @@ function Values({ row, ctx, source }) {
       return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
         "Its values file, ",
         /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
-          ctx.envsRoot,
+          ENVS_ROOT,
           "/envs/",
           row.name,
           ".yaml"

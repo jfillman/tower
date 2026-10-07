@@ -1,3 +1,4 @@
+import { ENVS_ROOT } from '../types';
 // The editing model behind the Environments tab (glidepath docs/admin/envs-overhaul-requirements.md,
 // section 4): edits are STAGED, shown together in the pending-changes panel, and only then turned
 // into one change to cicd.yaml. Everything here is pure so the rules can be tested exhaustively.
@@ -243,10 +244,10 @@ export function describeChanges(before: EnvDef[], after: EnvDef[], shape: Shape)
 
 /**
  * The files Glidepath keeps for one Ground environment on the source repo (backstage's environmentFiles.ts allows
- * exactly these paths). Both folder names are listed because apps are mid-rename; a missing file is skipped.
+ * exactly these paths). A missing file is skipped.
  */
 export function envFilePaths(env: string): string[] {
-  return ['platform', 'glidepath'].flatMap(dir => [`${dir}/envs/${env}.yaml`, `${dir}/envs/${env}.release.yaml`]);
+  return [`${ENVS_ROOT}/envs/${env}.yaml`, `${ENVS_ROOT}/envs/${env}.release.yaml`];
 }
 
 /** Names of the pipelines that still have a step for this environment (either list or map form). */
@@ -291,7 +292,7 @@ export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string
 }
 
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */
-export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string, envsRoot: 'platform' | 'glidepath' = 'platform'): string[] {
+export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string): string[] {
   const out: string[] = [];
   const had = new Set(before.map(e => e.name));
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
@@ -300,7 +301,7 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
     out.push(
       cloud
         ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.`
-        : `The pull request also deletes ${envsRoot}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`,
+        : `The pull request also deletes ${ENVS_ROOT}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`,
     );
   }
   for (const e of after) {
@@ -316,7 +317,7 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
       );
     }
     if (e.tier === 'ground' && !cloud) {
-      out.push(`Glidepath then opens a pull request on the source repo adding ${envsRoot}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
+      out.push(`Glidepath then opens a pull request on the source repo adding ${ENVS_ROOT}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
   return out;

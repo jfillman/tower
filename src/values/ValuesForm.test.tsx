@@ -21,7 +21,7 @@ const data = {
     env: [{ name: 'LOG_LEVEL', value: 'info' }],
   },
   raw: 'rollout:\n  replicas: 2\n',
-  path: 'platform/envs/test.yaml',
+  path: 'glidepath/envs/test.yaml',
 };
 
 const source = (over: Partial<ValuesSource> = {}): ValuesSource => ({
@@ -153,7 +153,7 @@ describe('values form pending changes', () => {
   it('shows the file the pull request is for, and the pull request once opened', () => {
     renderForm(source({ result: { prUrl: 'https://github.com/o/app/pull/9', alreadyOpen: false } }));
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
-    expect(panel().getByText(/platform\/envs\/test\.yaml\. This file has its own pull request/)).toBeTruthy();
+    expect(panel().getByText(/glidepath\/envs\/test\.yaml\. This file has its own pull request/)).toBeTruthy();
     expect(panel().getByRole('link', { name: 'https://github.com/o/app/pull/9', hidden: true })).toBeTruthy();
   });
 

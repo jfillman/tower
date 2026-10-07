@@ -830,7 +830,7 @@ export interface CicdConfigChangeResult {
   alreadyOpen: boolean;
 }
 
-// platform/pr-env.yaml and platform/envs/<env>.yaml both render through the
+// glidepath/pr-env.yaml and glidepath/envs/<env>.yaml both render through the
 // same airframe-application chart as gitops-<app>/values.yaml, so they reuse
 // Config's own ConfigTopLevelField allowlist rather than a separate one.
 export type PlatformEnvSelector = { kind: 'pr-env' } | { kind: 'base' } | { kind: 'env'; env: string };
@@ -855,13 +855,11 @@ export interface PlatformFileChangeResult {
   alreadyOpen: boolean;
 }
 
-/** The source repo's environments folder: platform/ until the repo moves to glidepath/ (glidepath ADR-0018). */
-export type EnvsRoot = 'platform' | 'glidepath';
+/** The source repo's environments folder (glidepath ADR-0018; every app moved off platform/ by 2026-10-07). */
+export const ENVS_ROOT = 'glidepath';
 
 export interface PlatformEnvsResponse {
   envs: string[];
-  /** Absent from a backend older than the platform/ -> glidepath/ move: that backend only reads platform/. */
-  root?: EnvsRoot;
 }
 
 // Mirrors airframe's slos.catalog.hangar.io v1alpha1 XRD schema exactly (see

@@ -10,7 +10,7 @@ import type { ConfigTopLevelField, PlatformEnvSelector } from '../types';
 
 // Where the values form reads an environment's chart values from and where its pull request goes. A Flight
 // environment's values are gitops-<app>/<cluster>/<env>/values.yaml; a Ground environment's are the source repo's
-// platform/envs/<env>.yaml. Both routes return the same shape and open a PR the same way, so the form does not care.
+// glidepath/envs/<env>.yaml. Both routes return the same shape and open a PR the same way, so the form does not care.
 export interface ValuesSource {
   loading: boolean;
   error?: string;
@@ -44,7 +44,7 @@ export function useGroundValuesSource(target: { owner: string; appName: string; 
   return usePlatformValuesSource({ owner: target.owner, appName: target.appName, selector: { kind: 'env', env: target.env } });
 }
 
-/** One file of the source repo's platform/ folder: an environment's, the shared base.yaml, or the preview template. */
+/** One file of the source repo's glidepath/ folder: an environment's, the shared base.yaml, or the preview template. */
 export function usePlatformValuesSource(target: { owner: string; appName: string; selector: PlatformEnvSelector }): ValuesSource {
   const [nonce, setNonce] = useState(0);
   const { selector } = target;

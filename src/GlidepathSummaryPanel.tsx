@@ -11,6 +11,7 @@ import { PipelineFlowPreview } from './PipelineFlowPreview';
 import { pipelinesNamingEnv, readEnvironments, type Deploy } from './environments/stagedChanges';
 import { DEPLOY_TARGETS } from './serviceClass';
 import { Button, ColumnLabel, TierChip } from './ui';
+import { ENVS_ROOT } from './types';
 
 // Read-only "what's configured" companion to the Glidepath tab's own editor
 // (GlidepathTab.tsx) - fed by the exact same hooks/routes, just rendered
@@ -124,7 +125,7 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
   const whereOf = (e: { name: string; tier: 'ground' | 'flight'; cluster?: string }): string => {
     if (e.tier === 'flight') return `${e.cluster ?? 'same cluster'} · gitops values`;
     if (targetId !== 'k8s-rollout') return targetLabel;
-    return configuredEnvs.has(e.name) ? `${envs.data?.root ?? 'platform'}/envs/${e.name}.yaml` : 'chart defaults, no values file yet';
+    return configuredEnvs.has(e.name) ? `${ENVS_ROOT}/envs/${e.name}.yaml` : 'chart defaults, no values file yet';
   };
 
   return (

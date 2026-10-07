@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
-import { useEnvsRoot } from '../useConfigData.esm.js';
+import { ENVS_ROOT } from '../types.esm.js';
 import { ConfigEditor } from '../values/ValuesForm.esm.js';
 import { useChartValues } from '../values/annotatedValues.esm.js';
 import { useComponentCatalog } from '../values/componentCatalog.esm.js';
@@ -41,7 +41,6 @@ function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
-  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : void 0);
   const [section, setSection] = useState("base");
   const [searchParams, setSearchParams] = useSearchParams();
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
@@ -56,7 +55,7 @@ function ConfigTab() {
     );
   }
   const active = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
-  const activePath = `${envsRoot}/${active.file}`;
+  const activePath = `${ENVS_ROOT}/${active.file}`;
   const legacyEnv = searchParams.get("env");
   const toEnvironments = () => {
     const next = new URLSearchParams(searchParams);

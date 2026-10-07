@@ -306,7 +306,7 @@ function deriveProvisioning(input, now, typical) {
   } else if (buildState === "done") {
     runState = "run";
     if (build?.completedAt !== void 0 && now - build.completedAt > DEPLOY_GRACE_MS) {
-      runDetail = "No rollout yet. The deploy stage needs a dev values file (envs/dev.yaml under platform/ or glidepath/) in the source repo and a deploy stage for dev in cicd.yaml";
+      runDetail = "No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml";
     }
   }
   push({

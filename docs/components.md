@@ -45,8 +45,8 @@ Tekton pipeline execution visibility:
 ### Config ("App Configuration")
 
 The config an app shares across its environments, as two sub-tabs that each use the values form and its Pending changes panel:
-- **Shared values**: `platform/base.yaml`, the values every Ground environment starts from
-- **Preview environments**: `platform/pr-env.yaml`, the template of each pull request preview
+- **Shared values**: `glidepath/base.yaml`, the values every Ground environment starts from
+- **Preview environments**: `glidepath/pr-env.yaml`, the template of each pull request preview
 
 An environment's own values are edited in its row on the Environments tab. Every change is a pull request on the app's repo.
 
@@ -74,7 +74,7 @@ Time-based, not read/unread: "New" (last hour) and "Earlier". No dismissing; a n
 on its own.
 
 ### Glidepath
-Manages the app's own `cicd.yaml` and its `platform/` folder (`pr-env.yaml`, `platform/envs/<env>.yaml`) with a curated
+Manages the app's own `cicd.yaml` and its `platform/` folder (`pr-env.yaml`, `glidepath/envs/<env>.yaml`) with a curated
 form plus a raw-YAML fallback. Never commits directly: it opens a GitOps PR, like the Config tab.
 
 ### Fleet dashboards

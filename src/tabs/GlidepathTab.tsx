@@ -28,23 +28,23 @@ import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
 
 // Tower's Glidepath tab (2026-09-16): full management of an app's own
 // cicd.yaml (the file that configures the Glidepath CI/CD engine itself)
-// and the platform/ folder in that same source repo (pr-env.yaml's
-// preview-env template, platform/envs/<env>.yaml per lower env). Mirrors
+// and the glidepath/ folder in that same source repo (pr-env.yaml's
+// preview-env template, glidepath/envs/<env>.yaml per lower env). Mirrors
 // ConfigTab's own posture (fetch -> curated form + raw-YAML fallback ->
 // real GitOps PR, never a direct commit) - see glidepathCicdConfig.ts and
 // glidepathPlatformConfig.ts for the backend half.
 //
 // Unlike Config, there's no per-env picker gating access here: cicd.yaml is
-// one file per app (not per env), and platform/ files are addressed
+// one file per app (not per env), and glidepath/ files are addressed
 // directly by env name via their own picker below.
 //
 // Curated fields cover build/test/deploy/ephemeralEnvironments/governance/
 // notifications/secrets - every field cicd.schema.json defines for these
 // sections is a real control here, 2026-09-17. deploy.upperEnvironments/
-// pipelines and both platform/ files stay on the raw-YAML editor: their real
+// pipelines and both glidepath/ files stay on the raw-YAML editor: their real
 // shapes are either open-ended (pipelines' trigger/steps, including a legacy
 // list form) or belong to a chart schema this tab doesn't curate
-// field-by-field yet (platform/'s airframe-application values).
+// field-by-field yet (glidepath/'s airframe-application values).
 // Full-fidelity curated widgets for those are a reasonable follow-up, not a
 // gap introduced carelessly.
 //
@@ -572,7 +572,7 @@ export function GlidepathTab() {
         </div>
         {form.testEnabled && (
           <TextField
-            label="TestWorkflow name (<name>.yaml under platform/ or glidepath/)"
+            label="TestWorkflow name (<name>.yaml under glidepath/)"
             value={form.testName}
             onChange={e => setForm(f => (f ? { ...f, testName: e.target.value } : f))}
             size="small"

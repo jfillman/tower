@@ -572,7 +572,7 @@ export function deriveProvisioning(
   });
 
   // 8. The last step. For an app on Kubernetes: running healthy in dev (new apps get
-  // platform/envs/dev.yaml and a deploy stage from onboarding, so this follows the build without
+  // glidepath/envs/dev.yaml and a deploy stage from onboarding, so this follows the build without
   // anyone's help). For a function, or any app that deploys to a cloud target, there is no Rollout:
   // the deploy stage updating the cloud resource is the step.
   let runState: StepState = 'pend';
@@ -614,7 +614,7 @@ export function deriveProvisioning(
     runState = 'run';
     if (build?.completedAt !== undefined && now - build.completedAt > DEPLOY_GRACE_MS) {
       runDetail =
-        'No rollout yet. The deploy stage needs a dev values file (envs/dev.yaml under platform/ or glidepath/) in the source repo and a deploy stage for dev in cicd.yaml';
+        'No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml';
     }
   }
   push({

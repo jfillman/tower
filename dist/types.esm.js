@@ -125,6 +125,7 @@ const CICD_TOP_LEVEL_FIELDS = [
   "secrets",
   "pipelines"
 ];
+const ENVS_ROOT = "glidepath";
 
-export { CICD_TOP_LEVEL_FIELDS, ENV_TIER_LABEL, classifyGhcrVersion, envStageRank, envTierOf, extractShortShaFromImageTag, extractSource, health, imageTag, isPreviewEnvName, isRolloutActive, parseGhcrOwnerRepo, parseGithubUrl, previewPrNumber, splitImageRef };
+export { CICD_TOP_LEVEL_FIELDS, ENVS_ROOT, ENV_TIER_LABEL, classifyGhcrVersion, envStageRank, envTierOf, extractShortShaFromImageTag, extractSource, health, imageTag, isPreviewEnvName, isRolloutActive, parseGhcrOwnerRepo, parseGithubUrl, previewPrNumber, splitImageRef };
 //# sourceMappingURL=types.esm.js.map

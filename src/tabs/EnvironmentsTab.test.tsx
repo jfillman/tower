@@ -45,7 +45,7 @@ const loadValuesMock = jest.fn();
 jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources'), useEnvValuesLoader: () => loadValuesMock }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
 jest.mock('../useConfigData', () => ({
-  useEnvsRoot: () => 'platform',
+  
   useCicdConfig: () => ({ loading: false, data: cicdData }),
   useSubmitCicdConfigChange: () => ({ ...submitState, submit: submitMock, reset: resetMock }),
   usePlatformFile: () => platformFile,
@@ -77,7 +77,7 @@ const base = { loading: false, error: undefined, owner: 'jfillman', appName: 'ai
 beforeEach(() => {
   submitMock.mockReset();
   platformSubmitMock.mockReset();
-  platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'platform/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: 'envName: test\n' } };
+  platformFile = { loading: false, data: { repo: 'o/air-traffic-api', path: 'glidepath/envs/test.yaml', values: { envName: 'test', rollout: { replicas: 1 } }, raw: 'envName: test\n' } };
   lifecycleSteps = [];
   loadValuesMock.mockReset();
   clusterTemplates = undefined;
@@ -230,7 +230,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     // an old-shape app is converted as part of the first change, and the panel says so
     expect(panel().getByText(/Convert the environment list to deploy\.environments/)).toBeTruthy();
     // and says what Glidepath does afterwards
-    expect(panel().getByText(/platform\/envs\/qa\.yaml/)).toBeTruthy();
+    expect(panel().getByText(/glidepath\/envs\/qa\.yaml/)).toBeTruthy();
     expect(screen.getByText('staged: new')).toBeTruthy();
     const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'qastaged: new', 'staging']);
@@ -399,7 +399,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
     expect(submitMock.mock.calls[0][0].patch.deploy.environments[2]).toEqual({ name: 'eu', tier: 'ground', lambda: { functionName: 'app-fn-eu' } });
     // no follow-up about an environment file: a cloud environment has none
-    expect(screen.queryByText(/platform\/envs/)).toBeNull();
+    expect(screen.queryByText(/glidepath\/envs/)).toBeNull();
   });
 
   it('a Kubernetes environment points to where its values live instead of showing cloud fields', () => {
@@ -576,7 +576,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     renderTab();
     openMenu('test');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove…' }));
-    expect(screen.getByText('platform/envs/test.yaml')).toBeTruthy();
+    expect(screen.getByText('glidepath/envs/test.yaml')).toBeTruthy();
     expect(screen.getByText('app-air-traffic-api-test')).toBeTruthy();
     const stage = screen.getByRole('button', { name: 'Stage removal' }) as HTMLButtonElement;
     expect(stage.disabled).toBe(true);
@@ -597,8 +597,6 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     const req = submitMock.mock.calls[0][0];
     expect(req.patch.deploy.environments.map((e: any) => e.name)).toEqual(['dev', 'staging']);
     expect(req.deleteFiles).toEqual([
-      'platform/envs/test.yaml',
-      'platform/envs/test.release.yaml',
       'glidepath/envs/test.yaml',
       'glidepath/envs/test.release.yaml',
     ]);
@@ -920,7 +918,7 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
 describe('EnvironmentsTab: values that do not exist yet', () => {
   it('does not offer the form for an environment whose values file does not exist', () => {
     k8sOld();
-    platformFile = { loading: false, data: { repo: 'o/x', path: 'platform/envs/test.yaml', values: {}, raw: '' } };
+    platformFile = { loading: false, data: { repo: 'o/x', path: 'glidepath/envs/test.yaml', values: {}, raw: '' } };
     renderTab();
     fireEvent.click(openRow('test'));
     expect(screen.getByText(/does not exist yet, so there is nothing to edit/)).toBeTruthy();
@@ -986,7 +984,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     expect(loadValuesMock).toHaveBeenCalledWith({ owner: 'jfillman', appName: 'air-traffic-api', env: 'test', tier: 'ground', cluster: undefined });
     const req = submitMock.mock.calls[0][0];
     expect(req.createFiles).toHaveLength(1);
-    expect(req.createFiles[0].path).toBe('platform/envs/qa.yaml');
+    expect(req.createFiles[0].path).toBe('glidepath/envs/qa.yaml');
     expect(req.createFiles[0].content).toMatch(/^envName: qa\n/);
     expect(req.createFiles[0].content).toMatch(/replicas: 2/);
     expect(req.patch.deploy.environments.map((e: any) => e.name)).toEqual(['dev', 'test', 'qa', 'staging']);
@@ -1088,7 +1086,7 @@ describe('EnvironmentsTab: analysis templates in a row', () => {
     k8sOld();
     platformFile = {
       loading: false,
-      data: { repo: 'o/x', path: 'platform/envs/test.yaml', values: { rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'pod-health-check' }] } } }, raw: 'rollout: {}\n' },
+      data: { repo: 'o/x', path: 'glidepath/envs/test.yaml', values: { rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'pod-health-check' }] } } }, raw: 'rollout: {}\n' },
     };
     clusterTemplates = ['pod-health-check'];
     renderTab();

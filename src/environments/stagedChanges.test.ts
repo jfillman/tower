@@ -219,11 +219,10 @@ describe('followUps', () => {
   it('tells the user a new Ground environment gets its file from Glidepath after the merge', () => {
     const out = followUps([ground('dev')], [ground('dev'), ground('qa')], undefined);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatch(/platform\/envs\/qa\.yaml/);
+    expect(out[0]).toMatch(/glidepath\/envs\/qa\.yaml/);
   });
-  it('names the glidepath/ folder once the repo has moved', () => {
-    expect(followUps([ground('dev')], [ground('dev'), ground('qa')], undefined, 'shop', 'glidepath')[0]).toMatch(/glidepath\/envs\/qa\.yaml/);
-    expect(followUps([ground('dev'), ground('qa')], [ground('dev')], undefined, 'shop', 'glidepath')[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
+  it('names the deleted file under glidepath/', () => {
+    expect(followUps([ground('dev'), ground('qa')], [ground('dev')], undefined, 'shop')[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
   });
   it('says nothing for a cloud environment (no environment file) or when nothing was added', () => {
     expect(followUps([ground('dev')], [ground('dev'), ground('qa')], 'aws-lambda')).toEqual([]);
@@ -292,8 +291,6 @@ describe('removing environments', () => {
 
   it('names exactly the files the backend allows deleting', () => {
     expect(envFilePaths('qa')).toEqual([
-      'platform/envs/qa.yaml',
-      'platform/envs/qa.release.yaml',
       'glidepath/envs/qa.yaml',
       'glidepath/envs/qa.release.yaml',
     ]);
@@ -336,7 +333,7 @@ describe('removing environments', () => {
     const after = [ground('dev'), flight('prod', 'kind-prod')];
     const k8s = followUps(before, after, undefined, 'air-traffic-api');
     expect(k8s).toHaveLength(1);
-    expect(k8s[0]).toMatch(/deletes platform\/envs\/qa\.yaml/);
+    expect(k8s[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
     expect(k8s[0]).toMatch(/air-traffic-api-qa/);
     expect(k8s[0]).toMatch(/app-air-traffic-api-qa/);
     expect(followUps(before, after, 'aws-lambda', 'fn')[0]).toMatch(/not deleted/);

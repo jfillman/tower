@@ -36,7 +36,7 @@ import { loadSubmitted, pendingFrom, saveSubmitted, type SubmittedChange } from 
 import { RefreshButton } from '../RefreshButton';
 import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
-import { useCicdConfig, useEnvsRoot, useSubmitCicdConfigChange } from '../useConfigData';
+import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
 import { Button, Chip, ColumnLabel, HEALTH_LABEL, IconButton, PageHeader, Panel, Segmented, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
@@ -44,6 +44,7 @@ import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
 import { SubmittedPanel } from './environments/SubmittedPanel';
 import { same, TARGET_BLOCK, type DisplayRow } from './environments/shared';
+import { ENVS_ROOT } from '../types';
 
 // The Environments tab: every environment of the service in promotion order, whichever way its
 // cicd.yaml declares them and whether it runs on Kubernetes or a cloud target. Edits are STAGED (not
@@ -52,7 +53,7 @@ import { same, TARGET_BLOCK, type DisplayRow } from './environments/shared';
 //
 // What can be edited here so far: add a Ground or a Flight environment, reorder Ground environments, and set a
 // cloud environment's own function / service / Container App, and remove a Ground environment (its files go in
-// the same pull request). A Kubernetes Ground environment's values (platform/envs/<env>.yaml) are edited in its
+// the same pull request). A Kubernetes Ground environment's values (glidepath/envs/<env>.yaml) are edited in its
 // row as YAML, with their own pull request; a Flight environment's link to App Configuration. Removing a Flight
 // environment is still done by hand.
 //
@@ -118,7 +119,6 @@ export function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
-  const envsRoot = useEnvsRoot(owner && appName ? { owner, appName } : undefined);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
   const loadValues = useEnvValuesLoader();
@@ -201,7 +201,7 @@ export function EnvironmentsTab() {
   }, [before, after]);
   const notes = useMemo(
     () => [
-      ...followUps(before, after, targetId, appName, envsRoot),
+      ...followUps(before, after, targetId, appName),
       ...copiedEnvs(staged, after)
         .filter(x => x.env.tier === 'flight')
         .map(x => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
@@ -347,7 +347,7 @@ export function EnvironmentsTab() {
         if (!source) continue;
         try {
           const values = await loadValues({ owner, appName, env: from, tier: source.tier, cluster: source.cluster });
-          createFiles.push({ path: `${envsRoot}/envs/${env.name}.yaml`, content: dumpYaml({ envName: env.name, ...values }, { lineWidth: -1 }) });
+          createFiles.push({ path: `${ENVS_ROOT}/envs/${env.name}.yaml`, content: dumpYaml({ envName: env.name, ...values }, { lineWidth: -1 }) });
         } catch (e) {
           setPhase('idle');
           setFailure(`Could not read the values of ${from} to copy them to ${env.name}: ${String(e)}. Nothing was changed in cicd.yaml.`);
@@ -397,7 +397,6 @@ export function EnvironmentsTab() {
   const detailCtx: RowDetailContext = {
     owner,
     appName,
-    envsRoot,
     entity: searchParams.get('entity') ?? '',
     deploy,
     pipelines,

@@ -44,11 +44,11 @@ describe('Glidepath at a glance', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
     expect(screen.queryByText(/lower env/i)).toBeNull();
     expect(screen.queryByText(/upper env/i)).toBeNull();
-    expect(screen.getByText('platform/envs/dev.yaml')).toBeTruthy(); // a Ground environment with a values file
+    expect(screen.getByText('glidepath/envs/dev.yaml')).toBeTruthy(); // a Ground environment with a values file
     expect(screen.getByText('chart defaults, no values file yet')).toBeTruthy(); // test has none
     expect(screen.getAllByText('kind-prod · gitops values')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
-    expect(screen.queryByText('platform/envs/dev.yaml')).toBeNull();
+    expect(screen.queryByText('glidepath/envs/dev.yaml')).toBeNull();
   });
 
   it('warns for an environment that no pipeline step reaches', () => {

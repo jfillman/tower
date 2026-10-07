@@ -109,7 +109,7 @@ export function PromoteDialog({
                     <span style={mono}>
                       envs/{target.target.env}.yaml
                     </span>{' '}
-                    in {appName}&apos;s environments folder (platform/ or glidepath/){' '}
+                    in {appName}&apos;s glidepath/ folder{' '}
                     - no PR, no review. ArgoCD syncs it as soon as this commit lands.
                   </>
                 ) : (
