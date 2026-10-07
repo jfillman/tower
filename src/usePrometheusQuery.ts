@@ -20,15 +20,28 @@ import { k8sProxyGet } from './k8sProxy';
 // every AnalysisTemplate on this platform already hardcodes (see e.g.
 // gitops-checkout-api's own values.yaml) - not per-app configurable, since
 // it's shared platform infrastructure, one instance per cluster.
-const PROMETHEUS_NAMESPACE = 'observability';
-const PROMETHEUS_SERVICE = 'kube-prometheus-stack-prometheus';
-const PROMETHEUS_PORT = 9090;
-
-function proxyPath(subpath: string): string {
-  return `/api/v1/namespaces/${PROMETHEUS_NAMESPACE}/services/${PROMETHEUS_SERVICE}:${PROMETHEUS_PORT}/proxy${subpath}`;
+export interface PrometheusEndpoint {
+  namespace: string;
+  service: string;
+  port: number;
 }
 
-interface RawPrometheusVector {
+export const CLUSTER_PROMETHEUS: PrometheusEndpoint = {
+  namespace: 'observability',
+  service: 'kube-prometheus-stack-prometheus',
+  port: 9090,
+};
+
+// Any Prometheus-API-compatible query service reachable through a cluster's service proxy: the
+// cluster's own Prometheus by default, or a long-term query layer (Thanos Query, Mimir) for callers
+// that need history beyond local retention (the Ops Wall's DORA panel).
+export function prometheusProxyPath(subpath: string, endpoint: PrometheusEndpoint = CLUSTER_PROMETHEUS): string {
+  return `/api/v1/namespaces/${endpoint.namespace}/services/${endpoint.service}:${endpoint.port}/proxy${subpath}`;
+}
+
+const proxyPath = (subpath: string) => prometheusProxyPath(subpath);
+
+export interface RawPrometheusVector {
   status: 'success' | 'error';
   error?: string;
   data?: {
@@ -37,7 +50,7 @@ interface RawPrometheusVector {
   };
 }
 
-interface RawPrometheusMatrix {
+export interface RawPrometheusMatrix {
   status: 'success' | 'error';
   error?: string;
   data?: {

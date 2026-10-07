@@ -53,8 +53,18 @@ function meetsObjective(row: SloRow): boolean | undefined {
   return row.periodBurnRate === undefined ? undefined : row.periodBurnRate <= 1;
 }
 
+// One SLO, for callers that need more than the fleet totals (the Ops Wall lists the breaching ones).
+export interface FleetSloRow {
+  cluster: string;
+  service: string;
+  slo: string;
+  periodBurnRate?: number;
+  budgetRemaining?: number;
+}
+
 export interface UseFleetSlosResult {
   summary: FleetSloSummary;
+  slos: FleetSloRow[];
   probes: ReactNode;
 }
 
@@ -104,5 +114,21 @@ export function useFleetSlos(clusters: string[]): UseFleetSlosResult {
     };
   }, [byCluster, clusters]);
 
-  return { summary, probes };
+  const slos = useMemo<FleetSloRow[]>(() => {
+    const byKey = new Map<string, FleetSloRow>();
+    Object.entries(byCluster).forEach(([cluster, samples]) =>
+      samples.forEach(sample => {
+        const { sloth_service: service, sloth_slo: slo, __name__: name } = sample.metric;
+        if (!service || !slo || !name) return;
+        const key = `${cluster}/${service}/${slo}`;
+        const row = byKey.get(key) ?? { cluster, service, slo };
+        if (name === 'slo:period_burn_rate:ratio') row.periodBurnRate = sample.value;
+        if (name === 'slo:period_error_budget_remaining:ratio') row.budgetRemaining = sample.value;
+        byKey.set(key, row);
+      }),
+    );
+    return [...byKey.values()];
+  }, [byCluster]);
+
+  return { summary, slos, probes };
 }

@@ -96,6 +96,26 @@ tower:
   clusterName: prod
 ```
 
+### DORA metrics source (Ops Wall)
+
+The Ops Wall's DORA panel queries dora-exporter's series (`dora_deployments_total`, `dora_releases_total`,
+`dora_lead_time_seconds`, `dora_time_to_restore_seconds_experimental`) with PromQL, through the Kubernetes proxy of
+the cluster named here. Its windows are 7, 30 and 90 days, so point it at the long-term query layer (Thanos Query,
+Mimir), not a Prometheus with short local retention:
+
+```yaml
+tower:
+  dora:
+    metrics:
+      cluster: kind-dev # as registered in kubernetes.clusterLocatorMethods
+      namespace: observability
+      service: thanos-query-frontend
+      port: 9090
+```
+
+Without this block Tower uses `kube-prometheus-stack-prometheus:9090` in `observability` on the Tekton cluster. The
+Kubernetes plugin's identity needs `get` on `services/proxy` for that Service.
+
 ## Verification
 
 After installation, Tower should be available in the Backstage sidebar. Verify by:

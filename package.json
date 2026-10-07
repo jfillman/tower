@@ -16,8 +16,10 @@
     "pluginId": "tower"
   },
   "sideEffects": false,
+  "configSchema": "config.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "config.d.ts"
   ],
   "scripts": {
     "build": "backstage-cli package build",

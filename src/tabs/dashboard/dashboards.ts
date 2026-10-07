@@ -8,13 +8,13 @@ import { OpsWallDashboard } from './OpsWallDashboard';
 // artifact) is one entry here plus one new component file - no other
 // wiring changes.
 export const DASHBOARDS = [
-  { id: 'fleet-grid', label: 'Fleet Grid', Component: FleetGridDashboard },
   { id: 'ops-wall', label: 'Ops Wall', Component: OpsWallDashboard },
+  { id: 'fleet-grid', label: 'Fleet Grid', Component: FleetGridDashboard },
 ] as const;
 
 export type DashboardId = (typeof DASHBOARDS)[number]['id'];
 
-export const DEFAULT_DASHBOARD: DashboardId = 'fleet-grid';
+export const DEFAULT_DASHBOARD: DashboardId = 'ops-wall';
 
 export function isDashboardId(value: string | null): value is DashboardId {
   return DASHBOARDS.some(d => d.id === value);

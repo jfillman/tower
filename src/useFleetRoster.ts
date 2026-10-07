@@ -4,6 +4,7 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import type { Entity } from '@backstage/catalog-model';
 import { isAppTierEntity } from './workloadType';
+import { isTowerService } from './serviceClass';
 
 // The fleet dashboards (Fleet Grid / Ops Wall) exist to show real
 // application services, not the platform/infra Components kubernetes-
@@ -43,7 +44,12 @@ export interface UseFleetRosterResult {
   error?: string;
 }
 
-export function useFleetRoster(): UseFleetRosterResult {
+// 'apps': the four application kinds (Fleet Grid). 'services': everything on Tower's Services list,
+// whatever it deploys to - container apps, functions, AI workloads (the Ops Wall, which is about
+// every pipeline and every deploy).
+export type FleetRosterScope = 'apps' | 'services';
+
+export function useFleetRoster(scope: FleetRosterScope = 'apps'): UseFleetRosterResult {
   const catalogApi = useApi(catalogApiRef);
   const [entities, setEntities] = useState<Entity[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -53,7 +59,12 @@ export function useFleetRoster(): UseFleetRosterResult {
     catalogApi
       .getEntities({ filter: { kind: 'Component' } })
       .then(res => {
-        if (!cancelled) setEntities(res.items.filter(isKubernetesAvailable).filter(isAppTierEntity));
+        if (!cancelled)
+          setEntities(
+            scope === 'apps'
+              ? res.items.filter(isKubernetesAvailable).filter(isAppTierEntity)
+              : res.items.filter(isTowerService),
+          );
       })
       .catch(e => {
         if (!cancelled) setError(String(e));
@@ -61,7 +72,7 @@ export function useFleetRoster(): UseFleetRosterResult {
     return () => {
       cancelled = true;
     };
-  }, [catalogApi]);
+  }, [catalogApi, scope]);
 
   return { entities: entities ?? [], loading: entities === undefined, error };
 }

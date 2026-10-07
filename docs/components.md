@@ -78,7 +78,22 @@ Manages the app's own `cicd.yaml` and its `platform/` folder (`pr-env.yaml`, `gl
 form plus a raw-YAML fallback. Never commits directly: it opens a GitOps PR, like the Config tab.
 
 ### Fleet dashboards
-A top-level `/tower` dashboard with two views: a **Fleet Grid** and an **Ops Wall**.
+A top-level `/tower` dashboard (`?view=dashboard`) with two views. **Ops Wall** is the default.
+
+**Ops Wall** (`src/tabs/dashboard/OpsWallDashboard.tsx`, model in `src/fleet/`): what is happening across every
+Tower service right now, and what needs a human. A data-source strip (each source's age; a source that fails three
+polls in a row dims its panels and says "stale since"), six headline numbers, a **Needs attention** list (degraded
+environments, failed or stalled releases, release PRs waiting for merge, failed and slow pipelines, paused canaries,
+Argo CD drift, pods not ready, SLO budgets, stuck provisioning; rules and thresholds in `src/fleet/opsWallModel.ts`),
+**Pipelines in flight**, **Deployments in flight** (Glidepath release records for upper environments, deploy
+pipelines for ground and cloud targets, Rollouts with nothing behind them), releases waiting for approval, what
+landed in the window, **DORA** (see [installation](installation.md#dora-metrics-source-ops-wall)) and the
+notifications feed. Filters live in the URL: `owner`, `window` (`24h`, `7d`), `dora` (`7`, `30`, `90`). Links open in
+a new tab so the wall stays put. It makes no GitHub calls: it reads Tekton, the release-record ConfigMaps and their
+Events (one cluster-wide list each on the Tekton cluster), the per-app Kubernetes and Argo CD probes, Prometheus and
+the notifications backend.
+
+**Fleet Grid**: the app × environment health matrix for the four application kinds.
 
 ## Shared Components
 

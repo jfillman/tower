@@ -11,7 +11,7 @@ Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: 
 ## Features
 
 Tabs, in the order of a change's lifecycle: Overview, Pull Requests, Pipelines, Deployments, Releases, Topology,
-Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards (Fleet Grid, Ops Wall).
+Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards (Ops Wall, Fleet Grid).
 
 - **Release Records**: structured release history, persisted as git commits, with compare and export
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
