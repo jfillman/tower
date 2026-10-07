@@ -107,13 +107,24 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // rendered a big blank area below its own content rather than just being
   // short. Column ratio skews toward "built" (still the densest column even
   // after the content trims below) rather than a flat 1/1/1 split.
-  triad: {
+  pair: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1.3fr 1fr',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
     alignItems: 'start',
     gap: 16,
+    marginBottom: 16,
     '@media (max-width: 860px)': { gridTemplateColumns: '1fr' },
   },
+  builtBody: {
+    padding: '14px 15px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 20,
+    alignItems: 'start',
+    '@media (max-width: 1100px)': { gridTemplateColumns: '1fr' },
+  },
+  builtSection: { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 },
+  builtSectionTitle: { fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: ({ t }) => t.textLo },
   col: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panel, overflow: 'hidden' },
   colHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 15px', borderBottom: ({ t }) => `1px solid ${t.line}` },
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
@@ -474,7 +485,8 @@ export function ReleaseRecordDetail({
         </div>
       )}
 
-      <div className={classes.triad}>
+      {/* What changed and What happened side by side (both short), What was built full width below (2026-10-07). */}
+      <div className={classes.pair}>
         <div className={classes.col}>
           <div className={`${classes.colHead} ${classes.colHeadChanged}`}>
             <span className={classes.colTitle}>What changed</span>
@@ -519,112 +531,6 @@ export function ReleaseRecordDetail({
                   </span>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className={classes.col}>
-          <div className={`${classes.colHead} ${classes.colHeadBuilt}`}>
-            <span className={classes.colTitle}>What was built</span>
-            <span
-              className={classes.chip}
-              style={verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : undefined}
-            >
-              {verified ? 'verified' : 'unverified'}
-            </span>
-          </div>
-          <div className={classes.colBody}>
-            <div className={classes.kv}>
-              {record.imageDigest && (
-                <div className={classes.kvRow}>
-                  <span className={classes.kvK}>Digest</span>
-                  <span className={classes.kvV}>{record.imageDigest.replace(/^sha256:/, '').slice(0, 20)}…</span>
-                </div>
-              )}
-              {record.hasSbom && (
-                <div className={classes.kvRow}>
-                  <span className={classes.kvK}>SBOM</span>
-                  <span className={classes.kvV}>attached</span>
-                </div>
-              )}
-            </div>
-            {record.pipelineRuns.length > 0 && (
-              <div className={classes.runList}>
-                {record.pipelineRuns.map(run => {
-                  const tone = phaseTone(t, run.phase);
-                  return (
-                    <div key={run.name} className={classes.runRow}>
-                      {run.pipelineName && <span className={classes.runStage}>{run.pipelineName}</span>}
-                      <span className={classes.runName}>{run.name}</span>
-                      <span className={classes.runPill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: '1px solid' }}>
-                        <span className={classes.runPillDot} style={{ backgroundColor: tone.fg }} />
-                        {tone.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {record.securityScans.length > 0 && (
-              <div className={classes.kv}>
-                <span className={classes.kvK}>Security scans</span>
-                {record.securityScans.map(scan => (
-                  <div key={scan.scanner} className={classes.scanBlock}>
-                    <div className={classes.scanHead}>
-                      <span className={classes.scanName}>{scan.scanner.replace('-', ' ')}</span>
-                      {scan.outcome && (
-                        <span
-                          className={classes.chip}
-                          style={
-                            scan.outcome === 'passed'
-                              ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft }
-                              : { color: t.bad, borderColor: t.bad, backgroundColor: t.badSoft }
-                          }
-                        >
-                          {scan.outcome}
-                        </span>
-                      )}
-                    </div>
-                    {scan.findingsSummary && <div className={classes.scanFindings}>{scan.findingsSummary}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-            {record.testResults.length > 0 && (
-              <div className={classes.kv}>
-                <span className={classes.kvK}>
-                  Test results {record.testResults.length > 1 && `(${record.testResults.length})`}
-                </span>
-                {record.testResults.slice(0, 8).map((tr, i) => (
-                  <div key={`${tr.taskName}-${tr.resultName}-${i}`} className={classes.testRow}>
-                    <span className={classes.testTask}>
-                      {tr.taskName}/{tr.resultName}
-                    </span>
-                    <span className={classes.testResult}>{tr.value}</span>
-                  </div>
-                ))}
-                {record.testResults.length > 8 && (
-                  <Typography className={classes.empty}>+{record.testResults.length - 8} more</Typography>
-                )}
-              </div>
-            )}
-            <SupplyChainChips provenance={record.provenance} />
-            {rekor && (
-              <div className={classes.chipRow}>
-                <span className={classes.chip}>Rekor #{rekor.logIndex}</span>
-              </div>
-            )}
-            {record.guardrails ? (
-              <>
-                <GateLedger ci={record.guardrails} classes={railClasses} t={t} />
-                {record.guardrailsPrUrl && (
-                  <Link className={classes.humanResultLink} href={record.guardrailsPrUrl} target="_blank" rel="noopener noreferrer">
-                    {record.guardrailsPrNumber ? `View gitops PR #${record.guardrailsPrNumber}` : 'View gitops PR'}
-                  </Link>
-                )}
-              </>
-            ) : (
-              <Typography className={classes.empty}>No release-guardrail check data found for this release's gitops PR.</Typography>
             )}
           </div>
         </div>
@@ -679,6 +585,121 @@ export function ReleaseRecordDetail({
           </div>
         </div>
       </div>
+        <div className={classes.col}>
+          <div className={`${classes.colHead} ${classes.colHeadBuilt}`}>
+            <span className={classes.colTitle}>What was built</span>
+            <span
+              className={classes.chip}
+              style={verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : undefined}
+            >
+              {verified ? 'verified' : 'unverified'}
+            </span>
+          </div>
+          {/* Option A (2026-10-07): full width, its three kinds of content side by side instead of one tall column. */}
+          <div className={classes.builtBody}>
+            <div className={classes.builtSection}>
+              <span className={classes.builtSectionTitle}>Artifact</span>
+              <div className={classes.kv}>
+                {record.imageDigest && (
+                  <div className={classes.kvRow}>
+                    <span className={classes.kvK}>Digest</span>
+                    <span className={classes.kvV}>{record.imageDigest.replace(/^sha256:/, '').slice(0, 20)}…</span>
+                  </div>
+                )}
+                {record.hasSbom && (
+                  <div className={classes.kvRow}>
+                    <span className={classes.kvK}>SBOM</span>
+                    <span className={classes.kvV}>attached</span>
+                  </div>
+                )}
+              </div>
+              {record.pipelineRuns.length > 0 && (
+                <div className={classes.runList}>
+                  {record.pipelineRuns.map(run => {
+                    const tone = phaseTone(t, run.phase);
+                    return (
+                      <div key={run.name} className={classes.runRow}>
+                        {run.pipelineName && <span className={classes.runStage}>{run.pipelineName}</span>}
+                        <span className={classes.runName}>{run.name}</span>
+                        <span className={classes.runPill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: '1px solid' }}>
+                          <span className={classes.runPillDot} style={{ backgroundColor: tone.fg }} />
+                          {tone.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className={classes.builtSection}>
+              <span className={classes.builtSectionTitle}>Security</span>
+              {record.securityScans.length > 0 && (
+                <div className={classes.kv}>
+                  <span className={classes.kvK}>Security scans</span>
+                  {record.securityScans.map(scan => (
+                    <div key={scan.scanner} className={classes.scanBlock}>
+                      <div className={classes.scanHead}>
+                        <span className={classes.scanName}>{scan.scanner.replace('-', ' ')}</span>
+                        {scan.outcome && (
+                          <span
+                            className={classes.chip}
+                            style={
+                              scan.outcome === 'passed'
+                                ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft }
+                                : { color: t.bad, borderColor: t.bad, backgroundColor: t.badSoft }
+                            }
+                          >
+                            {scan.outcome}
+                          </span>
+                        )}
+                      </div>
+                      {scan.findingsSummary && <div className={classes.scanFindings}>{scan.findingsSummary}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {record.testResults.length > 0 && (
+                <div className={classes.kv}>
+                  <span className={classes.kvK}>
+                    Test results {record.testResults.length > 1 && `(${record.testResults.length})`}
+                  </span>
+                  {record.testResults.slice(0, 8).map((tr, i) => (
+                    <div key={`${tr.taskName}-${tr.resultName}-${i}`} className={classes.testRow}>
+                      <span className={classes.testTask}>
+                        {tr.taskName}/{tr.resultName}
+                      </span>
+                      <span className={classes.testResult}>{tr.value}</span>
+                    </div>
+                  ))}
+                  {record.testResults.length > 8 && (
+                    <Typography className={classes.empty}>+{record.testResults.length - 8} more</Typography>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className={classes.builtSection}>
+              <span className={classes.builtSectionTitle}>Guardrails & supply chain</span>
+              <SupplyChainChips provenance={record.provenance} />
+              {rekor && (
+                <div className={classes.chipRow}>
+                  <span className={classes.chip}>Rekor #{rekor.logIndex}</span>
+                </div>
+              )}
+              {record.guardrails ? (
+                <>
+                  <GateLedger ci={record.guardrails} classes={railClasses} t={t} />
+                  {record.guardrailsPrUrl && (
+                    <Link className={classes.humanResultLink} href={record.guardrailsPrUrl} target="_blank" rel="noopener noreferrer">
+                      {`View ${record.guardrailsPrUrl.includes('/gitops-') ? 'gitops' : 'release pin'} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ''}`}
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <Typography className={classes.empty}>No release-guardrail check data found for this release's release PR.</Typography>
+              )}
+            </div>
+          </div>
+        </div>
 
       <div className={classes.human}>
         <div className={classes.humanHead}>
