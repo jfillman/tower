@@ -8,7 +8,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { SupplyChainChips } from './SupplyChainChips.esm.js';
-import { useSignalRailStyles, GateLedger } from './SignalRail.esm.js';
+import { gateCheckTone, stripLightMarkdown, formatGateName } from './SignalRail.esm.js';
 import { phaseTone } from './PipelineRunList.esm.js';
 import { printReleaseRecordPdf, downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { confidenceColor } from './ReleaseRecordList.esm.js';
@@ -99,16 +99,44 @@ const useStyles = makeStyles(() => ({
     marginBottom: 16,
     "@media (max-width: 860px)": { gridTemplateColumns: "1fr" }
   },
-  builtBody: {
-    padding: "14px 15px",
+  builtBody: { padding: "14px 15px", display: "flex", flexDirection: "column", gap: 16 },
+  builtSummary: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontFamily: fontMono, fontSize: 12 },
+  summaryItem: { color: ({ t }) => t.textHi, marginRight: 4 },
+  builtGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 20,
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)",
+    gap: 24,
+    alignItems: "start",
+    "@media (max-width: 960px)": { gridTemplateColumns: "1fr" }
+  },
+  builtGrid3: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.4fr)",
+    gap: 24,
     alignItems: "start",
     "@media (max-width: 1100px)": { gridTemplateColumns: "1fr" }
   },
-  builtSection: { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 },
+  builtSection: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
   builtSectionTitle: { fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: ({ t }) => t.textLo },
+  gatesHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline" },
+  gatesCount: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
+  gateGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6 },
+  gateTile: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    padding: "6px 9px",
+    borderRadius: 6,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.panelAlt,
+    fontFamily: fontMono,
+    fontSize: 12,
+    color: ({ t }) => t.textHi,
+    minWidth: 0
+  },
+  gateTileName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  gateDot: { width: 7, height: 7, borderRadius: "50%", flex: "none" },
+  gateNote: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.4 },
   col: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panel, overflow: "hidden" },
   colHead: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 15px", borderBottom: ({ t }) => `1px solid ${t.line}` },
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
@@ -267,12 +295,12 @@ function ReleaseRecordDetail({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const railClasses = useSignalRailStyles({ t });
   const persistTarget = owner && appName ? { owner, appName, imageTag: liveRecord.imageTag } : void 0;
   const persisted = useReleaseRecordDoc(persistTarget);
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = record.provenance?.attestations.some((a) => a.verified) ?? false;
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
+  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
   const liveDeployment = record.deployments.find((d) => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
   const displayConfidence = applyApprovalBonus(record.confidence, persisted.data?.humanContext.approvals.length ?? 0);
@@ -516,37 +544,33 @@ function ReleaseRecordDetail({
         )
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.builtBody, children: [
-        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Artifact" }),
-          /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            record.imageDigest && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Digest" }),
-              /* @__PURE__ */ jsxs("span", { className: classes.kvV, children: [
-                record.imageDigest.replace(/^sha256:/, "").slice(0, 20),
-                "\u2026"
-              ] })
-            ] }),
-            record.hasSbom && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "SBOM" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: "attached" })
-            ] })
+        /* @__PURE__ */ jsxs("div", { className: classes.builtSummary, children: [
+          record.imageDigest && /* @__PURE__ */ jsxs("span", { className: classes.summaryItem, title: record.imageDigest, children: [
+            /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "digest" }),
+            " ",
+            record.imageDigest.replace(/^sha256:/, "").slice(0, 12),
+            "\u2026"
           ] }),
-          record.pipelineRuns.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.runList, children: record.pipelineRuns.map((run) => {
-            const tone = phaseTone(t, run.phase);
-            return /* @__PURE__ */ jsxs("div", { className: classes.runRow, children: [
-              run.pipelineName && /* @__PURE__ */ jsx("span", { className: classes.runStage, children: run.pipelineName }),
-              /* @__PURE__ */ jsx("span", { className: classes.runName, children: run.name }),
-              /* @__PURE__ */ jsxs("span", { className: classes.runPill, style: { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: "1px solid" }, children: [
-                /* @__PURE__ */ jsx("span", { className: classes.runPillDot, style: { backgroundColor: tone.fg } }),
-                tone.label
-              ] })
-            ] }, run.name);
-          }) })
+          record.hasSbom && /* @__PURE__ */ jsx("span", { className: classes.chip, children: "SBOM attached" }),
+          /* @__PURE__ */ jsx(SupplyChainChips, { provenance: record.provenance })
         ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Security" }),
-          record.securityScans.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Security scans" }),
+        /* @__PURE__ */ jsxs("div", { className: hasSecurity ? classes.builtGrid3 : classes.builtGrid, children: [
+          record.pipelineRuns.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+            /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Pipeline runs" }),
+            /* @__PURE__ */ jsx("div", { className: classes.runList, children: record.pipelineRuns.map((run) => {
+              const tone = phaseTone(t, run.phase);
+              return /* @__PURE__ */ jsxs("div", { className: classes.runRow, children: [
+                run.pipelineName && /* @__PURE__ */ jsx("span", { className: classes.runStage, children: run.pipelineName }),
+                /* @__PURE__ */ jsx("span", { className: classes.runName, children: run.name }),
+                /* @__PURE__ */ jsxs("span", { className: classes.runPill, style: { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: "1px solid" }, children: [
+                  /* @__PURE__ */ jsx("span", { className: classes.runPillDot, style: { backgroundColor: tone.fg } }),
+                  tone.label
+                ] })
+              ] }, run.name);
+            }) })
+          ] }),
+          hasSecurity && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+            /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Security" }),
             record.securityScans.map((scan) => /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, children: [
               /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [
                 /* @__PURE__ */ jsx("span", { className: classes.scanName, children: scan.scanner.replace("-", " ") }),
@@ -560,39 +584,42 @@ function ReleaseRecordDetail({
                 )
               ] }),
               scan.findingsSummary && /* @__PURE__ */ jsx("div", { className: classes.scanFindings, children: scan.findingsSummary })
-            ] }, scan.scanner))
-          ] }),
-          record.testResults.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            /* @__PURE__ */ jsxs("span", { className: classes.kvK, children: [
-              "Test results ",
-              record.testResults.length > 1 && `(${record.testResults.length})`
-            ] }),
-            record.testResults.slice(0, 8).map((tr, i) => /* @__PURE__ */ jsxs("div", { className: classes.testRow, children: [
-              /* @__PURE__ */ jsxs("span", { className: classes.testTask, children: [
-                tr.taskName,
-                "/",
-                tr.resultName
+            ] }, scan.scanner)),
+            record.testResults.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+              /* @__PURE__ */ jsxs("span", { className: classes.kvK, children: [
+                "Test results ",
+                record.testResults.length > 1 && `(${record.testResults.length})`
               ] }),
-              /* @__PURE__ */ jsx("span", { className: classes.testResult, children: tr.value })
-            ] }, `${tr.taskName}-${tr.resultName}-${i}`)),
-            record.testResults.length > 8 && /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
-              "+",
-              record.testResults.length - 8,
-              " more"
+              record.testResults.slice(0, 8).map((tr, i) => /* @__PURE__ */ jsxs("div", { className: classes.testRow, children: [
+                /* @__PURE__ */ jsxs("span", { className: classes.testTask, children: [
+                  tr.taskName,
+                  "/",
+                  tr.resultName
+                ] }),
+                /* @__PURE__ */ jsx("span", { className: classes.testResult, children: tr.value })
+              ] }, `${tr.taskName}-${tr.resultName}-${i}`)),
+              record.testResults.length > 8 && /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
+                "+",
+                record.testResults.length - 8,
+                " more"
+              ] })
             ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+            /* @__PURE__ */ jsxs("div", { className: classes.gatesHead, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Release gates" }),
+              record.guardrails && /* @__PURE__ */ jsxs("span", { className: classes.gatesCount, children: [
+                record.guardrails.passedChecks,
+                "/",
+                record.guardrails.totalChecks,
+                " passed"
+              ] })
+            ] }),
+            record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              /* @__PURE__ */ jsx(GateGrid, { checks: record.guardrails.checks ?? [], classes, t }),
+              record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: `View ${record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}` })
+            ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No release-guardrail check data found for this release's release PR." })
           ] })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Guardrails & supply chain" }),
-          /* @__PURE__ */ jsx(SupplyChainChips, { provenance: record.provenance }),
-          rekor && /* @__PURE__ */ jsx("div", { className: classes.chipRow, children: /* @__PURE__ */ jsxs("span", { className: classes.chip, children: [
-            "Rekor #",
-            rekor.logIndex
-          ] }) }),
-          record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx(GateLedger, { ci: record.guardrails, classes: railClasses, t }),
-            record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: `View ${record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}` })
-          ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No release-guardrail check data found for this release's release PR." })
         ] })
       ] })
     ] }),
@@ -750,6 +777,32 @@ function ReleaseRecordDetail({
         " \xB7 tower/release-record@1"
       ] })
     ] })
+  ] });
+}
+const BOILERPLATE = /has successfully validated your commit\.?$/i;
+function GateGrid({ checks, classes, t }) {
+  const notes = checks.map((check) => ({ check, tone: gateCheckTone(t, check) })).filter(({ check, tone }) => check.message && (tone.label !== "passed" || !BOILERPLATE.test(stripLightMarkdown(check.message).trim())));
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx("div", { className: classes.gateGrid, children: checks.map((check) => {
+      const tone = gateCheckTone(t, check);
+      return /* @__PURE__ */ jsxs("div", { className: classes.gateTile, title: `${formatGateName(check.name)}: ${tone.label}`, children: [
+        /* @__PURE__ */ jsx("span", { className: classes.gateDot, style: { backgroundColor: tone.color } }),
+        /* @__PURE__ */ jsx("span", { className: classes.gateTileName, children: formatGateName(check.name) }),
+        tone.label !== "passed" && /* @__PURE__ */ jsx("span", { style: { color: tone.color }, children: tone.label })
+      ] }, check.name);
+    }) }),
+    notes.map(({ check, tone }) => /* @__PURE__ */ jsxs("div", { className: classes.gateNote, children: [
+      /* @__PURE__ */ jsxs("span", { style: { color: tone.color }, children: [
+        formatGateName(check.name),
+        ":"
+      ] }),
+      " ",
+      stripLightMarkdown(check.message),
+      check.commentUrl && /* @__PURE__ */ jsxs(Fragment, { children: [
+        " ",
+        /* @__PURE__ */ jsx("a", { href: check.commentUrl, target: "_blank", rel: "noopener noreferrer", children: "PR comment \u2192" })
+      ] })
+    ] }, check.name))
   ] });
 }
 

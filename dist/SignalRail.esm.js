@@ -311,5 +311,5 @@ function GateLedger({
   ] });
 }
 
-export { GateLedger, GitPrIcon, Rail, TallArrow, deliveryTag, formatGateName, gateCheckTone, useSignalRailStyles };
+export { GateLedger, GitPrIcon, Rail, TallArrow, deliveryTag, formatGateName, gateCheckTone, stripLightMarkdown, useSignalRailStyles };
 //# sourceMappingURL=SignalRail.esm.js.map
