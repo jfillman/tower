@@ -46,7 +46,22 @@ function useFleetSlos(clusters) {
       loading: clusters.length > 0 && Object.keys(byCluster).length < clusters.length
     };
   }, [byCluster, clusters]);
-  return { summary, probes };
+  const slos = useMemo(() => {
+    const byKey = /* @__PURE__ */ new Map();
+    Object.entries(byCluster).forEach(
+      ([cluster, samples]) => samples.forEach((sample) => {
+        const { sloth_service: service, sloth_slo: slo, __name__: name } = sample.metric;
+        if (!service || !slo || !name) return;
+        const key = `${cluster}/${service}/${slo}`;
+        const row = byKey.get(key) ?? { cluster, service, slo };
+        if (name === "slo:period_burn_rate:ratio") row.periodBurnRate = sample.value;
+        if (name === "slo:period_error_budget_remaining:ratio") row.budgetRemaining = sample.value;
+        byKey.set(key, row);
+      })
+    );
+    return [...byKey.values()];
+  }, [byCluster]);
+  return { summary, slos, probes };
 }
 
 export { useFleetSlos };

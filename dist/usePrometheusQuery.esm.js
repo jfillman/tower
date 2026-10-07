@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from './k8sProxy.esm.js';
 
-const PROMETHEUS_NAMESPACE = "observability";
-const PROMETHEUS_SERVICE = "kube-prometheus-stack-prometheus";
-const PROMETHEUS_PORT = 9090;
-function proxyPath(subpath) {
-  return `/api/v1/namespaces/${PROMETHEUS_NAMESPACE}/services/${PROMETHEUS_SERVICE}:${PROMETHEUS_PORT}/proxy${subpath}`;
+const CLUSTER_PROMETHEUS = {
+  namespace: "observability",
+  service: "kube-prometheus-stack-prometheus",
+  port: 9090
+};
+function prometheusProxyPath(subpath, endpoint = CLUSTER_PROMETHEUS) {
+  return `/api/v1/namespaces/${endpoint.namespace}/services/${endpoint.service}:${endpoint.port}/proxy${subpath}`;
 }
+const proxyPath = (subpath) => prometheusProxyPath(subpath);
 function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -88,5 +91,5 @@ function usePrometheusRangeQuery(cluster, query, rangeSeconds, stepSeconds, refr
   return state;
 }
 
-export { usePrometheusInstantQuery, usePrometheusRangeQuery };
+export { CLUSTER_PROMETHEUS, prometheusProxyPath, usePrometheusInstantQuery, usePrometheusRangeQuery };
 //# sourceMappingURL=usePrometheusQuery.esm.js.map
