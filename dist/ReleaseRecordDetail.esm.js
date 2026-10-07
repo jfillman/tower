@@ -91,13 +91,24 @@ const useStyles = makeStyles(() => ({
   // rendered a big blank area below its own content rather than just being
   // short. Column ratio skews toward "built" (still the densest column even
   // after the content trims below) rather than a flat 1/1/1 split.
-  triad: {
+  pair: {
     display: "grid",
-    gridTemplateColumns: "1fr 1.3fr 1fr",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
     alignItems: "start",
     gap: 16,
+    marginBottom: 16,
     "@media (max-width: 860px)": { gridTemplateColumns: "1fr" }
   },
+  builtBody: {
+    padding: "14px 15px",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 20,
+    alignItems: "start",
+    "@media (max-width: 1100px)": { gridTemplateColumns: "1fr" }
+  },
+  builtSection: { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 },
+  builtSectionTitle: { fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: ({ t }) => t.textLo },
   col: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panel, overflow: "hidden" },
   colHead: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 15px", borderBottom: ({ t }) => `1px solid ${t.line}` },
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
@@ -415,7 +426,7 @@ function ReleaseRecordDetail({
         " / 100 (80+ green, 50-79 amber, below 50 red)"
       ] })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.triad, children: [
+    /* @__PURE__ */ jsxs("div", { className: classes.pair, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
         /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadChanged}`, children: [
           /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What changed" }),
@@ -457,18 +468,56 @@ function ReleaseRecordDetail({
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-        /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadBuilt}`, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What was built" }),
+        /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadHappened}`, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What happened" }),
           /* @__PURE__ */ jsx(
             "span",
             {
               className: classes.chip,
-              style: verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
-              children: verified ? "verified" : "unverified"
+              style: record.incidents.length === 0 ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
+              children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents`
             }
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
+          record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
+            /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.fromEnv }),
+            /* @__PURE__ */ jsx("span", { className: classes.promoArrow, children: "\u2192" }),
+            /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.toEnv }),
+            /* @__PURE__ */ jsx("span", { className: classes.promoWhen, children: formatDateTime(p.at) })
+          ] }, `${p.fromEnv}-${p.toEnv}`)) }),
+          liveDeployment && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+            liveDeployment.rolloutStrategy && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Rollout strategy" }),
+              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.rolloutStrategy })
+            ] }),
+            liveDeployment.argoRevision && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Argo CD revision" }),
+              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.argoRevision.slice(0, 10) })
+            ] }),
+            liveDeployment.rolloutStrategy === "canary" && liveDeployment.canarySteps && liveDeployment.canarySteps.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Canary steps" }),
+              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.canarySteps.length })
+            ] })
+          ] })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
+      /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadBuilt}`, children: [
+        /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What was built" }),
+        /* @__PURE__ */ jsx(
+          "span",
+          {
+            className: classes.chip,
+            style: verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
+            children: verified ? "verified" : "unverified"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: classes.builtBody, children: [
+        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Artifact" }),
           /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
             record.imageDigest && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
               /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Digest" }),
@@ -492,7 +541,10 @@ function ReleaseRecordDetail({
                 tone.label
               ] })
             ] }, run.name);
-          }) }),
+          }) })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Security" }),
           record.securityScans.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
             /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Security scans" }),
             record.securityScans.map((scan) => /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, children: [
@@ -528,7 +580,10 @@ function ReleaseRecordDetail({
               record.testResults.length - 8,
               " more"
             ] })
-          ] }),
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Guardrails & supply chain" }),
           /* @__PURE__ */ jsx(SupplyChainChips, { provenance: record.provenance }),
           rekor && /* @__PURE__ */ jsx("div", { className: classes.chipRow, children: /* @__PURE__ */ jsxs("span", { className: classes.chip, children: [
             "Rekor #",
@@ -536,43 +591,8 @@ function ReleaseRecordDetail({
           ] }) }),
           record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
             /* @__PURE__ */ jsx(GateLedger, { ci: record.guardrails, classes: railClasses, t }),
-            record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: record.guardrailsPrNumber ? `View gitops PR #${record.guardrailsPrNumber}` : "View gitops PR" })
-          ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No release-guardrail check data found for this release's gitops PR." })
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
-        /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadHappened}`, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What happened" }),
-          /* @__PURE__ */ jsx(
-            "span",
-            {
-              className: classes.chip,
-              style: record.incidents.length === 0 ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
-              children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents`
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
-          record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.fromEnv }),
-            /* @__PURE__ */ jsx("span", { className: classes.promoArrow, children: "\u2192" }),
-            /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.toEnv }),
-            /* @__PURE__ */ jsx("span", { className: classes.promoWhen, children: formatDateTime(p.at) })
-          ] }, `${p.fromEnv}-${p.toEnv}`)) }),
-          liveDeployment && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            liveDeployment.rolloutStrategy && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Rollout strategy" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.rolloutStrategy })
-            ] }),
-            liveDeployment.argoRevision && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Argo CD revision" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.argoRevision.slice(0, 10) })
-            ] }),
-            liveDeployment.rolloutStrategy === "canary" && liveDeployment.canarySteps && liveDeployment.canarySteps.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Canary steps" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.canarySteps.length })
-            ] })
-          ] })
+            record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: `View ${record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}` })
+          ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No release-guardrail check data found for this release's release PR." })
         ] })
       ] })
     ] }),

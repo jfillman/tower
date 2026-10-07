@@ -130,6 +130,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
     const createdAt = deployedUpperEnvs.map((e) => row.cells[e.env].date).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
     return { row, createdAt, createdAtMs: new Date(createdAt).getTime() };
   }).filter((x) => Boolean(x)).sort((a, b) => a.createdAtMs - b.createdAtMs);
+  const releasePrFor = (env, tag) => gitopsPrForEnvAndImage(gitopsPrs, env, tag) ?? sourcePrs.find((pr) => pr.releasePin === env && pr.title.includes(tag));
   const records = qualifying.map(({ row, createdAt, createdAtMs }, i) => {
     const previous = qualifying[i - 1];
     const liveUpperEnvs = upperEnvs.filter((e) => e.image && imageTag(e.image) === row.imageTag);
@@ -138,7 +139,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
     if (isLive) status = liveUpperEnvs.some((e) => health(e) === "degraded") ? "degraded" : "healthy";
     const provenance = row.image ? provenanceByImage[row.image]?.data : void 0;
     const pullRequests = sourcePrs.filter((pr) => {
-      if (pr.state !== "merged" || !pr.mergedAt) return false;
+      if (pr.state !== "merged" || !pr.mergedAt || pr.releasePin) return false;
       const mergedMs = new Date(pr.mergedAt).getTime();
       if (mergedMs > createdAtMs) return false;
       return previous ? mergedMs > previous.createdAtMs : true;
@@ -166,7 +167,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
       const from = pipelineEnvironments[envIdx];
       const to = pipelineEnvironments[envIdx + 1];
       if (row.cells[from.env]?.status !== "deployed" || row.cells[to.env]?.status !== "deployed") continue;
-      const pr = gitopsPrForEnvAndImage(gitopsPrs, to.env, row.imageTag);
+      const pr = releasePrFor(to.env, row.imageTag);
       promotionChain.push({
         fromEnv: from.env,
         toEnv: to.env,
@@ -176,7 +177,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
         mergedAt: pr?.mergedAt
       });
     }
-    const guardrailPr = deployedUpperEnvNames(deployedEnvs, upperEnvNames).map((envName) => gitopsPrForEnvAndImage(gitopsPrs, envName, row.imageTag)).find((pr) => pr?.ci);
+    const guardrailPr = deployedUpperEnvNames(deployedEnvs, upperEnvNames).map((envName) => releasePrFor(envName, row.imageTag)).find((pr) => pr?.ci);
     const pipelineRun = findPipelineRunForTag(row.imageTag, pipelineRuns);
     const relatedPipelineRuns = findRelatedPipelineRuns(pipelineRun, pipelineRuns);
     const testResults = buildTestResults(relatedPipelineRuns);
