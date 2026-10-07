@@ -251,6 +251,10 @@ function FlowSlugChip({ slug, classes }) {
   );
 }
 function pipelineTitle(run) {
+  if (run.pipelineName === "governance-check") {
+    const gate = run.params.find((p) => p.name === "gate-name")?.value;
+    if (gate) return `${gate}-check`;
+  }
   const env = run.params.find((p) => p.name === "env")?.value;
   if (env) {
     if (run.pipelineName === "deploy") return `deploy to ${env}`;
@@ -466,5 +470,5 @@ function PipelineRunList({
   ] });
 }
 
-export { PipelineRunList, phaseTone, slugHue };
+export { PipelineRunList, phaseTone, pipelineTitle, slugHue };
 //# sourceMappingURL=PipelineRunList.esm.js.map
