@@ -9,6 +9,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../br
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { summarizeCloudDeploys, type CloudDeploy } from '../cloudDeploy';
 import { formatDateTime, relativeTime } from '../shared/format';
+import { useCicdConfig } from '../useConfigData';
+import { readEnvironments, type Deploy } from '../environments/stagedChanges';
+import { FlightPins } from './cloud/FlightPins';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -109,6 +112,13 @@ export function CloudDeploymentsTab() {
   const { entity } = useEntity();
   const [, setSearchParams] = useSearchParams();
   const appName = entity.metadata.annotations?.['github.com/project-slug']?.split('/')[1] ?? entity.metadata.name;
+  const owner = entity.metadata.annotations?.['github.com/project-slug']?.split('/')[0];
+  // Flight environments (glidepath ADR-0020), each with the one before it in cicd.yaml order.
+  const cicd = useCicdConfig(owner ? { owner, appName } : undefined);
+  const flight = useMemo(() => {
+    const { envs } = readEnvironments(cicd.data?.values?.deploy as Deploy | undefined);
+    return envs.flatMap((e, i) => (e.tier === 'flight' ? [{ name: e.name, previous: envs[i - 1]?.name }] : []));
+  }, [cicd.data]);
   const { loading, runs, error } = useTektonPipelineRuns(appName);
   const summary = useMemo(() => summarizeCloudDeploys(runs), [runs]);
 
@@ -142,6 +152,7 @@ export function CloudDeploymentsTab() {
           No cloud deploys yet. Once a build finishes, the deploy stage runs against this service&apos;s target and
           shows up here.
         </div>
+        {owner && <FlightPins owner={owner} appName={appName} flight={flight} deploys={deploys} />}
       </div>
     );
   }
@@ -257,6 +268,7 @@ export function CloudDeploymentsTab() {
           ))}
         </tbody>
       </table>
+      {owner && <FlightPins owner={owner} appName={appName} flight={flight} deploys={deploys} />}
     </div>
   );
 }

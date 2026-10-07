@@ -142,6 +142,20 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 // convention every other PR-matching function in Tower already relies on
 // (see parseGitopsPrTitle), into the two facts that actually vary per row.
 function GitopsTitle({ pr, classes }: { pr: PullRequestSummary; classes: ReturnType<typeof useStyles> }) {
+  // A cloud Flight environment's release pin PR (glidepath ADR-0020) on the source repo: "Release <app> <tag> to
+  // <env>" or "Roll back <app> <env> to <tag>".
+  if (pr.releasePin) {
+    const tag = pr.title.match(/^Release \S+ (\S+) to /)?.[1] ?? pr.title.match(/ to (\S+)$/)?.[1];
+    return (
+      <>
+        <span className={classes.targetPill}>{pr.releasePin}</span>
+        <span className={classes.imageTagText}>
+          {pr.title.startsWith('Roll back') ? 'roll back to ' : '@ '}
+          {tag ?? pr.title} · pin
+        </span>
+      </>
+    );
+  }
   const parsed = parseGitopsPrTitle(pr.title);
   if (!parsed) return <>{pr.title}</>;
   return (
@@ -232,7 +246,7 @@ function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: R
             <td className={`${classes.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
             <td className={classes.td}>
               <span className={classes.repoBadge}>{pr.repo}</span>
-              {pr.repo === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
+              {pr.repo === 'gitops' || pr.releasePin ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
             </td>
             <td className={`${classes.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
             <td className={classes.td}>
@@ -272,11 +286,12 @@ export function PullRequestsTab() {
   // are filtered out here rather than at the fetch layer, and shown in
   // their own section instead.
   const openPrs = all.filter(pr => pr.state === 'open');
+  // Release PRs: gitops release PRs, plus a cloud app's release pin PRs on its own repo (glidepath ADR-0020).
   const gitopsPrs = openPrs
-    .filter(pr => pr.repo === 'gitops')
+    .filter(pr => pr.repo === 'gitops' || Boolean(pr.releasePin))
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const sourceOpenPrs = openPrs
-    .filter(pr => pr.repo === 'source')
+    .filter(pr => pr.repo === 'source' && !pr.releasePin)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const previewPrs = sourceOpenPrs.filter(hasPreviewLabel);
   const sourcePrsRaw = sourceOpenPrs.filter(pr => !hasPreviewLabel(pr));
@@ -297,7 +312,7 @@ export function PullRequestsTab() {
         <div className={classes.sectionHead}>
           <span className={classes.sectionTitle}>
             Release PRs
-            <span className={classes.chip}>gitops-{appName}</span>
+            <span className={classes.chip}>{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</span>
           </span>
           <span className={classes.sectionSub}>{gitopsPrs.length} open</span>
         </div>

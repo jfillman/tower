@@ -26,6 +26,18 @@ jest.mock('@backstage/plugin-catalog-react', () => ({
   }),
 }));
 
+let mockDeploy: unknown = { target: 'aws-ecs', lowerEnvironments: ['dev'] };
+jest.mock('../useConfigData', () => ({
+  useCicdConfig: () => ({ loading: false, data: { values: { deploy: mockDeploy } } }),
+}));
+let mockPin: unknown = { loading: false, data: undefined };
+const mockSubmit = jest.fn(async () => ({ prUrl: 'https://github.com/jfillman/smoke-ecs/pull/9', alreadyOpen: false, pin: { tag: 'x' } }));
+jest.mock('../environments/releasePins', () => ({
+  ...jest.requireActual('../environments/releasePins'),
+  usePinState: () => mockPin,
+  useSubmitPin: () => ({ loading: false, submit: mockSubmit, reset: jest.fn() }),
+}));
+
 function Where() {
   const l = useLocation();
   return <div data-testid="loc">{l.search}</div>;
@@ -97,5 +109,40 @@ describe('CloudDeploymentsTab', () => {
     mockRuns = [];
     renderTab();
     expect(screen.getByText(/No cloud deploys yet/)).toBeTruthy();
+  });
+
+  it('shows no Flight panel for an app without Flight environments', () => {
+    mockDeploy = { target: 'aws-ecs', lowerEnvironments: ['dev'] };
+    mockRuns = [run('ci-1-deploy-ok')];
+    renderTab();
+    expect(screen.queryByText('Flight environments')).toBeNull();
+  });
+
+  it("shows a cloud Flight environment's pin, and Promote and Roll back open pin PRs", () => {
+    mockDeploy = { target: 'aws-ecs', environments: [{ name: 'dev', tier: 'ground' }, { name: 'prod', tier: 'flight' }] };
+    mockRuns = [run('ci-1-deploy-ok')];
+    const pin = (tag: string, digest: string) => ({ repository: 'ghcr.io/jfillman/smoke-ecs', tag, digest, promotedFrom: 'dev' });
+    mockPin = {
+      loading: false,
+      data: {
+        env: 'prod',
+        path: 'glidepath/releases/prod.yaml',
+        current: pin('2.0.0-bbbbbbb', 'sha256:bbbb'),
+        history: [
+          { sha: 'c2', date: '2026-10-07T00:00:00Z', message: 'Pin', pin: pin('2.0.0-bbbbbbb', 'sha256:bbbb') },
+          { sha: 'c1', date: '2026-10-06T00:00:00Z', message: 'Pin', pin: pin('1.0.0-aaaaaaa', 'sha256:aaaa') },
+        ],
+        openPr: { url: 'https://github.com/jfillman/smoke-ecs/pull/8' },
+      },
+    };
+    renderTab();
+    expect(screen.getByText('Flight environments')).toBeTruthy();
+    expect(screen.getByText('2.0.0-bbbbbbb')).toBeTruthy();
+    expect(screen.getByText('pin PR open ↗')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Promote to prod' }));
+    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', image: expect.stringContaining('ghcr.io/') }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back to 1.0.0-aaaaaaa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open rollback PR' }));
+    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', rollbackTo: 'c1' }));
   });
 });

@@ -25,6 +25,9 @@ export interface PrCheckRun {
 export interface PullRequestSummary {
   repo: 'source' | 'gitops';
   number: number;
+  headRef?: string;
+  /** A cloud Flight environment's release pin PR (glidepath ADR-0020): the environment it pins. */
+  releasePin?: string;
   title: string;
   url: string;
   author?: string;
