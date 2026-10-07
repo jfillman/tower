@@ -173,7 +173,9 @@ export function EnvironmentsTab() {
     return () => clearInterval(id);
   }, [pending.records.length]);
   const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
-  const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
+  // Added Flight environments that need an ApplicationEnvironment request on the tenants repo. A cloud target's Flight
+  // environment is a release pin (glidepath ADR-0020) with no cluster resources, so it needs none.
+  const flightAdds = useMemo(() => (cloudBlock ? [] : addedFlightEnvs(before, after)), [before, after, cloudBlock]);
   const problems = useMemo(
     () => [
       ...validateEnvironments(after, targetId),
@@ -322,8 +324,7 @@ export function EnvironmentsTab() {
     // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
     const done = { ...launched };
     for (const e of flightAdds) {
-      // A cloud Flight environment has no cluster resources to request (glidepath ADR-0020).
-      if (done[e.name] || cloudBlock) continue;
+      if (done[e.name]) continue;
       setPhase('launching');
       const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster as string });
       if (r.status !== 'done') {
