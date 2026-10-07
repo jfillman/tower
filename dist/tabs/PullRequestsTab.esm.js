@@ -120,6 +120,17 @@ const useStyles = makeStyles(() => ({
   }
 }));
 function GitopsTitle({ pr, classes }) {
+  if (pr.releasePin) {
+    const tag = pr.title.match(/^Release \S+ (\S+) to /)?.[1] ?? pr.title.match(/ to (\S+)$/)?.[1];
+    return /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx("span", { className: classes.targetPill, children: pr.releasePin }),
+      /* @__PURE__ */ jsxs("span", { className: classes.imageTagText, children: [
+        pr.title.startsWith("Roll back") ? "roll back to " : "@ ",
+        tag ?? pr.title,
+        " \xB7 pin"
+      ] })
+    ] });
+  }
   const parsed = parseGitopsPrTitle(pr.title);
   if (!parsed) return /* @__PURE__ */ jsx(Fragment, { children: pr.title });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -195,7 +206,7 @@ function MergedPrTable({ prs, classes }) {
           ] }),
           /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
             /* @__PURE__ */ jsx("span", { className: classes.repoBadge, children: pr.repo }),
-            pr.repo === "gitops" ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title
+            pr.repo === "gitops" || pr.releasePin ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title
           ] }),
           /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
           /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsxs("span", { className: classes.mergedMark, children: [
@@ -224,8 +235,8 @@ function PullRequestsTab() {
   if (prs.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(prs.error) });
   const all = prs.data ?? [];
   const openPrs = all.filter((pr) => pr.state === "open");
-  const gitopsPrs = openPrs.filter((pr) => pr.repo === "gitops").sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  const sourceOpenPrs = openPrs.filter((pr) => pr.repo === "source").sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const gitopsPrs = openPrs.filter((pr) => pr.repo === "gitops" || Boolean(pr.releasePin)).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const sourceOpenPrs = openPrs.filter((pr) => pr.repo === "source" && !pr.releasePin).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const previewPrs = sourceOpenPrs.filter(hasPreviewLabel);
   const sourcePrsRaw = sourceOpenPrs.filter((pr) => !hasPreviewLabel(pr));
   const { shown: sourcePrs, overflowCount } = curateSourcePrs(sourcePrsRaw);
@@ -238,10 +249,7 @@ function PullRequestsTab() {
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsxs("span", { className: classes.sectionTitle, children: [
           "Release PRs",
-          /* @__PURE__ */ jsxs("span", { className: classes.chip, children: [
-            "gitops-",
-            appName
-          ] })
+          /* @__PURE__ */ jsx("span", { className: classes.chip, children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` })
         ] }),
         /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
           gitopsPrs.length,

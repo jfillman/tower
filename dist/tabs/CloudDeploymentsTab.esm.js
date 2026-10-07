@@ -9,6 +9,9 @@ import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
+import { useCicdConfig } from '../useConfigData.esm.js';
+import { readEnvironments } from '../environments/stagedChanges.esm.js';
+import { FlightPins } from './cloud/FlightPins.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { padding: "20px 24px 40px", maxWidth: 1080 },
@@ -100,6 +103,12 @@ function CloudDeploymentsTab() {
   const { entity } = useEntity();
   const [, setSearchParams] = useSearchParams();
   const appName = entity.metadata.annotations?.["github.com/project-slug"]?.split("/")[1] ?? entity.metadata.name;
+  const owner = entity.metadata.annotations?.["github.com/project-slug"]?.split("/")[0];
+  const cicd = useCicdConfig(owner ? { owner, appName } : void 0);
+  const flight = useMemo(() => {
+    const { envs } = readEnvironments(cicd.data?.values?.deploy);
+    return envs.flatMap((e, i) => e.tier === "flight" ? [{ name: e.name, previous: envs[i - 1]?.name }] : []);
+  }, [cicd.data]);
   const { loading, runs, error } = useTektonPipelineRuns(appName);
   const summary = useMemo(() => summarizeCloudDeploys(runs), [runs]);
   const openRun = (name) => setSearchParams((prev) => {
@@ -122,7 +131,8 @@ function CloudDeploymentsTab() {
   if (deploys.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
-      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No cloud deploys yet. Once a build finishes, the deploy stage runs against this service's target and shows up here." })
+      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No cloud deploys yet. Once a build finishes, the deploy stage runs against this service's target and shows up here." }),
+      owner && /* @__PURE__ */ jsx(FlightPins, { owner, appName, flight, deploys })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
@@ -207,7 +217,8 @@ function CloudDeploymentsTab() {
         /* @__PURE__ */ jsx("td", { className: classes.td, children: duration(d.durationSec) }),
         /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, onClick: () => openRun(d.runName), children: "open run" }) })
       ] }, d.runName)) })
-    ] })
+    ] }),
+    owner && /* @__PURE__ */ jsx(FlightPins, { owner, appName, flight, deploys })
   ] });
 }
 
