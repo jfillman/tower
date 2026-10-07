@@ -250,7 +250,7 @@ function EnvironmentsTab() {
     setFailure(void 0);
     const done = { ...launched };
     for (const e of flightAdds) {
-      if (done[e.name]) continue;
+      if (done[e.name] || cloudBlock) continue;
       setPhase("launching");
       const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster });
       if (r.status !== "done") {

@@ -47,11 +47,10 @@ function AddEnvironmentDialog({
   const [releaseStep, setReleaseStep] = useState(true);
   const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
-  const flightAllowed = !cloudBlock;
   const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
   const candidate = { name: name.trim(), tier };
-  if (tier === "flight" && cluster.trim()) candidate.cluster = cluster.trim();
-  if (tier === "ground" && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  if (tier === "flight" && !cloudBlock && cluster.trim()) candidate.cluster = cluster.trim();
+  if (cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
   if (duplicateOf && cloudBlock && duplicateOf[cloudBlock]) {
     const { [mainField]: _own, ...rest } = duplicateOf[cloudBlock];
     candidate[cloudBlock] = { ...rest, ...candidate[cloudBlock] ?? {} };
@@ -85,18 +84,23 @@ function AddEnvironmentDialog({
           FormControlLabel,
           {
             value: "flight",
-            disabled: !flightAllowed || Boolean(duplicateOf),
+            disabled: Boolean(duplicateOf),
             control: /* @__PURE__ */ jsx(Radio, { size: "small" }),
             label: "Flight: deploys only through an approved release"
           }
         )
       ] }),
-      !flightAllowed && /* @__PURE__ */ jsxs("div", { className: c.note, children: [
-        "Flight environments are not available for ",
-        targetLabel,
-        " yet: a cloud target has no approval path for them."
+      tier === "flight" && cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx("div", { className: c.note, children: "Each release to it opens a pull request on this repo that changes its release pin (glidepath/releases/<name>.yaml). Merging the pull request deploys exactly that image." }),
+        /* @__PURE__ */ jsx(
+          FormControlLabel,
+          {
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: releaseStep, onChange: (e) => setReleaseStep(e.target.checked) }),
+            label: "Also add a release step for it to the pipeline"
+          }
+        )
       ] }),
-      tier === "flight" && /* @__PURE__ */ jsxs(Fragment, { children: [
+      tier === "flight" && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsx("input", { ...p, list: "flight-clusters", value: cluster, onChange: (e) => setCluster(e.target.value) }) }),
         /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((k) => /* @__PURE__ */ jsx("option", { value: k }, k)) }),
         /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "The registered upper cluster it runs on, for example kind-prod." }),
@@ -110,7 +114,7 @@ function AddEnvironmentDialog({
         ),
         /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
       ] }),
-      tier === "ground" && cloudBlock && mainField && /* @__PURE__ */ jsxs(Fragment, { children: [
+      cloudBlock && mainField && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-override", label: `${targetLabel} ${mainField} (optional)`, children: (p) => /* @__PURE__ */ jsx("input", { ...p, value: override, onChange: (e) => setOverride(e.target.value) }) }),
         /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Leave empty to use the app-level value." })
       ] }),

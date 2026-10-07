@@ -90,8 +90,8 @@ function validateEnvironments(envs, target) {
     if (e.tier === "ground" && e.cluster) {
       problems.push(`Ground environment "${e.name}" sets a cluster. Ground environments on other clusters are not supported yet.`);
     }
-    if (e.tier === "flight" && cloud) {
-      problems.push(`Flight environment "${e.name}" is not supported for ${t} yet: cloud targets have no approval path for Flight environments.`);
+    if (e.tier === "flight" && cloud && e.cluster) {
+      problems.push(`Flight environment "${e.name}" sets a cluster, but ${t} has none: it deploys through its own ${wantBlock} settings.`);
     }
     for (const b of CLOUD_BLOCKS) {
       if (e[b] && b !== wantBlock) {
@@ -211,6 +211,11 @@ function followUps(before, after, target, appName, envsRoot = "platform") {
   }
   for (const e of after) {
     if (had.has(e.name)) continue;
+    if (e.tier === "flight" && cloud) {
+      out.push(
+        `${e.name} is approved by release pin pull requests on the source repo: each release to it opens one changing glidepath/releases/${e.name}.yaml, and merging it deploys exactly that image. Onboarding adds the promote-${e.name} flow and the release gates after the cicd.yaml change merges.`
+      );
+    }
     if (e.tier === "flight" && !cloud) {
       out.push(
         `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application.`
