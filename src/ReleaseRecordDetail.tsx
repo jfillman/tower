@@ -111,7 +111,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   pair: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-    alignItems: 'start',
+    // Both boxes as tall as the taller one (owner, 2026-10-07); content stays at the top.
+    alignItems: 'stretch',
     gap: 16,
     marginBottom: 16,
     '@media (max-width: 860px)': { gridTemplateColumns: '1fr' },
