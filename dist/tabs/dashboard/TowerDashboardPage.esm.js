@@ -17,6 +17,9 @@ const useStyles = makeStyles(() => ({
   // Backstage sidebar (a DOM sibling, rendered by ../nav) is automatically
   // not shown while active. No changes to any shared layout/nav code needed.
   root: { backgroundColor: ({ t }) => t.bg, minHeight: "100vh" },
+  // Fullscreen is a wall screen: exactly one screen tall, nothing below the fold.
+  rootFit: { height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" },
+  bodyFit: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingBottom: 16 },
   header: {
     display: "flex",
     alignItems: "center",
@@ -125,7 +128,7 @@ function TowerDashboardPage({ onBack }) {
   }, []);
   const active = DASHBOARDS.find((d) => d.id === activeId) ?? DASHBOARDS[0];
   const { Component } = active;
-  return /* @__PURE__ */ jsxs("div", { className: classes.root, ref: rootRef, children: [
+  return /* @__PURE__ */ jsxs("div", { className: `${classes.root} ${isFullscreen ? classes.rootFit : ""}`, ref: rootRef, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.header, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
         /* @__PURE__ */ jsx("button", { className: classes.backLink, onClick: onBack, type: "button", children: "\u2190 All applications" }),
@@ -152,7 +155,7 @@ function TowerDashboardPage({ onBack }) {
       },
       d.id
     )) }),
-    /* @__PURE__ */ jsx("div", { className: classes.body, children: /* @__PURE__ */ jsx(Component, {}) })
+    /* @__PURE__ */ jsx("div", { className: `${classes.body} ${isFullscreen ? classes.bodyFit : ""}`, children: /* @__PURE__ */ jsx(Component, { fit: isFullscreen }) })
   ] });
 }
 

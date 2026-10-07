@@ -1,33 +1,47 @@
-import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { createContext, useState, useContext } from 'react';
 import { useHangarTokens } from '../../../brand/tokens.esm.js';
 import { deployFrequencyBand, leadTimeBand, changeFailureBand, restoreBand } from '../../../fleet/dora.esm.js';
+import { PIPELINE_CATEGORIES, CATEGORY_LABEL } from '../../../fleet/pipelineHistory.esm.js';
 import { preventFocusScroll } from '../../../preventFocusScroll.esm.js';
-import { fmtAge, severityColor, fmtSeconds, bandColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
+import { fmtAge, fmtSeconds, bandColor, severityColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
 
 function useKit() {
   const t = useHangarTokens();
   return { t, c: useOpsStyles({ t }) };
 }
+const FitContext = createContext(false);
 function OpsPanel({
   id,
   title,
   count,
   meta,
   stale,
+  shrink = 1,
   children
 }) {
   const { c } = useKit();
-  return /* @__PURE__ */ jsxs("section", { id, className: c.panel, "aria-label": title, children: [
-    /* @__PURE__ */ jsxs("div", { className: c.panelHead, children: [
-      /* @__PURE__ */ jsxs("h2", { className: c.panelTitle, children: [
-        title,
-        count !== void 0 && /* @__PURE__ */ jsx("span", { className: c.count, children: count })
-      ] }),
-      stale ? /* @__PURE__ */ jsx("span", { className: c.staleNote, children: stale }) : meta && /* @__PURE__ */ jsx("span", { className: c.panelMeta, children: meta })
-    ] }),
-    /* @__PURE__ */ jsx("div", { className: stale ? c.stale : void 0, children })
-  ] });
+  const fit = useContext(FitContext);
+  const bodyClass = [stale ? c.stale : "", fit ? c.panelBodyFit : ""].filter(Boolean).join(" ") || void 0;
+  return /* @__PURE__ */ jsxs(
+    "section",
+    {
+      id,
+      className: fit ? `${c.panel} ${c.panelFit}` : c.panel,
+      style: fit ? { flexShrink: shrink } : void 0,
+      "aria-label": title,
+      children: [
+        /* @__PURE__ */ jsxs("div", { className: c.panelHead, children: [
+          /* @__PURE__ */ jsxs("h2", { className: c.panelTitle, children: [
+            title,
+            count !== void 0 && /* @__PURE__ */ jsx("span", { className: c.count, children: count })
+          ] }),
+          stale ? /* @__PURE__ */ jsx("span", { className: c.staleNote, children: stale }) : meta && /* @__PURE__ */ jsx("span", { className: c.panelMeta, children: meta })
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: bodyClass, children })
+      ]
+    }
+  );
 }
 function Links({ links }) {
   const { c } = useKit();
@@ -96,59 +110,144 @@ function AttentionPanel({
     }
   );
 }
+const RUN_STRIP_MAX = 60;
+const RECENT_FAILURES = 4;
+function statusColor(t, status) {
+  if (status === "succeeded") return t.good;
+  if (status === "failed") return t.bad;
+  return t.textFaint;
+}
 function PipelinesPanel({
   items,
+  recent,
   stats,
+  counts,
+  categories,
+  onToggleCategory,
+  towerHref,
+  now,
   windowLabel,
   limit,
-  stale
+  stale,
+  historyNote
 }) {
   const { t, c } = useKit();
   const shown = items.slice(0, limit);
-  return /* @__PURE__ */ jsxs(
-    OpsPanel,
-    {
-      id: "ops-pipelines",
-      title: "Pipelines in flight",
-      count: items.length,
-      meta: `last ${windowLabel}: ${stats.runs} done \xB7 ${stats.failedRuns} failed${stats.p50Sec !== void 0 ? ` \xB7 p50 ${fmtSeconds(stats.p50Sec)}` : ""}`,
-      stale,
-      children: [
-        shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No pipelines running." }) : shown.map((p) => {
-          let barColor = t.sky;
-          if (p.slow || p.queuedLong) barColor = t.amber;
-          if ((p.progress?.failed ?? 0) > 0) barColor = t.bad;
-          return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: p.slow ? t.amber : "transparent" }, children: [
-            /* @__PURE__ */ jsxs("div", { className: c.rowMain, children: [
-              /* @__PURE__ */ jsxs("div", { className: c.rowTop, children: [
-                /* @__PURE__ */ jsx("span", { className: c.app, children: p.app }),
-                /* @__PURE__ */ jsx("span", { className: c.envTag, children: p.pipeline }),
-                p.phase === "pending" && /* @__PURE__ */ jsx("span", { className: c.mono, children: "queued" }),
-                p.slow && /* @__PURE__ */ jsx("span", { className: c.staleNote, children: "slow" })
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: p.title, children: [p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`].filter(Boolean).join(" \xB7 ") })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
-              p.progress && /* @__PURE__ */ jsxs(Fragment, { children: [
-                /* @__PURE__ */ jsx(Bar, { value: p.progress.done, total: p.progress.total, color: barColor }),
-                /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
-                  p.progress.done,
-                  "/",
-                  p.progress.total
-                ] })
-              ] }),
-              /* @__PURE__ */ jsxs("span", { className: c.age, children: [
-                fmtSeconds(p.elapsedSec),
-                p.typicalSec !== void 0 ? ` / ~${fmtSeconds(p.typicalSec)}` : ""
-              ] }),
-              /* @__PURE__ */ jsx(Links, { links: p.links })
+  const strip = recent.slice(0, RUN_STRIP_MAX).reverse();
+  const failures = recent.filter((r) => r.status === "failed");
+  const failRate = stats.runs > 0 ? Math.round(stats.failedRuns / stats.runs * 100) : void 0;
+  return /* @__PURE__ */ jsxs(OpsPanel, { id: "ops-pipelines", title: "Pipelines", count: items.length, stale, children: [
+    /* @__PURE__ */ jsx("div", { className: c.filterRow, role: "group", "aria-label": "Pipeline types", children: PIPELINE_CATEGORIES.map((cat) => {
+      const on = categories.has(cat);
+      return /* @__PURE__ */ jsxs(
+        "button",
+        {
+          type: "button",
+          "aria-pressed": on,
+          className: `${c.toggle} ${on ? c.toggleOn : ""}`,
+          onMouseDown: preventFocusScroll,
+          onClick: () => onToggleCategory(cat),
+          children: [
+            CATEGORY_LABEL[cat],
+            " ",
+            /* @__PURE__ */ jsx("span", { className: c.toggleCount, children: counts[cat] })
+          ]
+        },
+        cat
+      );
+    }) }),
+    /* @__PURE__ */ jsx("div", { className: c.subhead, children: "Running now" }),
+    shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No pipelines running." }) : shown.map((p) => {
+      let barColor = t.sky;
+      if (p.slow || p.queuedLong) barColor = t.amber;
+      if ((p.progress?.failed ?? 0) > 0) barColor = t.bad;
+      return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: p.slow ? t.amber : "transparent" }, children: [
+        /* @__PURE__ */ jsxs("div", { className: c.rowMain, children: [
+          /* @__PURE__ */ jsxs("div", { className: c.rowTop, children: [
+            /* @__PURE__ */ jsx("span", { className: c.app, children: p.app }),
+            /* @__PURE__ */ jsx("span", { className: c.envTag, children: p.pipeline }),
+            p.phase === "pending" && /* @__PURE__ */ jsx("span", { className: c.mono, children: "queued" }),
+            p.slow && /* @__PURE__ */ jsx("span", { className: c.staleNote, children: "slow" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: p.title, children: [p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`].filter(Boolean).join(" \xB7 ") })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
+          p.progress && /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsx(Bar, { value: p.progress.done, total: p.progress.total, color: barColor }),
+            /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
+              p.progress.done,
+              "/",
+              p.progress.total
             ] })
-          ] }, p.key);
-        }),
-        /* @__PURE__ */ jsx(More, { total: items.length, shown: shown.length })
-      ]
-    }
-  );
+          ] }),
+          /* @__PURE__ */ jsxs("span", { className: c.age, title: "elapsed / typical for this pipeline", children: [
+            fmtSeconds(p.elapsedSec),
+            p.typicalSec !== void 0 ? ` / ~${fmtSeconds(p.typicalSec)}` : ""
+          ] }),
+          /* @__PURE__ */ jsx(Links, { links: p.links })
+        ] })
+      ] }, p.key);
+    }),
+    /* @__PURE__ */ jsx(More, { total: items.length, shown: shown.length }),
+    /* @__PURE__ */ jsxs("div", { className: c.subhead, children: [
+      "Last ",
+      windowLabel,
+      ": ",
+      stats.runs,
+      " finished",
+      failRate !== void 0 && ` \xB7 ${stats.failedRuns} failed (${failRate}%)`,
+      stats.p50Sec !== void 0 && ` \xB7 p50 ${fmtSeconds(stats.p50Sec)}`
+    ] }),
+    historyNote && /* @__PURE__ */ jsx("div", { className: c.historyNote, children: historyNote }),
+    strip.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No finished runs in this window." }) : /* @__PURE__ */ jsx("div", { className: c.runStrip, "aria-label": `Last ${strip.length} finished runs, oldest first`, children: strip.map((r) => /* @__PURE__ */ jsx(
+      "a",
+      {
+        className: c.runCell,
+        style: { backgroundColor: statusColor(t, r.status) },
+        href: towerHref(r.app, "pipelines", { run: r.name }),
+        target: "_blank",
+        rel: "noopener noreferrer",
+        title: `${r.app} \xB7 ${r.pipeline} \xB7 ${r.status}${r.durationSec !== void 0 ? ` in ${fmtSeconds(r.durationSec)}` : ""} \xB7 ${fmtAge(now, r.endTime)} ago`,
+        children: /* @__PURE__ */ jsxs("span", { className: c.srOnly, children: [
+          r.app,
+          " ",
+          r.pipeline,
+          " ",
+          r.status
+        ] })
+      },
+      r.key
+    )) }),
+    failures.slice(0, RECENT_FAILURES).map((f) => {
+      const run = towerHref(f.app, "pipelines", { run: f.name });
+      return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: t.bad }, children: [
+        /* @__PURE__ */ jsxs("div", { className: c.rowMain, children: [
+          /* @__PURE__ */ jsxs("div", { className: c.rowTop, children: [
+            /* @__PURE__ */ jsx("span", { className: c.app, children: f.app }),
+            /* @__PURE__ */ jsx("span", { className: c.envTag, children: f.pipeline }),
+            /* @__PURE__ */ jsx("span", { className: c.mono, style: { color: t.bad }, children: "failed" })
+          ] }),
+          f.detail && /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: f.detail, children: f.detail })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
+          /* @__PURE__ */ jsxs("span", { className: c.age, children: [
+            fmtAge(now, f.endTime),
+            " ago"
+          ] }),
+          /* @__PURE__ */ jsx(
+            Links,
+            {
+              links: [
+                ...run ? [{ label: "Run", href: run }] : [],
+                ...f.checkRunUrl ? [{ label: "Check", href: f.checkRunUrl, external: true }] : []
+              ]
+            }
+          )
+        ] })
+      ] }, f.key);
+    }),
+    /* @__PURE__ */ jsx(More, { total: failures.length, shown: Math.min(RECENT_FAILURES, failures.length), label: "failures" })
+  ] });
 }
 const KIND_LABEL = {
   release: "release",
@@ -428,7 +527,7 @@ function DoraPanel({
       ] })
     ] });
   }
-  return /* @__PURE__ */ jsx(OpsPanel, { id: "ops-dora", title: `DORA \xB7 last ${windowDays} days`, meta: controls, stale, children: body });
+  return /* @__PURE__ */ jsx(OpsPanel, { id: "ops-dora", title: `DORA \xB7 last ${windowDays} days`, meta: controls, stale, shrink: 0, children: body });
 }
 function ActivityPanel({
   items,
@@ -439,7 +538,7 @@ function ActivityPanel({
 }) {
   const { t, c } = useKit();
   const shown = items.slice(0, limit);
-  return /* @__PURE__ */ jsx(OpsPanel, { id: "ops-activity", title: "Activity", stale, children: shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: error ? `Notifications unavailable (${error}).` : "No recent activity." }) : shown.map((n) => {
+  return /* @__PURE__ */ jsx(OpsPanel, { id: "ops-activity", title: "Activity", stale, shrink: 4, children: shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: error ? `Notifications unavailable (${error}).` : "No recent activity." }) : shown.map((n) => {
     const sev = n.payload.severity;
     let edge = "transparent";
     if (sev === "critical" || sev === "high") edge = t.bad;
@@ -458,5 +557,5 @@ function ActivityPanel({
   }) });
 }
 
-export { ActivityPanel, AttentionPanel, DeploymentsPanel, DoraPanel, Links, OpsPanel, PipelinesPanel };
+export { ActivityPanel, AttentionPanel, DeploymentsPanel, DoraPanel, FitContext, Links, OpsPanel, PipelinesPanel };
 //# sourceMappingURL=panels.esm.js.map
