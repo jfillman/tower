@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { ownChartOf } from '../../environments/ownChart';
+import { RawValuesEditor } from '../../values/RawValuesEditor';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
@@ -236,6 +238,8 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
   if (ctx.cloudBlock) {
     return <div className={ui.note}>A cloud environment has no chart values. Its target resource is under Settings.</div>;
   }
+  // An environment rendering its own chart (glidepath ADR-0023) gets raw YAML: the form describes Airframe's chart.
+  const own = ownChartOf(ctx.deploy, row.name);
   if (def.tier === 'ground') {
     if (row.state === 'new') {
       return (
@@ -245,8 +249,10 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
         </div>
       );
     }
+    if (own) return gate(source) ?? <RawValuesEditor source={source as ValuesSource} chart={own} />;
     return gate(source) ?? <GroundValues ctx={ctx} env={row.name} cluster={row.where} source={source as ValuesSource} />;
   }
+  if (own) return gate(source) ?? <RawValuesEditor source={source as ValuesSource} chart={own} />;
   return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} />;
 }
 

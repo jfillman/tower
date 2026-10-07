@@ -1,5 +1,7 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
+import { ownChartOf } from '../../environments/ownChart.esm.js';
+import { RawValuesEditor } from '../../values/RawValuesEditor.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
@@ -193,6 +195,7 @@ function Values({ row, ctx, source }) {
   if (ctx.cloudBlock) {
     return /* @__PURE__ */ jsx("div", { className: ui.note, children: "A cloud environment has no chart values. Its target resource is under Settings." });
   }
+  const own = ownChartOf(ctx.deploy, row.name);
   if (def.tier === "ground") {
     if (row.state === "new") {
       return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
@@ -206,8 +209,10 @@ function Values({ row, ctx, source }) {
         ", is created by a second pull request after the cicd.yaml change merges. Edit its values here once that is merged."
       ] });
     }
+    if (own) return gate(source) ?? /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
     return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, cluster: row.where, source });
   }
+  if (own) return gate(source) ?? /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
   return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source });
 }
 function useCopyFrom(ctx, env) {

@@ -17,6 +17,8 @@ export interface ValuesSource {
   data?: { values: Partial<Record<ConfigTopLevelField, unknown>>; raw: string; path: string };
   refresh: () => void;
   submit: (patch: Partial<Record<ConfigTopLevelField, unknown>>, summary: string[]) => Promise<void>;
+  /** The whole file as YAML, for an environment that renders its own chart (environments/ownChart.ts). */
+  submitRaw: (raw: string, summary: string[]) => Promise<void>;
   submitting: boolean;
   result?: { prUrl: string; alreadyOpen: boolean };
   submitError?: string;
@@ -33,6 +35,7 @@ export function useFlightValuesSource(target: { owner: string; appName: string; 
     data: cfg.data,
     refresh: () => setNonce(n => n + 1),
     submit: (patch, summary) => sub.submit({ ...target, patch, summary }),
+    submitRaw: (raw, summary) => sub.submit({ ...target, patch: {}, raw, summary }),
     submitting: sub.loading,
     result: sub.result,
     submitError: sub.error,
@@ -56,6 +59,7 @@ export function usePlatformValuesSource(target: { owner: string; appName: string
     data: file.data,
     refresh: () => setNonce(n => n + 1),
     submit: (patch, summary) => sub.submit({ owner: target.owner, appName: target.appName, selector, patch, summary }),
+    submitRaw: (raw, summary) => sub.submit({ owner: target.owner, appName: target.appName, selector, patch: {}, raw, summary }),
     submitting: sub.loading,
     result: sub.result,
     submitError: sub.error,

@@ -21,7 +21,7 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const submit = jest.fn(async () => undefined);
 function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[]; chart?: any } = {}) {
   const data = { values: clone(values), raw: 'x', path: 'p' };
-  const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitting: false, resetSubmit: jest.fn() };
+  const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitRaw: jest.fn(), submitting: false, resetSubmit: jest.fn() };
   render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" {...extra} />);
 }
 const tab = (name: string) => fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));

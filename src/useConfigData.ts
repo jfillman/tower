@@ -430,6 +430,7 @@ export function useSubmitPlatformFileChange() {
           env: request.selector.kind === 'env' ? request.selector.env : undefined,
           file: request.selector.kind === 'base' ? 'base' : undefined,
           patch: request.patch,
+          raw: request.raw,
           summary: request.summary,
         }),
       });

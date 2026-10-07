@@ -29,6 +29,7 @@ const source = (over: Partial<ValuesSource> = {}): ValuesSource => ({
   data,
   refresh,
   submit,
+  submitRaw: jest.fn(),
   submitting: false,
   resetSubmit,
   ...over,

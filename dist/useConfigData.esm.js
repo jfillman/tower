@@ -316,6 +316,7 @@ function useSubmitPlatformFileChange() {
           env: request.selector.kind === "env" ? request.selector.env : void 0,
           file: request.selector.kind === "base" ? "base" : void 0,
           patch: request.patch,
+          raw: request.raw,
           summary: request.summary
         })
       });

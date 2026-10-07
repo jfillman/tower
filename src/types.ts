@@ -741,6 +741,8 @@ export interface ConfigChangeRequest {
   cluster: string;
   env: string;
   patch: Partial<Record<ConfigTopLevelField, unknown>>;
+  /** The whole file, for an environment that renders its own chart; patch is ignored then. */
+  raw?: string;
   summary: string[];
 }
 
@@ -847,6 +849,8 @@ export interface PlatformFileChangeRequest {
   appName: string;
   selector: PlatformEnvSelector;
   patch: Partial<Record<ConfigTopLevelField, unknown>>;
+  /** The whole file, for an environment that renders its own chart; patch is ignored then. */
+  raw?: string;
   summary: string[];
 }
 
