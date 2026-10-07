@@ -339,7 +339,14 @@ function FlowSlugChip({ slug, classes }: { slug: string; classes: ReturnType<typ
 // Reads spec.params (already captured into run.params by
 // toPipelineRunSummary) rather than anything env-specific added just for
 // this - the same param every one of those three Pipelines already declares.
-function pipelineTitle(run: PipelineRunSummary): string {
+export function pipelineTitle(run: PipelineRunSummary): string {
+  // The still-stub release gates (itsm, qa, policy-validation, image-promotion) all run the one shared
+  // governance-check Pipeline; which gate a run is lives only in its gate-name param. Titled like the real
+  // gates' own Pipelines (sast-check, provenance-check, ...).
+  if (run.pipelineName === 'governance-check') {
+    const gate = run.params.find(p => p.name === 'gate-name')?.value;
+    if (gate) return `${gate}-check`;
+  }
   const env = run.params.find(p => p.name === 'env')?.value;
   if (env) {
     if (run.pipelineName === 'deploy') return `deploy to ${env}`;
