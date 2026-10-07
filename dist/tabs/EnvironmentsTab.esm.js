@@ -22,7 +22,7 @@ import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } fro
 import { PendingChanges } from './environments/PendingChanges.esm.js';
 import { RowDetail } from './environments/RowDetail.esm.js';
 import { SubmittedPanel } from './environments/SubmittedPanel.esm.js';
-import { same, TARGET_BLOCK } from './environments/shared.esm.js';
+import { TARGET_BLOCK, same } from './environments/shared.esm.js';
 
 const COLUMNS = "20px 120px 80px 110px 100px 90px minmax(0, 1fr) 36px";
 const useStyles = makeStyles(() => ({
@@ -121,7 +121,7 @@ function EnvironmentsTab() {
     return () => clearInterval(id);
   }, [pending.records.length]);
   const envChanges = useMemo(() => describeChanges(before, after, shape), [before, after, shape]);
-  const flightAdds = useMemo(() => addedFlightEnvs(before, after), [before, after]);
+  const flightAdds = useMemo(() => cloudBlock ? [] : addedFlightEnvs(before, after), [before, after, cloudBlock]);
   const problems = useMemo(
     () => [
       ...validateEnvironments(after, targetId),
@@ -250,7 +250,7 @@ function EnvironmentsTab() {
     setFailure(void 0);
     const done = { ...launched };
     for (const e of flightAdds) {
-      if (done[e.name] || cloudBlock) continue;
+      if (done[e.name]) continue;
       setPhase("launching");
       const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster });
       if (r.status !== "done") {
