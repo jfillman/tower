@@ -60,14 +60,14 @@ export function AddEnvironmentDialog({
   const [releaseStep, setReleaseStep] = useState(true);
   const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
-  // Flight needs a Kubernetes app: a cloud target has no approval path for it yet.
-  const flightAllowed = !cloudBlock;
+  // A cloud Flight environment is approved by a release pin PR on the source repo (glidepath ADR-0020).
+  const flightAllowed = true;
   // Clusters this app's Flight environments already run on, as suggestions (any registered upper cluster works).
   const knownClusters = [...new Set(current.filter(e => e.tier === 'flight' && e.cluster).map(e => e.cluster as string))];
 
   const candidate: EnvDef = { name: name.trim(), tier };
-  if (tier === 'flight' && cluster.trim()) candidate.cluster = cluster.trim();
-  if (tier === 'ground' && cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
+  if (tier === 'flight' && !cloudBlock && cluster.trim()) candidate.cluster = cluster.trim();
+  if (cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
   // A duplicate of a cloud environment keeps its other settings, but not the resource it points at: two environments on the
   // same function would deploy over each other.
   if (duplicateOf && cloudBlock && duplicateOf[cloudBlock]) {
@@ -116,12 +116,19 @@ export function AddEnvironmentDialog({
               label="Flight: deploys only through an approved release"
             />
           </RadioGroup>
-          {!flightAllowed && (
-            <div className={c.note}>
-              Flight environments are not available for {targetLabel} yet: a cloud target has no approval path for them.
-            </div>
+          {tier === 'flight' && cloudBlock && (
+            <>
+              <div className={c.note}>
+                Each release to it opens a pull request on this repo that changes its release pin
+                (glidepath/releases/&lt;name&gt;.yaml). Merging the pull request deploys exactly that image.
+              </div>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
+                label="Also add a release step for it to the pipeline"
+              />
+            </>
           )}
-          {tier === 'flight' && (
+          {tier === 'flight' && !cloudBlock && (
             <>
               <Field id="add-env-cluster" label="Cluster">
                 {p => <input {...p} list="flight-clusters" value={cluster} onChange={e => setCluster(e.target.value)} />}
@@ -148,7 +155,7 @@ export function AddEnvironmentDialog({
               </div>
             </>
           )}
-          {tier === 'ground' && cloudBlock && mainField && (
+          {cloudBlock && mainField && (
             <>
               <Field id="add-env-override" label={`${targetLabel} ${mainField} (optional)`}>
                 {p => <input {...p} value={override} onChange={e => setOverride(e.target.value)} />}

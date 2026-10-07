@@ -122,8 +122,9 @@ describe('validateEnvironments', () => {
   it('refuses a Ground environment with a cluster', () => {
     expect(validateEnvironments([ground('dev', { cluster: 'kind-x' })], undefined).join()).toMatch(/not supported yet/);
   });
-  it('refuses Flight on a cloud target', () => {
-    expect(validateEnvironments([ground('dev'), flight('prod')], 'aws-lambda').join()).toMatch(/not supported for aws-lambda/);
+  it('allows Flight on a cloud target (a release pin environment), but not with a cluster', () => {
+    expect(validateEnvironments([ground('dev'), flight('prod')], 'aws-lambda')).toEqual([]);
+    expect(validateEnvironments([ground('dev'), flight('prod', 'kind-prod')], 'aws-lambda').join()).toMatch(/sets a cluster, but aws-lambda has none/);
   });
   it('refuses an override block for another target, or on a Kubernetes app', () => {
     expect(validateEnvironments([ground('dev', { ecs: { service: 's' } })], 'aws-lambda').join()).toMatch(/sets ecs, but this app's target is aws-lambda/);
@@ -270,10 +271,11 @@ describe('adding a Flight environment', () => {
     expect(validateAddedFlight(old, old, undefined)).toEqual([]);
   });
 
-  it('leaves a Flight environment on a cloud target to the general validation', () => {
+  it('needs no cluster for a Flight environment on a cloud target, and explains the pin PR', () => {
     const after = applyStaged([ground('dev')], [{ kind: 'add', env: flight('prod') }]);
     expect(validateAddedFlight([ground('dev')], after, 'aws-lambda')).toEqual([]);
-    expect(validateEnvironments(after, 'aws-lambda').join()).toMatch(/not supported for aws-lambda/);
+    expect(validateEnvironments(after, 'aws-lambda')).toEqual([]);
+    expect(followUps([ground('dev')], after, 'aws-lambda').join()).toMatch(/glidepath\/releases\/prod\.yaml/);
   });
 
   it('tells the user the order to merge the two pull requests', () => {
