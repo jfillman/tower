@@ -322,7 +322,8 @@ export function EnvironmentsTab() {
     // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
     const done = { ...launched };
     for (const e of flightAdds) {
-      if (done[e.name]) continue;
+      // A cloud Flight environment has no cluster resources to request (glidepath ADR-0020).
+      if (done[e.name] || cloudBlock) continue;
       setPhase('launching');
       const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster as string });
       if (r.status !== 'done') {

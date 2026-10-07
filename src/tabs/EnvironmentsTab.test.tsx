@@ -438,12 +438,17 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(document.querySelector('datalist#flight-clusters option')?.getAttribute('value')).toBe('kind-prod');
   });
 
-  it('does not offer Flight for a cloud app, and says why', () => {
+  it('offers Flight for a cloud app as a release pin environment, with no cluster and no tenants request', () => {
     lambdaNew();
     renderTab();
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
-    expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText(/no approval path for them/)).toBeTruthy();
+    expect((screen.getByLabelText(/^Flight/) as HTMLInputElement).disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    expect(screen.queryByLabelText('Cluster')).toBeNull();
+    expect(screen.queryByText(/opens two pull requests/)).toBeNull();
+    expect(screen.getByText(/release pin/)).toBeTruthy();
+    expect(screen.queryByText(/needs the cluster it runs on/)).toBeNull();
   });
 
   it('will not stage a Flight environment without a cluster', () => {
