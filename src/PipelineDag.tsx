@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -167,11 +167,9 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
     '50%': { opacity: 0.5 },
   },
   nodeRunning: { animation: '$pulse 1.6s ease-in-out infinite' },
+  // A sibling of the node, not a child: the running node's opacity pulse would otherwise fade the card too.
   hoverCard: {
     position: 'absolute',
-    bottom: '100%',
-    left: '50%',
-    marginBottom: 8,
     minWidth: 170,
     padding: '8px 10px',
     borderRadius: 6,
@@ -472,8 +470,8 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                   const color = phaseColor(t, n.phase);
                   const hoverTaskRun = hoverTaskId === n.id ? run.taskRunsByPipelineTask[n.id] : undefined;
                   return (
+                    <Fragment key={n.id}>
                     <button
-                      key={n.id}
                       type="button"
                       className={`${classes.node} ${openTaskId === n.id ? classes.nodeSelected : ''} ${n.phase === 'running' ? classes.nodeRunning : ''}`}
                       style={{ left: p.x, top: p.y, borderColor: color.border }}
@@ -488,10 +486,16 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                       <span className={classes.nodeSub} style={{ color: color.fg }}>
                         {n.sub ?? n.id} <PhaseIcon phase={n.phase} />
                       </span>
+                    </button>
                       {hoverTaskRun && hoverTaskRun.steps.length > 0 && (
                         <div
                           className={classes.hoverCard}
-                          style={{ transform: `translateX(-50%) scale(${1 / zoom})`, transformOrigin: 'bottom center' }}
+                          style={{
+                            left: p.x,
+                            top: p.y - NODE_H / 2 - 8,
+                            transform: `translate(-50%, -100%) scale(${1 / zoom})`,
+                            transformOrigin: 'bottom center',
+                          }}
                         >
                           <div className={classes.hoverTitle}>Steps</div>
                           {hoverTaskRun.steps.map(step => (
@@ -504,7 +508,7 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                           ))}
                         </div>
                       )}
-                    </button>
+                    </Fragment>
                   );
                 })}
               </div>

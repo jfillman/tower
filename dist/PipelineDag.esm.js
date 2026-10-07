@@ -1,5 +1,5 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, Fragment as Fragment$1 } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Dialog from '@material-ui/core/Dialog';
@@ -150,11 +150,9 @@ const usePipelineDagStyles = makeStyles(() => ({
     "50%": { opacity: 0.5 }
   },
   nodeRunning: { animation: "$pulse 1.6s ease-in-out infinite" },
+  // A sibling of the node, not a child: the running node's opacity pulse would otherwise fade the card too.
   hoverCard: {
     position: "absolute",
-    bottom: "100%",
-    left: "50%",
-    marginBottom: 8,
     minWidth: 170,
     padding: "8px 10px",
     borderRadius: 6,
@@ -384,43 +382,49 @@ function PipelineDag({ run, expandSignal }) {
           if (!p) return null;
           const color = phaseColor(t, n.phase);
           const hoverTaskRun = hoverTaskId === n.id ? run.taskRunsByPipelineTask[n.id] : void 0;
-          return /* @__PURE__ */ jsxs(
-            "button",
-            {
-              type: "button",
-              className: `${classes.node} ${openTaskId === n.id ? classes.nodeSelected : ""} ${n.phase === "running" ? classes.nodeRunning : ""}`,
-              style: { left: p.x, top: p.y, borderColor: color.border },
-              onClick: () => setOpenTaskId((prev) => prev === n.id ? void 0 : n.id),
-              onMouseEnter: () => setHoverTaskId(n.id),
-              onMouseLeave: () => setHoverTaskId(void 0),
-              children: [
-                /* @__PURE__ */ jsxs("span", { className: classes.dotRow, children: [
-                  /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: color.fg } }),
-                  /* @__PURE__ */ jsx("span", { className: classes.nodeLabel, children: n.label })
-                ] }),
-                /* @__PURE__ */ jsxs("span", { className: classes.nodeSub, style: { color: color.fg }, children: [
-                  n.sub ?? n.id,
-                  " ",
-                  /* @__PURE__ */ jsx(PhaseIcon, { phase: n.phase })
-                ] }),
-                hoverTaskRun && hoverTaskRun.steps.length > 0 && /* @__PURE__ */ jsxs(
-                  "div",
-                  {
-                    className: classes.hoverCard,
-                    style: { transform: `translateX(-50%) scale(${1 / zoom})`, transformOrigin: "bottom center" },
-                    children: [
-                      /* @__PURE__ */ jsx("div", { className: classes.hoverTitle, children: "Steps" }),
-                      hoverTaskRun.steps.map((step) => /* @__PURE__ */ jsxs("div", { className: classes.hoverRow, children: [
-                        /* @__PURE__ */ jsx("span", { className: classes.hoverStep, children: step.name }),
-                        /* @__PURE__ */ jsx("span", { className: classes.hoverDuration, children: step.state === "waiting" ? "queued" : stepDuration(step) ?? "\u2014" })
-                      ] }, step.container))
-                    ]
-                  }
-                )
-              ]
-            },
-            n.id
-          );
+          return /* @__PURE__ */ jsxs(Fragment$1, { children: [
+            /* @__PURE__ */ jsxs(
+              "button",
+              {
+                type: "button",
+                className: `${classes.node} ${openTaskId === n.id ? classes.nodeSelected : ""} ${n.phase === "running" ? classes.nodeRunning : ""}`,
+                style: { left: p.x, top: p.y, borderColor: color.border },
+                onClick: () => setOpenTaskId((prev) => prev === n.id ? void 0 : n.id),
+                onMouseEnter: () => setHoverTaskId(n.id),
+                onMouseLeave: () => setHoverTaskId(void 0),
+                children: [
+                  /* @__PURE__ */ jsxs("span", { className: classes.dotRow, children: [
+                    /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: color.fg } }),
+                    /* @__PURE__ */ jsx("span", { className: classes.nodeLabel, children: n.label })
+                  ] }),
+                  /* @__PURE__ */ jsxs("span", { className: classes.nodeSub, style: { color: color.fg }, children: [
+                    n.sub ?? n.id,
+                    " ",
+                    /* @__PURE__ */ jsx(PhaseIcon, { phase: n.phase })
+                  ] })
+                ]
+              }
+            ),
+            hoverTaskRun && hoverTaskRun.steps.length > 0 && /* @__PURE__ */ jsxs(
+              "div",
+              {
+                className: classes.hoverCard,
+                style: {
+                  left: p.x,
+                  top: p.y - NODE_H / 2 - 8,
+                  transform: `translate(-50%, -100%) scale(${1 / zoom})`,
+                  transformOrigin: "bottom center"
+                },
+                children: [
+                  /* @__PURE__ */ jsx("div", { className: classes.hoverTitle, children: "Steps" }),
+                  hoverTaskRun.steps.map((step) => /* @__PURE__ */ jsxs("div", { className: classes.hoverRow, children: [
+                    /* @__PURE__ */ jsx("span", { className: classes.hoverStep, children: step.name }),
+                    /* @__PURE__ */ jsx("span", { className: classes.hoverDuration, children: step.state === "waiting" ? "queued" : stepDuration(step) ?? "\u2014" })
+                  ] }, step.container))
+                ]
+              }
+            )
+          ] }, n.id);
         })
       ] }) }) }),
       /* @__PURE__ */ jsxs("div", { className: classes.legend, children: [
