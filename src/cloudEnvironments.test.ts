@@ -57,6 +57,31 @@ describe('cloudEnvironmentsFromRuns', () => {
     expect(records[0].status).toBe('healthy');
   });
 
+  it("takes a cloud Flight release's gates from its release pin PR and keeps that PR out of What changed", () => {
+    const { rows } = buildReleases(out.environments, out.history, []);
+    const env = out.environments[0].env;
+    const tag = rows[0].imageTag;
+    const pinPr = {
+      repo: 'source' as const,
+      number: 6,
+      title: `Release smoke ${tag} to ${env}`,
+      url: 'https://github.com/o/smoke/pull/6',
+      draft: false,
+      labels: [],
+      createdAt: '2026-09-30T10:00:00Z',
+      updatedAt: '2026-09-30T10:00:00Z',
+      state: 'merged' as const,
+      mergedAt: '2026-09-30T11:00:00Z',
+      releasePin: env,
+      ci: { state: 'success' as const, totalChecks: 7, passedChecks: 7 },
+    };
+    const records = buildReleaseRecords('smoke', out.environments, rows, [], [pinPr], [], {}, { lower: [], upper: [env] });
+    expect(records).toHaveLength(1);
+    expect(records[0].guardrailsPrUrl).toBe(pinPr.url);
+    expect(records[0].guardrails?.passedChecks).toBe(7);
+    expect(records[0].pullRequests).toEqual([]);
+  });
+
   it('still makes no record for a Kubernetes app that has only a lower environment', () => {
     const k8s = { ...out.environments[0], cloud: undefined };
     const { rows } = buildReleases([k8s], out.history, []);
