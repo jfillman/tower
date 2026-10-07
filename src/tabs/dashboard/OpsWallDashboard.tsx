@@ -1,15 +1,18 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useApi } from '@backstage/core-plugin-api';
 import { stringifyEntityRef, type Entity } from '@backstage/catalog-model';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import { notificationsApiRef } from '@backstage/plugin-notifications';
 import { Progress } from '@backstage/core-components';
+import Tooltip from '@material-ui/core/Tooltip';
 import { useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { DEFAULT_DORA_WINDOW, DORA_WINDOWS, isDoraWindow } from '../../fleet/dora';
 import { buildOpsWallModel, type ProvisioningSignal, type TowerHref } from '../../fleet/opsWallModel';
 import { useDoraMetrics } from '../../fleet/useDoraMetrics';
 import { useFleetPipelineRuns } from '../../fleet/useFleetPipelineRuns';
+import { useFleetPipelineHistory } from '../../fleet/useFleetPipelineHistory';
+import { formatCategories, parseCategories, type PipelineCategory } from '../../fleet/pipelineHistory';
 import { useFleetReleaseEvents, useFleetReleaseRecords } from '../../fleet/useFleetReleases';
 import { isStale, usePolled, type Polled } from '../../fleet/usePolled';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip';
@@ -18,7 +21,15 @@ import { useProvisioning } from '../../provisioning/useProvisioning';
 import { useFleetEnvironments } from '../../useFleetEnvironments';
 import { useFleetRoster } from '../../useFleetRoster';
 import { useFleetSlos } from '../../useFleetSlos';
-import { ActivityPanel, AttentionPanel, DeploymentsPanel, DoraPanel, PipelinesPanel } from './opswall/panels';
+import type { DashboardProps } from './dashboards';
+import {
+  ActivityPanel,
+  AttentionPanel,
+  DeploymentsPanel,
+  DoraPanel,
+  FitContext,
+  PipelinesPanel,
+} from './opswall/panels';
 import { useOpsStyles } from './opswall/styles';
 
 // The Ops Wall: what is happening across the fleet right now and what needs a human. Every
@@ -40,9 +51,9 @@ function appNamesOf(e: Entity): string[] {
 
 type SourceState = 'ok' | 'loading' | 'stale' | 'down';
 
-function sourceState(p: Pick<Polled<unknown>, 'loading' | 'failures' | 'updatedAt'>): SourceState {
+function sourceState(p: Polled<unknown>, now: number): SourceState {
   if (p.updatedAt === undefined) return p.failures > 0 ? 'down' : 'loading';
-  return isStale(p) ? 'stale' : 'ok';
+  return isStale(p, now) ? 'stale' : 'ok';
 }
 
 function sourceColor(t: HangarTokens, s: SourceState): string {
@@ -52,16 +63,44 @@ function sourceColor(t: HangarTokens, s: SourceState): string {
   return t.textFaint;
 }
 
-function staleNote(p: Polled<unknown>): string | undefined {
-  if (!isStale(p)) return undefined;
+function staleNote(p: Polled<unknown>, now: number): string | undefined {
+  if (!isStale(p, now)) return undefined;
   if (p.updatedAt === undefined) return `not loading: ${p.error ?? 'unknown error'}`;
   return `stale since ${new Date(p.updatedAt).toLocaleTimeString()}`;
 }
 
-export function OpsWallDashboard() {
+const every = (ms: number) => (ms >= 60_000 ? `${Math.round(ms / 60_000)} min` : `${Math.round(ms / 1000)}s`);
+
+function ago(now: number, at: number): string {
+  const sec = Math.max(0, Math.round((now - at) / 1000));
+  return sec < 120 ? `${sec}s` : `${Math.round(sec / 60)}m`;
+}
+
+/** The page's own width, so the layout follows the space it has (sidebar, fullscreen), not the window. */
+function useWidth(): [(el: HTMLDivElement | null) => void, number] {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    setWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver(entries => setWidth(entries[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width];
+}
+
+/** Three columns on a wall screen, two on a laptop, one on a phone. Unknown width (no ResizeObserver): three. */
+function columnCount(width: number): 1 | 2 | 3 {
+  if (width === 0 || width >= 1500) return 3;
+  return width >= 1000 ? 2 : 1;
+}
+
+export function OpsWallDashboard({ fit = false }: DashboardProps) {
   const t = useHangarTokens();
   const c = useOpsStyles({ t });
   const now = useNow(1000);
+  const [rootRef, width] = useWidth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -80,6 +119,14 @@ export function OpsWallDashboard() {
   const doraParam = Number(searchParams.get('dora'));
   const doraWindow = isDoraWindow(doraParam) ? doraParam : DEFAULT_DORA_WINDOW;
   const owner = searchParams.get('owner') ?? undefined;
+  const categoriesParam = searchParams.get('pipelines');
+  const categories = useMemo(() => parseCategories(categoriesParam), [categoriesParam]);
+  const toggleCategory = (cat: PipelineCategory) => {
+    const next = new Set(categories);
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
+    setParam('pipelines', formatCategories(next) ?? undefined);
+  };
 
   // ---- who is in the fleet: every Tower service, whatever it deploys to
   const roster = useFleetRoster('services');
@@ -115,6 +162,7 @@ export function OpsWallDashboard() {
 
   // ---- polled sources
   const runs = useFleetPipelineRuns();
+  const history = useFleetPipelineHistory(WINDOWS[opsWindow]);
   const records = useFleetReleaseRecords();
   const events = useFleetReleaseEvents();
   const dora = useDoraMetrics(doraWindow, appFilter ? [...appFilter] : undefined);
@@ -152,6 +200,8 @@ export function OpsWallDashboard() {
         windowMs: WINDOWS[opsWindow],
         apps,
         runs: runs.data ?? [],
+        history: history.data ?? [],
+        pipelineCategories: categories,
         records: records.data ?? [],
         events: events.data ?? [],
         slos,
@@ -159,7 +209,20 @@ export function OpsWallDashboard() {
         towerHref,
         appFilter,
       }),
-    [now, opsWindow, apps, runs.data, records.data, events.data, slos, provSignals, towerHref, appFilter],
+    [
+      now,
+      opsWindow,
+      apps,
+      runs.data,
+      history.data,
+      categories,
+      records.data,
+      events.data,
+      slos,
+      provSignals,
+      towerHref,
+      appFilter,
+    ],
   );
 
   const activityItems = useMemo(() => {
@@ -176,25 +239,79 @@ export function OpsWallDashboard() {
   const sloPct = sloSummary.total ? Math.round((sloSummary.meetingObjective / sloSummary.total) * 100) : undefined;
   const cfr = dora.data?.changeFailureRate;
 
-  const sources: Array<{ label: string; state: SourceState; at?: number; title?: string }> = [
-    { label: 'Pipelines', state: sourceState(runs), at: runs.updatedAt, title: runs.error },
-    { label: 'Releases', state: sourceState(records), at: records.updatedAt, title: records.error },
-    { label: 'Release alerts', state: sourceState(events), at: events.updatedAt, title: events.error },
+  // ---- data sources: a dot each; the tooltip says what it reads, how often, and when it last answered
+  const polledSource = (label: string, p: Polled<unknown>, what: string) => {
+    const state = sourceState(p, now);
+    return {
+      label,
+      state,
+      // The age only shows when it matters: a source behind schedule or failing.
+      badge: state === 'stale' && p.updatedAt !== undefined ? ago(now, p.updatedAt) : undefined,
+      tip: (
+        <div className={c.tip}>
+          <div className={c.tipTitle}>{label}</div>
+          <div>{what}</div>
+          <div>Refreshes every {every(p.intervalMs)}.</div>
+          <div>
+            {p.updatedAt !== undefined
+              ? `Last updated ${new Date(p.updatedAt).toLocaleTimeString()} (${ago(now, p.updatedAt)} ago).`
+              : 'Not loaded yet.'}
+          </div>
+          {p.failures > 0 && p.error && (
+            <div className={c.tipError}>
+              Last {p.failures} {p.failures === 1 ? 'poll' : 'polls'} failed: {p.error}
+            </div>
+          )}
+        </div>
+      ),
+    };
+  };
+  const sources: Array<{ label: string; state: SourceState; badge?: string; tip: JSX.Element }> = [
+    polledSource(
+      'Pipelines',
+      runs,
+      'Running and recent Tekton PipelineRuns on kind-dev (finished runs are archived after about an hour).',
+    ),
+    polledSource('History', history, `Finished runs for the last ${opsWindow}, from the Tekton Results archive.`),
+    polledSource(
+      'Releases',
+      records,
+      "Glidepath's release records (upper-environment releases and their state) on kind-dev.",
+    ),
+    polledSource(
+      'Release alerts',
+      events,
+      'ReleaseStalled and ReleaseDrift events Glidepath raises on its release records.',
+    ),
     {
-      label: `Environments ${apps.length}/${k8sEntities.length}`,
+      label: 'Environments',
       state: apps.length < k8sEntities.length ? 'loading' : 'ok',
+      badge: apps.length < k8sEntities.length ? `${apps.length}/${k8sEntities.length}` : undefined,
+      tip: (
+        <div className={c.tip}>
+          <div className={c.tipTitle}>Environments</div>
+          <div>Live Kubernetes and Argo CD state of every service, read per service as it streams in.</div>
+          <div>
+            {apps.length} of {k8sEntities.length} services have reported.
+          </div>
+        </div>
+      ),
     },
-    { label: 'SLOs', state: sloSummary.loading ? 'loading' : 'ok' },
     {
-      label: 'DORA',
-      state: sourceState(dora),
-      at: dora.updatedAt,
-      title: dora.error ?? `${dora.source.service} on ${dora.source.cluster}`,
+      label: 'SLOs',
+      state: sloSummary.loading ? 'loading' : 'ok',
+      tip: (
+        <div className={c.tip}>
+          <div className={c.tipTitle}>SLOs</div>
+          <div>Sloth SLO burn rates from each cluster&apos;s Prometheus.</div>
+        </div>
+      ),
     },
-    { label: 'Activity', state: sourceState(activity), at: activity.updatedAt, title: activity.error },
+    polledSource('DORA', dora, `dora-exporter metrics via ${dora.source.service} on ${dora.source.cluster}.`),
+    polledSource('Activity', activity, 'Backstage notifications: builds, deploys, config changes, SLO transitions.'),
   ];
 
-  const kpis: Array<{ id: string; label: string; value: string; sub: string; color: string }> = [
+  const kpis: Array<{ id: string; label: string; value: string; sub: string; color: string; hint: string }> = [
     {
       id: 'ops-pipelines',
       label: 'Pipelines running',
@@ -203,6 +320,7 @@ export function OpsWallDashboard() {
         .filter(Boolean)
         .join(' · '),
       color: k.slowRuns ? t.amber : t.sky,
+      hint: 'Pipelines running now, of the types selected in the Pipelines panel.',
     },
     {
       id: 'ops-deployments',
@@ -212,6 +330,7 @@ export function OpsWallDashboard() {
         .filter(Boolean)
         .join(' · '),
       color: t.sky,
+      hint: 'Releases being applied, deploy pipelines running, and rollouts in progress.',
     },
     {
       id: 'ops-approvals',
@@ -221,6 +340,7 @@ export function OpsWallDashboard() {
         ? `oldest ${Math.max(0, Math.floor((now - Date.parse(k.oldestApprovalSince)) / 3600_000))}h`
         : '',
       color: k.awaitingApproval ? t.amber : t.good,
+      hint: 'Release PRs to upper environments that are open and not yet merged.',
     },
     {
       id: 'ops-attention',
@@ -228,6 +348,7 @@ export function OpsWallDashboard() {
       value: String(k.envsFailing),
       sub: `of ${k.envsTotal}${k.outOfSync ? ` · ${k.outOfSync} out of sync` : ''}`,
       color: k.envsFailing ? t.bad : t.good,
+      hint: 'Environments whose Rollout or Argo CD health is Degraded.',
     },
     {
       id: 'ops-attention',
@@ -237,6 +358,7 @@ export function OpsWallDashboard() {
         ? `${sloSummary.total - sloSummary.meetingObjective} of ${sloSummary.total} breaching`
         : 'no SLOs',
       color: sloPct !== undefined && sloPct < 100 ? t.amber : t.good,
+      hint: 'SLOs within their error budget over the full compliance period.',
     },
     {
       id: 'ops-dora',
@@ -244,11 +366,93 @@ export function OpsWallDashboard() {
       value: cfr === undefined ? '—' : `${Math.round(cfr * 100)}%`,
       sub: `last ${doraWindow} days`,
       color: cfr !== undefined && cfr >= 0.15 ? t.amber : t.good,
+      hint: 'Failed upper-environment releases as a share of all of them (DORA).',
     },
   ];
 
+  const panels = {
+    attention: (
+      <AttentionPanel
+        key="attention"
+        items={model.attention}
+        now={now}
+        limit={14}
+        stale={staleNote(records, now) ?? staleNote(runs, now)}
+      />
+    ),
+    pipelines: (
+      <PipelinesPanel
+        key="pipelines"
+        items={model.pipelines}
+        recent={model.recentRuns}
+        stats={model.pipelineStats}
+        counts={model.pipelineCounts}
+        categories={categories}
+        onToggleCategory={toggleCategory}
+        towerHref={towerHref}
+        now={now}
+        windowLabel={opsWindow}
+        limit={6}
+        stale={staleNote(runs, now)}
+        historyNote={
+          history.updatedAt === undefined && history.failures > 0
+            ? `Run archive unavailable (${history.error}); history covers the last hour only.`
+            : undefined
+        }
+      />
+    ),
+    deployments: (
+      <DeploymentsPanel
+        key="deployments"
+        items={model.deployments}
+        approvals={model.approvals}
+        landed={model.landed}
+        now={now}
+        windowLabel={opsWindow}
+        limit={6}
+        stale={staleNote(records, now)}
+      />
+    ),
+    dora: (
+      <DoraPanel
+        key="dora"
+        snapshot={dora.data}
+        error={dora.error}
+        loading={dora.loading}
+        stale={dora.data ? staleNote(dora, now) : undefined}
+        sourceLabel={`${dora.source.service} on ${dora.source.cluster}`}
+        windowDays={doraWindow}
+        windows={DORA_WINDOWS}
+        onWindow={d => setParam('dora', d === DEFAULT_DORA_WINDOW ? undefined : String(d))}
+      />
+    ),
+    activity: (
+      <ActivityPanel
+        key="activity"
+        items={activityItems}
+        now={now}
+        limit={12}
+        stale={staleNote(activity, now)}
+        error={activity.error}
+      />
+    ),
+  };
+  // Panels stack inside columns, so a short panel never leaves a gap under it.
+  const n = columnCount(width);
+  let columns: ReactNode[][];
+  if (n === 3) {
+    columns = [[panels.attention, panels.activity], [panels.pipelines], [panels.deployments, panels.dora]];
+  } else if (n === 2) {
+    columns = [
+      [panels.attention, panels.pipelines, panels.activity],
+      [panels.deployments, panels.dora],
+    ];
+  } else {
+    columns = [[panels.attention, panels.pipelines, panels.deployments, panels.dora, panels.activity]];
+  }
+
   return (
-    <div className={c.root}>
+    <div className={fit ? `${c.root} ${c.rootFit}` : c.root} ref={rootRef}>
       {probes}
       {sloProbes}
 
@@ -286,33 +490,39 @@ export function OpsWallDashboard() {
           </select>
         </span>
         <div className={c.sources} aria-label="Data sources">
-          {sources.map(s => (
-            <span key={s.label} className={c.source} title={s.title}>
-              <i className={c.dot} style={{ backgroundColor: sourceColor(t, s.state) }} />
-              {s.label}
-              {s.at !== undefined && (
-                <span className={c.sourceAge}>{Math.max(0, Math.round((now - s.at) / 1000))}s</span>
-              )}
-            </span>
+          <span className={c.sourcesLabel}>Sources</span>
+          {sources.map(src => (
+            <Tooltip key={src.label} title={src.tip} arrow>
+              <span className={c.source} tabIndex={0}>
+                <i className={c.dot} style={{ backgroundColor: sourceColor(t, src.state) }} />
+                {src.label}
+                {src.badge && (
+                  <span className={c.sourceAge} style={{ color: sourceColor(t, src.state) }}>
+                    {src.badge}
+                  </span>
+                )}
+              </span>
+            </Tooltip>
           ))}
         </div>
       </div>
 
       <div className={c.kpis}>
         {kpis.map(kpi => (
-          <button
-            key={kpi.label}
-            type="button"
-            className={c.kpi}
-            style={{ borderTopColor: kpi.color }}
-            onClick={() => scrollTo(kpi.id)}
-          >
-            <div className={c.kpiLabel}>{kpi.label}</div>
-            <div className={c.kpiValue} style={{ color: kpi.color }}>
-              {kpi.value}
-            </div>
-            <div className={c.kpiSub}>{kpi.sub}</div>
-          </button>
+          <Tooltip key={kpi.label} title={<div className={c.tip}>{kpi.hint}</div>} arrow enterDelay={600}>
+            <button
+              type="button"
+              className={c.kpi}
+              style={{ borderTopColor: kpi.color }}
+              onClick={() => scrollTo(kpi.id)}
+            >
+              <div className={c.kpiLabel}>{kpi.label}</div>
+              <div className={c.kpiValue} style={{ color: kpi.color }}>
+                {kpi.value}
+              </div>
+              <div className={c.kpiSub}>{kpi.sub}</div>
+            </button>
+          </Tooltip>
         ))}
       </div>
 
@@ -323,41 +533,18 @@ export function OpsWallDashboard() {
         }
       />
 
-      <div className={c.main}>
-        <AttentionPanel items={model.attention} now={now} limit={14} stale={staleNote(records) ?? staleNote(runs)} />
-        <div className={c.column}>
-          <PipelinesPanel
-            items={model.pipelines}
-            stats={model.pipelineStats}
-            windowLabel={opsWindow}
-            limit={6}
-            stale={staleNote(runs)}
-          />
-          <DeploymentsPanel
-            items={model.deployments}
-            approvals={model.approvals}
-            landed={model.landed}
-            now={now}
-            windowLabel={opsWindow}
-            limit={6}
-            stale={staleNote(records)}
-          />
+      <FitContext.Provider value={fit}>
+        <div
+          className={fit ? `${c.columns} ${c.columnsFit}` : c.columns}
+          style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
+        >
+          {columns.map((col, i) => (
+            <div key={i} className={fit ? `${c.column} ${c.columnFit}` : c.column}>
+              {col}
+            </div>
+          ))}
         </div>
-      </div>
-
-      <div className={c.bottom}>
-        <DoraPanel
-          snapshot={dora.data}
-          error={dora.error}
-          loading={dora.loading}
-          stale={dora.data ? staleNote(dora) : undefined}
-          sourceLabel={`${dora.source.service} on ${dora.source.cluster}`}
-          windowDays={doraWindow}
-          windows={DORA_WINDOWS}
-          onWindow={d => setParam('dora', d === DEFAULT_DORA_WINDOW ? undefined : String(d))}
-        />
-        <ActivityPanel items={activityItems} now={now} limit={10} stale={staleNote(activity)} error={activity.error} />
-      </div>
+      </FitContext.Provider>
     </div>
   );
 }

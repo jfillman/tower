@@ -8,6 +8,12 @@ import type { DoraBand } from '../../../fleet/dora';
 // fits. Below that it stacks.
 export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { display: 'flex', flexDirection: 'column', gap: 14 },
+  // ---- fit mode (fullscreen): the columns take the height left and each panel scrolls inside itself
+  rootFit: { flex: 1, minHeight: 0 },
+  columnsFit: { flex: 1, minHeight: 0, gridTemplateRows: 'minmax(0, 1fr)', alignItems: 'stretch' },
+  columnFit: { minHeight: 0, overflow: 'hidden' },
+  panelFit: { display: 'flex', flexDirection: 'column', minHeight: 0, flexBasis: 'auto', flexGrow: 0 },
+  panelBodyFit: { flex: 1, minHeight: 0, overflowY: 'auto' },
   toolbar: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   toolGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   toolLabel: {
@@ -51,17 +57,15 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // ---- KPI band
   kpis: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
     gap: 12,
-    '@media (max-width: 1300px)': { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
-    '@media (max-width: 700px)': { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' },
   },
   kpi: {
     textAlign: 'left',
     border: ({ t }) => `1px solid ${t.line}`,
     borderTop: '3px solid',
     borderRadius: 6,
-    padding: '14px 16px',
+    padding: '12px 16px',
     backgroundColor: ({ t }) => t.panel,
     cursor: 'pointer',
     font: 'inherit',
@@ -76,24 +80,9 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textFaint,
     marginBottom: 6,
   },
-  kpiValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 44, lineHeight: 1 },
+  kpiValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 40, lineHeight: 1 },
   kpiSub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 6, minHeight: 16 },
-  // ---- main grid
-  main: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)',
-    gap: 14,
-    alignItems: 'start',
-    '@media (max-width: 1100px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
-  },
   column: { display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 },
-  bottom: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
-    gap: 14,
-    alignItems: 'start',
-    '@media (max-width: 1100px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
-  },
   // ---- panels
   panel: {
     border: ({ t }) => `1px solid ${t.line}`,
@@ -215,16 +204,8 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 3 },
   mono: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
   // ---- DORA
-  doraGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    '@media (max-width: 900px)': { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' },
-  },
-  doraTile: {
-    padding: '12px 14px',
-    borderRight: ({ t }) => `1px solid ${t.lineSoft}`,
-    '&:last-child': { borderRight: 'none' },
-  },
+  doraGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' },
+  doraTile: { padding: '12px 14px', boxShadow: ({ t }) => `inset -1px -1px 0 ${t.lineSoft}` },
   doraValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 30, lineHeight: 1.1, color: ({ t }) => t.textHi },
   doraUnit: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, marginLeft: 4, fontWeight: 400 },
   doraFoot: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, minHeight: 18 },
@@ -267,6 +248,31 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { color: ({ t }) => t.textHi },
   },
   toggleOn: { color: ({ t }) => t.textHi, borderColor: ({ t }) => t.amberLine },
+  toggleCount: { color: ({ t }) => t.textFaint, marginLeft: 2 },
+  filterRow: { display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 14px' },
+  historyNote: { padding: '0 14px 6px', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amber },
+  runStrip: { display: 'flex', gap: 2, padding: '6px 14px 12px', alignItems: 'stretch', height: 34 },
+  runCell: {
+    flex: '1 1 0',
+    maxWidth: 14,
+    minWidth: 3,
+    borderRadius: 2,
+    opacity: 0.85,
+    '&:hover': { opacity: 1, outline: ({ t }) => `1px solid ${t.textHi}` },
+  },
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    overflow: 'hidden',
+    clip: 'rect(0 0 0 0)',
+    whiteSpace: 'nowrap',
+  },
+  // ---- columns (the page picks 1, 2 or 3 from its own width)
+  columns: { display: 'grid', gap: 14, alignItems: 'start' },
+  tip: { fontFamily: fontBody, fontSize: 12, lineHeight: 1.45, maxWidth: 320 },
+  tipTitle: { fontWeight: 600, marginBottom: 2 },
+  tipError: { color: ({ t }) => t.bad, marginTop: 4 },
 }));
 
 export function severityColor(t: HangarTokens, s: Severity): string {

@@ -11,12 +11,16 @@ export interface Polled<T> {
   /** Polls failed in a row since the last success. */
   failures: number;
   loading: boolean;
+  /** How often this source refreshes, for "is this old?" and the source tooltip. */
+  intervalMs: number;
 }
 
 export const STALE_AFTER_FAILURES = 3;
 
-export function isStale(p: Pick<Polled<unknown>, 'failures'>): boolean {
-  return p.failures >= STALE_AFTER_FAILURES;
+/** Three polls failed in a row, or (with `now`) no success for three intervals (a paused tab, a hung request). */
+export function isStale(p: Pick<Polled<unknown>, 'failures' | 'updatedAt' | 'intervalMs'>, now?: number): boolean {
+  if (p.failures >= STALE_AFTER_FAILURES) return true;
+  return now !== undefined && p.updatedAt !== undefined && now - p.updatedAt > STALE_AFTER_FAILURES * p.intervalMs;
 }
 
 // A hidden tab does not poll, unless it is fullscreen (a wallboard on a TV is often "hidden" to the
@@ -31,7 +35,7 @@ function shouldPoll(): boolean {
  * `key` restarts the loop when what is fetched changes (a window or a filter).
  */
 export function usePolled<T>(key: string, fetcher: () => Promise<T>, intervalMs: number): Polled<T> {
-  const [state, setState] = useState<Polled<T>>({ failures: 0, loading: true });
+  const [state, setState] = useState<Polled<T>>({ failures: 0, loading: true, intervalMs });
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
@@ -39,13 +43,13 @@ export function usePolled<T>(key: string, fetcher: () => Promise<T>, intervalMs:
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // A new key is a different question: never show the old answer under it.
-    setState({ failures: 0, loading: true });
+    setState({ failures: 0, loading: true, intervalMs });
 
     async function tick() {
       if (shouldPoll()) {
         try {
           const data = await fetcherRef.current();
-          if (!cancelled) setState({ data, updatedAt: Date.now(), failures: 0, loading: false });
+          if (!cancelled) setState({ data, updatedAt: Date.now(), failures: 0, loading: false, intervalMs });
         } catch (e) {
           if (!cancelled) {
             setState(prev => ({

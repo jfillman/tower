@@ -2,6 +2,13 @@ import { health, isPreviewEnvName, isRolloutActive, type EnvironmentSummary } fr
 import type { FleetApp } from '../useFleetEnvironments';
 import type { FleetSloRow } from '../useFleetSlos';
 import { runAppName, type FleetRun, type RunProgress } from './fleetRuns';
+import {
+  PIPELINE_CATEGORIES,
+  pipelineCategory,
+  type HistoryRun,
+  type HistoryStatus,
+  type PipelineCategory,
+} from './pipelineHistory';
 import { DEPLOYING_STATES, FAILED_STATES, type ReleaseEvent, type ReleaseRecord } from './releaseRecords';
 
 // Everything the Ops Wall shows, derived from the polled sources in one pure function so every
@@ -52,6 +59,7 @@ export interface PipelineItem {
   key: string;
   app: string;
   pipeline: string;
+  category: PipelineCategory;
   stage?: string;
   phase: FleetRun['run']['phase'];
   progress?: RunProgress;
@@ -136,11 +144,32 @@ export interface WindowStats {
   p50Sec?: number;
 }
 
+/** A finished run, live or archived. */
+export interface FinishedRun {
+  key: string;
+  app: string;
+  name: string;
+  pipeline: string;
+  category: PipelineCategory;
+  status: HistoryStatus;
+  startTime?: string;
+  endTime?: string;
+  durationSec?: number;
+  /** Why it failed, when the live run's TaskRuns say. */
+  detail?: string;
+  checkRunUrl?: string;
+  env?: string;
+}
+
 export interface OpsWallModel {
   kpis: OpsKpis;
   attention: AttentionItem[];
   pipelines: PipelineItem[];
+  /** Finished in the window, newest first, category filter applied. */
+  recentRuns: FinishedRun[];
   pipelineStats: WindowStats;
+  /** Runs per category in the window (live + finished), before the category filter: the filter chips' counts. */
+  pipelineCounts: Record<PipelineCategory, number>;
   deployments: DeploymentItem[];
   approvals: ApprovalItem[];
   landed: LandedItem[];
@@ -158,6 +187,10 @@ export interface OpsWallInputs {
   windowMs: number;
   apps: FleetApp[];
   runs: FleetRun[];
+  /** Finished runs from Tekton Results, covering the window. */
+  history?: HistoryRun[];
+  /** Pipeline categories to show. Undefined = all. */
+  pipelineCategories?: Set<PipelineCategory>;
   records: ReleaseRecord[];
   events: ReleaseEvent[];
   slos: FleetSloRow[];
@@ -217,18 +250,57 @@ function runEnv(r: FleetRun): string {
 }
 
 /** p50 duration of successful runs per pipeline, when there are enough of them to trust. */
-export function typicalDurations(runs: FleetRun[]): Map<string, number> {
+export function typicalDurations(runs: FinishedRun[]): Map<string, number> {
   const byPipeline = new Map<string, number[]>();
   runs.forEach(r => {
-    if (r.run.phase !== 'succeeded' || r.durationSec === undefined) return;
-    const k = runPipelineName(r);
-    byPipeline.set(k, [...(byPipeline.get(k) ?? []), r.durationSec]);
+    if (r.status !== 'succeeded' || r.durationSec === undefined) return;
+    byPipeline.set(r.pipeline, [...(byPipeline.get(r.pipeline) ?? []), r.durationSec]);
   });
   const out = new Map<string, number>();
   byPipeline.forEach((list, k) => {
     if (list.length >= TYPICAL_MIN_SAMPLES) out.set(k, median(list)!);
   });
   return out;
+}
+
+function fromLive(r: FleetRun): FinishedRun | undefined {
+  const { phase } = r.run;
+  if (phase !== 'succeeded' && phase !== 'failed' && phase !== 'cancelled') return undefined;
+  const pipeline = runPipelineName(r);
+  const failedTask =
+    phase === 'failed' ? Object.values(r.run.taskRunsByPipelineTask).find(t => t.phase === 'failed') : undefined;
+  let detail: string | undefined;
+  if (failedTask) detail = `task ${failedTask.pipelineTaskName}${failedTask.message ? `: ${failedTask.message}` : ''}`;
+  else if (phase === 'failed') detail = r.run.reason;
+  return {
+    key: r.key,
+    app: runAppName(r),
+    name: r.run.name,
+    pipeline,
+    category: pipelineCategory(pipeline),
+    status: phase,
+    startTime: r.run.startTime,
+    endTime: r.run.completionTime,
+    durationSec: r.durationSec,
+    detail,
+    checkRunUrl: r.checkRunUrl,
+    env: r.stage === 'deploy' || r.cloud ? runEnv(r) : undefined,
+  };
+}
+
+function fromHistory(h: HistoryRun): FinishedRun {
+  const pipeline = h.pipeline ?? h.name;
+  return {
+    key: h.key,
+    app: h.app,
+    name: h.name,
+    pipeline,
+    category: pipelineCategory(pipeline),
+    status: h.status,
+    startTime: h.startTime,
+    endTime: h.endTime,
+    durationSec: h.durationSec,
+  };
 }
 
 export function isSlow(elapsedSec: number, typicalSec: number | undefined): boolean {
@@ -253,9 +325,31 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
   const add = (item: AttentionItem) => attention.push(item);
 
   // ---- pipelines
-  const typical = typicalDurations(runs);
+  // Live runs (the last hour) and archived ones (the window) as one list of finished runs; the live copy
+  // wins, it has task detail. Everything pipeline-derived honours the category filter; deployments do not.
+  const shownCategory = (pipeline: string | undefined) =>
+    !input.pipelineCategories || input.pipelineCategories.has(pipelineCategory(pipeline));
+  const history = (input.history ?? []).filter(h => keep(h.app));
+  const finishedByKey = new Map<string, FinishedRun>();
+  history.forEach(h => finishedByKey.set(h.key, fromHistory(h)));
+  runs.forEach(r => {
+    const f = fromLive(r);
+    if (f) finishedByKey.set(f.key, f);
+  });
+  const finishedAll = [...finishedByKey.values()];
+  const typical = typicalDurations(finishedAll);
+
+  const pipelineCounts = Object.fromEntries(PIPELINE_CATEGORIES.map(c => [c, 0])) as Record<PipelineCategory, number>;
   const live = runs.filter(r => r.run.phase === 'running' || r.run.phase === 'pending');
-  const pipelines: PipelineItem[] = live.map(r => {
+  live.forEach(r => {
+    pipelineCounts[pipelineCategory(runPipelineName(r))] += 1;
+  });
+  finishedAll.forEach(f => {
+    if (within(now, windowMs, f.endTime)) pipelineCounts[f.category] += 1;
+  });
+
+  const shownLive = live.filter(r => shownCategory(runPipelineName(r)));
+  const pipelines: PipelineItem[] = shownLive.map(r => {
     const app = runAppName(r);
     const pipeline = runPipelineName(r);
     const startedAgo = ageMs(now, r.run.startTime);
@@ -267,6 +361,7 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
       key: r.key,
       app,
       pipeline,
+      category: pipelineCategory(pipeline),
       stage: r.stage,
       phase: r.run.phase,
       progress: r.progress,
@@ -313,37 +408,38 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
     }
   });
 
-  // Latest finished run per (app, pipeline) failed, with nothing newer running: still broken.
-  const latestByPipeline = new Map<string, FleetRun>();
-  runs.forEach(r => {
-    const k = `${runAppName(r)}|${runPipelineName(r)}`;
+  // The newest run of each (app, pipeline) failed and nothing newer is running: still broken.
+  const latestByPipeline = new Map<string, { startTime?: string; failed?: FinishedRun }>();
+  const consider = (app: string, pipeline: string, startTime: string | undefined, failed?: FinishedRun) => {
+    if (!shownCategory(pipeline)) return;
+    const k = `${app}|${pipeline}`;
     const prev = latestByPipeline.get(k);
-    if (!prev || ms(r.run.startTime) > ms(prev.run.startTime)) latestByPipeline.set(k, r);
-  });
-  latestByPipeline.forEach(r => {
-    if (r.run.phase !== 'failed') return;
-    const app = runAppName(r);
-    const failedTask = Object.values(r.run.taskRunsByPipelineTask).find(t => t.phase === 'failed');
+    if (!prev || (ms(startTime) || 0) > (ms(prev.startTime) || 0)) latestByPipeline.set(k, { startTime, failed });
+  };
+  live.forEach(r => consider(runAppName(r), runPipelineName(r), r.run.startTime));
+  finishedAll.forEach(f => consider(f.app, f.pipeline, f.startTime, f.status === 'failed' ? f : undefined));
+  latestByPipeline.forEach(({ failed: f }) => {
+    if (!f) return;
     add({
-      id: `failed:${r.key}`,
+      id: `failed:${f.key}`,
       rule: 'pipeline-failed',
       severity: 'high',
-      app,
-      env: r.stage === 'deploy' ? runEnv(r) : undefined,
-      title: `${runPipelineName(r)} failed`,
-      detail: failedTask
-        ? `task ${failedTask.pipelineTaskName}${failedTask.message ? `: ${failedTask.message}` : ''}`
-        : r.run.reason,
-      since: r.run.completionTime ?? r.run.startTime,
-      links: [...tower(href, app, 'pipelines', 'Run', { run: r.run.name }), ...ext('Check', r.checkRunUrl)],
+      app: f.app,
+      env: f.env,
+      title: `${f.pipeline} failed`,
+      detail: f.detail,
+      since: f.endTime ?? f.startTime,
+      links: [...tower(href, f.app, 'pipelines', 'Run', { run: f.name }), ...ext('Check', f.checkRunUrl)],
     });
   });
 
-  const finished = runs.filter(r => r.durationSec !== undefined && within(now, windowMs, r.run.completionTime));
+  const recentRuns = finishedAll
+    .filter(f => shownCategory(f.pipeline) && within(now, windowMs, f.endTime))
+    .sort((a, b) => newestFirst(a.endTime, b.endTime));
   const pipelineStats: WindowStats = {
-    runs: finished.length,
-    failedRuns: finished.filter(r => r.run.phase === 'failed').length,
-    p50Sec: median(finished.map(r => r.durationSec!)),
+    runs: recentRuns.length,
+    failedRuns: recentRuns.filter(f => f.status === 'failed').length,
+    p50Sec: median(recentRuns.map(f => f.durationSec).filter((d): d is number => d !== undefined)),
   };
 
   // ---- deployments
@@ -696,8 +792,8 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
   const canaries = deployments.filter(d => d.canary?.weight !== undefined && d.canary.weight < 100).length;
   return {
     kpis: {
-      pipelinesRunning: live.filter(r => r.run.phase === 'running').length,
-      pipelinesQueued: live.filter(r => r.run.phase === 'pending').length,
+      pipelinesRunning: shownLive.filter(r => r.run.phase === 'running').length,
+      pipelinesQueued: shownLive.filter(r => r.run.phase === 'pending').length,
       slowRuns: pipelines.filter(p => p.slow).length,
       deploying: deployments.length,
       canaries,
@@ -710,7 +806,9 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
     },
     attention,
     pipelines,
+    recentRuns,
     pipelineStats,
+    pipelineCounts,
     deployments,
     approvals,
     landed,

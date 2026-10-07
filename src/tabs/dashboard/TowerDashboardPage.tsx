@@ -17,6 +17,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // Backstage sidebar (a DOM sibling, rendered by ../nav) is automatically
   // not shown while active. No changes to any shared layout/nav code needed.
   root: { backgroundColor: ({ t }) => t.bg, minHeight: '100vh' },
+  // Fullscreen is a wall screen: exactly one screen tall, nothing below the fold.
+  rootFit: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  bodyFit: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 16 },
   header: {
     display: 'flex',
     alignItems: 'center',
@@ -131,7 +134,7 @@ export function TowerDashboardPage({ onBack }: { onBack: () => void }) {
   const { Component } = active;
 
   return (
-    <div className={classes.root} ref={rootRef}>
+    <div className={`${classes.root} ${isFullscreen ? classes.rootFit : ''}`} ref={rootRef}>
       <div className={classes.header}>
         <div className={classes.headLeft}>
           <button className={classes.backLink} onClick={onBack} type="button">
@@ -164,8 +167,8 @@ export function TowerDashboardPage({ onBack }: { onBack: () => void }) {
         ))}
       </div>
 
-      <div className={classes.body}>
-        <Component />
+      <div className={`${classes.body} ${isFullscreen ? classes.bodyFit : ''}`}>
+        <Component fit={isFullscreen} />
       </div>
     </div>
   );

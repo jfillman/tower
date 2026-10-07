@@ -3,6 +3,7 @@ import type { EnvironmentSummary } from '../types';
 import type { FleetApp } from '../useFleetEnvironments';
 import { parseProgress, toFleetRun, needsTaskRuns } from './fleetRuns';
 import { buildOpsWallModel, isSlow, type OpsWallInputs } from './opsWallModel';
+import { formatCategories, parseCategories, pipelineCategory, toHistoryRun } from './pipelineHistory';
 import { toReleaseEvent, toReleaseRecord, type RawConfigMap } from './releaseRecords';
 
 const NOW = Date.parse('2026-10-07T18:00:00Z');
@@ -427,5 +428,93 @@ describe('buildOpsWallModel', () => {
       }),
     );
     expect(m.attention.map(a => `${a.rule}:${a.app}`)).toEqual(['slo-budget-low:gate-api']);
+  });
+});
+
+describe('pipeline history and type filter', () => {
+  const hist = (name: string, app: string, pipeline: string, status: 'SUCCESS' | 'FAILURE', endedMinAgo: number) =>
+    toHistoryRun({
+      name: `app-${app}-cicd/results/${name}`,
+      create_time: iso(endedMinAgo + 5),
+      annotations: { 'object.metadata.name': name, 'tekton.dev/pipeline': pipeline },
+      summary: {
+        type: 'tekton.dev/v1.PipelineRun',
+        status,
+        start_time: iso(endedMinAgo + 5),
+        end_time: iso(endedMinAgo),
+        annotations: { commit: 'abc', eventType: 'push', repo: app },
+      },
+    })!;
+
+  it('reads a Results summary (shape from Results v0.20.0 on kiac-dev)', () => {
+    expect(hist('ci-0-build-sjfhm', 'flight-api', 'build', 'FAILURE', 30)).toMatchObject({
+      key: 'app-flight-api-cicd/ci-0-build-sjfhm',
+      app: 'flight-api',
+      pipeline: 'build',
+      status: 'failed',
+      durationSec: 300,
+    });
+    expect(
+      toHistoryRun({ name: 'x/results/y', summary: { type: 'tekton.dev/v1.TaskRun', status: 'SUCCESS' } }),
+    ).toBeUndefined();
+  });
+
+  it('categorises pipelines by name, platform plumbing hidden by default', () => {
+    expect(
+      ['build', 'deploy', 'gitops-image-bump', 'sast-check', 'release-outcome-notify', undefined].map(pipelineCategory),
+    ).toEqual(['build', 'deploy', 'deploy', 'guardrail', 'platform', 'platform']);
+    expect([...parseCategories(null)]).toEqual(['build', 'deploy', 'guardrail']);
+    expect(formatCategories(parseCategories(null))).toBeUndefined();
+    expect(formatCategories(new Set(['deploy', 'build']))).toBe('build,deploy');
+    expect([...parseCategories('')]).toEqual([]);
+  });
+
+  it('flags a failure only the archive still has, and a newer success clears it', () => {
+    const history = [
+      hist('b1', 'gate-api', 'build', 'FAILURE', 300),
+      hist('b2', 'gate-api', 'build', 'SUCCESS', 200),
+      hist('s1', 'flight-api', 'sast-check', 'FAILURE', 120),
+    ];
+    const m = buildOpsWallModel(inputs({ history }));
+    expect(m.attention.map(a => `${a.rule}:${a.app}:${a.title}`)).toEqual([
+      'pipeline-failed:flight-api:sast-check failed',
+    ]);
+    expect(m.recentRuns.map(r => r.name)).toEqual(['s1', 'b2', 'b1']);
+    expect(m.pipelineStats).toMatchObject({ runs: 3, failedRuns: 2 });
+  });
+
+  it('hides filtered types from runs, history and attention, but still counts them for the chips', () => {
+    const history = [
+      hist('s1', 'flight-api', 'sast-check', 'FAILURE', 120),
+      hist('n1', 'gate-api', 'release-outcome-notify', 'SUCCESS', 60),
+    ];
+    const live = run({
+      name: 'g1',
+      app: 'gate-api',
+      stage: 'x',
+      pipeline: 'governance-check',
+      reason: 'Running',
+      startedMinAgo: 1,
+    });
+    const m = buildOpsWallModel(inputs({ history, runs: [live], pipelineCategories: new Set(['build', 'deploy']) }));
+    expect(m.attention).toEqual([]);
+    expect(m.pipelines).toEqual([]);
+    expect(m.recentRuns).toEqual([]);
+    expect(m.kpis.pipelinesRunning).toBe(0);
+    expect(m.pipelineCounts).toEqual({ build: 0, deploy: 0, guardrail: 2, platform: 1 });
+  });
+
+  it('prefers the live copy of a run the archive also has', () => {
+    const live = run({
+      name: 'b1',
+      app: 'gate-api',
+      stage: 'build',
+      reason: 'Failed',
+      startedMinAgo: 10,
+      durationMin: 2,
+    });
+    const m = buildOpsWallModel(inputs({ runs: [live], history: [hist('b1', 'gate-api', 'build', 'FAILURE', 8)] }));
+    expect(m.recentRuns).toHaveLength(1);
+    expect(m.attention[0].links[0].href).toBe('/tower?entity=gate-api&tab=pipelines&run=b1');
   });
 });

@@ -111,13 +111,16 @@ jest.mock('../../fleet/useFleetReleases', () => ({
   }),
   useFleetReleaseEvents: () => ({ loading: false, failures: 0, updatedAt: Date.now(), data: [] }),
 }));
+jest.mock('../../fleet/useFleetPipelineHistory', () => ({
+  useFleetPipelineHistory: () => ({ loading: false, failures: 0, updatedAt: Date.now(), intervalMs: 120000, data: [] }),
+}));
 jest.mock('../../fleet/useDoraMetrics', () => ({ useDoraMetrics: () => dora }));
 jest.mock('../../provisioning/useProvisioning', () => ({ useProvisioning: () => ({ items: [], loading: false }) }));
 
-const renderWall = () =>
+const renderWall = (fit = false) =>
   render(
     <MemoryRouter initialEntries={['/tower?view=dashboard']}>
-      <OpsWallDashboard />
+      <OpsWallDashboard fit={fit} />
     </MemoryRouter>,
   );
 
@@ -144,7 +147,7 @@ describe('OpsWallDashboard', () => {
     expect(attention.getByText('staging is degraded')).toBeTruthy();
     expect(attention.getByText('Release PR to staging waiting for merge')).toBeTruthy();
 
-    const pipelines = within(screen.getByLabelText('Pipelines in flight'));
+    const pipelines = within(screen.getByLabelText('Pipelines'));
     expect(pipelines.getByText('3/8')).toBeTruthy();
     expect(pipelines.getByText('Run').getAttribute('href')).toBe(
       '/tower?entity=component%3Adefault%2Fgate-api&tab=pipelines&run=ci-0-build-abc',
@@ -166,5 +169,17 @@ describe('OpsWallDashboard', () => {
     expect(
       screen.getByText(/DORA metrics are unavailable: thanos-query-frontend on kind-dev did not answer/),
     ).toBeTruthy();
+  });
+
+  it('in fullscreen, lets Activity give up height first and never shrinks DORA', () => {
+    renderWall(true);
+    expect(screen.getByLabelText('Activity').style.flexShrink).toBe('4');
+    expect(screen.getByLabelText(/^DORA/).style.flexShrink).toBe('0');
+    expect(screen.getByLabelText('Needs attention').style.flexShrink).toBe('1');
+  });
+
+  it('outside fullscreen, panels keep their natural height', () => {
+    renderWall(false);
+    expect(screen.getByLabelText('Activity').style.flexShrink).toBe('');
   });
 });

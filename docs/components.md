@@ -81,17 +81,26 @@ form plus a raw-YAML fallback. Never commits directly: it opens a GitOps PR, lik
 A top-level `/tower` dashboard (`?view=dashboard`) with two views. **Ops Wall** is the default.
 
 **Ops Wall** (`src/tabs/dashboard/OpsWallDashboard.tsx`, model in `src/fleet/`): what is happening across every
-Tower service right now, and what needs a human. A data-source strip (each source's age; a source that fails three
-polls in a row dims its panels and says "stale since"), six headline numbers, a **Needs attention** list (degraded
-environments, failed or stalled releases, release PRs waiting for merge, failed and slow pipelines, paused canaries,
-Argo CD drift, pods not ready, SLO budgets, stuck provisioning; rules and thresholds in `src/fleet/opsWallModel.ts`),
-**Pipelines in flight**, **Deployments in flight** (Glidepath release records for upper environments, deploy
-pipelines for ground and cloud targets, Rollouts with nothing behind them), releases waiting for approval, what
-landed in the window, **DORA** (see [installation](installation.md#dora-metrics-source-ops-wall)) and the
-notifications feed. Filters live in the URL: `owner`, `window` (`24h`, `7d`), `dora` (`7`, `30`, `90`). Links open in
-a new tab so the wall stays put. It makes no GitHub calls: it reads Tekton, the release-record ConfigMaps and their
-Events (one cluster-wide list each on the Tekton cluster), the per-app Kubernetes and Argo CD probes, Prometheus and
-the notifications backend.
+Tower service right now, and what needs a human.
+
+- **Sources**: one dot per data source. Hover for what it reads, how often it refreshes and when it last answered. An
+  age shows only when a source is behind schedule (three missed polls) and its panels then dim and say "stale since".
+- **Headline numbers** (hover for a definition; click to jump to the panel).
+- **Needs attention**: degraded environments, failed or stalled releases, release PRs waiting for merge, failed and
+  slow pipelines, paused canaries, Argo CD drift, pods not ready, SLO budgets, stuck provisioning. Rules and
+  thresholds in `src/fleet/opsWallModel.ts`.
+- **Pipelines**: running now (task progress, elapsed vs typical), then the window's history (a strip of every finished
+  run, oldest to newest, and the latest failures). Type filter: Build & test, Deploy, Guardrails, Platform (platform
+  plumbing such as notifications and onboarding re-syncs is off by default). History comes from Tekton Results'
+  Result summaries for the whole fleet in one call (`src/fleet/useFleetPipelineHistory.ts`).
+- **Deployments**: Glidepath release records for upper environments, deploy pipelines for ground and cloud targets,
+  Rollouts with nothing behind them; releases waiting for approval; what landed in the window.
+- **DORA** (see [installation](installation.md#dora-metrics-source-ops-wall)) and the notifications feed.
+
+URL parameters: `owner`, `window` (`24h`, `7d`), `pipelines` (comma list of `build,deploy,guardrail,platform`), `dora`
+(`7`, `30`, `90`). Links open in a new tab so the wall stays put. The layout uses three, two or one column from the
+page's own width; in fullscreen it fits the screen exactly and each panel scrolls inside itself (Activity gives up
+height first, DORA never). It makes no GitHub calls.
 
 **Fleet Grid**: the app × environment health matrix for the four application kinds.
 

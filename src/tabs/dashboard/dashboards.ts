@@ -1,5 +1,11 @@
 import { FleetGridDashboard } from './FleetGridDashboard';
+import type { ComponentType } from 'react';
 import { OpsWallDashboard } from './OpsWallDashboard';
+
+/** `fit`: the page is fullscreen and the dashboard must fit the screen without scrolling. */
+export interface DashboardProps {
+  fit?: boolean;
+}
 
 // The extensible fleet-dashboard registry - the same array-of-{id,label,
 // Component} shape TowerPage.tsx's own TABS already uses for its per-app tab
@@ -8,8 +14,8 @@ import { OpsWallDashboard } from './OpsWallDashboard';
 // artifact) is one entry here plus one new component file - no other
 // wiring changes.
 export const DASHBOARDS = [
-  { id: 'ops-wall', label: 'Ops Wall', Component: OpsWallDashboard },
-  { id: 'fleet-grid', label: 'Fleet Grid', Component: FleetGridDashboard },
+  { id: 'ops-wall', label: 'Ops Wall', Component: OpsWallDashboard as ComponentType<DashboardProps> },
+  { id: 'fleet-grid', label: 'Fleet Grid', Component: FleetGridDashboard as ComponentType<DashboardProps> },
 ] as const;
 
 export type DashboardId = (typeof DASHBOARDS)[number]['id'];

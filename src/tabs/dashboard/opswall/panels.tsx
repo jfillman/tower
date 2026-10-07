@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { Notification } from '@backstage/plugin-notifications-common';
 import { useHangarTokens, type HangarTokens } from '../../../brand/tokens';
 import {
@@ -14,11 +14,14 @@ import type {
   ApprovalItem,
   AttentionItem,
   DeploymentItem,
+  FinishedRun,
   LandedItem,
   OpsLink,
   PipelineItem,
+  TowerHref,
   WindowStats,
 } from '../../../fleet/opsWallModel';
+import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
 import { preventFocusScroll } from '../../../preventFocusScroll';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
 
@@ -29,12 +32,16 @@ function useKit() {
 
 // ---- building blocks
 
+/** True when the wall must fit one screen (fullscreen): panels then shrink and scroll inside. */
+export const FitContext = createContext(false);
+
 export function OpsPanel({
   id,
   title,
   count,
   meta,
   stale,
+  shrink = 1,
   children,
 }: {
   id?: string;
@@ -43,11 +50,20 @@ export function OpsPanel({
   meta?: ReactNode;
   /** The data under this panel stopped refreshing; say so and dim it. */
   stale?: string;
+  /** In fit mode, how readily this panel gives up height to the others (0 = never, it keeps its size). */
+  shrink?: number;
   children: ReactNode;
 }) {
   const { c } = useKit();
+  const fit = useContext(FitContext);
+  const bodyClass = [stale ? c.stale : '', fit ? c.panelBodyFit : ''].filter(Boolean).join(' ') || undefined;
   return (
-    <section id={id} className={c.panel} aria-label={title}>
+    <section
+      id={id}
+      className={fit ? `${c.panel} ${c.panelFit}` : c.panel}
+      style={fit ? { flexShrink: shrink } : undefined}
+      aria-label={title}
+    >
       <div className={c.panelHead}>
         <h2 className={c.panelTitle}>
           {title}
@@ -55,7 +71,7 @@ export function OpsPanel({
         </h2>
         {stale ? <span className={c.staleNote}>{stale}</span> : meta && <span className={c.panelMeta}>{meta}</span>}
       </div>
-      <div className={stale ? c.stale : undefined}>{children}</div>
+      <div className={bodyClass}>{children}</div>
     </section>
   );
 }
@@ -154,34 +170,72 @@ export function AttentionPanel({
   );
 }
 
-// ---- Pipelines in flight
+// ---- Pipelines: running now, the window's history, filtered by pipeline type
+
+const RUN_STRIP_MAX = 60;
+const RECENT_FAILURES = 4;
+
+function statusColor(t: HangarTokens, status: FinishedRun['status']) {
+  if (status === 'succeeded') return t.good;
+  if (status === 'failed') return t.bad;
+  return t.textFaint;
+}
 
 export function PipelinesPanel({
   items,
+  recent,
   stats,
+  counts,
+  categories,
+  onToggleCategory,
+  towerHref,
+  now,
   windowLabel,
   limit,
   stale,
+  historyNote,
 }: {
   items: PipelineItem[];
+  recent: FinishedRun[];
   stats: WindowStats;
+  counts: Record<PipelineCategory, number>;
+  categories: Set<PipelineCategory>;
+  onToggleCategory: (c: PipelineCategory) => void;
+  towerHref: TowerHref;
+  now: number;
   windowLabel: string;
   limit: number;
   stale?: string;
+  /** Set when the archive could not be read: the history covers only the last hour of live runs. */
+  historyNote?: string;
 }) {
   const { t, c } = useKit();
   const shown = items.slice(0, limit);
+  // Oldest to newest, left to right, like a timeline.
+  const strip = recent.slice(0, RUN_STRIP_MAX).reverse();
+  const failures = recent.filter(r => r.status === 'failed');
+  const failRate = stats.runs > 0 ? Math.round((stats.failedRuns / stats.runs) * 100) : undefined;
   return (
-    <OpsPanel
-      id="ops-pipelines"
-      title="Pipelines in flight"
-      count={items.length}
-      // Tekton Results archives finished runs after about an hour, so the totals cover what is still live.
-      meta={`last ${windowLabel}: ${stats.runs} done · ${stats.failedRuns} failed${
-        stats.p50Sec !== undefined ? ` · p50 ${fmtSeconds(stats.p50Sec)}` : ''
-      }`}
-      stale={stale}
-    >
+    <OpsPanel id="ops-pipelines" title="Pipelines" count={items.length} stale={stale}>
+      <div className={c.filterRow} role="group" aria-label="Pipeline types">
+        {PIPELINE_CATEGORIES.map(cat => {
+          const on = categories.has(cat);
+          return (
+            <button
+              key={cat}
+              type="button"
+              aria-pressed={on}
+              className={`${c.toggle} ${on ? c.toggleOn : ''}`}
+              onMouseDown={preventFocusScroll}
+              onClick={() => onToggleCategory(cat)}
+            >
+              {CATEGORY_LABEL[cat]} <span className={c.toggleCount}>{counts[cat]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={c.subhead}>Running now</div>
       {shown.length === 0 ? (
         <Empty>No pipelines running.</Empty>
       ) : (
@@ -213,7 +267,7 @@ export function PipelinesPanel({
                     </span>
                   </>
                 )}
-                <span className={c.age}>
+                <span className={c.age} title="elapsed / typical for this pipeline">
                   {fmtSeconds(p.elapsedSec)}
                   {p.typicalSec !== undefined ? ` / ~${fmtSeconds(p.typicalSec)}` : ''}
                 </span>
@@ -224,6 +278,67 @@ export function PipelinesPanel({
         })
       )}
       <More total={items.length} shown={shown.length} />
+
+      <div className={c.subhead}>
+        Last {windowLabel}: {stats.runs} finished
+        {failRate !== undefined && ` · ${stats.failedRuns} failed (${failRate}%)`}
+        {stats.p50Sec !== undefined && ` · p50 ${fmtSeconds(stats.p50Sec)}`}
+      </div>
+      {historyNote && <div className={c.historyNote}>{historyNote}</div>}
+      {strip.length === 0 ? (
+        <Empty>No finished runs in this window.</Empty>
+      ) : (
+        <div className={c.runStrip} aria-label={`Last ${strip.length} finished runs, oldest first`}>
+          {strip.map(r => (
+            <a
+              key={r.key}
+              className={c.runCell}
+              style={{ backgroundColor: statusColor(t, r.status) }}
+              href={towerHref(r.app, 'pipelines', { run: r.name })}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${r.app} · ${r.pipeline} · ${r.status}${
+                r.durationSec !== undefined ? ` in ${fmtSeconds(r.durationSec)}` : ''
+              } · ${fmtAge(now, r.endTime)} ago`}
+            >
+              <span className={c.srOnly}>
+                {r.app} {r.pipeline} {r.status}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+      {failures.slice(0, RECENT_FAILURES).map(f => {
+        const run = towerHref(f.app, 'pipelines', { run: f.name });
+        return (
+          <div key={f.key} className={c.row} style={{ borderLeftColor: t.bad }}>
+            <div className={c.rowMain}>
+              <div className={c.rowTop}>
+                <span className={c.app}>{f.app}</span>
+                <span className={c.envTag}>{f.pipeline}</span>
+                <span className={c.mono} style={{ color: t.bad }}>
+                  failed
+                </span>
+              </div>
+              {f.detail && (
+                <div className={c.rowDetail} title={f.detail}>
+                  {f.detail}
+                </div>
+              )}
+            </div>
+            <div className={c.rowSide}>
+              <span className={c.age}>{fmtAge(now, f.endTime)} ago</span>
+              <Links
+                links={[
+                  ...(run ? [{ label: 'Run', href: run }] : []),
+                  ...(f.checkRunUrl ? [{ label: 'Check', href: f.checkRunUrl, external: true }] : []),
+                ]}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <More total={failures.length} shown={Math.min(RECENT_FAILURES, failures.length)} label="failures" />
     </OpsPanel>
   );
 }
@@ -574,7 +689,7 @@ export function DoraPanel({
   }
 
   return (
-    <OpsPanel id="ops-dora" title={`DORA · last ${windowDays} days`} meta={controls} stale={stale}>
+    <OpsPanel id="ops-dora" title={`DORA · last ${windowDays} days`} meta={controls} stale={stale} shrink={0}>
       {body}
     </OpsPanel>
   );
@@ -598,7 +713,7 @@ export function ActivityPanel({
   const { t, c } = useKit();
   const shown = items.slice(0, limit);
   return (
-    <OpsPanel id="ops-activity" title="Activity" stale={stale}>
+    <OpsPanel id="ops-activity" title="Activity" stale={stale} shrink={4}>
       {shown.length === 0 ? (
         <Empty>{error ? `Notifications unavailable (${error}).` : 'No recent activity.'}</Empty>
       ) : (
