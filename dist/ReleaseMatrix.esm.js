@@ -7,6 +7,7 @@ import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import CheckIcon from '@material-ui/icons/Check';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
+import RoomIcon from '@material-ui/icons/Room';
 import AddIcon from '@material-ui/icons/Add';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
@@ -145,6 +146,7 @@ function CellIcon({ status }) {
   if (status === "deployed") return /* @__PURE__ */ jsx(CheckIcon, { fontSize: "inherit" });
   if (status === "pending") return /* @__PURE__ */ jsx(AutorenewIcon, { style: { fontSize: 13 } });
   if (status === "promotable") return /* @__PURE__ */ jsx(AddIcon, { style: { fontSize: 14 } });
+  if (status === "pinned") return /* @__PURE__ */ jsx(RoomIcon, { style: { fontSize: 13 } });
   return /* @__PURE__ */ jsx("span", { children: "\xB7" });
 }
 function ReleaseMatrix({
@@ -239,7 +241,7 @@ function ReleaseMatrix({
               className: [
                 classes.cell,
                 cell.status === "deployed" ? classes.cellDeployed : "",
-                cell.status === "pending" ? classes.cellPending : "",
+                cell.status === "pending" || cell.status === "pinned" ? classes.cellPending : "",
                 cell.status === "promotable" ? classes.cellPromotable : "",
                 cell.status === "none" ? classes.cellNone : "",
                 clickable ? classes.cellClickable : ""
@@ -266,8 +268,32 @@ function ReleaseMatrix({
         /* @__PURE__ */ jsx("span", { className: classes.expandEnv, children: open.env }),
         openCell.status === "pending" && openCell.pr && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }, children: "pending" }),
         openCell.status === "deployed" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good }, children: "deployed" }),
+        openCell.status === "pinned" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }, children: "pinned, not deployed" }),
         openCell.status === "promotable" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }, children: "not yet promoted" }),
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.close, onClick: () => setOpen(null), children: "close \u2715" })
+      ] }),
+      openCell.status === "pinned" && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs(Typography, { className: classes.fact, style: { marginTop: 0 }, children: [
+          open.env,
+          " is already pinned to this image (its pin PR merged), but no deploy of it has succeeded in",
+          " ",
+          open.env,
+          " yet, so there is nothing to promote. The deploy runs on the Pipelines tab say why."
+        ] }),
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            type: "button",
+            className: classes.promoteBtn,
+            onMouseDown: (e) => e.preventDefault(),
+            onClick: () => setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("tab", "pipelines");
+              return next;
+            }),
+            children: "Open Pipelines \u2192"
+          }
+        )
       ] }),
       openCell.status === "promotable" && openCell.sourceEnv && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsxs(Typography, { className: classes.fact, style: { marginTop: 0 }, children: [

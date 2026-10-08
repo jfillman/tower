@@ -58,6 +58,17 @@ function PromoteDialog({
     });
     onClose();
   };
+  const goToRun = () => {
+    const run = promote.result?.pipelineRun;
+    if (!run) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", "pipelines");
+      next.set("run", run);
+      return next;
+    });
+    onClose();
+  };
   return /* @__PURE__ */ jsx(
     Dialog,
     {
@@ -83,7 +94,9 @@ function PromoteDialog({
               " ",
               "- no PR, no review. ArgoCD syncs it as soon as this commit lands."
             ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-              "Opens a real PR against",
+              "Runs ",
+              appName,
+              "'s release pipeline, which opens a PR against",
               " ",
               /* @__PURE__ */ jsxs("span", { style: mono, children: [
                 "gitops-",
@@ -95,9 +108,10 @@ function PromoteDialog({
                 target.target.cluster,
                 "/",
                 target.target.env,
-                "/values.yaml"
+                "/release.yaml"
               ] }),
-              ". ArgoCD won't sync anything until that PR is reviewed and merged."
+              " ",
+              "and starts tracking the release. ArgoCD won't sync anything until that PR is reviewed and merged. Opening the PR takes about a minute."
             ] }),
             " ",
             source ? /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -123,6 +137,12 @@ function PromoteDialog({
             " ",
             /* @__PURE__ */ jsx(Link, { className: classes.link, href: promote.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: promote.result.prUrl })
           ] }),
+          promote.result?.pipelineRun && /* @__PURE__ */ jsxs(DialogContentText, { className: classes.text, children: [
+            promote.result.mode === "pipeline" ? "The release pipeline is still running; its PR will appear in the Pull requests tab when it opens. " : "",
+            "Release run:",
+            " ",
+            /* @__PURE__ */ jsx(Link, { className: classes.link, component: "button", onMouseDown: (e) => e.preventDefault(), onClick: goToRun, children: promote.result.pipelineRun })
+          ] }),
           promote.result?.mode === "direct-commit" && /* @__PURE__ */ jsxs(DialogContentText, { className: classes.text, children: [
             "Committed - ArgoCD will sync it shortly:",
             " ",
@@ -138,7 +158,7 @@ function PromoteDialog({
               className: classes.confirmBtn,
               disabled: promote.loading,
               onClick: onConfirm,
-              children: targetIsLower ? "Commit and deploy" : "Open release PR"
+              children: targetIsLower ? "Commit and deploy" : "Start release"
             }
           )
         ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [

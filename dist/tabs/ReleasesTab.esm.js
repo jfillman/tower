@@ -1,10 +1,11 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { usePromote } from '../useReleaseData.esm.js';
-import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { useReleaseContext, applyCloudPins } from '../useReleaseContext.esm.js';
+import { usePinnedTags } from '../environments/releasePins.esm.js';
 import { CommandDeck } from '../CommandDeck.esm.js';
 import { ReleaseMatrix } from '../ReleaseMatrix.esm.js';
 import { ReleaseLog, buildLogEntries } from '../ReleaseLog.esm.js';
@@ -71,6 +72,9 @@ function ReleasesTab() {
   const target = deployTargetOf(entity);
   const isCloud = Boolean(target && target.id !== "k8s-rollout");
   const [cloudTarget, setCloudTarget] = useState(null);
+  const [pinNonce, setPinNonce] = useState(0);
+  const pinnedTags = usePinnedTags(isCloud ? owner : void 0, appName, isCloud ? pipelineOrder.upper ?? [] : [], pinNonce);
+  const matrixReleases = useMemo(() => isCloud ? applyCloudPins(releases, pinnedTags) : releases, [isCloud, releases, pinnedTags]);
   useEffect(() => {
     if (promote.result && !promote.result.alreadyOpen) refresh();
   }, [promote.result]);
@@ -173,7 +177,7 @@ function ReleasesTab() {
       activeTab === "matrix" && /* @__PURE__ */ jsx(
         ReleaseMatrix,
         {
-          releases,
+          releases: matrixReleases,
           totalCount: releaseTotalCount,
           environments: pipelineEnvironments,
           provenanceByImage,
@@ -209,7 +213,10 @@ function ReleasesTab() {
         appName,
         target: cloudTarget,
         onClose: () => setCloudTarget(null),
-        onDone: refresh
+        onDone: () => {
+          refresh();
+          setPinNonce((n) => n + 1);
+        }
       }
     ),
     /* @__PURE__ */ jsx(

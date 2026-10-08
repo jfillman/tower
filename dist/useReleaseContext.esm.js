@@ -305,6 +305,19 @@ function buildReleases(environments, deployHistory, gitopsPrs, pipelineRuns = []
   }
   return { rows: withCurrent, total: sorted.length };
 }
+function applyCloudPins(rows, pins) {
+  return rows.map((row) => {
+    let changed = false;
+    const cells = {};
+    for (const [env, cell] of Object.entries(row.cells)) {
+      if (cell.status === "promotable" && pins[env] && pins[env] === row.imageTag) {
+        cells[env] = { status: "pinned", date: cell.date, sha: cell.sha };
+        changed = true;
+      } else cells[env] = cell;
+    }
+    return changed ? { ...row, cells } : row;
+  });
+}
 
-export { MATRIX_ROW_CAP, buildReleases, gitopsPrForEnv, gitopsPrForEnvAndImage, lastDeployedAt, nicknameForImageTag, parseGitopsPrTitle, useReleaseContext };
+export { MATRIX_ROW_CAP, applyCloudPins, buildReleases, gitopsPrForEnv, gitopsPrForEnvAndImage, lastDeployedAt, nicknameForImageTag, parseGitopsPrTitle, useReleaseContext };
 //# sourceMappingURL=useReleaseContext.esm.js.map

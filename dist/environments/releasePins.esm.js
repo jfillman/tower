@@ -1,5 +1,5 @@
 import { relativeTime } from '../shared/format.esm.js';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 function rollbackCandidate(state) {
@@ -95,6 +95,38 @@ function useSubmitPin() {
   const reset = useCallback(() => setState({ loading: false }), []);
   return { ...state, submit, reset };
 }
+function usePinnedTags(owner, appName, envs, nonce = 0) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [pins, setPins] = useState({});
+  const key = owner && appName ? `${owner}/${appName}/${envs.join(",")}` : "";
+  useEffect(() => {
+    if (!owner || !appName || envs.length === 0) {
+      setPins({});
+      return void 0;
+    }
+    let cancelled = false;
+    (async () => {
+      const base = await discoveryApi.getBaseUrl("glidepath");
+      const entries = await Promise.all(
+        envs.map(async (env) => {
+          try {
+            const res = await fetchApi.fetch(`${base}/pin?${new URLSearchParams({ owner, appName, env }).toString()}`);
+            if (!res.ok) return [env, void 0];
+            return [env, (await res.json()).current?.tag];
+          } catch {
+            return [env, void 0];
+          }
+        })
+      );
+      if (!cancelled) setPins(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, nonce, discoveryApi, fetchApi]);
+  return pins;
+}
 
-export { promoteCandidates, releaseTagOf, rollbackCandidate, usePinState, useSubmitPin };
+export { promoteCandidates, releaseTagOf, rollbackCandidate, usePinState, usePinnedTags, useSubmitPin };
 //# sourceMappingURL=releasePins.esm.js.map
