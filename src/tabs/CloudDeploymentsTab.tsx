@@ -149,8 +149,8 @@ export function CloudDeploymentsTab() {
       <div className={classes.wrap}>
         <Typography className={classes.title}>Deployments</Typography>
         <div className={classes.empty}>
-          No cloud deploys yet. Once a build finishes, the deploy stage runs against this service&apos;s target and
-          shows up here.
+          No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs);
+          a Flight environment&apos;s current release is its pin, below.
         </div>
         {owner && <FlightPins owner={owner} appName={appName} flight={flight} deploys={deploys} />}
       </div>

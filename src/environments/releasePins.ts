@@ -1,3 +1,5 @@
+import type { ImageVersion } from '../types';
+import { relativeTime } from '../shared/format';
 import { useCallback, useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import type { CloudDeploy } from '../cloudDeploy';
@@ -44,10 +46,16 @@ export function rollbackCandidate(state: PinState | undefined): PinHistoryEntry 
 }
 
 /**
- * Images Promote can offer, newest first and one per image: what the pipeline built, read from its deploy runs.
- * The previous environment's last successful deploy comes first, since that is what normally moves on.
+ * Images Promote can offer, newest first and one per image: what the pipeline built, read from its deploy runs, then
+ * the registry's own images. The previous environment's last successful deploy comes first, since that is what normally
+ * moves on. Deploy runs are cleaned up by Tekton after a while, so the registry is what keeps Promote usable for an app
+ * that has not deployed recently (smoke-az-fn's prod card offered nothing once its runs were gone).
  */
-export function promoteCandidates(deploys: CloudDeploy[], fromEnv: string | undefined): Array<{ image: string; tag: string; label: string }> {
+export function promoteCandidates(
+  deploys: CloudDeploy[],
+  fromEnv: string | undefined,
+  registry?: { repository: string; versions: ImageVersion[] },
+): Array<{ image: string; tag: string; label: string }> {
   const seen = new Set<string>();
   const out: Array<{ image: string; tag: string; label: string; rank: number; at: number }> = [];
   for (const d of deploys) {
@@ -64,7 +72,21 @@ export function promoteCandidates(deploys: CloudDeploy[], fromEnv: string | unde
       at: Date.parse(d.completionTime ?? d.startTime ?? '') || 0,
     });
   }
+  for (const v of registry?.versions ?? []) {
+    const tag = releaseTagOf(v.tags);
+    if (!tag) continue;
+    const image = `${registry!.repository}:${tag}`;
+    if (seen.has(image)) continue;
+    seen.add(image);
+    const at = Date.parse(v.createdAt ?? '') || 0;
+    out.push({ image, tag, label: `${tag} (built${v.createdAt ? ` ${relativeTime(new Date(v.createdAt))}` : ''})`, rank: 3, at });
+  }
   return out.sort((a, b) => a.rank - b.rank || b.at - a.at).map(({ image, tag, label }) => ({ image, tag, label }));
+}
+
+/** The tag of a registry version to offer: not a signature/attestation (sha256-...) and not a per-architecture tag. */
+export function releaseTagOf(tags: string[]): string | undefined {
+  return tags.find(t => !t.startsWith('sha256-') && !/-(amd64|arm64)$/.test(t) && t !== 'latest');
 }
 
 export function usePinState(target: { owner: string; appName: string; env: string } | undefined, nonce = 0) {

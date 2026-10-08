@@ -11,6 +11,9 @@ import { ReleaseLog, buildLogEntries } from '../ReleaseLog.esm.js';
 import { LeadTimePanel } from '../TimelinePanel.esm.js';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel.esm.js';
 import { PromoteDialog } from '../PromoteDialog.esm.js';
+import { useEntity } from '@backstage/plugin-catalog-react';
+import { deployTargetOf } from '../serviceClass.esm.js';
+import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
 import { useReleaseRecords } from '../useReleaseRecords.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
@@ -64,6 +67,10 @@ function ReleasesTab() {
   const [activeTab, setActiveTab] = useState("matrix");
   const [promoteTarget, setPromoteTarget] = useState(null);
   const promote = usePromote();
+  const { entity } = useEntity();
+  const target = deployTargetOf(entity);
+  const isCloud = Boolean(target && target.id !== "k8s-rollout");
+  const [cloudTarget, setCloudTarget] = useState(null);
   useEffect(() => {
     if (promote.result && !promote.result.alreadyOpen) refresh();
   }, [promote.result]);
@@ -73,16 +80,22 @@ function ReleasesTab() {
   const previewEnvironments = environments.filter((env) => isPreviewEnvName(env.env));
   const targetIsLower = promoteTarget ? (pipelineOrder.lower ?? []).some((e) => e.toLowerCase() === promoteTarget.target.env.toLowerCase()) : false;
   const handlePromote = (source, targetEnvName) => {
-    const target = pipelineEnvironments.find((e) => e.env === targetEnvName);
-    if (!target) return;
+    if (isCloud) {
+      const image = source.image ?? pipelineEnvironments.find((e) => e.env === source.env)?.image;
+      if (!image) return;
+      setCloudTarget({ image, from: source.env, env: targetEnvName, flight: (pipelineOrder.upper ?? []).includes(targetEnvName) });
+      return;
+    }
+    const target2 = pipelineEnvironments.find((e) => e.env === targetEnvName);
+    if (!target2) return;
     if (source.env) {
       const sourceEnv = pipelineEnvironments.find((e) => e.env === source.env);
       if (!sourceEnv) return;
       promote.reset();
-      setPromoteTarget({ source: sourceEnv, target });
+      setPromoteTarget({ source: sourceEnv, target: target2 });
     } else if (source.image) {
       promote.reset();
-      setPromoteTarget({ source: { image: source.image }, target });
+      setPromoteTarget({ source: { image: source.image }, target: target2 });
     }
   };
   return /* @__PURE__ */ jsxs("div", { children: [
@@ -190,6 +203,16 @@ function ReleasesTab() {
       )
     ] }),
     /* @__PURE__ */ jsx(
+      CloudPromoteDialog,
+      {
+        owner,
+        appName,
+        target: cloudTarget,
+        onClose: () => setCloudTarget(null),
+        onDone: refresh
+      }
+    ),
+    /* @__PURE__ */ jsx(
       PromoteDialog,
       {
         target: promoteTarget,
@@ -198,15 +221,15 @@ function ReleasesTab() {
         targetIsLower,
         onConfirm: () => {
           if (!promoteTarget || !repoRef) return;
-          const { source, target } = promoteTarget;
+          const { source, target: target2 } = promoteTarget;
           if ("env" in source) {
             promote.promote({
               owner: repoRef.owner,
               appName: source.appName ?? "",
               sourceCluster: source.cluster,
               sourceEnv: source.env,
-              targetCluster: target.cluster,
-              targetEnv: target.env
+              targetCluster: target2.cluster,
+              targetEnv: target2.env
             });
             return;
           }
@@ -214,11 +237,11 @@ function ReleasesTab() {
           if (!split) return;
           promote.promote({
             owner: repoRef.owner,
-            appName: target.appName ?? appName ?? "",
+            appName: target2.appName ?? appName ?? "",
             sourceImageRepo: split.repo,
             sourceImageTag: split.tag,
-            targetCluster: target.cluster,
-            targetEnv: target.env
+            targetCluster: target2.cluster,
+            targetEnv: target2.env
           });
         }
       }

@@ -30,6 +30,11 @@ let mockDeploy: unknown = { target: 'aws-ecs', environments: [{ name: 'dev', tie
 jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: { values: { deploy: mockDeploy } } }),
 }));
+let mockImages: unknown = { loading: false, data: [] };
+jest.mock('../useReleaseData', () => ({
+  ...jest.requireActual('../useReleaseData'),
+  useImageVersions: () => mockImages,
+}));
 let mockPin: unknown = { loading: false, data: undefined };
 const mockSubmit = jest.fn(async () => ({ prUrl: 'https://github.com/jfillman/smoke-ecs/pull/9', alreadyOpen: false, pin: { tag: 'x' } }));
 jest.mock('../environments/releasePins', () => ({
@@ -108,7 +113,7 @@ describe('CloudDeploymentsTab', () => {
   it('says so, plainly, when there are no cloud deploys', () => {
     mockRuns = [];
     renderTab();
-    expect(screen.getByText(/No cloud deploys yet/)).toBeTruthy();
+    expect(screen.getByText(/No recent deploy runs/)).toBeTruthy();
   });
 
   it('shows no Flight panel for an app without Flight environments', () => {
@@ -144,5 +149,17 @@ describe('CloudDeploymentsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Roll back to 1.0.0-aaaaaaa' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open rollback PR' }));
     expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', rollbackTo: 'c1' }));
+  });
+
+  it('offers registry images to promote once the deploy runs are gone (smoke-az-fn, 2026-10-08)', () => {
+    mockDeploy = { target: 'azure-container-apps', environments: [{ name: 'dev', tier: 'ground' }, { name: 'prod', tier: 'flight' }] };
+    mockRuns = [];
+    mockPin = { loading: false, data: { env: 'prod', path: 'glidepath/releases/prod.yaml', history: [] } };
+    mockImages = { loading: false, data: [{ digest: 'sha256:b', tags: ['0.1.1-65d4c04', '0.1.1-65d4c04-amd64'], createdAt: '2026-10-07T20:56:02Z' }] };
+    renderTab();
+    expect(screen.getByText(/No recent deploy runs/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Promote to prod' }));
+    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', image: 'ghcr.io/jfillman/smoke-ecs:0.1.1-65d4c04' }));
+    mockImages = { loading: false, data: [] };
   });
 });

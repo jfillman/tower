@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { relativeTime } from '../shared/format.esm.js';
+import { useState, useCallback, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 function rollbackCandidate(state) {
@@ -6,7 +7,7 @@ function rollbackCandidate(state) {
   if (!current) return void 0;
   return state.history.slice(1).find((h) => h.pin && (h.pin.digest !== current.digest || h.pin.tag !== current.tag));
 }
-function promoteCandidates(deploys, fromEnv) {
+function promoteCandidates(deploys, fromEnv, registry) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
   for (const d of deploys) {
@@ -23,7 +24,19 @@ function promoteCandidates(deploys, fromEnv) {
       at: Date.parse(d.completionTime ?? d.startTime ?? "") || 0
     });
   }
+  for (const v of registry?.versions ?? []) {
+    const tag = releaseTagOf(v.tags);
+    if (!tag) continue;
+    const image = `${registry.repository}:${tag}`;
+    if (seen.has(image)) continue;
+    seen.add(image);
+    const at = Date.parse(v.createdAt ?? "") || 0;
+    out.push({ image, tag, label: `${tag} (built${v.createdAt ? ` ${relativeTime(new Date(v.createdAt))}` : ""})`, rank: 3, at });
+  }
   return out.sort((a, b) => a.rank - b.rank || b.at - a.at).map(({ image, tag, label }) => ({ image, tag, label }));
+}
+function releaseTagOf(tags) {
+  return tags.find((t) => !t.startsWith("sha256-") && !/-(amd64|arm64)$/.test(t) && t !== "latest");
 }
 function usePinState(target, nonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
@@ -83,5 +96,5 @@ function useSubmitPin() {
   return { ...state, submit, reset };
 }
 
-export { promoteCandidates, rollbackCandidate, usePinState, useSubmitPin };
+export { promoteCandidates, releaseTagOf, rollbackCandidate, usePinState, useSubmitPin };
 //# sourceMappingURL=releasePins.esm.js.map

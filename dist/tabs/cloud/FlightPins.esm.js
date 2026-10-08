@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { usePinState, useSubmitPin, promoteCandidates, rollbackCandidate } from '../../environments/releasePins.esm.js';
+import { useImageVersions } from '../../useReleaseData.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { SectionLabel, Panel, TierChip, Chip, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
@@ -29,11 +30,23 @@ const useStyles = makeStyles(() => ({
 }));
 function FlightPins({ owner, appName, flight, deploys }) {
   const ui = useUi({ t: useHangarTokens() });
+  const images = useImageVersions(flight.length > 0 ? { owner, repo: appName } : void 0);
   if (flight.length === 0) return null;
   return /* @__PURE__ */ jsxs("div", { style: { marginTop: 20 }, children: [
     /* @__PURE__ */ jsx(SectionLabel, { children: "Flight environments" }),
     /* @__PURE__ */ jsx("div", { className: ui.note, style: { margin: "6px 0 10px" }, children: "A Flight environment deploys only a pinned image. Promote and Roll back open a pull request that changes its pin; merging it is the approval, and Glidepath then deploys exactly that image." }),
-    flight.map((f) => /* @__PURE__ */ jsx(FlightPinRow, { owner, appName, env: f.name, previous: f.previous, deploys }, f.name))
+    flight.map((f) => /* @__PURE__ */ jsx(
+      FlightPinRow,
+      {
+        owner,
+        appName,
+        env: f.name,
+        previous: f.previous,
+        deploys,
+        registryVersions: images.data
+      },
+      f.name
+    ))
   ] });
 }
 function FlightPinRow({
@@ -41,7 +54,8 @@ function FlightPinRow({
   appName,
   env,
   previous,
-  deploys
+  deploys,
+  registryVersions
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
@@ -49,7 +63,10 @@ function FlightPinRow({
   const [nonce, setNonce] = useState(0);
   const pin = usePinState({ owner, appName, env }, nonce);
   const submit = useSubmitPin();
-  const candidates = useMemo(() => promoteCandidates(deploys, previous), [deploys, previous]);
+  const candidates = useMemo(
+    () => promoteCandidates(deploys, previous, registryVersions ? { repository: `ghcr.io/${owner}/${appName}`, versions: registryVersions } : void 0),
+    [deploys, previous, registryVersions, owner, appName]
+  );
   const [image, setImage] = useState("");
   const [confirmRollback, setConfirmRollback] = useState(false);
   useEffect(() => {

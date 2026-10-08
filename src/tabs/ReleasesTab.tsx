@@ -11,6 +11,9 @@ import { ReleaseLog, buildLogEntries } from '../ReleaseLog';
 import { LeadTimePanel } from '../TimelinePanel';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel';
 import { PromoteDialog } from '../PromoteDialog';
+import { useEntity } from '@backstage/plugin-catalog-react';
+import { deployTargetOf } from '../serviceClass';
+import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPromoteDialog';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel';
 import { useReleaseRecords } from '../useReleaseRecords';
 import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
@@ -108,6 +111,11 @@ export function ReleasesTab() {
     target: EnvironmentSummary;
   } | null>(null);
   const promote = usePromote();
+  // A cloud target (glidepath ADR-0020) promotes by release pin PR, not through the Kubernetes gitops flow.
+  const { entity } = useEntity();
+  const target = deployTargetOf(entity);
+  const isCloud = Boolean(target && target.id !== 'k8s-rollout');
+  const [cloudTarget, setCloudTarget] = useState<CloudPromoteTarget | null>(null);
 
   // 2026-09-16: "clicking on the promote button should refresh the panel as
   // soon as the promotion PR has been created" - Promote is currently the
@@ -135,6 +143,12 @@ export function ReleasesTab() {
     : false;
 
   const handlePromote = (source: { env?: string; image?: string }, targetEnvName: string) => {
+    if (isCloud) {
+      const image = source.image ?? pipelineEnvironments.find(e => e.env === source.env)?.image;
+      if (!image) return;
+      setCloudTarget({ image, from: source.env, env: targetEnvName, flight: (pipelineOrder.upper ?? []).includes(targetEnvName) });
+      return;
+    }
     const target = pipelineEnvironments.find(e => e.env === targetEnvName);
     if (!target) return;
     if (source.env) {
@@ -246,6 +260,13 @@ export function ReleasesTab() {
         )}
       </div>
 
+      <CloudPromoteDialog
+        owner={owner}
+        appName={appName}
+        target={cloudTarget}
+        onClose={() => setCloudTarget(null)}
+        onDone={refresh}
+      />
       <PromoteDialog
         target={promoteTarget}
         onClose={() => setPromoteTarget(null)}

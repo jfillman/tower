@@ -131,7 +131,7 @@ function CloudDeploymentsTab() {
   if (deploys.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
-      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No cloud deploys yet. Once a build finishes, the deploy stage runs against this service's target and shows up here." }),
+      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs); a Flight environment's current release is its pin, below." }),
       owner && /* @__PURE__ */ jsx(FlightPins, { owner, appName, flight, deploys })
     ] });
   }

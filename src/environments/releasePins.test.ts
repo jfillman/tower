@@ -1,4 +1,4 @@
-import { promoteCandidates, rollbackCandidate, type PinState } from './releasePins';
+import { promoteCandidates, releaseTagOf, rollbackCandidate, type PinState } from './releasePins';
 import type { CloudDeploy } from '../cloudDeploy';
 
 const d = (env: string, tag: string, phase: string, at: string): CloudDeploy =>
@@ -38,5 +38,27 @@ describe('rollbackCandidate', () => {
   it('is nothing with no history to go back to', () => {
     expect(rollbackCandidate({ env: 'prod', path: 'p', current: pin('1', 'a'), history: [{ sha: 's1', date: '', message: '', pin: pin('1', 'a') }] })).toBeUndefined();
     expect(rollbackCandidate({ env: 'prod', path: 'p', history: [] })).toBeUndefined();
+  });
+});
+
+describe('promoteCandidates from the registry', () => {
+  const versions = [
+    { digest: 'sha256:a', tags: ['sha256-abc.att'], createdAt: '2026-10-07T20:56:42Z' },
+    { digest: 'sha256:b', tags: ['0.1.1-65d4c04', '0.1.1-65d4c04-amd64'], createdAt: '2026-10-07T20:56:02Z' },
+    { digest: 'sha256:c', tags: ['0.1.0-dac9953'], createdAt: '2026-10-06T10:00:00Z' },
+  ];
+  it('offers built images when no deploy runs are left, newest first, skipping signatures and per-arch tags', () => {
+    const out = promoteCandidates([], 'dev', { repository: 'ghcr.io/o/fn', versions });
+    expect(out.map(c => c.image)).toEqual(['ghcr.io/o/fn:0.1.1-65d4c04', 'ghcr.io/o/fn:0.1.0-dac9953']);
+    expect(out[0].label).toMatch(/^0\.1\.1-65d4c04 \(built/);
+  });
+  it('keeps run-derived images first and does not repeat them', () => {
+    const run = { imageRef: 'ghcr.io/o/fn:0.1.0-dac9953', imageTag: '0.1.0-dac9953', env: 'dev', phase: 'succeeded', completionTime: '2026-10-06T11:00:00Z' } as never;
+    const out = promoteCandidates([run], 'dev', { repository: 'ghcr.io/o/fn', versions });
+    expect(out.map(c => c.image)).toEqual(['ghcr.io/o/fn:0.1.0-dac9953', 'ghcr.io/o/fn:0.1.1-65d4c04']);
+  });
+  it('releaseTagOf picks the multi-arch tag', () => {
+    expect(releaseTagOf(['0.1.1-x-amd64', '0.1.1-x'])).toBe('0.1.1-x');
+    expect(releaseTagOf(['sha256-1.sig'])).toBeUndefined();
   });
 });

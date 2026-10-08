@@ -4,6 +4,8 @@ import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { CloudDeploy } from '../../cloudDeploy';
 import { promoteCandidates, rollbackCandidate, usePinState, useSubmitPin } from '../../environments/releasePins';
+import { useImageVersions } from '../../useReleaseData';
+import type { ImageVersion } from '../../types';
 import { relativeTime } from '../../shared/format';
 import { Button, Chip, Panel, SectionLabel, TierChip } from '../../ui';
 import { useUi } from '../../ui/styles';
@@ -44,6 +46,8 @@ export interface FlightPinsProps {
 
 export function FlightPins({ owner, appName, flight, deploys }: FlightPinsProps) {
   const ui = useUi({ t: useHangarTokens() });
+  // The registry's images: Promote's choices once the deploy runs that built them have been cleaned up.
+  const images = useImageVersions(flight.length > 0 ? { owner, repo: appName } : undefined);
   if (flight.length === 0) return null;
   return (
     <div style={{ marginTop: 20 }}>
@@ -53,7 +57,15 @@ export function FlightPins({ owner, appName, flight, deploys }: FlightPinsProps)
         pin; merging it is the approval, and Glidepath then deploys exactly that image.
       </div>
       {flight.map(f => (
-        <FlightPinRow key={f.name} owner={owner} appName={appName} env={f.name} previous={f.previous} deploys={deploys} />
+        <FlightPinRow
+          key={f.name}
+          owner={owner}
+          appName={appName}
+          env={f.name}
+          previous={f.previous}
+          deploys={deploys}
+          registryVersions={images.data}
+        />
       ))}
     </div>
   );
@@ -65,12 +77,14 @@ function FlightPinRow({
   env,
   previous,
   deploys,
+  registryVersions,
 }: {
   owner: string;
   appName: string;
   env: string;
   previous?: string;
   deploys: CloudDeploy[];
+  registryVersions?: ImageVersion[];
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
@@ -78,7 +92,11 @@ function FlightPinRow({
   const [nonce, setNonce] = useState(0);
   const pin = usePinState({ owner, appName, env }, nonce);
   const submit = useSubmitPin();
-  const candidates = useMemo(() => promoteCandidates(deploys, previous), [deploys, previous]);
+  const candidates = useMemo(
+    () =>
+      promoteCandidates(deploys, previous, registryVersions ? { repository: `ghcr.io/${owner}/${appName}`, versions: registryVersions } : undefined),
+    [deploys, previous, registryVersions, owner, appName],
+  );
   const [image, setImage] = useState('');
   const [confirmRollback, setConfirmRollback] = useState(false);
   useEffect(() => {
