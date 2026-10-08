@@ -7,6 +7,7 @@ const TARGET_BLOCK = {
   "azure-container-apps": "azureContainerApps"
 };
 const ENV_NAME = /^[a-z][a-z0-9-]{0,30}$/;
+const KNOWN_KEYS = /* @__PURE__ */ new Set(["name", "tier", "cluster", "production", ...CLOUD_BLOCKS]);
 const asBlock = (v) => v && typeof v === "object" && !Array.isArray(v) ? v : void 0;
 function readEnvironments(deploy) {
   const d = deploy ?? {};
@@ -18,10 +19,13 @@ function readEnvironments(deploy) {
       if (!e || typeof e.name !== "string") continue;
       const env = { name: e.name, tier: e.tier === "flight" ? "flight" : "ground" };
       if (typeof e.cluster === "string" && e.cluster) env.cluster = e.cluster;
+      if (e.production === true) env.production = true;
       for (const b of CLOUD_BLOCKS) {
         const v = asBlock(e[b]);
         if (v) env[b] = v;
       }
+      const rest = Object.fromEntries(Object.entries(e).filter(([k]) => !KNOWN_KEYS.has(k)));
+      if (Object.keys(rest).length > 0) env.rest = rest;
       envs.push(env);
     }
     return { shape: "new", envs };
@@ -75,6 +79,9 @@ function validateEnvironments(envs, target) {
       problems.push(`"${e.name}" is not a valid environment name (lowercase letters, digits and "-", starting with a letter, at most 31 characters).`);
     }
     if (seen.has(e.name)) problems.push(`Environment "${e.name}" is listed twice.`);
+    if (e.production && e.tier !== "flight") {
+      problems.push(`Environment "${e.name}" is production but Ground. A production environment is a Flight environment (ADR-0024).`);
+    }
     seen.add(e.name);
     if (e.tier === "ground" && e.cluster) {
       problems.push(`Ground environment "${e.name}" sets a cluster. Ground environments on other clusters are not supported yet.`);
@@ -95,8 +102,9 @@ function buildDeploy(originalDeploy, envs) {
   const serialize = (e) => {
     const o = { name: e.name, tier: e.tier };
     if (e.cluster) o.cluster = e.cluster;
+    if (e.production) o.production = true;
     for (const b of CLOUD_BLOCKS) if (e[b]) o[b] = e[b];
-    return o;
+    return { ...o, ...e.rest ?? {} };
   };
   return { ...rest, environments: envs.map(serialize) };
 }

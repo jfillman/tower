@@ -169,7 +169,10 @@ function Settings({ row, ctx }) {
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsxs("div", { className: c.facts, children: [
       /* @__PURE__ */ jsx(ColumnLabel, { children: "Tier" }),
-      /* @__PURE__ */ jsx("span", { children: def.tier === "flight" ? "Flight" : "Ground" }),
+      /* @__PURE__ */ jsxs("span", { children: [
+        def.tier === "flight" ? "Flight" : "Ground",
+        def.production ? " \xB7 production" : ""
+      ] }),
       /* @__PURE__ */ jsx(ColumnLabel, { children: "Cluster" }),
       /* @__PURE__ */ jsx("span", { className: c.mono, children: def.cluster ?? row.where }),
       /* @__PURE__ */ jsx(ColumnLabel, { children: "Target" }),
