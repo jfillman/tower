@@ -7,6 +7,7 @@ import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import CheckIcon from '@material-ui/icons/Check';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
+import RoomIcon from '@material-ui/icons/Room';
 import AddIcon from '@material-ui/icons/Add';
 import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
@@ -158,6 +159,7 @@ function CellIcon({ status }: { status: ReleaseCell['status'] }) {
   if (status === 'deployed') return <CheckIcon fontSize="inherit" />;
   if (status === 'pending') return <AutorenewIcon style={{ fontSize: 13 }} />;
   if (status === 'promotable') return <AddIcon style={{ fontSize: 14 }} />;
+  if (status === 'pinned') return <RoomIcon style={{ fontSize: 13 }} />;
   return <span>·</span>;
 }
 
@@ -316,7 +318,7 @@ export function ReleaseMatrix({
                           className={[
                             classes.cell,
                             cell.status === 'deployed' ? classes.cellDeployed : '',
-                            cell.status === 'pending' ? classes.cellPending : '',
+                            cell.status === 'pending' || cell.status === 'pinned' ? classes.cellPending : '',
                             cell.status === 'promotable' ? classes.cellPromotable : '',
                             cell.status === 'none' ? classes.cellNone : '',
                             clickable ? classes.cellClickable : '',
@@ -364,6 +366,11 @@ export function ReleaseMatrix({
                   deployed
                 </span>
               )}
+              {openCell.status === 'pinned' && (
+                <span className={classes.pill} style={{ backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }}>
+                  pinned, not deployed
+                </span>
+              )}
               {openCell.status === 'promotable' && (
                 <span className={classes.pill} style={{ backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }}>
                   not yet promoted
@@ -373,6 +380,29 @@ export function ReleaseMatrix({
                 close ✕
               </button>
             </div>
+
+            {openCell.status === 'pinned' && (
+              <>
+                <Typography className={classes.fact} style={{ marginTop: 0 }}>
+                  {open.env} is already pinned to this image (its pin PR merged), but no deploy of it has succeeded in{' '}
+                  {open.env} yet, so there is nothing to promote. The deploy runs on the Pipelines tab say why.
+                </Typography>
+                <button
+                  type="button"
+                  className={classes.promoteBtn}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() =>
+                    setSearchParams(prev => {
+                      const next = new URLSearchParams(prev);
+                      next.set('tab', 'pipelines');
+                      return next;
+                    })
+                  }
+                >
+                  Open Pipelines →
+                </button>
+              </>
+            )}
 
             {openCell.status === 'promotable' && openCell.sourceEnv && (
               <>

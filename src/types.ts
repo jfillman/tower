@@ -430,7 +430,10 @@ export interface PromoteRequest {
 }
 
 export interface PromoteResult {
-  mode: 'pr' | 'direct-commit';
+  // 'pipeline': the release Pipeline started but had not opened its PR yet when the request returned.
+  mode: 'pr' | 'direct-commit' | 'pipeline';
+  // The release PipelineRun a Flight promotion started (app-<app>-cicd on kind-dev).
+  pipelineRun?: string;
   prUrl?: string;
   alreadyOpen?: boolean;
   commitUrl?: string;

@@ -148,3 +148,38 @@ export function useSubmitPin() {
   const reset = useCallback(() => setState({ loading: false }), []);
   return { ...state, submit, reset };
 }
+
+/** The pinned image tag of each of a cloud app's Flight environments (env -> tag; absent when unpinned or unreadable). */
+export function usePinnedTags(owner: string | undefined, appName: string | undefined, envs: string[], nonce = 0): Record<string, string | undefined> {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [pins, setPins] = useState<Record<string, string | undefined>>({});
+  const key = owner && appName ? `${owner}/${appName}/${envs.join(',')}` : '';
+  useEffect(() => {
+    if (!owner || !appName || envs.length === 0) {
+      setPins({});
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      const base = await discoveryApi.getBaseUrl('glidepath');
+      const entries = await Promise.all(
+        envs.map(async env => {
+          try {
+            const res = await fetchApi.fetch(`${base}/pin?${new URLSearchParams({ owner, appName, env }).toString()}`);
+            if (!res.ok) return [env, undefined] as const;
+            return [env, ((await res.json()) as PinState).current?.tag] as const;
+          } catch {
+            return [env, undefined] as const;
+          }
+        }),
+      );
+      if (!cancelled) setPins(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, nonce, discoveryApi, fetchApi]);
+  return pins;
+}

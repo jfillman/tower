@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { usePromote } from '../useReleaseData';
-import { useReleaseContext } from '../useReleaseContext';
+import { applyCloudPins, useReleaseContext } from '../useReleaseContext';
+import { usePinnedTags } from '../environments/releasePins';
 import { CommandDeck } from '../CommandDeck';
 import { ReleaseMatrix } from '../ReleaseMatrix';
 import { ReleaseLog, buildLogEntries } from '../ReleaseLog';
@@ -116,6 +117,9 @@ export function ReleasesTab() {
   const target = deployTargetOf(entity);
   const isCloud = Boolean(target && target.id !== 'k8s-rollout');
   const [cloudTarget, setCloudTarget] = useState<CloudPromoteTarget | null>(null);
+  const [pinNonce, setPinNonce] = useState(0);
+  const pinnedTags = usePinnedTags(isCloud ? owner : undefined, appName, isCloud ? pipelineOrder.upper ?? [] : [], pinNonce);
+  const matrixReleases = useMemo(() => (isCloud ? applyCloudPins(releases, pinnedTags) : releases), [isCloud, releases, pinnedTags]);
 
   // 2026-09-16: "clicking on the promote button should refresh the panel as
   // soon as the promotion PR has been created" - Promote is currently the
@@ -218,7 +222,7 @@ export function ReleasesTab() {
       <div className={classes.panelSpacer}>
         {activeTab === 'matrix' && (
           <ReleaseMatrix
-            releases={releases}
+            releases={matrixReleases}
             totalCount={releaseTotalCount}
             environments={pipelineEnvironments}
             provenanceByImage={provenanceByImage}
@@ -265,7 +269,10 @@ export function ReleasesTab() {
         appName={appName}
         target={cloudTarget}
         onClose={() => setCloudTarget(null)}
-        onDone={refresh}
+        onDone={() => {
+          refresh();
+          setPinNonce(n => n + 1);
+        }}
       />
       <PromoteDialog
         target={promoteTarget}

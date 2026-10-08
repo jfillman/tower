@@ -89,6 +89,18 @@ export function PromoteDialog({
     onClose();
   };
 
+  const goToRun = () => {
+    const run = promote.result?.pipelineRun;
+    if (!run) return;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'pipelines');
+      next.set('run', run);
+      return next;
+    });
+    onClose();
+  };
+
   return (
     <Dialog
       open={Boolean(target)}
@@ -114,12 +126,13 @@ export function PromoteDialog({
                   </>
                 ) : (
                   <>
-                    Opens a real PR against{' '}
+                    Runs {appName}&apos;s release pipeline, which opens a PR against{' '}
                     <span style={mono}>gitops-{appName}</span> bumping{' '}
                     <span style={mono}>
-                      {target.target.cluster}/{target.target.env}/values.yaml
-                    </span>
-                    . ArgoCD won't sync anything until that PR is reviewed and merged.
+                      {target.target.cluster}/{target.target.env}/release.yaml
+                    </span>{' '}
+                    and starts tracking the release. ArgoCD won&apos;t sync anything until that PR is reviewed and
+                    merged. Opening the PR takes about a minute.
                   </>
                 )}{' '}
                 {source ? (
@@ -151,6 +164,17 @@ export function PromoteDialog({
                 </Link>
               </DialogContentText>
             )}
+            {promote.result?.pipelineRun && (
+              <DialogContentText className={classes.text}>
+                {promote.result.mode === 'pipeline'
+                  ? 'The release pipeline is still running; its PR will appear in the Pull requests tab when it opens. '
+                  : ''}
+                Release run:{' '}
+                <Link className={classes.link} component="button" onMouseDown={e => e.preventDefault()} onClick={goToRun}>
+                  {promote.result.pipelineRun}
+                </Link>
+              </DialogContentText>
+            )}
             {promote.result?.mode === 'direct-commit' && (
               <DialogContentText className={classes.text}>
                 Committed - ArgoCD will sync it shortly:{' '}
@@ -172,7 +196,7 @@ export function PromoteDialog({
                   disabled={promote.loading}
                   onClick={onConfirm}
                 >
-                  {targetIsLower ? 'Commit and deploy' : 'Open release PR'}
+                  {targetIsLower ? 'Commit and deploy' : 'Start release'}
                 </Button>
               </>
             ) : (

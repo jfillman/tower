@@ -433,7 +433,10 @@ export interface ReleaseCell {
   // pending there - the matrix's replacement for the per-env ReleaseCard's
   // unconditional "Promote to <next env>" button (see ReleasesTab.tsx's own
   // 2026-09-16 header comment on the Command Deck / split sub-tabs revamp).
-  status: 'deployed' | 'pending' | 'promotable' | 'none';
+  // 'pinned' (cloud targets): the environment's release pin already names this image - the pin PR merged - but no
+  // deploy of it has succeeded there yet (2026-10-08: smoke-az-fn offered "Promote to prod" for the image prod was
+  // already pinned to, because its deploy fails at Azure by design). Promoting again would change nothing.
+  status: 'deployed' | 'pending' | 'promotable' | 'pinned' | 'none';
   date?: string;
   sha?: string;
   pr?: PullRequestSummary;
@@ -656,4 +659,22 @@ export function buildReleases(
   }
 
   return { rows: withCurrent, total: sorted.length };
+}
+
+/**
+ * Cloud targets: marks the cell of each environment's pinned image 'pinned' where the matrix would offer to promote it
+ * (the pin merged but no deploy of it succeeded). `pins` is environment name -> pinned image tag.
+ */
+export function applyCloudPins(rows: ReleaseRow[], pins: Record<string, string | undefined>): ReleaseRow[] {
+  return rows.map(row => {
+    let changed = false;
+    const cells: Record<string, ReleaseCell> = {};
+    for (const [env, cell] of Object.entries(row.cells)) {
+      if (cell.status === 'promotable' && pins[env] && pins[env] === row.imageTag) {
+        cells[env] = { status: 'pinned', date: cell.date, sha: cell.sha };
+        changed = true;
+      } else cells[env] = cell;
+    }
+    return changed ? { ...row, cells } : row;
+  });
 }
