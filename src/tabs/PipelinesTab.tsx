@@ -78,7 +78,37 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
   activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  rangeGroup: { display: 'flex', alignItems: 'center', gap: 6 },
+  rangeLabel: { fontSize: 12, color: ({ t }) => t.textFaint },
+  rangeChip: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    padding: '4px 9px',
+    borderRadius: 6,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.panel,
+    color: ({ t }) => t.textLo,
+    cursor: 'pointer',
+  },
+  rangeChipOn: {
+    borderColor: ({ t }) => t.amberLine,
+    backgroundColor: ({ t }) => t.amberSoft,
+    color: ({ t }) => t.amberInk,
+  },
 }));
+
+// How far back the run list reaches. 'live' is what the cluster still holds (Tekton deletes a finished run about an
+// hour after it completes); the others add archived runs from Tekton Results, which keeps 30 days.
+type HistoryRange = 'live' | '24h' | '7d' | '30d';
+const HISTORY_RANGES: Array<{ key: HistoryRange; label: string; hours: number }> = [
+  { key: 'live', label: 'Live', hours: 0 },
+  { key: '24h', label: '24h', hours: 24 },
+  { key: '7d', label: '7d', hours: 168 },
+  { key: '30d', label: '30d', hours: 720 },
+];
+// Live view still reads a day of archive: a live run borrows its flow nickname from earlier stages already archived.
+const LIVE_ARCHIVE_HOURS = 24;
+const HISTORY_LIMIT = 500;
 
 export function PipelinesTab() {
   const t = useHangarTokens();
@@ -90,6 +120,14 @@ export function PipelinesTab() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get('run') ?? undefined;
+  const historyRange = (HISTORY_RANGES.find(r => r.key === searchParams.get('history'))?.key ?? 'live') as HistoryRange;
+  const setHistoryRange = (range: HistoryRange) =>
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (range === 'live') next.delete('history');
+      else next.set('history', range);
+      return next;
+    });
 
   const [ciRefreshNonce, setCiRefreshNonce] = useState(0);
   const refreshAll = () => {
@@ -119,28 +157,43 @@ export function PipelinesTab() {
   // (a live run object in `byName` below is the exact same reference
   // pipelineRuns.runs holds, so setting its .flowSlug here is visible to
   // every other read of pipelineRuns.runs too).
-  const archivedPipelineRuns = useTektonResultsRuns(appName, ciRefreshNonce);
-  useMemo(() => {
+  //
+  // 2026-10-08: archived runs are also listed when a history range is picked (owner: "view pipelines and their
+  // results for the last n pipelines and/or the last n hours"); the live view still lists live runs only.
+  const rangeHours = HISTORY_RANGES.find(r => r.key === historyRange)!.hours;
+  const archivedPipelineRuns = useTektonResultsRuns(
+    appName,
+    ciRefreshNonce,
+    historyRange === 'live' ? LIVE_ARCHIVE_HOURS : rangeHours,
+    HISTORY_LIMIT,
+  );
+  const mergedRuns = useMemo(() => {
     const byName = new Map<string, PipelineRunSummary>();
     archivedPipelineRuns.runs.forEach(run => byName.set(run.name, run));
     pipelineRuns.runs.forEach(run => byName.set(run.name, run));
-    linkFlowSlugsByChainId([...byName.values()]);
+    const merged = [...byName.values()].sort(
+      (a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime(),
+    );
+    linkFlowSlugsByChainId(merged);
+    return merged;
   }, [pipelineRuns.runs, archivedPipelineRuns.runs]);
+  const listRuns = historyRange === 'live' ? pipelineRuns.runs : mergedRuns;
   const rerun = useRerunPipelineRun(() => setCiRefreshNonce(n => n + 1));
   const cancelRun = useCancelPipelineRun(() => setCiRefreshNonce(n => n + 1));
   const [selectedRunName, setSelectedRunName] = useState<string | undefined>(undefined);
   const [dagExpandSignal, setDagExpandSignal] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (selectedRunName && pipelineRuns.runs.some(r => r.name === selectedRunName)) return;
-    if (linkedRun && pipelineRuns.runs.some(r => r.name === linkedRun)) {
+    if (selectedRunName && mergedRuns.some(r => r.name === selectedRunName)) return;
+    // A linked run may already be archived (deep links from the Release tab): it opens even in the live view.
+    if (linkedRun && mergedRuns.some(r => r.name === linkedRun)) {
       setSelectedRunName(linkedRun);
       setDagExpandSignal(n => (n ?? 0) + 1);
       return;
     }
-    setSelectedRunName(pipelineRuns.runs[0]?.name);
+    setSelectedRunName(listRuns[0]?.name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pipelineRuns.runs, linkedRun]);
-  const selectedRun = pipelineRuns.runs.find(r => r.name === selectedRunName);
+  }, [listRuns, mergedRuns, linkedRun]);
+  const selectedRun = mergedRuns.find(r => r.name === selectedRunName);
   const dagPanelRef = useRef<HTMLDivElement>(null);
   const selectRun = (name: string) => {
     setSelectedRunName(name);
@@ -166,15 +219,19 @@ export function PipelinesTab() {
   const hasActivity = activeRunItems.length > 0 || pendingDeployCount > 0;
 
   let ciBody: JSX.Element;
-  if (pipelineRuns.error && !pipelineRuns.loading && pipelineRuns.runs.length === 0) {
+  const listLoading = pipelineRuns.loading || (historyRange !== 'live' && archivedPipelineRuns.loading);
+  if (pipelineRuns.error && !pipelineRuns.loading && listRuns.length === 0) {
     ciBody = <ResponseErrorPanel error={new Error(pipelineRuns.error)} />;
-  } else if (pipelineRuns.loading) {
+  } else if (listLoading && listRuns.length === 0) {
     ciBody = <Progress />;
   } else {
     ciBody = (
       <>
+        {historyRange !== 'live' && archivedPipelineRuns.error && (
+          <Typography className={classes.warnNote}>Archived runs unavailable: {archivedPipelineRuns.error}</Typography>
+        )}
         <PipelineRunList
-          runs={pipelineRuns.runs}
+          runs={listRuns}
           selectedName={selectedRunName}
           onSelect={run => selectRun(run.name)}
           onRerun={rerun.rerun}
@@ -234,8 +291,29 @@ export function PipelinesTab() {
               'Continuous Integration' header?") - CD moved to the Deployments tab,
               so this tab is only pipelines and the tab name already says so. */}
           <span className={classes.sectionSub}>
-            {pipelineRuns.loading ? 'loading…' : `${pipelineRuns.runs.length} pipeline run${pipelineRuns.runs.length === 1 ? '' : 's'}`} &middot; kind-dev
+            {listLoading
+              ? 'loading…'
+              : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
+                  historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
+                }`}{' '}
+            &middot; kind-dev
           </span>
+          <div className={classes.rangeGroup} role="group" aria-label="Run history range">
+            <span className={classes.rangeLabel}>History</span>
+            {HISTORY_RANGES.map(r => (
+              <button
+                key={r.key}
+                type="button"
+                className={`${classes.rangeChip} ${historyRange === r.key ? classes.rangeChipOn : ''}`}
+                aria-pressed={historyRange === r.key}
+                title={r.key === 'live' ? 'Runs still on the cluster (about the last hour)' : `Include archived runs from the last ${r.label}`}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setHistoryRange(r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
         {ciBody}
       </div>

@@ -67,14 +67,19 @@ Live status, SLO metrics, activity feeds
 ### CI/CD Pipelines
 
 ```
-Tekton API
+Tekton API (live runs)  +  Backstage backend /api/glidepath/pipeline-history (archived runs)
   ↓
-PipelineRunList (list runs)
+PipelineRunList (list runs; History range Live / 24h / 7d / 30d)
   ↓
-PipelineFlow (render DAG)
+PipelineDag (render DAG)
   ↓
-TaskRunLogConsole (stream logs)
+TaskRunLogConsole (live: pod logs; archived: Tekton Results logs)
 ```
+
+Tekton deletes a finished run from the cluster about an hour after it completes. Older runs come from Tekton Results
+(30-day retention) through the Backstage backend, which queries Results server-side, trims each run to the fields Tower
+reads and caches it (`packages/backend/src/pipelineHistory.ts` in the backstage repo). The Release Record's "What was
+built" and the cloud deployments view read the same endpoint.
 
 ## Key Design Decisions
 

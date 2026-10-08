@@ -574,7 +574,7 @@ export function PipelineRunList({
                 <MiniDag run={run} maxCols={maxCols} maxRows={maxRows} />
               </div>
               <div className={classes.side}>
-                {run.phase === 'failed' && onRerun && (
+                {run.phase === 'failed' && onRerun && !run.archive && (
                   <button
                     type="button"
                     className={classes.rerunBtn}

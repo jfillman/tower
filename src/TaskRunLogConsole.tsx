@@ -4,6 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs';
+import { useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi';
 import type { TaskStepSummary } from './tekton/types';
 import { renderAnsi, type AnsiState } from './ansi';
 
@@ -65,15 +66,20 @@ export function TaskRunLogConsole({
   namespace,
   podName,
   steps,
+  archive,
 }: {
   cluster: string;
   namespace: string;
   podName: string;
   steps: TaskStepSummary[];
+  // An archived run's pod is gone: its logs come from Tekton Results by Log record id instead.
+  archive?: { app: string; result: string; taskRun: string };
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const { loading, blocks } = useTaskRunLogs({ cluster, namespace, podName, steps });
+  const live = useTaskRunLogs(archive ? undefined : { cluster, namespace, podName, steps });
+  const archived = useArchivedTaskRunLogs(archive ? { ...archive, steps } : undefined);
+  const { loading, blocks } = archive ? archived : live;
 
   // Follows new lines to the bottom as they stream in (2026-09-12 bug:
   // "watching live CI logs doesn't keep the screen scrolled to the bottom").
@@ -89,6 +95,7 @@ export function TaskRunLogConsole({
   }, [blocks]);
 
   if (loading) return <Typography className={classes.note}>Loading logs&hellip;</Typography>;
+  if (archive && archived.error) return <Typography className={classes.note}>{archived.error}</Typography>;
 
   return (
     <pre

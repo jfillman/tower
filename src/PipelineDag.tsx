@@ -212,6 +212,17 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, display: 'block' },
   kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
   note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
+  archivedTag: {
+    marginLeft: 8,
+    padding: '1px 6px',
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 4,
+    fontFamily: fontMono,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: ({ t }) => t.textFaint,
+  },
   logsWrap: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioSection: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioTitle: {
@@ -394,6 +405,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
         <span className={classes.headTitle}>
           {run.pipelineName ?? 'pipeline'} &middot;{' '}
           <span className={classes.headTitleValue}>{run.name}</span>
+          {run.archive && (
+            <span className={classes.archivedTag} title="Finished more than an hour ago: read from Tekton Results, the 30-day run archive">
+              archived
+            </span>
+          )}
         </span>
         <div className={classes.controls}>
           <button type="button" className={classes.utilBtn} onClick={() => setYamlOpen(true)}>
@@ -635,6 +651,7 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                     namespace={openTaskRun.namespace}
                     podName={openTaskRun.podName}
                     steps={openTaskRun.steps}
+                    archive={run.archive ? { ...run.archive, taskRun: openTaskRun.name } : undefined}
                   />
                 </div>
               )}

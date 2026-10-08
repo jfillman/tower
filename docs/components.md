@@ -188,13 +188,17 @@ Paginated list of pipeline runs with filtering.
 
 ### TaskRunLogConsole
 
-Live log console for task execution.
+Log console for one TaskRun, every step in one window. Live runs stream from the pod; archived runs (`archive` set)
+read the step logs Tekton Results stored, through `/api/glidepath/pipeline-history/log`.
 
 **Props:**
 ```typescript
 {
-  taskRun: TaskRun;
-  onClose: () => void;
+  cluster: string;
+  namespace: string;
+  podName: string;
+  steps: TaskStepSummary[];
+  archive?: { app: string; result: string; taskRun: string };
 }
 ```
 

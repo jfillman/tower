@@ -113,6 +113,15 @@ export interface PipelineRunSummary {
   params: TaskParam[];
   results: TaskResult[];
   raw: unknown;
+  // Set when the run came from Tekton Results (the archive) rather than the live cluster: its pods are gone, so
+  // step logs come from the archive, and it cannot be re-run from its trimmed spec.
+  archive?: ArchivedRunRef;
+}
+
+export interface ArchivedRunRef {
+  app: string;
+  /** The Result id. */
+  result: string;
 }
 
 export interface GraphNode {
