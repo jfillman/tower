@@ -1,4 +1,17 @@
-import { buildPeers, gatewayNamespaceOf, parseLabels, parsePeers, parsePorts, validatePeers, withGatewayNamespace } from './networkPolicy';
+import {
+  GATEWAY_NS_KEY,
+  buildParentRefs,
+  buildPeers,
+  gatewayNamespaceOf,
+  gatewaySelectorPatch,
+  isSimpleGatewaySelector,
+  parseLabels,
+  parseParentRefs,
+  parsePeers,
+  parsePorts,
+  validatePeers,
+  withGatewayNamespace,
+} from './networkPolicy';
 
 describe('peers', () => {
   const peers = [
@@ -46,5 +59,33 @@ describe('gateway namespace selector', () => {
       matchLabels: { x: 'y', 'kubernetes.io/metadata.name': 'gw' },
       matchExpressions: [{ key: 'k' }],
     });
+  });
+});
+
+describe('gateway selector', () => {
+  it('is simple when unset or only the namespace-name label', () => {
+    expect(isSimpleGatewaySelector(undefined)).toBe(true);
+    expect(isSimpleGatewaySelector({ matchLabels: { [GATEWAY_NS_KEY]: 'g' } })).toBe(true);
+    expect(isSimpleGatewaySelector({ matchLabels: { [GATEWAY_NS_KEY]: 'g', tier: 'edge' } })).toBe(false);
+    expect(isSimpleGatewaySelector({ matchExpressions: [] })).toBe(false);
+  });
+  it('writes nothing when unchanged, YAML as written, or the merged namespace', () => {
+    const orig = { matchLabels: { [GATEWAY_NS_KEY]: 'g' } };
+    expect(gatewaySelectorPatch(orig, { networkPolicyGatewayAdvanced: false, networkPolicyGatewaySelectorYaml: '', networkPolicyGatewayNs: 'g' })).toEqual({});
+    expect(gatewaySelectorPatch(orig, { networkPolicyGatewayAdvanced: false, networkPolicyGatewaySelectorYaml: '', networkPolicyGatewayNs: 'h' })).toEqual({
+      ingressControllerNamespaceSelector: { matchLabels: { [GATEWAY_NS_KEY]: 'h' } },
+    });
+    expect(gatewaySelectorPatch(orig, { networkPolicyGatewayAdvanced: true, networkPolicyGatewaySelectorYaml: 'matchLabels: {a: b}', networkPolicyGatewayNs: '' })).toEqual({
+      ingressControllerNamespaceSelector: { matchLabels: { a: 'b' } },
+    });
+    expect(gatewaySelectorPatch(orig, { networkPolicyGatewayAdvanced: true, networkPolicyGatewaySelectorYaml: 'a: [', networkPolicyGatewayNs: '' })).toEqual({});
+  });
+});
+
+describe('parent refs', () => {
+  it('round-trips name, namespace and sectionName without inventing empty keys', () => {
+    const refs = [{ name: 'kiac', namespace: 'kiac-gateway', sectionName: 'https' }, { name: 'internal' }];
+    expect(buildParentRefs(parseParentRefs(refs))).toEqual(refs);
+    expect(buildParentRefs([{ name: ' ', namespace: 'x', sectionName: '' }])).toEqual([]);
   });
 });

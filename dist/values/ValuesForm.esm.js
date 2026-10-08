@@ -23,7 +23,7 @@ import { annotateValues, mergeValues } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
 import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
-import { parsePeers, gatewayNamespaceOf, validatePeers, buildPeers, withGatewayNamespace, blankPeer } from './networkPolicy.esm.js';
+import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
 
 function asRecord(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -725,13 +725,12 @@ function buildFormState(values) {
     httpRoutePath: typeof httpRoute.path === "string" ? httpRoute.path : "",
     httpRoutePathType: typeof httpRoute.pathType === "string" ? httpRoute.pathType : "",
     httpRouteAnnotations: parseAnnotationRows(httpRoute.annotations),
-    httpRouteParentRefs: Array.isArray(httpRoute.parentRefs) ? httpRoute.parentRefs.map((p) => ({
-      name: p.name ?? "",
-      namespace: p.namespace ?? ""
-    })) : [],
+    httpRouteParentRefs: parseParentRefs(httpRoute.parentRefs),
     networkPolicyEnabled: Boolean(networkPolicy.enabled ?? true),
     networkPolicyAllowIngressFromIngressController: Boolean(networkPolicy.allowIngressFromIngressController ?? true),
     networkPolicyGatewayNs: gatewayNamespaceOf(networkPolicy.ingressControllerNamespaceSelector),
+    networkPolicyGatewaySelectorYaml: dumpOrBlank(networkPolicy.ingressControllerNamespaceSelector),
+    networkPolicyGatewayAdvanced: !isSimpleGatewaySelector(networkPolicy.ingressControllerNamespaceSelector),
     networkPolicyIngressFrom: parsePeers(networkPolicy.allowIngressFrom),
     networkPolicyEgressTo: parsePeers(networkPolicy.allowEgressTo),
     networkPolicyExtraIngress: dumpOrBlank(networkPolicy.extraIngressRules),
@@ -802,6 +801,12 @@ function validateBeforeSubmit(form, rolloutEnabled) {
   }
   if (form.autoscalingEnabled && form.autoscalingMin !== "" && form.autoscalingMax !== "" && form.autoscalingMin > form.autoscalingMax) {
     errors.push("Autoscaling min replicas is greater than max replicas.");
+  }
+  if (form.networkPolicyGatewayAdvanced && form.networkPolicyGatewaySelectorYaml.trim()) {
+    const parsed = validateYamlBlock(form.networkPolicyGatewaySelectorYaml);
+    if (!parsed.valid || !parsed.parsed || typeof parsed.parsed !== "object" || Array.isArray(parsed.parsed)) {
+      errors.push("Gateway namespace selector must be a YAML mapping (matchLabels and/or matchExpressions).");
+    }
   }
   errors.push(...validatePeers(form.networkPolicyIngressFrom, "Network policy ingress source"));
   errors.push(...validatePeers(form.networkPolicyEgressTo, "Network policy egress destination"));
@@ -1002,7 +1007,7 @@ function ConfigEditor({
   if (fieldsChanged(["autoscalingEnabled", "autoscalingMin", "autoscalingMax", "autoscalingTargetCPUPercent"])) dirty.add("autoscaling");
   if (fieldsChanged(["ingressEnabled", "ingressHost", "ingressPath", "ingressPathType", "ingressTls", "ingressTlsSecretName", "ingressAnnotations"])) dirty.add("ingress");
   if (fieldsChanged(["httpRouteEnabled", "httpRouteHostnames", "httpRouteParentRefs", "httpRoutePath", "httpRoutePathType", "httpRouteAnnotations"])) dirty.add("httpRoute");
-  if (fieldsChanged(["networkPolicyEnabled", "networkPolicyAllowIngressFromIngressController", "networkPolicyGatewayNs", "networkPolicyIngressFrom", "networkPolicyEgressTo", "networkPolicyExtraIngress", "networkPolicyExtraEgress"])) dirty.add("networkPolicy");
+  if (fieldsChanged(["networkPolicyEnabled", "networkPolicyAllowIngressFromIngressController", "networkPolicyGatewayNs", "networkPolicyGatewaySelectorYaml", "networkPolicyGatewayAdvanced", "networkPolicyIngressFrom", "networkPolicyEgressTo", "networkPolicyExtraIngress", "networkPolicyExtraEgress"])) dirty.add("networkPolicy");
   if (fieldsChanged(["pdbEnabled", "pdbMinAvailable", "pdbMaxUnavailable"])) dirty.add("podDisruptionBudget");
   if (fieldsChanged(["serviceMonitorEnabled", "serviceMonitorPath", "serviceMonitorInterval", "serviceMonitorPort", "serviceMonitorLabels"])) dirty.add("serviceMonitor");
   if (fieldsChanged(["slackEnabled", "slackChannel"])) dirty.add("notifications");
@@ -1096,7 +1101,7 @@ function ConfigEditor({
         path: form.httpRoutePath.trim() || void 0,
         pathType: form.httpRoutePathType || void 0,
         ...annotationsPatch(asRecord(values.httpRoute), form.httpRouteAnnotations),
-        parentRefs: form.httpRouteParentRefs.filter((p) => p.name.trim())
+        parentRefs: buildParentRefs(form.httpRouteParentRefs)
       };
       summary.push(`httpRoute: ${form.httpRouteEnabled ? `enabled for ${form.httpRouteHostnames}` : "disabled"}`);
     }
@@ -1111,7 +1116,7 @@ function ConfigEditor({
         ...orig,
         enabled: form.networkPolicyEnabled,
         allowIngressFromIngressController: form.networkPolicyAllowIngressFromIngressController,
-        ...form.networkPolicyGatewayNs.trim() && form.networkPolicyGatewayNs.trim() !== gatewayNamespaceOf(orig.ingressControllerNamespaceSelector) ? { ingressControllerNamespaceSelector: withGatewayNamespace(orig.ingressControllerNamespaceSelector, form.networkPolicyGatewayNs.trim()) } : {},
+        ...gatewaySelectorPatch(orig.ingressControllerNamespaceSelector, form),
         ...list("allowIngressFrom", buildPeers(form.networkPolicyIngressFrom)),
         ...list("allowEgressTo", buildPeers(form.networkPolicyEgressTo)),
         ...rawList("extraIngressRules", form.networkPolicyExtraIngress),
@@ -1451,9 +1456,23 @@ function ConfigEditor({
                   }
                 }
               ),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  className: classes.input,
+                  placeholder: "listener (optional sectionName)",
+                  "aria-label": `Parent gateway ${i + 1} listener`,
+                  value: ref.sectionName,
+                  onChange: (e) => {
+                    const next = [...form.httpRouteParentRefs];
+                    next[i] = { ...next[i], sectionName: e.target.value };
+                    setF("httpRouteParentRefs", next, "httpRoute");
+                  }
+                }
+              ),
               /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => setF("httpRouteParentRefs", form.httpRouteParentRefs.filter((_, j) => j !== i), "httpRoute"), children: "Remove" })
             ] }, i)),
-            /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("httpRouteParentRefs", [...form.httpRouteParentRefs, { name: "", namespace: "" }], "httpRoute"), children: "+ Add parent gateway" })
+            /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: () => setF("httpRouteParentRefs", [...form.httpRouteParentRefs, { name: "", namespace: "", sectionName: "" }], "httpRoute"), children: "+ Add parent gateway" })
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, style: { marginTop: 16 }, children: [
@@ -1500,7 +1519,16 @@ function ConfigEditor({
             ),
             /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Allow ingress from the gateway/ingress controller" })
           ] }),
-          form.networkPolicyAllowIngressFromIngressController && /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 8 }, children: /* @__PURE__ */ jsx(Field, { label: "Gateway namespace", classes, children: /* @__PURE__ */ jsx(
+          form.networkPolicyAllowIngressFromIngressController && /* @__PURE__ */ jsx("div", { className: classes.grid, style: { marginTop: 8 }, children: form.networkPolicyGatewayAdvanced ? /* @__PURE__ */ jsx("div", { style: { gridColumn: "1 / -1" }, children: /* @__PURE__ */ jsx(
+            YamlBlockEditor,
+            {
+              label: "Gateway namespace selector",
+              hint: "A Kubernetes namespace selector (matchLabels and/or matchExpressions). Empty: the chart default applies.",
+              value: form.networkPolicyGatewaySelectorYaml,
+              onChange: (t) => setF("networkPolicyGatewaySelectorYaml", t, "networkPolicy"),
+              rows: 4
+            }
+          ) }) : /* @__PURE__ */ jsx(Field, { label: "Gateway namespace", classes, children: /* @__PURE__ */ jsx(
             "input",
             {
               className: classes.input,
@@ -1509,6 +1537,23 @@ function ConfigEditor({
               onChange: (e) => setF("networkPolicyGatewayNs", e.target.value, "networkPolicy")
             }
           ) }) }),
+          form.networkPolicyAllowIngressFromIngressController && !form.networkPolicyGatewayAdvanced && /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              className: classes.addBtn,
+              onMouseDown: (e) => e.preventDefault(),
+              onClick: () => {
+                setF(
+                  "networkPolicyGatewaySelectorYaml",
+                  form.networkPolicyGatewayNs.trim() ? dumpOrBlank(withGatewayNamespace(void 0, form.networkPolicyGatewayNs.trim())) : form.networkPolicyGatewaySelectorYaml,
+                  "networkPolicy"
+                );
+                setF("networkPolicyGatewayAdvanced", true, "networkPolicy");
+              },
+              children: "Edit the gateway selector as YAML"
+            }
+          ),
           /* @__PURE__ */ jsx(
             PeerList,
             {

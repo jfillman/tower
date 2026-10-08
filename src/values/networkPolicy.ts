@@ -1,3 +1,4 @@
+import { load } from 'js-yaml';
 // The chart's networkPolicy block (airframe-application values.schema.json): which peers may reach the workload and which
 // it may reach. A peer is one namespace (optionally narrowed by pod labels) or one external CIDR, optionally narrowed to
 // ports. Kept apart from the form so the shape can be tested on its own.
@@ -95,4 +96,68 @@ export const gatewayNamespaceOf = (selector: unknown): string => {
 export function withGatewayNamespace(selector: unknown, ns: string): Record<string, unknown> {
   const s = asRecord(selector);
   return { ...s, matchLabels: { ...asRecord(s.matchLabels), [GATEWAY_NS_KEY]: ns } };
+}
+
+/** A selector this form edits as a single namespace name: unset, or matchLabels with only that one label. */
+export function isSimpleGatewaySelector(selector: unknown): boolean {
+  if (selector === undefined || selector === null) return true;
+  const s = asRecord(selector);
+  const keys = Object.keys(s);
+  if (keys.length === 0) return true;
+  if (keys.length !== 1 || keys[0] !== 'matchLabels') return false;
+  const labels = Object.keys(asRecord(s.matchLabels));
+  return labels.length === 0 || (labels.length === 1 && labels[0] === GATEWAY_NS_KEY);
+}
+
+/**
+ * The networkPolicy patch for the gateway selector: the YAML as written (advanced), or the namespace name merged into
+ * the existing selector (simple). Empty means no change; unchanged values are left out so the file is not rewritten.
+ */
+export function gatewaySelectorPatch(
+  original: unknown,
+  form: { networkPolicyGatewayAdvanced: boolean; networkPolicyGatewaySelectorYaml: string; networkPolicyGatewayNs: string },
+): Record<string, unknown> {
+  if (form.networkPolicyGatewayAdvanced) {
+    const text = form.networkPolicyGatewaySelectorYaml.trim();
+    if (!text) return original === undefined ? {} : { ingressControllerNamespaceSelector: undefined };
+    let parsed: unknown;
+    try {
+      parsed = load(text);
+    } catch {
+      return {};
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return JSON.stringify(parsed) === JSON.stringify(original ?? null) ? {} : { ingressControllerNamespaceSelector: parsed };
+  }
+  const ns = form.networkPolicyGatewayNs.trim();
+  if (!ns || ns === gatewayNamespaceOf(original)) return {};
+  return { ingressControllerNamespaceSelector: withGatewayNamespace(original, ns) };
+}
+
+/** One httpRoute parentRef as the form edits it; empty strings are fields the file does not set. */
+export interface ParentRefRow {
+  name: string;
+  namespace: string;
+  sectionName: string;
+}
+
+export function parseParentRefs(value: unknown): ParentRefRow[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(p => {
+    const r = asRecord(p);
+    const str = (v: unknown) => (typeof v === 'string' ? v : '');
+    return { name: str(r.name), namespace: str(r.namespace), sectionName: str(r.sectionName) };
+  });
+}
+
+/** The parentRefs list to write: rows without a name are dropped, and empty optional fields are left out. */
+export function buildParentRefs(rows: ParentRefRow[]): Array<Record<string, string>> {
+  return rows
+    .filter(r => r.name.trim())
+    .map(r => {
+      const ref: Record<string, string> = { name: r.name.trim() };
+      if (r.namespace.trim()) ref.namespace = r.namespace.trim();
+      if (r.sectionName.trim()) ref.sectionName = r.sectionName.trim();
+      return ref;
+    });
 }

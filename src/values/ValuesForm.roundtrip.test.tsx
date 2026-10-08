@@ -50,6 +50,17 @@ describe('values form round trip: one edit leaves the rest of the block as it wa
     expect(patchOf().rollout).toEqual(expected);
   });
 
+  it('httpRoute: a parent ref listener (sectionName) survives an edit and can be set', () => {
+    const hr = { ...clone(original.httpRoute), parentRefs: [{ name: 'kiac', namespace: 'kiac-gateway', sectionName: 'https' }, { name: 'internal' }] };
+    open({ ...clone(original), httpRoute: hr });
+    tab('Networking');
+    fireEvent.change(screen.getByDisplayValue('boarding-api.prod.kind.local'), { target: { value: 'boarding-api.example.local' } });
+    expect(patchOf().httpRoute.parentRefs).toEqual(hr.parentRefs); // no namespace: '' added to the second
+    submit.mockClear();
+    fireEvent.change(screen.getByLabelText('Parent gateway 2 listener'), { target: { value: 'http' } });
+    expect(patchOf().httpRoute.parentRefs[1]).toEqual({ name: 'internal', sectionName: 'http' });
+  });
+
   it('httpRoute: editing the hostnames keeps the parent refs', () => {
     open();
     tab('Networking');
@@ -214,6 +225,30 @@ describe('values form: network policy', () => {
     expect((screen.getByLabelText('Gateway namespace') as HTMLInputElement).value).toBe('kiac-gateway');
     edit(() => screen.getByLabelText('Gateway namespace'), 'other-gateway');
     expect(patchOf().networkPolicy).toEqual({ ...np, ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'other-gateway' } } });
+  });
+
+  it('a selector that is more than one namespace name is shown and edited as YAML, not flattened', () => {
+    const selector = { matchLabels: { 'kubernetes.io/metadata.name': 'kiac-gateway', tier: 'edge' }, matchExpressions: [{ key: 'zone', operator: 'In', values: ['a'] }] };
+    open(withNp({ ingressControllerNamespaceSelector: selector }));
+    tab('Networking');
+    expect(screen.queryByLabelText('Gateway namespace')).toBeNull();
+    const yaml = screen.getByDisplayValue(/matchExpressions/) as HTMLTextAreaElement;
+    // An unrelated edit keeps the whole selector.
+    fireEvent.click(screen.getByRole('button', { name: '+ Add destination' }));
+    edit(() => screen.getByLabelText('Allow egress to 1 namespace'), 'db');
+    expect(patchOf().networkPolicy.ingressControllerNamespaceSelector).toEqual(selector);
+    submit.mockClear();
+    fireEvent.change(yaml, { target: { value: 'matchLabels:\n  tier: edge\n' } });
+    expect(patchOf().networkPolicy.ingressControllerNamespaceSelector).toEqual({ matchLabels: { tier: 'edge' } });
+  });
+
+  it('the simple namespace can be switched to YAML', () => {
+    open(withNp());
+    tab('Networking');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit the gateway selector as YAML' }));
+    const yaml = screen.getByDisplayValue(/kiac-gateway/) as HTMLTextAreaElement;
+    fireEvent.change(yaml, { target: { value: 'matchLabels:\n  gateway: "true"\n' } });
+    expect(patchOf().networkPolicy.ingressControllerNamespaceSelector).toEqual({ matchLabels: { gateway: 'true' } });
   });
 
   it('adds an ingress source with pod labels and ports, and an egress CIDR', () => {
