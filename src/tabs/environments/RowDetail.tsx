@@ -202,7 +202,10 @@ function Settings({ row, ctx }: { row: DisplayRow & { def: EnvDef }; ctx: RowDet
     <>
       <div className={c.facts}>
         <ColumnLabel>Tier</ColumnLabel>
-        <span>{def.tier === 'flight' ? 'Flight' : 'Ground'}</span>
+        <span>
+          {def.tier === 'flight' ? 'Flight' : 'Ground'}
+          {def.production ? ' · production' : ''}
+        </span>
         <ColumnLabel>Cluster</ColumnLabel>
         <span className={c.mono}>{def.cluster ?? row.where}</span>
         <ColumnLabel>Target</ColumnLabel>

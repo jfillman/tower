@@ -133,6 +133,20 @@ describe('buildDeploy', () => {
       ],
     });
   });
+  it('keeps production and keys Tower does not edit, such as an environment chart (2026-10-08)', () => {
+    const deploy = {
+      environments: [
+        { name: 'dev', tier: 'ground', chart: { path: 'charts/x', targetRevision: 'v1' } },
+        { name: 'prod', tier: 'flight', cluster: 'kind-prod', production: true, chart: { targetRevision: 'v2' } },
+      ],
+    };
+    const { envs } = readEnvironments(deploy);
+    expect(envs[1].production).toBe(true);
+    expect(buildDeploy(deploy, envs)).toEqual(deploy);
+  });
+  it('refuses a production Ground environment', () => {
+    expect(validateEnvironments([{ name: 'dev', tier: 'ground', production: true }], undefined).join()).toMatch(/production but Ground/);
+  });
   it('round-trips: reading what it wrote gives the same environments', () => {
     const envs = [ground('dev'), ground('qa', { lambda: { functionName: 'q' } }), flight('prod', 'kind-prod')];
     expect(readEnvironments(buildDeploy({}, envs)).envs).toEqual(envs);

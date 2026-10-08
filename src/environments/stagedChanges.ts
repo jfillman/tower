@@ -29,7 +29,16 @@ export interface EnvDef {
   ecs?: Block;
   lambda?: Block;
   azureContainerApps?: Block;
+  /** ADR-0024: the environment serving real users; Flight, and on an upper cluster. */
+  production?: boolean;
+  /**
+   * Every other key the entry had (chart, ADR-0023, or anything newer than Tower), written back unchanged. Before
+   * 2026-10-08 Tower rebuilt each entry from the keys above and an edit silently dropped an environment's chart.
+   */
+  rest?: Block;
 }
+
+const KNOWN_KEYS = new Set<string>(['name', 'tier', 'cluster', 'production', ...CLOUD_BLOCKS]);
 
 export type Shape = 'new' | 'old';
 
@@ -49,10 +58,13 @@ export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; en
       if (!e || typeof e.name !== 'string') continue;
       const env: EnvDef = { name: e.name, tier: e.tier === 'flight' ? 'flight' : 'ground' };
       if (typeof e.cluster === 'string' && e.cluster) env.cluster = e.cluster;
+      if (e.production === true) env.production = true;
       for (const b of CLOUD_BLOCKS) {
         const v = asBlock(e[b]);
         if (v) env[b] = v;
       }
+      const rest = Object.fromEntries(Object.entries(e).filter(([k]) => !KNOWN_KEYS.has(k)));
+      if (Object.keys(rest).length > 0) env.rest = rest;
       envs.push(env);
     }
     return { shape: 'new', envs };
@@ -126,6 +138,9 @@ export function validateEnvironments(envs: EnvDef[], target: string | undefined)
       problems.push(`"${e.name}" is not a valid environment name (lowercase letters, digits and "-", starting with a letter, at most 31 characters).`);
     }
     if (seen.has(e.name)) problems.push(`Environment "${e.name}" is listed twice.`);
+    if (e.production && e.tier !== 'flight') {
+      problems.push(`Environment "${e.name}" is production but Ground. A production environment is a Flight environment (ADR-0024).`);
+    }
     seen.add(e.name);
     if (e.tier === 'ground' && e.cluster) {
       problems.push(`Ground environment "${e.name}" sets a cluster. Ground environments on other clusters are not supported yet.`);
@@ -150,8 +165,9 @@ export function buildDeploy(originalDeploy: Deploy | undefined, envs: EnvDef[]):
   const serialize = (e: EnvDef) => {
     const o: Record<string, unknown> = { name: e.name, tier: e.tier };
     if (e.cluster) o.cluster = e.cluster;
+    if (e.production) o.production = true;
     for (const b of CLOUD_BLOCKS) if (e[b]) o[b] = e[b];
-    return o;
+    return { ...o, ...(e.rest ?? {}) };
   };
   return { ...rest, environments: envs.map(serialize) };
 }
