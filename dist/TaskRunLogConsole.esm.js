@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs.esm.js';
+import { useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi.esm.js';
 import { renderAnsi } from './ansi.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -53,11 +54,14 @@ function TaskRunLogConsole({
   cluster,
   namespace,
   podName,
-  steps
+  steps,
+  archive
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const { loading, blocks } = useTaskRunLogs({ cluster, namespace, podName, steps });
+  const live = useTaskRunLogs(archive ? void 0 : { cluster, namespace, podName, steps });
+  const archived = useArchivedTaskRunLogs(archive ? { ...archive, steps } : void 0);
+  const { loading, blocks } = archive ? archived : live;
   const logRef = useRef(null);
   const stuckToBottom = useRef(true);
   useEffect(() => {
@@ -65,6 +69,7 @@ function TaskRunLogConsole({
     if (el && stuckToBottom.current) el.scrollTop = el.scrollHeight;
   }, [blocks]);
   if (loading) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading logs\u2026" });
+  if (archive && archived.error) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: archived.error });
   return /* @__PURE__ */ jsx(
     "pre",
     {

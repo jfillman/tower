@@ -68,8 +68,33 @@ const useStyles = makeStyles(() => ({
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
-  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint }
+  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  rangeGroup: { display: "flex", alignItems: "center", gap: 6 },
+  rangeLabel: { fontSize: 12, color: ({ t }) => t.textFaint },
+  rangeChip: {
+    fontFamily: fontMono,
+    fontSize: 11,
+    padding: "4px 9px",
+    borderRadius: 6,
+    border: ({ t }) => `1px solid ${t.line}`,
+    backgroundColor: ({ t }) => t.panel,
+    color: ({ t }) => t.textLo,
+    cursor: "pointer"
+  },
+  rangeChipOn: {
+    borderColor: ({ t }) => t.amberLine,
+    backgroundColor: ({ t }) => t.amberSoft,
+    color: ({ t }) => t.amberInk
+  }
 }));
+const HISTORY_RANGES = [
+  { key: "live", label: "Live", hours: 0 },
+  { key: "24h", label: "24h", hours: 24 },
+  { key: "7d", label: "7d", hours: 168 },
+  { key: "30d", label: "30d", hours: 720 }
+];
+const LIVE_ARCHIVE_HOURS = 24;
+const HISTORY_LIMIT = 500;
 function PipelinesTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -78,33 +103,51 @@ function PipelinesTab() {
   const pendingDeployCount = cdEnvs.filter(isRolloutActive).length;
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get("run") ?? void 0;
+  const historyRange = HISTORY_RANGES.find((r) => r.key === searchParams.get("history"))?.key ?? "live";
+  const setHistoryRange = (range) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (range === "live") next.delete("history");
+    else next.set("history", range);
+    return next;
+  });
   const [ciRefreshNonce, setCiRefreshNonce] = useState(0);
   const refreshAll = () => {
     refresh();
     setCiRefreshNonce((n) => n + 1);
   };
   const pipelineRuns = useTektonPipelineRuns(appName, ciRefreshNonce);
-  const archivedPipelineRuns = useTektonResultsRuns(appName, ciRefreshNonce);
-  useMemo(() => {
+  const rangeHours = HISTORY_RANGES.find((r) => r.key === historyRange).hours;
+  const archivedPipelineRuns = useTektonResultsRuns(
+    appName,
+    ciRefreshNonce,
+    historyRange === "live" ? LIVE_ARCHIVE_HOURS : rangeHours,
+    HISTORY_LIMIT
+  );
+  const mergedRuns = useMemo(() => {
     const byName = /* @__PURE__ */ new Map();
     archivedPipelineRuns.runs.forEach((run) => byName.set(run.name, run));
     pipelineRuns.runs.forEach((run) => byName.set(run.name, run));
-    linkFlowSlugsByChainId([...byName.values()]);
+    const merged = [...byName.values()].sort(
+      (a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime()
+    );
+    linkFlowSlugsByChainId(merged);
+    return merged;
   }, [pipelineRuns.runs, archivedPipelineRuns.runs]);
+  const listRuns = historyRange === "live" ? pipelineRuns.runs : mergedRuns;
   const rerun = useRerunPipelineRun(() => setCiRefreshNonce((n) => n + 1));
   const cancelRun = useCancelPipelineRun(() => setCiRefreshNonce((n) => n + 1));
   const [selectedRunName, setSelectedRunName] = useState(void 0);
   const [dagExpandSignal, setDagExpandSignal] = useState(void 0);
   useEffect(() => {
-    if (selectedRunName && pipelineRuns.runs.some((r) => r.name === selectedRunName)) return;
-    if (linkedRun && pipelineRuns.runs.some((r) => r.name === linkedRun)) {
+    if (selectedRunName && mergedRuns.some((r) => r.name === selectedRunName)) return;
+    if (linkedRun && mergedRuns.some((r) => r.name === linkedRun)) {
       setSelectedRunName(linkedRun);
       setDagExpandSignal((n) => (n ?? 0) + 1);
       return;
     }
-    setSelectedRunName(pipelineRuns.runs[0]?.name);
-  }, [pipelineRuns.runs, linkedRun]);
-  const selectedRun = pipelineRuns.runs.find((r) => r.name === selectedRunName);
+    setSelectedRunName(listRuns[0]?.name);
+  }, [listRuns, mergedRuns, linkedRun]);
+  const selectedRun = mergedRuns.find((r) => r.name === selectedRunName);
   const dagPanelRef = useRef(null);
   const selectRun = (name) => {
     setSelectedRunName(name);
@@ -121,16 +164,21 @@ function PipelinesTab() {
   const activeRunItems = pipelineRuns.runs.filter((r) => r.phase === "running");
   const hasActivity = activeRunItems.length > 0 || pendingDeployCount > 0;
   let ciBody;
-  if (pipelineRuns.error && !pipelineRuns.loading && pipelineRuns.runs.length === 0) {
+  const listLoading = pipelineRuns.loading || historyRange !== "live" && archivedPipelineRuns.loading;
+  if (pipelineRuns.error && !pipelineRuns.loading && listRuns.length === 0) {
     ciBody = /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(pipelineRuns.error) });
-  } else if (pipelineRuns.loading) {
+  } else if (listLoading && listRuns.length === 0) {
     ciBody = /* @__PURE__ */ jsx(Progress, {});
   } else {
     ciBody = /* @__PURE__ */ jsxs(Fragment, { children: [
+      historyRange !== "live" && archivedPipelineRuns.error && /* @__PURE__ */ jsxs(Typography, { className: classes.warnNote, children: [
+        "Archived runs unavailable: ",
+        archivedPipelineRuns.error
+      ] }),
       /* @__PURE__ */ jsx(
         PipelineRunList,
         {
-          runs: pipelineRuns.runs,
+          runs: listRuns,
           selectedName: selectedRunName,
           onSelect: (run) => selectRun(run.name),
           onRerun: rerun.rerun,
@@ -184,10 +232,29 @@ function PipelinesTab() {
       ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx("div", { className: classes.sectionHead, children: /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-        pipelineRuns.loading ? "loading\u2026" : `${pipelineRuns.runs.length} pipeline run${pipelineRuns.runs.length === 1 ? "" : "s"}`,
-        " \xB7 kind-dev"
-      ] }) }),
+      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
+        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
+          listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
+          " ",
+          "\xB7 kind-dev"
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.rangeGroup, role: "group", "aria-label": "Run history range", children: [
+          /* @__PURE__ */ jsx("span", { className: classes.rangeLabel, children: "History" }),
+          HISTORY_RANGES.map((r) => /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              className: `${classes.rangeChip} ${historyRange === r.key ? classes.rangeChipOn : ""}`,
+              "aria-pressed": historyRange === r.key,
+              title: r.key === "live" ? "Runs still on the cluster (about the last hour)" : `Include archived runs from the last ${r.label}`,
+              onMouseDown: (e) => e.preventDefault(),
+              onClick: () => setHistoryRange(r.key),
+              children: r.label
+            },
+            r.key
+          ))
+        ] })
+      ] }),
       ciBody
     ] })
   ] });

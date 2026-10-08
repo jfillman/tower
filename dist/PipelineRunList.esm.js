@@ -422,7 +422,7 @@ function PipelineRunList({
               /* @__PURE__ */ jsx(RunDescriptor, { run, classes }),
               /* @__PURE__ */ jsx("div", { className: classes.thumb, children: /* @__PURE__ */ jsx(MiniDag, { run, maxCols, maxRows }) }),
               /* @__PURE__ */ jsxs("div", { className: classes.side, children: [
-                run.phase === "failed" && onRerun && /* @__PURE__ */ jsx(
+                run.phase === "failed" && onRerun && !run.archive && /* @__PURE__ */ jsx(
                   "button",
                   {
                     type: "button",

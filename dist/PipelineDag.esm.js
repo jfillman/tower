@@ -195,6 +195,17 @@ const usePipelineDagStyles = makeStyles(() => ({
   kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, display: "block" },
   kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: "break-word" },
   note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
+  archivedTag: {
+    marginLeft: 8,
+    padding: "1px 6px",
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 4,
+    fontFamily: fontMono,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    color: ({ t }) => t.textFaint
+  },
   logsWrap: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioSection: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioTitle: {
@@ -325,7 +336,8 @@ function PipelineDag({ run, expandSignal }) {
         run.pipelineName ?? "pipeline",
         " \xB7",
         " ",
-        /* @__PURE__ */ jsx("span", { className: classes.headTitleValue, children: run.name })
+        /* @__PURE__ */ jsx("span", { className: classes.headTitleValue, children: run.name }),
+        run.archive && /* @__PURE__ */ jsx("span", { className: classes.archivedTag, title: "Finished more than an hour ago: read from Tekton Results, the 30-day run archive", children: "archived" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.controls, children: [
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.utilBtn, onClick: () => setYamlOpen(true), children: "YAML" }),
@@ -514,7 +526,8 @@ function PipelineDag({ run, expandSignal }) {
               cluster: run.cluster,
               namespace: openTaskRun.namespace,
               podName: openTaskRun.podName,
-              steps: openTaskRun.steps
+              steps: openTaskRun.steps,
+              archive: run.archive ? { ...run.archive, taskRun: openTaskRun.name } : void 0
             }
           )
         ] })
