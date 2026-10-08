@@ -35,37 +35,14 @@ describe('readEnvironments', () => {
     expect(r.envs).toEqual([ground('dev'), ground('test', { lambda: { functionName: 'fn-test' } }), flight('prod', 'kind-prod')]);
   });
 
-  it('reads the old shape: lower then upper, with clusters', () => {
-    const r = readEnvironments({
-      lowerEnvironments: ['dev', 'test'],
-      upperEnvironments: [{ name: 'staging', cluster: 'kind-prod' }, 'prod'],
-    });
-    expect(r.shape).toBe('old');
-    expect(r.envs).toEqual([ground('dev'), ground('test'), flight('staging', 'kind-prod'), flight('prod')]);
-  });
-
-  it('keeps promotionOrder when it names exactly the declared environments', () => {
-    const r = readEnvironments({
-      lowerEnvironments: ['dev', 'test'],
-      upperEnvironments: ['prod'],
-      promotionOrder: ['test', 'dev', 'prod'],
-    });
-    expect(r.envs.map(e => e.name)).toEqual(['test', 'dev', 'prod']);
-  });
-
-  it('ignores a promotionOrder that does not match (a typo, or a partial list)', () => {
-    const r = readEnvironments({ lowerEnvironments: ['dev'], upperEnvironments: ['prod'], promotionOrder: ['dev'] });
-    expect(r.envs.map(e => e.name)).toEqual(['dev', 'prod']);
-    expect(readEnvironments({ lowerEnvironments: ['dev'], promotionOrder: ['dev', 'ghost'] }).envs.map(e => e.name)).toEqual(['dev']);
-  });
-
   it('is the default Ground dev when nothing is declared, like the schema', () => {
     expect(readEnvironments(undefined)).toEqual({ shape: 'old', envs: [ground('dev')] });
     expect(readEnvironments({}).envs).toEqual([ground('dev')]);
   });
 
-  it('treats an empty environments list as not declared', () => {
-    expect(readEnvironments({ environments: [], lowerEnvironments: ['qa'] }).envs).toEqual([ground('qa')]);
+  it('treats an empty environments list as not declared, and never reads the removed fields', () => {
+    expect(readEnvironments({ environments: [] }).envs).toEqual([ground('dev')]);
+    expect(readEnvironments({ lowerEnvironments: ['qa'] } as never).envs).toEqual([ground('dev')]);
   });
 });
 
@@ -134,15 +111,13 @@ describe('validateEnvironments', () => {
 });
 
 describe('buildDeploy', () => {
-  it('replaces the three older fields with environments and keeps everything else', () => {
+  it('replaces the environments and keeps everything else', () => {
     const out = buildDeploy(
       {
         target: 'aws-lambda',
         lambda: { functionName: 'fn' },
         strategy: 'rollout',
-        lowerEnvironments: ['dev'],
-        upperEnvironments: [],
-        promotionOrder: ['dev'],
+        environments: [{ name: 'dev', tier: 'ground' }],
         releaseFile: 'glidepath/releases/{env}.yaml',
       },
       [ground('dev'), ground('test', { lambda: { functionName: 'fn-test' } })],
@@ -158,18 +133,9 @@ describe('buildDeploy', () => {
       ],
     });
   });
-  it('never writes the old fields next to environments', () => {
-    const out = buildDeploy({ environments: [{ name: 'dev', tier: 'ground' }], lowerEnvironments: ['x'] }, [ground('dev')]);
-    expect('lowerEnvironments' in out).toBe(false);
-  });
   it('round-trips: reading what it wrote gives the same environments', () => {
     const envs = [ground('dev'), ground('qa', { lambda: { functionName: 'q' } }), flight('prod', 'kind-prod')];
     expect(readEnvironments(buildDeploy({}, envs)).envs).toEqual(envs);
-  });
-  it('writes an old-shape app in the new shape with the same environments in the same order', () => {
-    const old = { lowerEnvironments: ['dev', 'test'], upperEnvironments: [{ name: 'staging', cluster: 'kind-prod' }], promotionOrder: ['dev', 'test', 'staging'] };
-    const { envs } = readEnvironments(old);
-    expect(readEnvironments(buildDeploy(old, envs)).envs).toEqual(envs);
   });
 });
 
@@ -207,10 +173,10 @@ describe('describeChanges', () => {
     expect(lines).toEqual([{ kind: 'reorder', title: 'Change the promotion order', detail: 'test to dev' }]);
   });
 
-  it('puts the conversion first for an old-shape app, as a change of its own', () => {
-    const lines = describeChanges(before, [...before, ground('qa')], 'old');
+  it('says the list gets written out when the app relied on the default', () => {
+    const lines = describeChanges([ground('dev')], [ground('dev'), ground('qa')], 'old');
     expect(lines[0].kind).toBe('migrate');
-    expect(lines[0].title).toMatch(/Convert the environment list/);
+    expect(lines[0].title).toMatch(/Declare the environment list in deploy.environments/);
     expect(lines).toHaveLength(2);
   });
 });

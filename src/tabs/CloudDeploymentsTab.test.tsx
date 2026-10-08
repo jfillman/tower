@@ -26,7 +26,7 @@ jest.mock('@backstage/plugin-catalog-react', () => ({
   }),
 }));
 
-let mockDeploy: unknown = { target: 'aws-ecs', lowerEnvironments: ['dev'] };
+let mockDeploy: unknown = { target: 'aws-ecs', environments: [{ name: 'dev', tier: 'ground' }] };
 jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: { values: { deploy: mockDeploy } } }),
 }));
@@ -112,7 +112,7 @@ describe('CloudDeploymentsTab', () => {
   });
 
   it('shows no Flight panel for an app without Flight environments', () => {
-    mockDeploy = { target: 'aws-ecs', lowerEnvironments: ['dev'] };
+    mockDeploy = { target: 'aws-ecs', environments: [{ name: 'dev', tier: 'ground' }] };
     mockRuns = [run('ci-1-deploy-ok')];
     renderTab();
     expect(screen.queryByText('Flight environments')).toBeNull();

@@ -12,7 +12,7 @@ function readEnvironments(deploy) {
   const d = deploy ?? {};
   const declared = d.environments;
   if (Array.isArray(declared) && declared.length > 0) {
-    const envs2 = [];
+    const envs = [];
     for (const raw of declared) {
       const e = asBlock(raw);
       if (!e || typeof e.name !== "string") continue;
@@ -22,24 +22,11 @@ function readEnvironments(deploy) {
         const v = asBlock(e[b]);
         if (v) env[b] = v;
       }
-      envs2.push(env);
+      envs.push(env);
     }
-    return { shape: "new", envs: envs2 };
+    return { shape: "new", envs };
   }
-  const lower = Array.isArray(d.lowerEnvironments) ? d.lowerEnvironments : ["dev"];
-  const upper = (Array.isArray(d.upperEnvironments) ? d.upperEnvironments : []).map(
-    (u) => typeof u === "string" ? { name: u } : u
-  );
-  const envs = [
-    ...lower.map((name) => ({ name, tier: "ground" })),
-    ...upper.map((u) => u.cluster ? { name: u.name, tier: "flight", cluster: u.cluster } : { name: u.name, tier: "flight" })
-  ];
-  const order = Array.isArray(d.promotionOrder) ? d.promotionOrder : [];
-  const names = envs.map((e) => e.name);
-  if (order.length === names.length && new Set(order).size === order.length && order.every((n) => names.includes(n))) {
-    return { shape: "old", envs: order.map((n) => envs.find((e) => e.name === n)) };
-  }
-  return { shape: "old", envs };
+  return { shape: "old", envs: [{ name: "dev", tier: "ground" }] };
 }
 const firstIndexOfTier = (envs, tier) => envs.findIndex((e) => e.tier === tier);
 function applyStaged(envs, staged) {
@@ -104,13 +91,7 @@ function validateEnvironments(envs, target) {
   return problems;
 }
 function buildDeploy(originalDeploy, envs) {
-  const {
-    lowerEnvironments: _l,
-    upperEnvironments: _u,
-    promotionOrder: _p,
-    environments: _e,
-    ...rest
-  } = originalDeploy ?? {};
+  const { environments: _e, ...rest } = originalDeploy ?? {};
   const serialize = (e) => {
     const o = { name: e.name, tier: e.tier };
     if (e.cluster) o.cluster = e.cluster;
@@ -163,8 +144,8 @@ function describeChanges(before, after, shape) {
   if (lines.length > 0 && shape === "old") {
     lines.unshift({
       kind: "migrate",
-      title: "Convert the environment list to deploy.environments",
-      detail: "lowerEnvironments, upperEnvironments and promotionOrder are replaced by one list. Nothing else changes."
+      title: "Declare the environment list in deploy.environments",
+      detail: "This app relied on the default (one Ground environment, dev); the list is now written out. Nothing else changes."
     });
   }
   return lines;

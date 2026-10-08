@@ -97,9 +97,11 @@ const k8sOld = () => {
   cicdData = {
     values: {
       deploy: {
-        lowerEnvironments: ['dev', 'test'],
-        upperEnvironments: [{ name: 'staging', cluster: 'kind-prod' }],
-        promotionOrder: ['dev', 'test', 'staging'],
+        environments: [
+          { name: 'dev', tier: 'ground' },
+          { name: 'test', tier: 'ground' },
+          { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+        ],
         strategy: 'rollout',
       },
     },
@@ -220,7 +222,7 @@ describe('EnvironmentsTab: reading', () => {
 });
 
 describe('EnvironmentsTab: staging a Ground environment', () => {
-  it('stages an add, shows the conversion and the follow-up, and the new row', async () => {
+  it('stages an add, shows the follow-up and the new row', async () => {
     k8sOld();
     renderTab();
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
@@ -228,7 +230,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     expect(panel().getByText('Add environment qa')).toBeTruthy();
     expect(panel().getByText('Ground, after test')).toBeTruthy();
     // an old-shape app is converted as part of the first change, and the panel says so
-    expect(panel().getByText(/Convert the environment list to deploy\.environments/)).toBeTruthy();
+    expect(panel().queryByText(/environment list/)).toBeNull(); // the app already declares deploy.environments
     // and says what Glidepath does afterwards
     expect(panel().getByText(/glidepath\/envs\/qa\.yaml/)).toBeTruthy();
     expect(screen.getByText('staged: new')).toBeTruthy();
@@ -254,7 +256,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
         { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
       ],
     });
-    expect(req.summary).toEqual(['Convert the environment list to deploy.environments', 'Add environment qa']);
+    expect(req.summary).toEqual(['Add environment qa']);
   });
 
   it('refuses a duplicate name before it can be staged', () => {
@@ -308,8 +310,7 @@ describe('EnvironmentsTab: reordering', () => {
 
   it('reorders Flight environments too, and says the pipeline order is separate', async () => {
     k8sOld();
-    cicdData.values.deploy.upperEnvironments = [{ name: 'staging', cluster: 'kind-prod' }, { name: 'prod', cluster: 'kind-prod' }];
-    cicdData.values.deploy.promotionOrder = ['dev', 'test', 'staging', 'prod'];
+    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }];
     ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
     ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
     renderTab();
@@ -355,8 +356,7 @@ describe('EnvironmentsTab: reordering', () => {
 
   it('drags a Flight environment onto another Flight environment', () => {
     k8sOld();
-    cicdData.values.deploy.upperEnvironments = [{ name: 'staging', cluster: 'kind-prod' }, { name: 'prod', cluster: 'kind-prod' }];
-    cicdData.values.deploy.promotionOrder = ['dev', 'test', 'staging', 'prod'];
+    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }];
     ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
     ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
     renderTab();
@@ -874,7 +874,18 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
     renderTab();
     await openAndClose();
     cicdData = {
-      values: { ...cicdData.values, deploy: { ...cicdData.values.deploy, lowerEnvironments: ['dev', 'test', 'qa'], promotionOrder: ['dev', 'test', 'qa', 'staging'] } },
+      values: {
+        ...cicdData.values,
+        deploy: {
+          ...cicdData.values.deploy,
+          environments: [
+            { name: 'dev', tier: 'ground' },
+            { name: 'test', tier: 'ground' },
+            { name: 'qa', tier: 'ground' },
+            { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+          ],
+        },
+      },
     };
     rerenderTab();
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Open pull requests' })).toBeNull());

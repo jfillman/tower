@@ -30,12 +30,12 @@ describe('Glidepath at a glance', () => {
     expect(chain.getAllByText('Flight')).toHaveLength(2);
   });
 
-  it('shows the same for a service still on the older environment fields', () => {
+  it('does not read the removed environment fields: a file with only those shows the default, dev', () => {
     cicd = { loading: false, data: oldShape };
     renderPanel();
     const chain = within(screen.getByLabelText('Environments in promotion order'));
-    expect(chain.getAllByText(/^(dev|staging|prod)$/).map(e => e.textContent)).toEqual(['dev', 'staging', 'prod']);
-    expect(chain.getAllByText('Flight')).toHaveLength(2);
+    expect(chain.getAllByText(/^(dev|staging|prod)$/).map(e => e.textContent)).toEqual(['dev']);
+    expect(chain.queryAllByText('Flight')).toHaveLength(0);
   });
 
   it('says Ground and Flight, never "lower" or "upper", and details each environment', () => {

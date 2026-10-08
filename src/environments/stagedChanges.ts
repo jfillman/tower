@@ -3,10 +3,8 @@ import { ENVS_ROOT } from '../types';
 // section 4): edits are STAGED, shown together in the pending-changes panel, and only then turned
 // into one change to cicd.yaml. Everything here is pure so the rules can be tested exhaustively.
 //
-// An app declares its environments either in the new shape (deploy.environments) or the older one
-// (lowerEnvironments / upperEnvironments / promotionOrder). Tower always writes the new shape, so
-// the first staged change to an old-shape app also converts it; that conversion is shown to the user
-// as a change of its own and never happens silently.
+// An app declares its environments in deploy.environments (ADR-0019; unset = one Ground environment, dev).
+// The older lowerEnvironments / upperEnvironments / promotionOrder were removed 2026-10-07.
 
 export type Tier = 'ground' | 'flight';
 export type CloudBlock = 'ecs' | 'lambda' | 'azureContainerApps';
@@ -40,7 +38,7 @@ export type Deploy = Record<string, unknown>;
 const asBlock = (v: unknown): Block | undefined =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Block) : undefined;
 
-/** The environments of a cicd.yaml `deploy:` block in either shape, plus which shape it was. */
+/** The environments of a cicd.yaml `deploy:` block (`shape` is 'old' only when nothing is declared: Tower then writes the list). */
 export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; envs: EnvDef[] } {
   const d = deploy ?? {};
   const declared = d.environments;
@@ -60,22 +58,8 @@ export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; en
     return { shape: 'new', envs };
   }
 
-  const lower = Array.isArray(d.lowerEnvironments) ? (d.lowerEnvironments as string[]) : ['dev'];
-  const upper = (Array.isArray(d.upperEnvironments) ? d.upperEnvironments : []).map(u =>
-    typeof u === 'string' ? { name: u } : (u as { name: string; cluster?: string }),
-  );
-  const envs: EnvDef[] = [
-    ...lower.map(name => ({ name, tier: 'ground' as const })),
-    ...upper.map(u => (u.cluster ? { name: u.name, tier: 'flight' as const, cluster: u.cluster } : { name: u.name, tier: 'flight' as const })),
-  ];
-  // promotionOrder is the declared sequence; keep it when it names exactly these environments, so a
-  // conversion does not silently reorder the app.
-  const order = Array.isArray(d.promotionOrder) ? (d.promotionOrder as string[]) : [];
-  const names = envs.map(e => e.name);
-  if (order.length === names.length && new Set(order).size === order.length && order.every(n => names.includes(n))) {
-    return { shape: 'old', envs: order.map(n => envs.find(e => e.name === n) as EnvDef) };
-  }
-  return { shape: 'old', envs };
+  // Nothing declared: Glidepath's default, one Ground environment.
+  return { shape: 'old', envs: [{ name: 'dev', tier: 'ground' }] };
 }
 
 export type Staged =
@@ -160,15 +144,9 @@ export function validateEnvironments(envs: EnvDef[], target: string | undefined)
   return problems;
 }
 
-/** The `deploy:` block to write: the original with the three older fields replaced by environments. */
+/** The `deploy:` block to write: the original with its environments replaced. */
 export function buildDeploy(originalDeploy: Deploy | undefined, envs: EnvDef[]): Deploy {
-  const {
-    lowerEnvironments: _l,
-    upperEnvironments: _u,
-    promotionOrder: _p,
-    environments: _e,
-    ...rest
-  } = originalDeploy ?? {};
+  const { environments: _e, ...rest } = originalDeploy ?? {};
   const serialize = (e: EnvDef) => {
     const o: Record<string, unknown> = { name: e.name, tier: e.tier };
     if (e.cluster) o.cluster = e.cluster;
@@ -235,8 +213,8 @@ export function describeChanges(before: EnvDef[], after: EnvDef[], shape: Shape)
   if (lines.length > 0 && shape === 'old') {
     lines.unshift({
       kind: 'migrate',
-      title: 'Convert the environment list to deploy.environments',
-      detail: 'lowerEnvironments, upperEnvironments and promotionOrder are replaced by one list. Nothing else changes.',
+      title: 'Declare the environment list in deploy.environments',
+      detail: 'This app relied on the default (one Ground environment, dev); the list is now written out. Nothing else changes.',
     });
   }
   return lines;

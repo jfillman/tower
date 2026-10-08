@@ -51,9 +51,9 @@ interface DeployEnvironmentEntry {
 }
 
 /**
- * The Ground environment names and the declared promotion order from a cicd.yaml `deploy:` block, in
- * either shape: deploy.environments (list order is the order), or lowerEnvironments + promotionOrder.
- * `lower` defaults to ['dev'] like the schema does when nothing is declared.
+ * The Ground environment names and the declared promotion order from a cicd.yaml `deploy:` block
+ * (deploy.environments; list order is the order). Nothing declared means one Ground environment, dev, like
+ * Glidepath. The pre-ADR-0019 fields were removed 2026-10-07 and are not read.
  */
 export function envListsOf(deploy: Record<string, unknown>): { lower: string[]; order: string[] } {
   const declared = deploy.environments;
@@ -64,8 +64,5 @@ export function envListsOf(deploy: Record<string, unknown>): { lower: string[]; 
       order: entries.map(e => e.name as string),
     };
   }
-  return {
-    lower: Array.isArray(deploy.lowerEnvironments) ? (deploy.lowerEnvironments as string[]) : ['dev'],
-    order: Array.isArray(deploy.promotionOrder) ? (deploy.promotionOrder as string[]) : [],
-  };
+  return { lower: ['dev'], order: [] };
 }

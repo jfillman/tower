@@ -87,11 +87,8 @@ describe('envListsOf', () => {
       }),
     ).toEqual({ lower: ['dev'], order: ['dev', 'staging'] });
   });
-  it('reads the old shape', () => {
-    expect(envListsOf({ lowerEnvironments: ['dev', 'test'], promotionOrder: ['dev', 'test', 'prod'] })).toEqual({
-      lower: ['dev', 'test'],
-      order: ['dev', 'test', 'prod'],
-    });
+  it('never reads the removed fields', () => {
+    expect(envListsOf({ lowerEnvironments: ['dev', 'test'], promotionOrder: ['dev', 'test', 'prod'] })).toEqual({ lower: ['dev'], order: [] });
   });
   it('defaults like the schema when nothing is declared', () => {
     expect(envListsOf({})).toEqual({ lower: ['dev'], order: [] });

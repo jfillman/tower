@@ -6,7 +6,7 @@ const submit = jest.fn();
 // A complete file, as a real one is: the form writes every field it has, so a sparse file would read as changed.
 const sparse: any = {
       build: { agent: 'nodejs-20' },
-      deploy: { lowerEnvironments: ['dev'], upperEnvironments: [{ name: 'staging', cluster: 'kind-prod' }] },
+      deploy: { environments: [{ name: 'dev', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'kind-prod' }] },
       governance: { sast: true },
 };
 const cicd = { loading: false, data: { values: buildCandidateValues(buildFormFromValues(sparse), sparse), raw: 'build:\n  agent: nodejs-20\n', path: 'cicd.yaml' } };

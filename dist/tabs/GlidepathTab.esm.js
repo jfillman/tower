@@ -1,4 +1,4 @@
-import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -47,7 +47,6 @@ function safeYamlLoad(text) {
   }
 }
 function buildFormFromValues(values) {
-  const deploy = values.deploy ?? {};
   const build = values.build ?? {};
   const unitTest = build.unitTest ?? {};
   const cache = build.cache ?? {};
@@ -62,10 +61,6 @@ function buildFormFromValues(values) {
   const backstageNotif = notif.backstage ?? {};
   const secrets = Array.isArray(values.secrets) ? values.secrets : [];
   return {
-    usesEnvironments: Array.isArray(deploy.environments) && deploy.environments.length > 0,
-    lowerEnvironments: joinCsv(deploy.lowerEnvironments ?? ["dev"]),
-    upperEnvironmentsRaw: safeYamlDump(deploy.upperEnvironments ?? []),
-    promotionOrder: joinCsv(deploy.promotionOrder ?? []),
     // Argo Rollouts is the only implemented strategy (2026-09-24) - a legacy
     // `strategy: deployment` in the file is normalized to it on the next save.
     strategy: "rollout",
@@ -115,7 +110,7 @@ function emptyDefaultFor(key) {
     case "test":
       return { enabled: true };
     case "deploy":
-      return { lowerEnvironments: ["dev"], upperEnvironments: [], strategy: "rollout", promotionOrder: [] };
+      return { strategy: "rollout" };
     case "ephemeralEnvironments":
       return {
         branch: { enabled: false, patterns: ["preview/*"] },
@@ -137,7 +132,6 @@ function emptyDefaultFor(key) {
 function buildCandidateValues(form, originalValues) {
   const { dockerfile: _legacyDockerfile, script: _script, ...originalBuild } = originalValues.build ?? {};
   const originalDeploy = originalValues.deploy ?? {};
-  const usesEnvironments = Array.isArray(originalDeploy.environments) && originalDeploy.environments.length > 0;
   return {
     build: {
       ...originalBuild,
@@ -150,21 +144,9 @@ function buildCandidateValues(form, originalValues) {
       sourceVolume: { size: form.buildSourceVolumeSize }
     },
     test: { enabled: form.testEnabled, ...form.testName.trim() ? { name: form.testName.trim() } : {} },
-    deploy: usesEnvironments ? (
-      // deploy.environments owns the environment list. Writing lowerEnvironments/upperEnvironments/
-      // promotionOrder next to it would make the cicd.yaml fail the schema ("not both"), so only
-      // the fields this form still edits are written.
-      { ...originalDeploy, strategy: form.strategy }
-    ) : {
-      // The whole `deploy` section is replaced on save, so keep keys this form has no field for:
-      // `target` and the per-target blocks (`lambda`, `ecs`, `azureContainerApps`). Dropping them
-      // silently moved a function back to the Kubernetes target.
-      ...originalDeploy,
-      lowerEnvironments: splitCsv(form.lowerEnvironments),
-      upperEnvironments: safeYamlLoad(form.upperEnvironmentsRaw) ?? [],
-      strategy: form.strategy,
-      promotionOrder: splitCsv(form.promotionOrder)
-    },
+    // The environment list (deploy.environments) is the Environments tab's; keep it and every other key this form
+    // has no field for (`target`, the per-target blocks, `chart`) and write only the strategy.
+    deploy: { ...originalDeploy, strategy: form.strategy },
     ephemeralEnvironments: {
       branch: { enabled: form.branchEnabled, patterns: splitCsv(form.branchPatterns) },
       pullRequest: { enabled: form.prEnabled, labels: splitCsv(form.prLabels) },
@@ -294,7 +276,7 @@ function GlidepathTab() {
   const dirty = Object.keys(patch).length > 0;
   const yamlBlocksValid = useMemo(() => {
     if (!form) return true;
-    return [form.upperEnvironmentsRaw, form.pipelinesRaw].every(
+    return [form.pipelinesRaw].every(
       (text) => validateYamlBlock(text).valid
     );
   }, [form]);
@@ -451,42 +433,11 @@ function GlidepathTab() {
     ] }),
     tab === "deploy" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Deploy" }),
-      form.usesEnvironments ? /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "This app declares its environments in deploy.environments, so the lists below are not used. See the Environments tab; editing them from Tower comes next. Until then change deploy.environments in cicd.yaml directly." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx("div", { className: classes.row, children: /* @__PURE__ */ jsx(
-          TextField,
-          {
-            label: "Lower environments (comma-separated)",
-            value: form.lowerEnvironments,
-            onChange: (e) => setForm((f) => f ? { ...f, lowerEnvironments: e.target.value } : f),
-            fullWidth: true,
-            size: "small"
-          }
-        ) }),
-        /* @__PURE__ */ jsx("div", { className: classes.row, children: /* @__PURE__ */ jsx(
-          TextField,
-          {
-            label: "Promotion order (comma-separated, in order)",
-            helperText: "Pure metadata - Tower's own Release Matrix reads this back; no Glidepath Task enforces it.",
-            value: form.promotionOrder,
-            onChange: (e) => setForm((f) => f ? { ...f, promotionOrder: e.target.value } : f),
-            fullWidth: true,
-            size: "small"
-          }
-        ) })
-      ] }),
+      /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "The environments are edited in the Environments tab (deploy.environments)." }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsx(Select, { value: form.strategy, disabled: true, children: /* @__PURE__ */ jsx(MenuItem, { value: "rollout", children: "rollout" }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "Argo Rollouts is the only supported deploy strategy." })
-      ] }),
-      !form.usesEnvironments && /* @__PURE__ */ jsx(
-        YamlBlockEditor,
-        {
-          label: "upperEnvironments (name, or {name, cluster})",
-          value: form.upperEnvironmentsRaw,
-          onChange: (text) => setForm((f) => f ? { ...f, upperEnvironmentsRaw: text } : f),
-          rows: 4
-        }
-      )
+      ] })
     ] }),
     tab === "preview" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Ephemeral Environments" }),
