@@ -19,6 +19,8 @@ import { deepEqual } from '../deepEqual';
 import type { ConfigTopLevelField } from '../types';
 import { useStyles, type Cls } from './styles';
 import { SloPresets } from './SloPresets';
+import { ClusterCheckPicker } from './ClusterCheckPicker';
+import { checkArgs } from './analysisCatalog';
 import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
@@ -409,6 +411,7 @@ function StepsBuilder({
   onChange,
   declaredTemplateNames,
   clusterTemplateNames,
+  checkContext,
   classes,
 }: {
   steps: StepForm[];
@@ -416,6 +419,8 @@ function StepsBuilder({
   declaredTemplateNames: string[];
   /** The cluster's ClusterAnalysisTemplates, or undefined when unknown. */
   clusterTemplateNames?: string[];
+  /** This environment's cluster, namespace and app: the cluster-check picker needs them. Without it the picker is not shown. */
+  checkContext?: { cluster: string; namespace: string; app: string };
   classes: Cls;
 }) {
   const update = (i: number, next: StepForm) => {
@@ -432,6 +437,11 @@ function StepsBuilder({
     onChange(copy);
   };
   const addStep = (kind: StepForm['kind']) => onChange([...steps, defaultStep(kind)]);
+  const addClusterCheck = (name: string) => {
+    if (!checkContext) return;
+    onChange([...steps, { kind: 'analysis', templates: [{ name, cluster: true }], extraArgs: checkArgs(checkContext) }]);
+  };
+  const clusterChecksInUse = steps.flatMap(s => (s.kind === 'analysis' ? s.templates.filter(t => t.cluster).map(t => t.name) : []));
   const updateExtraArg = (i: number, j: number, patch: Partial<{ name: string; value: string }>) => {
     const step = steps[i];
     if (step.kind !== 'analysis') return;
@@ -575,6 +585,15 @@ function StepsBuilder({
         {clusterTemplatesSentence(clusterTemplateNames)}
         {' '}A template is looked up in the app&apos;s namespace unless it is marked as a cluster template; a wrong choice makes Argo reject the whole Rollout.
       </Typography>
+      {checkContext && (
+        <ClusterCheckPicker
+          templates={clusterTemplateNames}
+          ctx={{ app: checkContext.app, namespace: checkContext.namespace }}
+          cluster={checkContext.cluster}
+          inUse={clusterChecksInUse}
+          onAdd={addClusterCheck}
+        />
+      )}
     </div>
   );
 }
@@ -1947,7 +1966,7 @@ export function ConfigEditor({
       {tab === 'release' && (
       <Section title="Canary steps" dirty={dirty.has('rollout')} classes={classes}>
         {stepsMode === 'simple' ? (
-          <StepsBuilder steps={stepsSimple} onChange={setSteps} declaredTemplateNames={declaredTemplateNames} clusterTemplateNames={clusterAnalysisTemplates} classes={classes} />
+          <StepsBuilder steps={stepsSimple} onChange={setSteps} declaredTemplateNames={declaredTemplateNames} clusterTemplateNames={clusterAnalysisTemplates} checkContext={sloContext} classes={classes} />
         ) : (
           <YamlBlockEditor
             label="rollout.steps"
