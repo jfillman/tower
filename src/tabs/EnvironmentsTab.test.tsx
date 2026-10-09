@@ -777,7 +777,7 @@ describe('EnvironmentsTab: the table', () => {
     k8sOld();
     renderTab();
     const names = () => screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
-    const filter = within(screen.getByRole('group', { name: 'Filter environments' }));
+    const filter = within(screen.getByRole('group', { name: 'Tier' }));
     expect(filter.getByRole('button', { name: 'All 3' })).toBeTruthy();
     expect(filter.getByRole('button', { name: 'Ground 2' })).toBeTruthy();
     expect(filter.getByRole('button', { name: 'Flight 1' })).toBeTruthy();

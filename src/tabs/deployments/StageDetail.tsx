@@ -15,6 +15,7 @@ import { RolloutTopologyDag } from '../../RolloutTopologyDag';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary, PodSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
+import { Button, TextLink } from '../../ui';
 
 // Tier 2 rollout controls (Promote/Pause/Resume/...) - UI-ready but disabled
 // pending the authorization model HANDOFF-tower-write-actions.md scopes;
@@ -53,34 +54,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textDecoration: 'none',
     '&:hover': { textDecoration: 'underline' },
   },
-  ctaBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'flex-start',
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13,
-    padding: '9px 16px',
-    borderRadius: 8,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    '&:hover': { backgroundColor: ({ t }) => t.sky, color: ({ t }) => t.bg },
-  },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
-  jumpBtn: {
-    alignSelf: 'flex-start',
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-    '&:hover': { textDecoration: 'underline' },
-  },
   chip: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 12, alignSelf: 'flex-start' },
   chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
   chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
@@ -97,20 +71,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 },
   rolloutActions: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingBottom: 12, borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
   btnRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  btn: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 600,
-    padding: '6px 12px',
-    borderRadius: 8,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    '&:disabled': { opacity: 0.5, cursor: 'default' },
-  },
-  btnRoadmap: { opacity: 0.55, borderStyle: 'dashed', cursor: 'default' },
   roadmapNote: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
 }));
 
@@ -205,10 +165,10 @@ function MergedBody({
     const commitUrl = mergeCommitUrl(delivery.pr);
     return (
       <>
-        <a className={classes.ctaBtn} href={delivery.pr.url} target="_blank" rel="noopener noreferrer">
-          <GitPrIcon fontSize={16} />
-          View PR #{delivery.pr.number} ↗
-        </a>
+        <TextLink href={delivery.pr.url}>
+          <GitPrIcon fontSize={15} />
+          PR #{delivery.pr.number} ↗
+        </TextLink>
         <Typography className={classes.meta}>
           {timeText(step?.at)}
           {delivery.pr.author && ` · opened by ${delivery.pr.author}`}
@@ -216,9 +176,7 @@ function MergedBody({
         {commitUrl && (
           <Typography className={classes.meta}>
             merge commit{' '}
-            <a className={classes.jumpBtn} style={{ display: 'inline' }} href={commitUrl} target="_blank" rel="noopener noreferrer">
-              {delivery.pr.mergeCommitSha!.slice(0, 7)} →
-            </a>
+            <TextLink href={commitUrl}>{delivery.pr.mergeCommitSha!.slice(0, 7)} ↗</TextLink>
           </Typography>
         )}
         {gateCi && (
@@ -226,9 +184,7 @@ function MergedBody({
             <span className={`${classes.chip} ${gateCi.state === 'success' ? classes.chipOk : classes.chipAmber}`}>
               {gateCi.passedChecks}/{gateCi.totalChecks} guardrails passed
             </span>
-            <button type="button" className={classes.jumpBtn} onClick={() => onSelectStage('guardrails')}>
-              view full guardrail results →
-            </button>
+            <TextLink onClick={() => onSelectStage('guardrails')}>Guardrail results →</TextLink>
           </>
         )}
       </>
@@ -253,14 +209,15 @@ function MergedBody({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className={`${classes.btn} ${classes.btnRoadmap}`}
-          disabled
-          title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now."
-        >
-          Merge PR
-        </button>
+        <div>
+          <Button
+            small
+            disabled
+            title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now."
+          >
+            Merge PR
+          </Button>
+        </div>
       </>
     );
   }
@@ -336,9 +293,11 @@ function HookRow({
       )}
       {pod && (
         <>
-          <button type="button" className={classes.jumpBtn} style={{ margin: '4px 10px' }} onClick={() => setShowLog(v => !v)}>
-            {showLog ? '▾ hide job log' : '▸ show job log'}
-          </button>
+          <div style={{ margin: '4px 10px' }}>
+            <TextLink expanded={showLog} onClick={() => setShowLog(v => !v)}>
+              Job log
+            </TextLink>
+          </div>
           {showLog && (
             <div style={{ margin: '0 10px 6px' }}>
               <PodLogsView cluster={env.cluster} namespace={env.namespace} podName={pod.name} containers={pod.containers} />
@@ -502,9 +461,9 @@ export function StageDetail({
             <div className={classes.rolloutActions}>
               <div className={classes.btnRow}>
                 {TIER2_ACTIONS.map(label => (
-                  <button key={label} type="button" className={`${classes.btn} ${classes.btnRoadmap}`} disabled>
+                  <Button key={label} small disabled>
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <span className={classes.roadmapNote}>

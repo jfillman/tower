@@ -5,12 +5,12 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
 import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { imageTag } from '../../types';
 import { useSubmitPin } from '../../environments/releasePins';
+import { Button } from '../../ui';
 
 // Promote for a cloud target (glidepath ADR-0020): a Flight environment deploys only its pinned image, so promoting
 // opens a pull request on the app's own repo changing glidepath/releases/<env>.yaml - the same request the Deployments
@@ -99,8 +99,7 @@ export function CloudPromoteDialog({
             </Button>
             {target.flight && !submit.result && (
               <Button
-                color="primary"
-                variant="contained"
+                variant="primary"
                 disabled={submit.loading || !owner || !appName}
                 onClick={async () => {
                   const r = await submit.submit({ owner: owner as string, appName: appName as string, env: target.env, image: target.image, promotedFrom: target.from });

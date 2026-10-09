@@ -10,6 +10,7 @@ import { health, type DeployHistoryEntry, type EnvironmentSummary, type Health }
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
+import { TextLink } from './ui';
 
 // The "permanent, dynamic command panel" from the 2026-09-16 Releases revamp
 // (Command Deck concept, merged with Split Sub-tabs and the Log's Table/
@@ -68,18 +69,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   taskEyebrow: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' },
   taskHeadline: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   taskDetail: { fontSize: 11.5, color: ({ t }) => t.textLo, marginTop: 1 },
-  taskAction: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.textHi,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 4,
-    padding: '5px 10px',
-    background: 'none',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    '&:hover': { borderColor: ({ t }) => t.amberLine, color: ({ t }) => t.amberInk },
-  },
 
   statsRow: { marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 },
   stat: {
@@ -361,9 +350,7 @@ export function CommandDeck({
                 </div>
                 {task.pr && <PrButton pr={task.pr} showTarget />}
                 {task.action && (
-                  <button type="button" className={classes.taskAction} onClick={task.action.onClick}>
-                    {task.action.label}
-                  </button>
+                  <TextLink onClick={task.action.onClick}>{task.action.label}</TextLink>
                 )}
               </div>
             );

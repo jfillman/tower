@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import TextField from '@material-ui/core/TextField';
-import InputAdornment from '@material-ui/core/InputAdornment';
-import SearchIcon from '@material-ui/icons/Search';
 import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import Typography from '@material-ui/core/Typography';
@@ -23,6 +20,7 @@ import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
+import { FilterBar, FilterChips, SearchField, TextLink } from './ui';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -119,17 +117,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 12,
     flexWrap: 'wrap',
   },
-  dashboardLink: {
-    fontFamily: fontMono,
-    fontSize: 12,
-    letterSpacing: '0.03em',
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    '&:hover': { textDecoration: 'underline' },
-  },
   sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
   list: {
@@ -220,46 +207,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 10,
     backgroundColor: ({ t }) => t.amber,
     color: ({ t }) => t.bg,
-  },
-  toolbar: {
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
-  searchGrow: { flex: '1 1 240px', minWidth: 200 },
-  segment: {
-    display: 'inline-flex',
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: ({ t }) => t.panel,
-    flexShrink: 0,
-  },
-  segBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    background: 'none',
-    border: 'none',
-    borderRight: ({ t }) => `1px solid ${t.line}`,
-    padding: '8px 14px',
-    cursor: 'pointer',
-    fontSize: 13,
-    color: ({ t }) => t.textLo,
-    '&:last-child': { borderRight: 'none' },
-    '&:hover': { color: ({ t }) => t.textHi },
-  },
-  segBtnActive: {
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panelAlt,
-    boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`,
-  },
-  segCount: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.textFaint,
   },
   sectionHead: {
     display: 'flex',
@@ -634,9 +581,7 @@ export function AppPicker({
       </Typography>
       <div className={classes.titleRow}>
         <Typography className={classes.title}>Services</Typography>
-        <button className={classes.dashboardLink} onClick={onOpenDashboard} type="button">
-          Fleet Dashboard →
-        </button>
+        <TextLink onClick={onOpenDashboard}>Fleet Dashboard →</TextLink>
       </div>
       <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>
       <div className={classes.tabs} role="tablist" aria-label="Services sections">
@@ -674,53 +619,31 @@ export function AppPicker({
       ) : (
         <>
           <ProvisioningStrip items={inFlight} onOpen={openProvisioning} />
-          <div className={classes.toolbar}>
-            <div className={classes.segment} role="group" aria-label="Workload type">
-              {[{ id: ALL, label: 'All', count: entities?.length }, ...classChips.map(c => ({ ...c }))].map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={typeFilter === f.id}
-                  className={`${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ''}`}
-                  onClick={() => setTypeFilter(f.id)}
-                >
-                  {f.label}
-                  <span className={classes.segCount}>{entities ? f.count : ''}</span>
-                </button>
-              ))}
-            </div>
-            {providerChips.length > 0 && (
-              <div className={classes.segment} role="group" aria-label="Runs on">
-                {[[ALL, entities?.length ?? 0] as [string, number], ...providerChips].map(([id, count]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={providerFilter === id}
-                    className={`${classes.segBtn} ${providerFilter === id ? classes.segBtnActive : ''}`}
-                    onClick={() => setProviderFilter(id)}
-                  >
-                    {id === ALL ? 'Anywhere' : id}
-                    <span className={classes.segCount}>{count}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            <TextField
-              className={classes.searchGrow}
-              variant="outlined"
-              size="small"
-              placeholder="Search services…"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" style={{ color: t.textFaint }} />
-                  </InputAdornment>
-                ),
-              }}
+          <FilterBar>
+            <FilterChips
+              label="Type"
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={[{ id: ALL, label: 'All', count: entities?.length }, ...classChips].map(f => ({
+                id: f.id,
+                label: f.label,
+                count: entities ? f.count : undefined,
+              }))}
             />
-          </div>
+            {providerChips.length > 0 && (
+              <FilterChips
+                label="Runs on"
+                value={providerFilter}
+                onChange={setProviderFilter}
+                options={[[ALL, entities?.length ?? 0] as [string, number], ...providerChips].map(([id, count]) => ({
+                  id,
+                  label: id === ALL ? 'Anywhere' : id,
+                  count,
+                }))}
+              />
+            )}
+            <SearchField label="Search services" placeholder="Search services…" value={query} onChange={setQuery} />
+          </FilterBar>
           {!entities ? (
             <Progress />
           ) : (
@@ -733,19 +656,15 @@ export function AppPicker({
               )}
               <div className={classes.sectionHead}>
                 <span className={classes.sectionLabel}>All services · {filteredMinusStarred.length}</span>
-                <div className={classes.segment} role="group" aria-label="View">
-                  {(['cards', 'list'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      type="button"
-                      aria-pressed={viewMode === mode}
-                      className={`${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ''}`}
-                      onClick={() => setViewMode(mode)}
-                    >
-                      {mode === 'cards' ? 'Cards' : 'List'}
-                    </button>
-                  ))}
-                </div>
+                <FilterChips
+                  label="View"
+                  value={viewMode}
+                  onChange={setViewMode}
+                  options={[
+                    { id: 'cards', label: 'Cards' },
+                    { id: 'list', label: 'List' },
+                  ]}
+                />
               </div>
               {filteredMinusStarred.length === 0 ? (
                 <div className={classes.list}>

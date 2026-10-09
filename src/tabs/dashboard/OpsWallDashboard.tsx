@@ -31,6 +31,7 @@ import {
   PipelinesPanel,
 } from './opswall/panels';
 import { useOpsStyles } from './opswall/styles';
+import { FilterChips, FilterSelect } from '../../ui';
 
 // The Ops Wall: what is happening across the fleet right now and what needs a human. Every
 // source is read directly (Tekton, Glidepath's release records, Kubernetes, Argo CD, Prometheus,
@@ -457,38 +458,21 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
       {sloProbes}
 
       <div className={c.toolbar}>
-        <span className={c.toolGroup}>
-          <label className={c.toolLabel} htmlFor="ops-owner">
-            Team
-          </label>
-          <select
-            id="ops-owner"
-            className={c.select}
-            value={owner ?? ''}
-            onChange={e => setParam('owner', e.target.value || undefined)}
-          >
-            <option value="">All teams</option>
-            {owners.map(o => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </span>
-        <span className={c.toolGroup}>
-          <label className={c.toolLabel} htmlFor="ops-window">
-            Window
-          </label>
-          <select
-            id="ops-window"
-            className={c.select}
-            value={opsWindow}
-            onChange={e => setParam('window', e.target.value === '24h' ? undefined : e.target.value)}
-          >
-            <option value="24h">Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
-          </select>
-        </span>
+        <FilterSelect
+          label="Team"
+          value={owner ?? ''}
+          onChange={v => setParam('owner', v || undefined)}
+          options={[{ value: '', label: 'All teams' }, ...owners.map(o => ({ value: o, label: o }))]}
+        />
+        <FilterChips
+          label="Window"
+          value={opsWindow}
+          onChange={v => setParam('window', v === '24h' ? undefined : v)}
+          options={[
+            { id: '24h', label: 'Last 24 hours' },
+            { id: '7d', label: 'Last 7 days' },
+          ]}
+        />
         <div className={c.sources} aria-label="Data sources">
           <span className={c.sourcesLabel}>Sources</span>
           {sources.map(src => (

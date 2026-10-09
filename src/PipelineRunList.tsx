@@ -5,6 +5,7 @@ import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
+import { Button, FilterBar, FilterChips, SearchField, TextLink } from './ui';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -50,41 +51,6 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number] | 'all';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 16px',
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-    flexWrap: 'wrap',
-  },
-  search: {
-    flex: '1 1 200px',
-    minWidth: 160,
-    fontFamily: fontMono,
-    fontSize: 12,
-    padding: '6px 10px',
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi,
-  },
-  chipFilter: { display: 'flex', gap: 6 },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: '5px 10px',
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textLo,
-    cursor: 'pointer',
-  },
-  chipOn: {
-    borderColor: ({ t }) => t.amberLine,
-    backgroundColor: ({ t }) => t.amberSoft,
-    color: ({ t }) => t.amberInk,
-  },
   list: { maxHeight: 380, overflowY: 'auto', border: ({ t }) => `1px solid ${t.line}`, borderTop: 'none', borderRadius: '0 0 5px 5px' },
   row: {
     display: 'flex',
@@ -145,16 +111,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     whiteSpace: 'nowrap',
     maxWidth: 320,
   },
-  pageSizeLabel: { display: 'flex', alignItems: 'center', gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: '3px 8px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi,
-  },
   footer: {
     padding: '8px 16px',
     border: ({ t }) => `1px solid ${t.line}`,
@@ -164,34 +120,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 11,
     color: ({ t }) => t.textFaint,
   },
-  footerLink: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: ({ t }) => t.sky },
-  rerunBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '3px 9px',
-    borderRadius: 11,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    backgroundColor: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    '&:disabled': { opacity: 0.5, cursor: 'default' },
-  },
   // Distinct (bad/red) tone from rerunBtn - cancel tears down a run that's
   // actually in flight right now, a more consequential action than
   // resubmitting an already-finished one.
-  cancelBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '3px 9px',
-    borderRadius: 11,
-    border: ({ t }) => `1px solid ${t.bad}`,
-    backgroundColor: ({ t }) => t.badSoft,
-    color: ({ t }) => t.bad,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    '&:disabled': { opacity: 0.5, cursor: 'default' },
-  },
 }));
 
 // The only place a CDEvent-triggered run's flow-correlation slug exists is
@@ -483,53 +414,32 @@ export function PipelineRunList({
 
   return (
     <div>
-      <div className={classes.toolbar}>
-        <input
-          className={classes.search}
-          placeholder="Filter by pipeline, flow, trigger, branch, or sha…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
+      <FilterBar>
+        <FilterChips
+          label="Status"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={STATUS_FILTERS.map(f => ({ id: f.key, label: f.label }))}
         />
-        <div className={classes.chipFilter}>
-          {STATUS_FILTERS.map(f => (
-            <button
-              key={f.key}
-              type="button"
-              className={`${classes.chip} ${statusFilter === f.key ? classes.chipOn : ''}`}
-              onClick={() => setStatusFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className={classes.chipFilter}>
-          {FLOW_FILTERS.map(f => (
-            <button
-              key={f.key}
-              type="button"
-              className={`${classes.chip} ${flowFilter === f.key ? classes.chipOn : ''}`}
-              onClick={() => setFlowFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <label className={classes.pageSizeLabel}>
-          Show
-          <select
-            className={classes.select}
-            value={pageSize}
-            onChange={e => setPageSize(e.target.value === 'all' ? 'all' : (Number(e.target.value) as PageSize))}
-          >
-            {PAGE_SIZE_OPTIONS.map(n => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-            <option value="all">All</option>
-          </select>
-        </label>
-      </div>
+        <FilterChips
+          label="Flow"
+          value={flowFilter}
+          onChange={setFlowFilter}
+          options={FLOW_FILTERS.map(f => ({ id: f.key, label: f.label }))}
+        />
+        <FilterChips<string>
+          label="Show"
+          value={String(pageSize)}
+          onChange={v => setPageSize(v === 'all' ? 'all' : (Number(v) as PageSize))}
+          options={[...PAGE_SIZE_OPTIONS.map(n => ({ id: String(n), label: String(n) })), { id: 'all', label: 'All' }]}
+        />
+        <SearchField
+          label="Filter runs"
+          placeholder="Pipeline, flow, trigger, branch or sha…"
+          value={search}
+          onChange={setSearch}
+        />
+      </FilterBar>
       <div className={classes.list} style={truncated ? { borderRadius: 0 } : undefined}>
         {filtered.length === 0 && <div className={classes.empty}>No pipeline runs match this filter.</div>}
         {visible.map((run, i) => {
@@ -575,30 +485,29 @@ export function PipelineRunList({
               </div>
               <div className={classes.side}>
                 {run.phase === 'failed' && onRerun && !run.archive && (
-                  <button
-                    type="button"
-                    className={classes.rerunBtn}
+                  <Button
+                    small
                     disabled={rerunPending === run.name}
                     onClick={ev => {
                       ev.stopPropagation();
                       onRerun(run);
                     }}
                   >
-                    {rerunPending === run.name ? 're-running…' : 'Re-run'}
-                  </button>
+                    {rerunPending === run.name ? 'Re-running…' : 'Re-run'}
+                  </Button>
                 )}
                 {(run.phase === 'running' || run.phase === 'pending') && onCancel && (
-                  <button
-                    type="button"
-                    className={classes.cancelBtn}
+                  <Button
+                    small
+                    variant="danger"
                     disabled={cancelPending === run.name || cancelling}
                     onClick={ev => {
                       ev.stopPropagation();
                       onCancel(run);
                     }}
                   >
-                    {cancelling ? 'canceling…' : 'Cancel'}
-                  </button>
+                    {cancelling ? 'Canceling…' : 'Cancel'}
+                  </Button>
                 )}
                 <span className={classes.pill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg }}>
                   {tone.label}
@@ -615,9 +524,7 @@ export function PipelineRunList({
       {truncated && (
         <div className={classes.footer}>
           Showing {visible.length} of {filtered.length} &middot;{' '}
-          <button type="button" className={classes.footerLink} onClick={() => setPageSize('all')}>
-            show all
-          </button>
+          <TextLink onClick={() => setPageSize('all')}>show all</TextLink>
         </div>
       )}
     </div>

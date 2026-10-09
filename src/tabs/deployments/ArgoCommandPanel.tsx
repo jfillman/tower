@@ -7,6 +7,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../..
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import type { useArgoActions } from '../../useReleaseData';
+import { Button, TextLink } from '../../ui';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
 // the resource itself (argocd.argoproj.io/sync-wave) - it's never part of
@@ -60,31 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   chipUnknown: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' },
-  btn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '5px 11px',
-    borderRadius: 7,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    '&:disabled': { opacity: 0.5, cursor: 'default' },
-  },
-  btnPrimary: { backgroundColor: ({ t }) => t.skySoft, color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
-  btnRoadmap: { opacity: 0.45, borderStyle: 'dashed', cursor: 'default' },
-  helpToggle: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '5px 4px',
-    whiteSpace: 'nowrap',
-  },
   argoErr: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.bad },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
@@ -136,17 +112,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   guideName: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, flex: '0 0 132px' },
   guideBody: { color: ({ t }) => t.textLo, lineHeight: 1.5 },
   guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
-  disclosureToggle: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    color: ({ t }) => t.textFaint,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-    alignSelf: 'flex-start',
-    '&:hover': { color: ({ t }) => t.sky },
-  },
   detail: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' },
   kv: { display: 'flex', flexDirection: 'column', gap: 2, padding: '7px 9px', backgroundColor: ({ t }) => t.panelAlt, borderRadius: 6 },
@@ -209,7 +174,7 @@ const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
     body: 'Re-compares live cluster state against git and recomputes the diff. Applies nothing. Safe to click anytime - use it when you just want to confirm the status above is current.',
   },
   {
-    name: 'Hard Refresh',
+    name: 'Hard refresh',
     body: "Same as Refresh, but also bypasses ArgoCD's cached manifest render (Helm/Kustomize output). Use this instead of a plain Refresh when you changed something that affects manifest generation itself - a Helm values file, a referenced ConfigMap - and the diff still looks stale.",
   },
   {
@@ -217,12 +182,12 @@ const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
     body: "Applies git's declared state to the cluster. Use when Sync status above reads OutOfSync and automated sync is off (or is enabled but hasn't caught up yet). Possible error: a sync can fail outright if a resource change conflicts with one made directly in the cluster (someone/something edited live state git doesn't know about).",
   },
   {
-    name: 'Sync w/ Prune',
+    name: 'Sync with prune',
     roadmap: true,
     body: 'Also deletes any resource that exists live but is no longer declared in git. Use to clean up after removing something from git. Risk: can delete real resources unexpectedly if git state is wrong - not yet available (needs the authorization model from HANDOFF-tower-write-actions.md).',
   },
   {
-    name: 'Force Sync',
+    name: 'Force sync',
     roadmap: true,
     body: "Deletes and recreates a resource instead of patching it. Use to recover from a resource stuck by an immutable-field conflict that a normal Sync can't apply. Risk: causes brief downtime for whatever gets replaced - not yet available, same reason as Sync w/ Prune.",
   },
@@ -348,42 +313,36 @@ export function ArgoCommandPanel({
           {env.argoRevision && <span className={classes.revision}>@ {env.argoRevision.slice(0, 9)}</span>}
         </div>
         <div className={classes.actions}>
-          <button
-            type="button"
-            className={classes.btn}
-            title={SYNC_GUIDE[0].body}
-            disabled={!canAct || Boolean(argoActions.pending)}
-            onClick={() => act(argoActions.refresh)}
-          >
-            {argoActions.pending === 'refresh' ? 'refreshing…' : '⟳ Refresh'}
-          </button>
-          <button
-            type="button"
-            className={classes.btn}
+          <Button small title={SYNC_GUIDE[0].body} disabled={!canAct || Boolean(argoActions.pending)} onClick={() => act(argoActions.refresh)}>
+            {argoActions.pending === 'refresh' ? 'Refreshing…' : 'Refresh'}
+          </Button>
+          <Button
+            small
             title={SYNC_GUIDE[1].body}
             disabled={!canAct || Boolean(argoActions.pending)}
             onClick={() => act(argoActions.hardRefresh)}
           >
-            {argoActions.pending === 'hardRefresh' ? 'refreshing…' : '⟳ Hard refresh'}
-          </button>
-          <button
-            type="button"
-            className={`${classes.btn} ${classes.btnPrimary}`}
+            {argoActions.pending === 'hardRefresh' ? 'Refreshing…' : 'Hard refresh'}
+          </Button>
+          <Button
+            small
+            variant="primary"
             title={SYNC_GUIDE[2].body}
             disabled={!canAct || Boolean(argoActions.pending)}
             onClick={() => act(argoActions.sync)}
           >
-            {argoActions.pending === 'sync' ? 'syncing…' : '⇄ Sync'}
-          </button>
-          <button type="button" className={`${classes.btn} ${classes.btnRoadmap}`} title={SYNC_GUIDE[3].body} disabled>
-            Sync w/ prune
-          </button>
-          <button type="button" className={`${classes.btn} ${classes.btnRoadmap}`} title={SYNC_GUIDE[4].body} disabled>
+            {argoActions.pending === 'sync' ? 'Syncing…' : 'Sync'}
+          </Button>
+          {/* Not built yet: shown disabled so the guide below can explain them. */}
+          <Button small title={SYNC_GUIDE[3].body} disabled>
+            Sync with prune
+          </Button>
+          <Button small variant="danger" title={SYNC_GUIDE[4].body} disabled>
             Force sync
-          </button>
-          <button type="button" className={classes.helpToggle} onClick={() => setGuideOpen(v => !v)}>
-            {guideOpen ? 'hide guide' : 'which one? ▾'}
-          </button>
+          </Button>
+          <TextLink expanded={guideOpen} onClick={() => setGuideOpen(v => !v)}>
+            Which one?
+          </TextLink>
         </div>
       </div>
 
@@ -429,9 +388,11 @@ export function ArgoCommandPanel({
         </div>
       )}
 
-      <button type="button" className={classes.disclosureToggle} onClick={() => setDetailOpen(v => !v)}>
-        {detailOpen ? '▾ hide details' : '▸ show sync policy, revision + resource tree'}
-      </button>
+      <div>
+        <TextLink expanded={detailOpen} onClick={() => setDetailOpen(v => !v)}>
+          Sync policy, revision and resource tree
+        </TextLink>
+      </div>
 
       {detailOpen && (
         <div className={classes.detail}>

@@ -7,6 +7,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { confidenceColor, statusPill } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
+import { TextLink } from './ui';
 
 // Board 4 of the mockup (HANDOFF-tower-release-record.md /
 // idp_session_tower_release_record_spec) - "Compare two records." Records
@@ -58,19 +59,6 @@ function formatSignedPercentPoints(delta: number): string {
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  backBtn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 0 14px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-  },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, marginBottom: 14 },
   grid: {
     display: 'grid',
@@ -248,9 +236,7 @@ export function ReleaseRecordCompare({
 
   return (
     <div>
-      <button type="button" className={classes.backBtn} onClick={onBack}>
-        ← Back to record
-      </button>
+      <TextLink onClick={onBack}>← Back to record</TextLink>
       <Typography className={classes.title}>Compare releases</Typography>
       <div className={classes.grid}>
         <RecordColumn record={left} pill={leftPill} side="left" t={t} classes={classes} />

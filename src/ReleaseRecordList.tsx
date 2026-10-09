@@ -7,6 +7,7 @@ import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
+import { IconButton } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -63,18 +64,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   actions: { display: 'flex', alignItems: 'center', gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
-  btn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textLo,
-    padding: '7px 12px',
-    borderRadius: 6,
-    cursor: 'pointer',
-  },
-  btnSky: { backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine, color: ({ t }) => t.sky },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 8 },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
@@ -162,9 +151,8 @@ export function ReleaseRecordList({
               </span>
               <span className={classes.date}>{formatDateTime(record.createdAt)}</span>
               <div className={classes.actions}>
-                <button
-                  type="button"
-                  className={classes.btn}
+                <IconButton
+                  aria-label="Download HTML"
                   title="Download HTML"
                   onClick={e => {
                     e.stopPropagation();
@@ -172,7 +160,7 @@ export function ReleaseRecordList({
                   }}
                 >
                   ⤓
-                </button>
+                </IconButton>
                 <span className={classes.chevron}>›</span>
               </div>
             </button>

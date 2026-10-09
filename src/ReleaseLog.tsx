@@ -14,6 +14,7 @@ import { envTierOf, imageTag, previewPrNumber, type DeployHistoryEntry, type Env
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
+import { FilterChips } from './ui';
 
 // The real chronological "release log" the 2026-09-16 Releases revamp asked
 // for, replacing the old always-on Gantt track (ReleaseTimelinePanel, kept
@@ -130,9 +131,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { padding: '14px 20px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
-  toggle: { display: 'inline-flex', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 100, padding: 2, gap: 2 },
-  toggleBtn: { fontFamily: fontMono, fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: 100, color: ({ t }) => t.textFaint, background: 'none', border: 'none', cursor: 'pointer' },
-  toggleBtnActive: { backgroundColor: ({ t }) => t.panelAlt, color: ({ t }) => t.textHi },
   scroll: { overflowX: 'auto', padding: '0 20px 18px' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { textAlign: 'left', fontFamily: fontDisplay, fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.04em', color: ({ t }) => t.textLo, padding: '9px 12px', borderBottom: ({ t }) => `1px solid ${t.line}`, whiteSpace: 'nowrap' },
@@ -198,22 +196,15 @@ export function ReleaseLog({
             each release ran.
           </Typography>
         </div>
-        <div className={classes.toggle}>
-          <button
-            type="button"
-            className={`${classes.toggleBtn} ${view === 'table' ? classes.toggleBtnActive : ''}`}
-            onClick={() => setView('table')}
-          >
-            Table
-          </button>
-          <button
-            type="button"
-            className={`${classes.toggleBtn} ${view === 'timeline' ? classes.toggleBtnActive : ''}`}
-            onClick={() => setView('timeline')}
-          >
-            Timeline
-          </button>
-        </div>
+        <FilterChips<'table' | 'timeline'>
+          label="View"
+          value={view}
+          onChange={setView}
+          options={[
+            { id: 'table', label: 'Table' },
+            { id: 'timeline', label: 'Timeline' },
+          ]}
+        />
       </div>
 
       {view === 'table' && entries.length === 0 && (
