@@ -13,6 +13,7 @@ import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodsPanel } from './PodsPanel.esm.js';
+import { TextLink } from '../../ui/index.esm.js';
 
 function findResource(resources, kind, name) {
   return resources.find((r) => r.kind === kind && r.name === name);
@@ -268,7 +269,7 @@ function WorkloadDetail({ env, classes }) {
       ] }, i)) }),
       /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames, title: "Workload performance" }),
       workloadResource && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.yamlBtn, onMouseDown: preventFocusScroll, onClick: () => setShowYaml((v) => !v), children: showYaml ? "\u25BE hide YAML" : "\u25B8 view workload YAML" }),
+        /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: showYaml, onClick: () => setShowYaml((v) => !v), children: "Workload YAML" }) }),
         showYaml && /* @__PURE__ */ jsx(YamlView, { resource: workloadResource })
       ] })
     ] })

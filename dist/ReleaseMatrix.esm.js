@@ -14,6 +14,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { PipelineFlow, buildSupplyChainStages } from './PipelineFlow.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
+import { TextLink, Button } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: {
@@ -99,17 +100,6 @@ const useStyles = makeStyles(() => ({
     borderColor: ({ t }) => t.skyLine,
     color: ({ t }) => t.sky,
     cursor: "pointer"
-  },
-  promoteBtn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    borderRadius: 4,
-    padding: "6px 12px",
-    cursor: "pointer",
-    marginTop: 10
   },
   expand: {
     margin: "4px 20px 18px",
@@ -281,11 +271,8 @@ function ReleaseMatrix({
           " yet, so there is nothing to promote. The deploy runs on the Pipelines tab say why."
         ] }),
         /* @__PURE__ */ jsx(
-          "button",
+          TextLink,
           {
-            type: "button",
-            className: classes.promoteBtn,
-            onMouseDown: (e) => e.preventDefault(),
             onClick: () => setSearchParams((prev) => {
               const next = new URLSearchParams(prev);
               next.set("tab", "pipelines");
@@ -303,19 +290,10 @@ function ReleaseMatrix({
           open.env,
           "."
         ] }),
-        /* @__PURE__ */ jsxs(
-          "button",
-          {
-            type: "button",
-            className: classes.promoteBtn,
-            onClick: () => onPromote({ env: openCell.sourceEnv }, open.env),
-            children: [
-              "Promote to ",
-              open.env,
-              " \u2192"
-            ]
-          }
-        )
+        /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs(Button, { small: true, variant: "primary", onClick: () => onPromote({ env: openCell.sourceEnv }, open.env), children: [
+          "Promote to ",
+          open.env
+        ] }) })
       ] }),
       openCell.status === "promotable" && !openCell.sourceEnv && openCell.sourceImage && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsxs(Typography, { className: classes.fact, style: { marginTop: 0 }, children: [
@@ -323,19 +301,10 @@ function ReleaseMatrix({
           open.env,
           " for the first time."
         ] }),
-        /* @__PURE__ */ jsxs(
-          "button",
-          {
-            type: "button",
-            className: classes.promoteBtn,
-            onClick: () => onPromote({ image: openCell.sourceImage }, open.env),
-            children: [
-              "Deploy to ",
-              open.env,
-              " \u2192"
-            ]
-          }
-        )
+        /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs(Button, { small: true, variant: "primary", onClick: () => onPromote({ image: openCell.sourceImage }, open.env), children: [
+          "Deploy to ",
+          open.env
+        ] }) })
       ] }),
       openCell.status === "pending" && openCell.pr && /* @__PURE__ */ jsxs("div", { className: classes.prRow, children: [
         /* @__PURE__ */ jsx(PrButton, { pr: openCell.pr }),

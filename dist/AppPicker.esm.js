@@ -1,9 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import TextField from '@material-ui/core/TextField';
-import InputAdornment from '@material-ui/core/InputAdornment';
-import SearchIcon from '@material-ui/icons/Search';
 import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import Typography from '@material-ui/core/Typography';
@@ -22,6 +19,7 @@ import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioningHistory, typicalFor } from './provisioning/provisioningHistory.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
+import { TextLink, FilterBar, FilterChips, SearchField } from './ui/index.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -89,17 +87,6 @@ const useStyles = makeStyles(() => ({
     justifyContent: "space-between",
     gap: 12,
     flexWrap: "wrap"
-  },
-  dashboardLink: {
-    fontFamily: fontMono,
-    fontSize: 12,
-    letterSpacing: "0.03em",
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-    "&:hover": { textDecoration: "underline" }
   },
   sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
@@ -191,46 +178,6 @@ const useStyles = makeStyles(() => ({
     borderRadius: 10,
     backgroundColor: ({ t }) => t.amber,
     color: ({ t }) => t.bg
-  },
-  toolbar: {
-    display: "flex",
-    gap: 12,
-    alignItems: "center",
-    flexWrap: "wrap",
-    marginBottom: 20
-  },
-  searchGrow: { flex: "1 1 240px", minWidth: 200 },
-  segment: {
-    display: "inline-flex",
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    overflow: "hidden",
-    backgroundColor: ({ t }) => t.panel,
-    flexShrink: 0
-  },
-  segBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    background: "none",
-    border: "none",
-    borderRight: ({ t }) => `1px solid ${t.line}`,
-    padding: "8px 14px",
-    cursor: "pointer",
-    fontSize: 13,
-    color: ({ t }) => t.textLo,
-    "&:last-child": { borderRight: "none" },
-    "&:hover": { color: ({ t }) => t.textHi }
-  },
-  segBtnActive: {
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panelAlt,
-    boxShadow: ({ t }) => `inset 0 -2px 0 ${t.amber}`
-  },
-  segCount: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.textFaint
   },
   sectionHead: {
     display: "flex",
@@ -521,7 +468,7 @@ function AppPicker({
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.titleRow, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Services" }),
-      /* @__PURE__ */ jsx("button", { className: classes.dashboardLink, onClick: onOpenDashboard, type: "button", children: "Fleet Dashboard \u2192" })
+      /* @__PURE__ */ jsx(TextLink, { onClick: onOpenDashboard, children: "Fleet Dashboard \u2192" })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Select a service to open its tabs." }),
     /* @__PURE__ */ jsxs("div", { className: classes.tabs, role: "tablist", "aria-label": "Services sections", children: [
@@ -565,49 +512,34 @@ function AppPicker({
       }
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),
-      /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Workload type", children: [{ id: ALL, label: "All", count: entities?.length }, ...classChips.map((c) => ({ ...c }))].map((f) => /* @__PURE__ */ jsxs(
-          "button",
-          {
-            type: "button",
-            "aria-pressed": typeFilter === f.id,
-            className: `${classes.segBtn} ${typeFilter === f.id ? classes.segBtnActive : ""}`,
-            onClick: () => setTypeFilter(f.id),
-            children: [
-              f.label,
-              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: entities ? f.count : "" })
-            ]
-          },
-          f.id
-        )) }),
-        providerChips.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "Runs on", children: [[ALL, entities?.length ?? 0], ...providerChips].map(([id, count]) => /* @__PURE__ */ jsxs(
-          "button",
-          {
-            type: "button",
-            "aria-pressed": providerFilter === id,
-            className: `${classes.segBtn} ${providerFilter === id ? classes.segBtnActive : ""}`,
-            onClick: () => setProviderFilter(id),
-            children: [
-              id === ALL ? "Anywhere" : id,
-              /* @__PURE__ */ jsx("span", { className: classes.segCount, children: count })
-            ]
-          },
-          id
-        )) }),
+      /* @__PURE__ */ jsxs(FilterBar, { children: [
         /* @__PURE__ */ jsx(
-          TextField,
+          FilterChips,
           {
-            className: classes.searchGrow,
-            variant: "outlined",
-            size: "small",
-            placeholder: "Search services\u2026",
-            value: query,
-            onChange: (e) => setQuery(e.target.value),
-            InputProps: {
-              startAdornment: /* @__PURE__ */ jsx(InputAdornment, { position: "start", children: /* @__PURE__ */ jsx(SearchIcon, { fontSize: "small", style: { color: t.textFaint } }) })
-            }
+            label: "Type",
+            value: typeFilter,
+            onChange: setTypeFilter,
+            options: [{ id: ALL, label: "All", count: entities?.length }, ...classChips].map((f) => ({
+              id: f.id,
+              label: f.label,
+              count: entities ? f.count : void 0
+            }))
           }
-        )
+        ),
+        providerChips.length > 0 && /* @__PURE__ */ jsx(
+          FilterChips,
+          {
+            label: "Runs on",
+            value: providerFilter,
+            onChange: setProviderFilter,
+            options: [[ALL, entities?.length ?? 0], ...providerChips].map(([id, count]) => ({
+              id,
+              label: id === ALL ? "Anywhere" : id,
+              count
+            }))
+          }
+        ),
+        /* @__PURE__ */ jsx(SearchField, { label: "Search services", placeholder: "Search services\u2026", value: query, onChange: setQuery })
       ] }),
       !entities ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
         starredEntities.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.starredSection, children: [
@@ -619,17 +551,18 @@ function AppPicker({
             "All services \xB7 ",
             filteredMinusStarred.length
           ] }),
-          /* @__PURE__ */ jsx("div", { className: classes.segment, role: "group", "aria-label": "View", children: ["cards", "list"].map((mode) => /* @__PURE__ */ jsx(
-            "button",
+          /* @__PURE__ */ jsx(
+            FilterChips,
             {
-              type: "button",
-              "aria-pressed": viewMode === mode,
-              className: `${classes.segBtn} ${viewMode === mode ? classes.segBtnActive : ""}`,
-              onClick: () => setViewMode(mode),
-              children: mode === "cards" ? "Cards" : "List"
-            },
-            mode
-          )) })
+              label: "View",
+              value: viewMode,
+              onChange: setViewMode,
+              options: [
+                { id: "cards", label: "Cards" },
+                { id: "list", label: "List" }
+              ]
+            }
+          )
         ] }),
         filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx("div", { className: classes.empty, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
       ] })

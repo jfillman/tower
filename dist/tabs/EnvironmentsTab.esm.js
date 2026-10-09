@@ -17,7 +17,7 @@ import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
-import { PageHeader, Button, Segmented, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
+import { PageHeader, Button, FilterBar, FilterChips, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
 import { PendingChanges } from './environments/PendingChanges.esm.js';
 import { RowDetail } from './environments/RowDetail.esm.js';
@@ -31,7 +31,6 @@ const useStyles = makeStyles(() => ({
   layout: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 350px", gap: 18, alignItems: "start" },
   main: { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
   side: { display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" },
-  toolbar: { display: "flex", gap: 10, alignItems: "center" },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
   headRow: { display: "grid", gridTemplateColumns: COLUMNS, gap: 10, padding: "9px 14px", borderLeft: "3px solid transparent" },
   row: {
@@ -352,24 +351,20 @@ function EnvironmentsTab() {
     !canEdit && /* @__PURE__ */ jsx("div", { className: c.hint, style: { marginBottom: 12 }, children: "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
     /* @__PURE__ */ jsxs("div", { className: canEdit ? c.layout : void 0, children: [
       /* @__PURE__ */ jsxs("div", { className: c.main, children: [
-        /* @__PURE__ */ jsxs("div", { className: c.toolbar, children: [
-          /* @__PURE__ */ jsx(
-            Segmented,
-            {
-              label: "Filter environments",
-              value: filter,
-              onChange: setFilter,
-              options: [
-                { id: "all", label: "All", count: counts.all },
-                { id: "ground", label: "Ground", count: counts.ground },
-                { id: "flight", label: "Flight", count: counts.flight },
-                { id: "cloud", label: "Cloud", count: counts.cloud }
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsx("div", { style: { flex: 1 } }),
-          canEdit && /* @__PURE__ */ jsx("span", { className: c.hint, children: "Drag the handle to reorder" })
-        ] }),
+        /* @__PURE__ */ jsx(FilterBar, { end: canEdit && /* @__PURE__ */ jsx("span", { className: c.hint, children: "Drag the handle to reorder" }), children: /* @__PURE__ */ jsx(
+          FilterChips,
+          {
+            label: "Tier",
+            value: filter,
+            onChange: setFilter,
+            options: [
+              { id: "all", label: "All", count: counts.all },
+              { id: "ground", label: "Ground", count: counts.ground },
+              { id: "flight", label: "Flight", count: counts.flight },
+              { id: "cloud", label: "Cloud", count: counts.cloud }
+            ]
+          }
+        ) }),
         /* @__PURE__ */ jsx(Panel, { children: shown.length === 0 ? /* @__PURE__ */ jsx("div", { className: c.empty, children: rows.length === 0 ? "No environments yet. They appear here once the service declares or deploys to one." : "No environments match this filter." }) : /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs("div", { role: "table", "aria-label": "Environments", children: [
           /* @__PURE__ */ jsxs("div", { className: c.headRow, role: "row", children: [
             /* @__PURE__ */ jsx("span", { role: "presentation" }),

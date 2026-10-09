@@ -3,8 +3,8 @@ import { createContext, useState, useContext } from 'react';
 import { useHangarTokens } from '../../../brand/tokens.esm.js';
 import { deployFrequencyBand, leadTimeBand, changeFailureBand, restoreBand } from '../../../fleet/dora.esm.js';
 import { PIPELINE_CATEGORIES, CATEGORY_LABEL } from '../../../fleet/pipelineHistory.esm.js';
-import { preventFocusScroll } from '../../../preventFocusScroll.esm.js';
 import { fmtAge, fmtSeconds, bandColor, severityColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
+import { FilterGroup, FilterChip } from '../../../ui/index.esm.js';
 
 function useKit() {
   const t = useHangarTokens();
@@ -137,25 +137,7 @@ function PipelinesPanel({
   const failures = recent.filter((r) => r.status === "failed");
   const failRate = stats.runs > 0 ? Math.round(stats.failedRuns / stats.runs * 100) : void 0;
   return /* @__PURE__ */ jsxs(OpsPanel, { id: "ops-pipelines", title: "Pipelines", count: items.length, stale, children: [
-    /* @__PURE__ */ jsx("div", { className: c.filterRow, role: "group", "aria-label": "Pipeline types", children: PIPELINE_CATEGORIES.map((cat) => {
-      const on = categories.has(cat);
-      return /* @__PURE__ */ jsxs(
-        "button",
-        {
-          type: "button",
-          "aria-pressed": on,
-          className: `${c.toggle} ${on ? c.toggleOn : ""}`,
-          onMouseDown: preventFocusScroll,
-          onClick: () => onToggleCategory(cat),
-          children: [
-            CATEGORY_LABEL[cat],
-            " ",
-            /* @__PURE__ */ jsx("span", { className: c.toggleCount, children: counts[cat] })
-          ]
-        },
-        cat
-      );
-    }) }),
+    /* @__PURE__ */ jsx("div", { className: c.filterRow, children: /* @__PURE__ */ jsx(FilterGroup, { label: "Pipeline types", hideLabel: true, children: PIPELINE_CATEGORIES.map((cat) => /* @__PURE__ */ jsx(FilterChip, { on: categories.has(cat), count: counts[cat], onClick: () => onToggleCategory(cat), children: CATEGORY_LABEL[cat] }, cat)) }) }),
     /* @__PURE__ */ jsx("div", { className: c.subhead, children: "Running now" }),
     shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No pipelines running." }) : shown.map((p) => {
       let barColor = t.sky;
@@ -412,31 +394,12 @@ function DoraPanel({
 }) {
   const { t, c } = useKit();
   const [perApp, setPerApp] = useState(false);
-  const controls = /* @__PURE__ */ jsxs("span", { className: c.links, children: [
-    windows.map((w) => /* @__PURE__ */ jsxs(
-      "button",
-      {
-        type: "button",
-        className: `${c.toggle} ${w === windowDays ? c.toggleOn : ""}`,
-        onMouseDown: preventFocusScroll,
-        onClick: () => onWindow(w),
-        children: [
-          w,
-          "d"
-        ]
-      },
-      w
-    )),
-    /* @__PURE__ */ jsx(
-      "button",
-      {
-        type: "button",
-        className: `${c.toggle} ${perApp ? c.toggleOn : ""}`,
-        onMouseDown: preventFocusScroll,
-        onClick: () => setPerApp((v) => !v),
-        children: "per app"
-      }
-    )
+  const controls = /* @__PURE__ */ jsxs(FilterGroup, { label: "Window", hideLabel: true, children: [
+    windows.map((w) => /* @__PURE__ */ jsxs(FilterChip, { on: w === windowDays, onClick: () => onWindow(w), children: [
+      w,
+      "d"
+    ] }, w)),
+    /* @__PURE__ */ jsx(FilterChip, { on: perApp, onClick: () => setPerApp((v) => !v), children: "per app" })
   ] });
   let body;
   if (!snapshot && error) {

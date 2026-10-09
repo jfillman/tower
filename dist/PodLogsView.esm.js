@@ -6,30 +6,11 @@ import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { preventFocusScroll } from './preventFocusScroll.esm.js';
+import { FilterSelect, FilterChip } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: "3px 8px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi
-  },
-  toggle: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: "3px 9px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: "none",
-    color: ({ t }) => t.textFaint,
-    cursor: "pointer"
-  },
-  toggleActive: { color: ({ t }) => t.amberInk, borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
   refresh: {
     fontFamily: fontMono,
     fontSize: 11,
@@ -121,17 +102,8 @@ function PodLogsView({
         "Logs \u2014 ",
         podName
       ] }),
-      containers.length > 1 && /* @__PURE__ */ jsx("select", { className: classes.select, value: container, onChange: (e) => setContainer(e.target.value), children: containers.map((c) => /* @__PURE__ */ jsx("option", { value: c, children: c }, c)) }),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: `${classes.toggle} ${previous ? classes.toggleActive : ""}`,
-          onMouseDown: preventFocusScroll,
-          onClick: () => setPrevious((v) => !v),
-          children: "previous"
-        }
-      ),
+      containers.length > 1 && /* @__PURE__ */ jsx(FilterSelect, { label: "Container", value: container, onChange: setContainer, options: containers.map((c) => ({ value: c, label: c })) }),
+      /* @__PURE__ */ jsx(FilterChip, { on: previous, title: "The container's previous run (before its last restart)", onClick: () => setPrevious((v) => !v), children: "Previous run" }),
       live ? /* @__PURE__ */ jsxs("span", { className: classes.liveBadge, children: [
         /* @__PURE__ */ jsx("span", { className: classes.liveDot }),
         "live"

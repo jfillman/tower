@@ -4,15 +4,15 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { NamespaceEvents } from './NamespaceEvents.esm.js';
-import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { useNamespaceResource } from './useNamespaceResource.esm.js';
 import { useClusterRbac } from './useClusterRbac.esm.js';
 import { buildTopoStages, TopoDag } from './tabs/topology/TopoDag.esm.js';
 import { TopologyStageDetail } from './tabs/topology/StageDetail.esm.js';
 import { ResourceGallery } from './tabs/topology/ResourceGallery.esm.js';
 import { health, ENV_TIER_LABEL } from './types.esm.js';
+import { FilterGroup, FilterChip } from './ui/index.esm.js';
 
 const STATUS_COLOR = {
   healthy: "good",
@@ -63,21 +63,7 @@ const useStyles = makeStyles(() => ({
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: "16px 18px" },
   panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 },
-  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  toolbar: { display: "flex", gap: 8 },
-  toolbarBtn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.02em",
-    padding: "5px 11px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: "none",
-    color: ({ t }) => t.textLo,
-    cursor: "pointer",
-    "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
-  },
-  toolbarBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft }
+  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi }
 }));
 function EnvironmentTopology({ env, tier }) {
   const t = useHangarTokens();
@@ -135,13 +121,9 @@ function EnvironmentTopology({ env, tier }) {
       /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, selectedKey: selectedStage }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-        /* @__PURE__ */ jsxs("button", { type: "button", className: `${classes.toolbarBtn} ${showResources ? classes.toolbarBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => setShowResources((v) => !v), children: [
-          "All resources (",
-          galleryResources.length,
-          ")"
-        ] }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.toolbarBtn} ${showEvents ? classes.toolbarBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => setShowEvents((v) => !v), children: "Events" })
+      /* @__PURE__ */ jsxs(FilterGroup, { label: "Show", children: [
+        /* @__PURE__ */ jsx(FilterChip, { on: showResources, count: galleryResources.length, onClick: () => setShowResources((v) => !v), children: "All resources" }),
+        /* @__PURE__ */ jsx(FilterChip, { on: showEvents, onClick: () => setShowEvents((v) => !v), children: "Events" })
       ] }),
       /* @__PURE__ */ jsx(Collapse, { in: showResources, unmountOnExit: true, children: /* @__PURE__ */ jsxs("div", { className: classes.panel, style: { marginTop: 10 }, children: [
         /* @__PURE__ */ jsxs(Typography, { className: classes.panelTitle, children: [

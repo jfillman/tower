@@ -6,11 +6,11 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
 import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { imageTag } from './types.esm.js';
+import { Button, TextLink } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   paper: {
@@ -27,12 +27,7 @@ const useStyles = makeStyles(() => ({
   },
   text: { color: ({ t }) => t.textLo },
   error: { color: ({ t }) => t.bad },
-  link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky },
-  cancelBtn: { color: ({ t }) => t.textLo },
-  confirmBtn: {
-    borderColor: ({ t }) => t.amberLine,
-    color: ({ t }) => t.amberInk
-  }
+  link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky }
 }));
 const mono = { fontFamily: fontMono };
 function PromoteDialog({
@@ -150,20 +145,11 @@ function PromoteDialog({
           ] })
         ] }),
         /* @__PURE__ */ jsx(DialogActions, { children: !promote.result ? /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx(Button, { className: classes.cancelBtn, onClick: onClose, disabled: promote.loading, children: "Cancel" }),
-          /* @__PURE__ */ jsx(
-            Button,
-            {
-              variant: "outlined",
-              className: classes.confirmBtn,
-              disabled: promote.loading,
-              onClick: onConfirm,
-              children: targetIsLower ? "Commit and deploy" : "Start release"
-            }
-          )
+          /* @__PURE__ */ jsx(Button, { onClick: onClose, disabled: promote.loading, children: "Cancel" }),
+          /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: promote.loading, onClick: onConfirm, children: targetIsLower ? "Commit and deploy" : "Start release" })
         ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx(Button, { className: classes.cancelBtn, onClick: onClose, children: "Close" }),
-          /* @__PURE__ */ jsx(Button, { variant: "outlined", className: classes.confirmBtn, onClick: goToDeployment, children: "View deployment \u2192" })
+          /* @__PURE__ */ jsx(TextLink, { onClick: goToDeployment, children: "View deployment \u2192" }),
+          /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" })
         ] }) })
       ] })
     }

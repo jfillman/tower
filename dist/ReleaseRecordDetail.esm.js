@@ -15,21 +15,9 @@ import { confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
+import { TextLink, Button, ActionSelect } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
-  backBtn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px 0 14px",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6
-  },
   head: {
     display: "flex",
     justifyContent: "space-between",
@@ -72,19 +60,6 @@ const useStyles = makeStyles(() => ({
   explainRow: { display: "grid", gridTemplateColumns: "150px 60px 1fr", gap: 12, padding: "5px 0", borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: "baseline" },
   explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
   actionsBar: { display: "flex", gap: 8, flexWrap: "wrap" },
-  btn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11.5,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textLo,
-    padding: "7px 12px",
-    borderRadius: 6,
-    cursor: "pointer",
-    whiteSpace: "nowrap"
-  },
-  btnPrimary: { backgroundColor: ({ t }) => t.amber, borderColor: ({ t }) => t.amber, color: "#241a05" },
   // alignItems: 'start' is the actual fix for the "huge empty space" complaint -
   // grid's default 'stretch' forces every column's box to the row's tallest
   // column (built, by far the densest), so a short column (changed/happened)
@@ -359,7 +334,7 @@ function ReleaseRecordDetail({
     });
   };
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx("button", { type: "button", className: classes.backBtn, onClick: onBack, children: "\u2190 Back to records" }),
+    /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to records" }),
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
         /* @__PURE__ */ jsx("div", { className: classes.mark, children: /* @__PURE__ */ jsx(HangarMark, { glyph: "hangar", size: 52 }) }),
@@ -404,33 +379,17 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.actionsBar, children: [
-          /* @__PURE__ */ jsx(
-            "button",
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext), children: "\u2913 PDF" }),
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext), children: "\u2913 HTML" }),
+          otherRecords.length > 0 && /* @__PURE__ */ jsx(
+            ActionSelect,
             {
-              type: "button",
-              className: `${classes.btn} ${classes.btnPrimary}`,
-              onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext),
-              children: "\u2913 PDF"
-            }
-          ),
-          /* @__PURE__ */ jsx("button", { type: "button", className: classes.btn, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext), children: "\u2913 HTML" }),
-          otherRecords.length > 0 && /* @__PURE__ */ jsxs(
-            "select",
-            {
-              className: classes.btn,
-              value: "",
-              onChange: (e) => {
-                if (e.target.value) onCompare(e.target.value);
-              },
-              children: [
-                /* @__PURE__ */ jsx("option", { value: "", disabled: true, children: "Compare \u25BE" }),
-                otherRecords.map((r) => /* @__PURE__ */ jsxs("option", { value: r.id, children: [
-                  r.version ?? r.imageTag,
-                  r.nickname ? ` \xB7 ${r.nickname}` : "",
-                  " \u2014 ",
-                  formatDateTime(r.createdAt)
-                ] }, r.id))
-              ]
+              label: "Compare",
+              onSelect: onCompare,
+              options: otherRecords.map((r) => ({
+                value: r.id,
+                label: `${r.version ?? r.imageTag}${r.nickname ? ` \xB7 ${r.nickname}` : ""} \u2014 ${formatDateTime(r.createdAt)}`
+              }))
             }
           )
         ] })
@@ -724,20 +683,11 @@ function ReleaseRecordDetail({
                 onChange: (e) => setApprovalRole(e.target.value)
               }
             ),
-            /* @__PURE__ */ jsx("button", { type: "button", className: classes.btn, onClick: addMyApproval, children: "+ Add my approval" })
+            /* @__PURE__ */ jsx(Button, { small: true, onClick: addMyApproval, children: "+ Add my approval" })
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanActions, children: [
-          submitContext.result ? /* @__PURE__ */ jsx("button", { type: "button", className: classes.btn, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(
-            "button",
-            {
-              type: "button",
-              className: `${classes.btn} ${classes.btnPrimary}`,
-              disabled: !dirty || submitContext.loading,
-              onClick: onSubmitContext,
-              children: submitContext.loading ? "Opening PR\u2026" : "Open PR for human context"
-            }
-          ),
+          submitContext.result ? /* @__PURE__ */ jsx(Button, { small: true, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { small: true, variant: "primary", disabled: !dirty || submitContext.loading, onClick: onSubmitContext, children: submitContext.loading ? "Opening PR\u2026" : "Open PR for human context" }),
           persisted.data.humanContext.authoredBy && /* @__PURE__ */ jsxs(Typography, { className: classes.humanNote, style: { marginBottom: 0 }, children: [
             "last authored by ",
             persisted.data.humanContext.authoredBy

@@ -11,6 +11,7 @@ import { SupplyChainChips } from './SupplyChainChips.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { gitopsPrForEnvAndImage, nicknameForImageTag, parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import { imageTag, envTierOf, previewPrNumber } from './types.esm.js';
+import { FilterChips } from './ui/index.esm.js';
 
 const LOG_ROW_CAP = 25;
 function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns) {
@@ -79,9 +80,6 @@ const useStyles = makeStyles(() => ({
   head: { padding: "14px 20px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
-  toggle: { display: "inline-flex", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 100, padding: 2, gap: 2 },
-  toggleBtn: { fontFamily: fontMono, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 100, color: ({ t }) => t.textFaint, background: "none", border: "none", cursor: "pointer" },
-  toggleBtnActive: { backgroundColor: ({ t }) => t.panelAlt, color: ({ t }) => t.textHi },
   scroll: { overflowX: "auto", padding: "0 20px 18px" },
   table: { width: "100%", borderCollapse: "collapse" },
   th: { textAlign: "left", fontFamily: fontDisplay, fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.04em", color: ({ t }) => t.textLo, padding: "9px 12px", borderBottom: ({ t }) => `1px solid ${t.line}`, whiteSpace: "nowrap" },
@@ -134,26 +132,18 @@ function ReleaseLog({
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release log" }),
         /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Every promotion and preview spin-up, newest first - table for scanning, timeline for reading how long each release ran." })
       ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.toggle, children: [
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            type: "button",
-            className: `${classes.toggleBtn} ${view === "table" ? classes.toggleBtnActive : ""}`,
-            onClick: () => setView("table"),
-            children: "Table"
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            type: "button",
-            className: `${classes.toggleBtn} ${view === "timeline" ? classes.toggleBtnActive : ""}`,
-            onClick: () => setView("timeline"),
-            children: "Timeline"
-          }
-        )
-      ] })
+      /* @__PURE__ */ jsx(
+        FilterChips,
+        {
+          label: "View",
+          value: view,
+          onChange: setView,
+          options: [
+            { id: "table", label: "Table" },
+            { id: "timeline", label: "Timeline" }
+          ]
+        }
+      )
     ] }),
     view === "table" && entries.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.emptyRow, children: "No recorded promotions yet." }),
     view === "table" && entries.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [

@@ -5,12 +5,12 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
 import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { imageTag } from '../../types.esm.js';
 import { useSubmitPin } from '../../environments/releasePins.esm.js';
+import { Button } from '../../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   text: { color: ({ t }) => t.textLo, lineHeight: 1.6 },
@@ -79,8 +79,7 @@ function CloudPromoteDialog({
       target.flight && !submit.result && /* @__PURE__ */ jsx(
         Button,
         {
-          color: "primary",
-          variant: "contained",
+          variant: "primary",
           disabled: submit.loading || !owner || !appName,
           onClick: async () => {
             const r = await submit.submit({ owner, appName, env: target.env, image: target.image, promotedFrom: target.from });

@@ -1,6 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useRef, useMemo } from 'react';
-import { preventFocusScroll, scrollPanelIntoView } from './preventFocusScroll.esm.js';
+import { scrollPanelIntoView } from './preventFocusScroll.esm.js';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
@@ -8,6 +8,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { renderNotificationDescription } from './notificationFormatting.esm.js';
 import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, PreviewIcon, SyncIcon } from './activityIcons.esm.js';
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers.esm.js';
+import { TextLink, FilterGroup, FilterChip } from './ui/index.esm.js';
 
 const CATEGORY_TOPICS = {
   images: ["build"],
@@ -148,40 +149,13 @@ const useStyles = makeStyles(() => ({
     fontSize: 15,
     color: ({ t }) => t.textHi
   },
-  viewAll: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0
-  },
-  filters: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 },
-  filterBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    padding: "4px 10px",
-    borderRadius: 100,
-    border: "1px solid transparent",
-    cursor: "pointer"
-  },
+  filters: { marginBottom: 8 },
   // Unselected: the category's own color (background tint + icon/text in
   // its fg color, set inline per-button since it varies by category).
   // Selected overrides that with the same solid-inverted treatment the
   // plain text filters used before - stays visually "selected" instead of
   // just "this category's normal color", which the tinted background alone
   // wouldn't read as clearly.
-  filterBtnActive: {
-    backgroundColor: ({ t }) => t.textHi,
-    color: ({ t }) => t.bg,
-    borderColor: ({ t }) => t.textHi
-  },
   // 2026-09-15 feedback ("the panel is really large"): tightened every
   // dimension in this row/badge/body cluster alongside MAX_ROWS above -
   // smaller badge (26->22), less vertical padding per row, tighter body gap.
@@ -454,40 +428,28 @@ function RecentActivityPanel({
   return /* @__PURE__ */ jsxs("div", { className: classes.card, ref: panelRef, style: { scrollMarginTop: 16, scrollMarginBottom: 16 }, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Recent activity" }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.viewAll, onClick: onViewAll, children: "View all in Notifications \u2192" })
+      /* @__PURE__ */ jsx(TextLink, { onClick: onViewAll, children: "View all in Notifications \u2192" })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.filters, children: Object.keys(CATEGORY_META).map((c) => {
+    /* @__PURE__ */ jsx("div", { className: classes.filters, children: /* @__PURE__ */ jsx(FilterGroup, { label: "Show", children: Object.keys(CATEGORY_META).map((c) => {
       const meta = CATEGORY_META[c];
-      const active = category === c;
       const CategoryIcon = meta.icon;
-      const catColor = categoryColor(c, t, isDark);
-      let style;
-      if (!active) {
-        style = catColor ? { color: catColor.fg, backgroundColor: catColor.bg } : {
-          color: t.textLo,
-          backgroundColor: t.panel,
-          borderColor: t.line
-        };
-      }
+      const iconColor = categoryColor(c, t, isDark)?.fg;
       return /* @__PURE__ */ jsxs(
-        "button",
+        FilterChip,
         {
-          type: "button",
-          className: `${classes.filterBtn} ${active ? classes.filterBtnActive : ""}`,
-          style,
-          onMouseDown: preventFocusScroll,
+          on: category === c,
           onClick: () => {
             setCategory(c);
             scrollPanelIntoView(() => panelRef.current, 60, "nearest");
           },
           children: [
-            CategoryIcon && /* @__PURE__ */ jsx(CategoryIcon, { width: 11, height: 11 }),
+            CategoryIcon && /* @__PURE__ */ jsx(CategoryIcon, { width: 11, height: 11, style: { color: iconColor } }),
             meta.label
           ]
         },
         c
       );
-    }) }),
+    }) }) }),
     /* @__PURE__ */ jsx("div", { className: classes.scrollArea, children: groups.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: emptyText }) : groups.map((group, gi) => /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx("div", { className: classes.day, children: group.day }),
       group.items.map((n, i) => {

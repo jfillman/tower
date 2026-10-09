@@ -6,6 +6,7 @@ import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
+import { IconButton } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 10 },
@@ -58,18 +59,6 @@ const useStyles = makeStyles(() => ({
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   actions: { display: "flex", alignItems: "center", gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
-  btn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textLo,
-    padding: "7px 12px",
-    borderRadius: 6,
-    cursor: "pointer"
-  },
-  btnSky: { backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine, color: ({ t }) => t.sky },
   head: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", gap: 8 },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   countNote: { fontSize: 12, color: ({ t }) => t.textFaint }
@@ -149,10 +138,9 @@ function ReleaseRecordList({
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),
             /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
               /* @__PURE__ */ jsx(
-                "button",
+                IconButton,
                 {
-                  type: "button",
-                  className: classes.btn,
+                  "aria-label": "Download HTML",
                   title: "Download HTML",
                   onClick: (e) => {
                     e.stopPropagation();

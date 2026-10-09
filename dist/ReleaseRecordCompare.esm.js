@@ -6,6 +6,7 @@ import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
+import { TextLink } from './ui/index.esm.js';
 
 function leadTimeMs(record) {
   const promo = [...record.promotionChain].reverse().find((p) => p.mergedAt);
@@ -30,19 +31,6 @@ function formatSignedPercentPoints(delta) {
   return pts > 0 ? `+${pts}%` : `\u2212${Math.abs(pts)}%`;
 }
 const useStyles = makeStyles(() => ({
-  backBtn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px 0 14px",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6
-  },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, marginBottom: 14 },
   grid: {
     display: "grid",
@@ -174,7 +162,7 @@ function ReleaseRecordCompare({
   const leftPill = { label: "BASELINE", bg: t.panelAlt, border: t.line, fg: t.textLo };
   const rightPill = statusPill(t, right);
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx("button", { type: "button", className: classes.backBtn, onClick: onBack, children: "\u2190 Back to record" }),
+    /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to record" }),
     /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Compare releases" }),
     /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
       /* @__PURE__ */ jsx(RecordColumn, { record: left, pill: leftPill, side: "left", t, classes }),

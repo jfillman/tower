@@ -14,13 +14,11 @@ import { PipelineRunList } from '../PipelineRunList.esm.js';
 import { PipelineDag } from '../PipelineDag.esm.js';
 import { scrollPanelIntoView } from '../preventFocusScroll.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
-  sectionHead: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
   sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
   dagGap: { marginTop: 12 },
   note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
@@ -69,24 +67,7 @@ const useStyles = makeStyles(() => ({
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
-  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  rangeGroup: { display: "flex", alignItems: "center", gap: 6 },
-  rangeLabel: { fontSize: 12, color: ({ t }) => t.textFaint },
-  rangeChip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: "4px 9px",
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textLo,
-    cursor: "pointer"
-  },
-  rangeChipOn: {
-    borderColor: ({ t }) => t.amberLine,
-    backgroundColor: ({ t }) => t.amberSoft,
-    color: ({ t }) => t.amberInk
-  }
+  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint }
 }));
 const HISTORY_RANGES = [
   { key: "live", label: "Live", hours: 0 },
@@ -240,29 +221,29 @@ function PipelinesTab() {
       ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
-          " ",
-          "\xB7 kind-dev"
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.rangeGroup, role: "group", "aria-label": "Run history range", children: [
-          /* @__PURE__ */ jsx("span", { className: classes.rangeLabel, children: "History" }),
-          HISTORY_RANGES.map((r) => /* @__PURE__ */ jsx(
-            "button",
+      /* @__PURE__ */ jsx(
+        FilterBar,
+        {
+          end: /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
+            listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
+            " ",
+            "\xB7 kind-dev"
+          ] }),
+          children: /* @__PURE__ */ jsx(
+            FilterChips,
             {
-              type: "button",
-              className: `${classes.rangeChip} ${historyRange === r.key ? classes.rangeChipOn : ""}`,
-              "aria-pressed": historyRange === r.key,
-              title: r.key === "live" ? "Runs still on the cluster (about the last hour)" : `Include archived runs from the last ${r.label}`,
-              onMouseDown: (e) => e.preventDefault(),
-              onClick: () => setHistoryRange(r.key),
-              children: r.label
-            },
-            r.key
-          ))
-        ] })
-      ] }),
+              label: "History",
+              value: historyRange,
+              onChange: setHistoryRange,
+              options: HISTORY_RANGES.map((r) => ({
+                id: r.key,
+                label: r.label,
+                title: r.key === "live" ? "Runs still on the cluster (about the last hour)" : `Include archived runs from the last ${r.label}`
+              }))
+            }
+          )
+        }
+      ),
       ciBody
     ] })
   ] });

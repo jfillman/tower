@@ -12,6 +12,7 @@ import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { PodLogsView } from '../../PodLogsView.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
+import { Button, TextLink } from '../../ui/index.esm.js';
 
 const TIER2_ACTIONS = ["Promote", "Promote full", "Pause", "Resume", "Retry", "Restart", "Abort"];
 const PR_BODY_TRUNCATE = 700;
@@ -32,34 +33,7 @@ const useStyles = makeStyles(() => ({
     textDecoration: "none",
     "&:hover": { textDecoration: "underline" }
   },
-  ctaBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    alignSelf: "flex-start",
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13,
-    padding: "9px 16px",
-    borderRadius: 8,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    "&:hover": { backgroundColor: ({ t }) => t.sky, color: ({ t }) => t.bg }
-  },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
-  jumpBtn: {
-    alignSelf: "flex-start",
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0,
-    "&:hover": { textDecoration: "underline" }
-  },
   chip: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 12, alignSelf: "flex-start" },
   chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
   chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
@@ -76,20 +50,6 @@ const useStyles = makeStyles(() => ({
   resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 },
   rolloutActions: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10, paddingBottom: 12, borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
   btnRow: { display: "flex", gap: 6, flexWrap: "wrap" },
-  btn: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 600,
-    padding: "6px 12px",
-    borderRadius: 8,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    "&:disabled": { opacity: 0.5, cursor: "default" }
-  },
-  btnRoadmap: { opacity: 0.55, borderStyle: "dashed", cursor: "default" },
   roadmapNote: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint }
 }));
 function guardrailsFallbackNote(delivery) {
@@ -157,9 +117,9 @@ function MergedBody({
   if (delivery.pr?.state === "merged") {
     const commitUrl = mergeCommitUrl(delivery.pr);
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("a", { className: classes.ctaBtn, href: delivery.pr.url, target: "_blank", rel: "noopener noreferrer", children: [
-        /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 16 }),
-        "View PR #",
+      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
+        /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
+        "PR #",
         delivery.pr.number,
         " \u2197"
       ] }),
@@ -170,9 +130,9 @@ function MergedBody({
       commitUrl && /* @__PURE__ */ jsxs(Typography, { className: classes.meta, children: [
         "merge commit",
         " ",
-        /* @__PURE__ */ jsxs("a", { className: classes.jumpBtn, style: { display: "inline" }, href: commitUrl, target: "_blank", rel: "noopener noreferrer", children: [
+        /* @__PURE__ */ jsxs(TextLink, { href: commitUrl, children: [
           delivery.pr.mergeCommitSha.slice(0, 7),
-          " \u2192"
+          " \u2197"
         ] })
       ] }),
       gateCi && /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -182,7 +142,7 @@ function MergedBody({
           gateCi.totalChecks,
           " guardrails passed"
         ] }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.jumpBtn, onClick: () => onSelectStage("guardrails"), children: "view full guardrail results \u2192" })
+        /* @__PURE__ */ jsx(TextLink, { onClick: () => onSelectStage("guardrails"), children: "Guardrail results \u2192" })
       ] })
     ] });
   }
@@ -204,16 +164,15 @@ function MergedBody({
         ] }),
         reviewLabel(delivery.pr.review) && /* @__PURE__ */ jsx("span", { className: `${classes.chip} ${delivery.pr.review?.state === "approved" ? classes.chipOk : classes.chipAmber}`, children: reviewLabel(delivery.pr.review) })
       ] }),
-      /* @__PURE__ */ jsx(
-        "button",
+      /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(
+        Button,
         {
-          type: "button",
-          className: `${classes.btn} ${classes.btnRoadmap}`,
+          small: true,
           disabled: true,
           title: "Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now.",
           children: "Merge PR"
         }
-      )
+      ) })
     ] });
   }
   return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Not merged yet." });
@@ -254,7 +213,7 @@ function HookRow({
     ] }),
     job.message && /* @__PURE__ */ jsx(Typography, { className: classes.cellMessage ?? classes.note, style: { padding: "2px 10px" }, children: job.message }),
     pod && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.jumpBtn, style: { margin: "4px 10px" }, onClick: () => setShowLog((v) => !v), children: showLog ? "\u25BE hide job log" : "\u25B8 show job log" }),
+      /* @__PURE__ */ jsx("div", { style: { margin: "4px 10px" }, children: /* @__PURE__ */ jsx(TextLink, { expanded: showLog, onClick: () => setShowLog((v) => !v), children: "Job log" }) }),
       showLog && /* @__PURE__ */ jsx("div", { style: { margin: "0 10px 6px" }, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers }) })
     ] })
   ] });
@@ -367,7 +326,7 @@ function StageDetail({
       ] }),
       rolloutProgress ? /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsxs("div", { className: classes.rolloutActions, children: [
-          /* @__PURE__ */ jsx("div", { className: classes.btnRow, children: TIER2_ACTIONS.map((label) => /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.btn} ${classes.btnRoadmap}`, disabled: true, children: label }, label)) }),
+          /* @__PURE__ */ jsx("div", { className: classes.btnRow, children: TIER2_ACTIONS.map((label) => /* @__PURE__ */ jsx(Button, { small: true, disabled: true, children: label }, label)) }),
           /* @__PURE__ */ jsx("span", { className: classes.roadmapNote, children: "Tier 2 \u2014 UI-ready, backend route not yet built (see HANDOFF-tower-write-actions.md)" })
         ] }),
         /* @__PURE__ */ jsx(

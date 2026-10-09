@@ -5,6 +5,7 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { ImageTagPill } from './ImageTagPill.esm.js';
+import { Button, TextLink } from '../../ui/index.esm.js';
 
 function syncWaveFor(node, k8sResources) {
   return k8sResources.find((r) => r.kind === node.kind && r.name === node.name)?.annotations?.["argocd.argoproj.io/sync-wave"];
@@ -29,31 +30,6 @@ const useStyles = makeStyles(() => ({
   chipUnknown: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" },
-  btn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    fontWeight: 600,
-    padding: "5px 11px",
-    borderRadius: 7,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    "&:disabled": { opacity: 0.5, cursor: "default" }
-  },
-  btnPrimary: { backgroundColor: ({ t }) => t.skySoft, color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
-  btnRoadmap: { opacity: 0.45, borderStyle: "dashed", cursor: "default" },
-  helpToggle: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "5px 4px",
-    whiteSpace: "nowrap"
-  },
   argoErr: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
@@ -105,17 +81,6 @@ const useStyles = makeStyles(() => ({
   guideName: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, flex: "0 0 132px" },
   guideBody: { color: ({ t }) => t.textLo, lineHeight: 1.5 },
   guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: "italic" },
-  disclosureToggle: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    color: ({ t }) => t.textFaint,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0,
-    alignSelf: "flex-start",
-    "&:hover": { color: ({ t }) => t.sky }
-  },
   detail: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" },
   kv: { display: "flex", flexDirection: "column", gap: 2, padding: "7px 9px", backgroundColor: ({ t }) => t.panelAlt, borderRadius: 6 },
@@ -176,7 +141,7 @@ const SYNC_GUIDE = [
     body: "Re-compares live cluster state against git and recomputes the diff. Applies nothing. Safe to click anytime - use it when you just want to confirm the status above is current."
   },
   {
-    name: "Hard Refresh",
+    name: "Hard refresh",
     body: "Same as Refresh, but also bypasses ArgoCD's cached manifest render (Helm/Kustomize output). Use this instead of a plain Refresh when you changed something that affects manifest generation itself - a Helm values file, a referenced ConfigMap - and the diff still looks stale."
   },
   {
@@ -184,12 +149,12 @@ const SYNC_GUIDE = [
     body: "Applies git's declared state to the cluster. Use when Sync status above reads OutOfSync and automated sync is off (or is enabled but hasn't caught up yet). Possible error: a sync can fail outright if a resource change conflicts with one made directly in the cluster (someone/something edited live state git doesn't know about)."
   },
   {
-    name: "Sync w/ Prune",
+    name: "Sync with prune",
     roadmap: true,
     body: "Also deletes any resource that exists live but is no longer declared in git. Use to clean up after removing something from git. Risk: can delete real resources unexpectedly if git state is wrong - not yet available (needs the authorization model from HANDOFF-tower-write-actions.md)."
   },
   {
-    name: "Force Sync",
+    name: "Force sync",
     roadmap: true,
     body: "Deletes and recreates a resource instead of patching it. Use to recover from a resource stuck by an immutable-field conflict that a normal Sync can't apply. Risk: causes brief downtime for whatever gets replaced - not yet available, same reason as Sync w/ Prune."
   },
@@ -269,42 +234,31 @@ function ArgoCommandPanel({
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
+        /* @__PURE__ */ jsx(Button, { small: true, title: SYNC_GUIDE[0].body, disabled: !canAct || Boolean(argoActions.pending), onClick: () => act(argoActions.refresh), children: argoActions.pending === "refresh" ? "Refreshing\u2026" : "Refresh" }),
         /* @__PURE__ */ jsx(
-          "button",
+          Button,
           {
-            type: "button",
-            className: classes.btn,
-            title: SYNC_GUIDE[0].body,
-            disabled: !canAct || Boolean(argoActions.pending),
-            onClick: () => act(argoActions.refresh),
-            children: argoActions.pending === "refresh" ? "refreshing\u2026" : "\u27F3 Refresh"
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            type: "button",
-            className: classes.btn,
+            small: true,
             title: SYNC_GUIDE[1].body,
             disabled: !canAct || Boolean(argoActions.pending),
             onClick: () => act(argoActions.hardRefresh),
-            children: argoActions.pending === "hardRefresh" ? "refreshing\u2026" : "\u27F3 Hard refresh"
+            children: argoActions.pending === "hardRefresh" ? "Refreshing\u2026" : "Hard refresh"
           }
         ),
         /* @__PURE__ */ jsx(
-          "button",
+          Button,
           {
-            type: "button",
-            className: `${classes.btn} ${classes.btnPrimary}`,
+            small: true,
+            variant: "primary",
             title: SYNC_GUIDE[2].body,
             disabled: !canAct || Boolean(argoActions.pending),
             onClick: () => act(argoActions.sync),
-            children: argoActions.pending === "sync" ? "syncing\u2026" : "\u21C4 Sync"
+            children: argoActions.pending === "sync" ? "Syncing\u2026" : "Sync"
           }
         ),
-        /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.btn} ${classes.btnRoadmap}`, title: SYNC_GUIDE[3].body, disabled: true, children: "Sync w/ prune" }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.btn} ${classes.btnRoadmap}`, title: SYNC_GUIDE[4].body, disabled: true, children: "Force sync" }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.helpToggle, onClick: () => setGuideOpen((v) => !v), children: guideOpen ? "hide guide" : "which one? \u25BE" })
+        /* @__PURE__ */ jsx(Button, { small: true, title: SYNC_GUIDE[3].body, disabled: true, children: "Sync with prune" }),
+        /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", title: SYNC_GUIDE[4].body, disabled: true, children: "Force sync" }),
+        /* @__PURE__ */ jsx(TextLink, { expanded: guideOpen, onClick: () => setGuideOpen((v) => !v), children: "Which one?" })
       ] })
     ] }),
     (env.argoOperationMessage || env.argoOperationPhase) && /* @__PURE__ */ jsxs("div", { className: classes.opBanner, children: [
@@ -334,7 +288,7 @@ function ArgoCommandPanel({
       ] }),
       /* @__PURE__ */ jsx("span", { className: classes.guideBody, children: g.body })
     ] }, g.name)) }),
-    /* @__PURE__ */ jsx("button", { type: "button", className: classes.disclosureToggle, onClick: () => setDetailOpen((v) => !v), children: detailOpen ? "\u25BE hide details" : "\u25B8 show sync policy, revision + resource tree" }),
+    /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: detailOpen, onClick: () => setDetailOpen((v) => !v), children: "Sync policy, revision and resource tree" }) }),
     detailOpen && /* @__PURE__ */ jsxs("div", { className: classes.detail, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.kvGrid, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [

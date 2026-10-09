@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
+import { FilterBar, FilterChips, SearchField, Button, TextLink } from './ui/index.esm.js';
 
 const STATUS_FILTERS = [
   { key: "all", label: "All" },
@@ -20,41 +21,6 @@ const FLOW_FILTERS = [
 ];
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const useStyles = makeStyles(() => ({
-  toolbar: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "10px 16px",
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-    flexWrap: "wrap"
-  },
-  search: {
-    flex: "1 1 200px",
-    minWidth: 160,
-    fontFamily: fontMono,
-    fontSize: 12,
-    padding: "6px 10px",
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textHi
-  },
-  chipFilter: { display: "flex", gap: 6 },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: "5px 10px",
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textLo,
-    cursor: "pointer"
-  },
-  chipOn: {
-    borderColor: ({ t }) => t.amberLine,
-    backgroundColor: ({ t }) => t.amberSoft,
-    color: ({ t }) => t.amberInk
-  },
   list: { maxHeight: 380, overflowY: "auto", border: ({ t }) => `1px solid ${t.line}`, borderTop: "none", borderRadius: "0 0 5px 5px" },
   row: {
     display: "flex",
@@ -115,16 +81,6 @@ const useStyles = makeStyles(() => ({
     whiteSpace: "nowrap",
     maxWidth: 320
   },
-  pageSizeLabel: { display: "flex", alignItems: "center", gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: "3px 8px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi
-  },
   footer: {
     padding: "8px 16px",
     border: ({ t }) => `1px solid ${t.line}`,
@@ -133,35 +89,10 @@ const useStyles = makeStyles(() => ({
     fontFamily: fontMono,
     fontSize: 11,
     color: ({ t }) => t.textFaint
-  },
-  footerLink: { background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", color: ({ t }) => t.sky },
-  rerunBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "3px 9px",
-    borderRadius: 11,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    backgroundColor: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    "&:disabled": { opacity: 0.5, cursor: "default" }
-  },
+  }
   // Distinct (bad/red) tone from rerunBtn - cancel tears down a run that's
   // actually in flight right now, a more consequential action than
   // resubmitting an already-finished one.
-  cancelBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "3px 9px",
-    borderRadius: 11,
-    border: ({ t }) => `1px solid ${t.bad}`,
-    backgroundColor: ({ t }) => t.badSoft,
-    color: ({ t }) => t.bad,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    "&:disabled": { opacity: 0.5, cursor: "default" }
-  }
 }));
 function slugHue(slug) {
   let hash = 0;
@@ -342,51 +273,43 @@ function PipelineRunList({
   const maxCols = Math.max(1, ...visible.map((run) => layoutPipelineGraph(run).cols));
   const maxRows = Math.max(1, ...visible.map((run) => layoutPipelineGraph(run).maxRows));
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
+    /* @__PURE__ */ jsxs(FilterBar, { children: [
       /* @__PURE__ */ jsx(
-        "input",
+        FilterChips,
         {
-          className: classes.search,
-          placeholder: "Filter by pipeline, flow, trigger, branch, or sha\u2026",
-          value: search,
-          onChange: (e) => setSearch(e.target.value)
+          label: "Status",
+          value: statusFilter,
+          onChange: setStatusFilter,
+          options: STATUS_FILTERS.map((f) => ({ id: f.key, label: f.label }))
         }
       ),
-      /* @__PURE__ */ jsx("div", { className: classes.chipFilter, children: STATUS_FILTERS.map((f) => /* @__PURE__ */ jsx(
-        "button",
+      /* @__PURE__ */ jsx(
+        FilterChips,
         {
-          type: "button",
-          className: `${classes.chip} ${statusFilter === f.key ? classes.chipOn : ""}`,
-          onClick: () => setStatusFilter(f.key),
-          children: f.label
-        },
-        f.key
-      )) }),
-      /* @__PURE__ */ jsx("div", { className: classes.chipFilter, children: FLOW_FILTERS.map((f) => /* @__PURE__ */ jsx(
-        "button",
+          label: "Flow",
+          value: flowFilter,
+          onChange: setFlowFilter,
+          options: FLOW_FILTERS.map((f) => ({ id: f.key, label: f.label }))
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        FilterChips,
         {
-          type: "button",
-          className: `${classes.chip} ${flowFilter === f.key ? classes.chipOn : ""}`,
-          onClick: () => setFlowFilter(f.key),
-          children: f.label
-        },
-        f.key
-      )) }),
-      /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
-        "Show",
-        /* @__PURE__ */ jsxs(
-          "select",
-          {
-            className: classes.select,
-            value: pageSize,
-            onChange: (e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value)),
-            children: [
-              PAGE_SIZE_OPTIONS.map((n) => /* @__PURE__ */ jsx("option", { value: n, children: n }, n)),
-              /* @__PURE__ */ jsx("option", { value: "all", children: "All" })
-            ]
-          }
-        )
-      ] })
+          label: "Show",
+          value: String(pageSize),
+          onChange: (v) => setPageSize(v === "all" ? "all" : Number(v)),
+          options: [...PAGE_SIZE_OPTIONS.map((n) => ({ id: String(n), label: String(n) })), { id: "all", label: "All" }]
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        SearchField,
+        {
+          label: "Filter runs",
+          placeholder: "Pipeline, flow, trigger, branch or sha\u2026",
+          value: search,
+          onChange: setSearch
+        }
+      )
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.list, style: truncated ? { borderRadius: 0 } : void 0, children: [
       filtered.length === 0 && /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No pipeline runs match this filter." }),
@@ -423,29 +346,28 @@ function PipelineRunList({
               /* @__PURE__ */ jsx("div", { className: classes.thumb, children: /* @__PURE__ */ jsx(MiniDag, { run, maxCols, maxRows }) }),
               /* @__PURE__ */ jsxs("div", { className: classes.side, children: [
                 run.phase === "failed" && onRerun && !run.archive && /* @__PURE__ */ jsx(
-                  "button",
+                  Button,
                   {
-                    type: "button",
-                    className: classes.rerunBtn,
+                    small: true,
                     disabled: rerunPending === run.name,
                     onClick: (ev) => {
                       ev.stopPropagation();
                       onRerun(run);
                     },
-                    children: rerunPending === run.name ? "re-running\u2026" : "Re-run"
+                    children: rerunPending === run.name ? "Re-running\u2026" : "Re-run"
                   }
                 ),
                 (run.phase === "running" || run.phase === "pending") && onCancel && /* @__PURE__ */ jsx(
-                  "button",
+                  Button,
                   {
-                    type: "button",
-                    className: classes.cancelBtn,
+                    small: true,
+                    variant: "danger",
                     disabled: cancelPending === run.name || cancelling,
                     onClick: (ev) => {
                       ev.stopPropagation();
                       onCancel(run);
                     },
-                    children: cancelling ? "canceling\u2026" : "Cancel"
+                    children: cancelling ? "Canceling\u2026" : "Cancel"
                   }
                 ),
                 /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg }, children: tone.label }),
@@ -465,7 +387,7 @@ function PipelineRunList({
       filtered.length,
       " \xB7",
       " ",
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.footerLink, onClick: () => setPageSize("all"), children: "show all" })
+      /* @__PURE__ */ jsx(TextLink, { onClick: () => setPageSize("all"), children: "show all" })
     ] })
   ] });
 }

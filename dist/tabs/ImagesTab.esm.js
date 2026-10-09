@@ -3,14 +3,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips, TextLink } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
@@ -49,17 +48,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textFaint
   },
   metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
-  registryLink: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-    "&:hover": { textDecoration: "underline" }
-  },
   hintRow: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 },
   hint: {
     display: "inline-flex",
@@ -71,46 +59,18 @@ const useStyles = makeStyles(() => ({
   },
   hintPresent: { borderColor: ({ t }) => t.line, color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt },
   hintAbsent: { borderColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint, backgroundColor: "transparent" },
-  expandToggle: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.03em",
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    padding: "10px 20px 14px",
-    cursor: "pointer",
-    textAlign: "left"
-  },
+  expandRow: { padding: "10px 20px 14px" },
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`
   },
   detailNote: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
+  countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
   note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
-  toolbarRight: { display: "flex", alignItems: "center", gap: 14 },
-  pageSizeLabel: { display: "flex", alignItems: "center", gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: "3px 8px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi
-  },
   footer: {
     padding: "10px 20px",
     fontFamily: fontMono,
     fontSize: 11.5,
     color: ({ t }) => t.textFaint
-  },
-  footerLink: {
-    background: "none",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-    font: "inherit",
-    color: ({ t }) => t.sky
   }
 }));
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -195,38 +155,33 @@ function ImagesTable({
       {
         title: "Images",
         subtitle: `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}: every image this service pushed, with its signature, provenance and SBOM.`,
-        actions: /* @__PURE__ */ jsxs("div", { className: classes.toolbarRight, children: [
-          /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
-            "Filter",
-            /* @__PURE__ */ jsx(
-              "select",
-              {
-                className: classes.select,
-                value: tagFilter,
-                onChange: (e) => setTagFilter(e.target.value),
-                children: TAG_FILTER_OPTIONS.map((opt) => /* @__PURE__ */ jsx("option", { value: opt.value, children: opt.label }, opt.value))
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
-            "Show",
-            /* @__PURE__ */ jsxs(
-              "select",
-              {
-                className: classes.select,
-                value: pageSize,
-                onChange: (e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value)),
-                children: [
-                  PAGE_SIZE_OPTIONS.map((n) => /* @__PURE__ */ jsx("option", { value: n, children: n }, n)),
-                  /* @__PURE__ */ jsx("option", { value: "all", children: "All" })
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
-        ] })
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
       }
     ),
+    /* @__PURE__ */ jsxs(FilterBar, { end: versions.data && /* @__PURE__ */ jsxs("span", { className: classes.countNote, children: [
+      filteredEntries.length,
+      " image",
+      filteredEntries.length === 1 ? "" : "s"
+    ] }), children: [
+      /* @__PURE__ */ jsx(
+        FilterChips,
+        {
+          label: "Tags",
+          value: tagFilter,
+          onChange: setTagFilter,
+          options: TAG_FILTER_OPTIONS.map((o) => ({ id: o.value, label: o.label }))
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        FilterChips,
+        {
+          label: "Show",
+          value: String(pageSize),
+          onChange: (v) => setPageSize(v === "all" ? "all" : Number(v)),
+          options: [...PAGE_SIZE_OPTIONS.map((n) => ({ id: String(n), label: String(n) })), { id: "all", label: "All" }]
+        }
+      )
+    ] }),
     versions.loading && /* @__PURE__ */ jsx(Progress, {}),
     versions.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
       "Couldn't list image versions: ",
@@ -266,7 +221,7 @@ function ImagesTable({
       filteredEntries.length,
       " \xB7",
       " ",
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.footerLink, onClick: () => setPageSize("all"), children: "show all" })
+      /* @__PURE__ */ jsx(TextLink, { onClick: () => setPageSize("all"), children: "show all" })
     ] })
   ] });
 }
@@ -326,23 +281,19 @@ function ImagePanel({
               ] })
             ] })
           ] }),
-          entry.htmlUrl && /* @__PURE__ */ jsxs("a", { href: entry.htmlUrl, target: "_blank", rel: "noopener noreferrer", className: classes.registryLink, children: [
-            "Open in registry ",
-            /* @__PURE__ */ jsx(OpenInNewIcon, { style: { fontSize: 13 } })
-          ] })
+          entry.htmlUrl && /* @__PURE__ */ jsx(TextLink, { href: entry.htmlUrl, children: "Open in registry \u2197" })
         ] }),
-        /* @__PURE__ */ jsx(
-          "button",
+        /* @__PURE__ */ jsx("div", { className: classes.expandRow, children: /* @__PURE__ */ jsx(
+          TextLink,
           {
-            type: "button",
-            className: classes.expandToggle,
+            expanded,
             onClick: () => {
               setExpanded((v) => !v);
               setFetchEnabled(true);
             },
-            children: expanded ? "\u25BE Hide signature, provenance & SBOM" : "\u25B8 View signature, provenance & SBOM"
+            children: "Signature, provenance & SBOM"
           }
-        ),
+        ) }),
         expanded && /* @__PURE__ */ jsxs("div", { className: classes.detailBody, children: [
           provenance?.loading && /* @__PURE__ */ jsx(Progress, {}),
           provenance?.error && /* @__PURE__ */ jsxs(Typography, { className: classes.detailNote, children: [

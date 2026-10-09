@@ -7,6 +7,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
+import { TextLink } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   deck: {
@@ -51,18 +52,6 @@ const useStyles = makeStyles(() => ({
   taskEyebrow: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" },
   taskHeadline: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   taskDetail: { fontSize: 11.5, color: ({ t }) => t.textLo, marginTop: 1 },
-  taskAction: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.textHi,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 4,
-    padding: "5px 10px",
-    background: "none",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    "&:hover": { borderColor: ({ t }) => t.amberLine, color: ({ t }) => t.amberInk }
-  },
   statsRow: { marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 },
   stat: {
     backgroundColor: ({ t }) => t.panelAlt,
@@ -274,7 +263,7 @@ function CommandDeck({
           task.detail && /* @__PURE__ */ jsx(Typography, { className: classes.taskDetail, children: task.detail })
         ] }),
         task.pr && /* @__PURE__ */ jsx(PrButton, { pr: task.pr, showTarget: true }),
-        task.action && /* @__PURE__ */ jsx("button", { type: "button", className: classes.taskAction, onClick: task.action.onClick, children: task.action.label })
+        task.action && /* @__PURE__ */ jsx(TextLink, { onClick: task.action.onClick, children: task.action.label })
       ] }, i);
     }) }),
     /* @__PURE__ */ jsxs("div", { className: classes.statsRow, children: [

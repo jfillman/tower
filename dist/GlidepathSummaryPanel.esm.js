@@ -10,7 +10,7 @@ import { useCicdConfig, usePlatformEnvs, usePlatformFile } from './useConfigData
 import { PipelineFlowPreview } from './PipelineFlowPreview.esm.js';
 import { readEnvironments, pipelinesNamingEnv } from './environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from './serviceClass.esm.js';
-import { Button, TierChip, ColumnLabel } from './ui/index.esm.js';
+import { TextLink, TierChip, ColumnLabel } from './ui/index.esm.js';
 import { ENVS_ROOT } from './types.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -26,7 +26,7 @@ const useStyles = makeStyles(() => ({
   },
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },
   headLeft: { display: "flex", alignItems: "center", gap: 8 },
-  headRight: { display: "flex", gap: 8, alignItems: "center" },
+  headRight: { display: "flex", gap: 18, alignItems: "center" },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
   chain: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chainItem: { display: "inline-flex", alignItems: "center", gap: 6 },
@@ -104,8 +104,8 @@ function GlidepathSummaryPanel({ owner, appName }) {
         statusNote && /* @__PURE__ */ jsx(Typography, { className: cicd.error ? classes.statusNoteError : classes.statusNote, children: statusNote })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.headRight, children: [
-        !statusNote && /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setExpanded((v) => !v), "aria-expanded": expanded, children: expanded ? "Hide details" : "Show details" }),
-        /* @__PURE__ */ jsx(Button, { small: true, onClick: goToGlidepath, children: "Configure in Glidepath \u2192" })
+        !statusNote && /* @__PURE__ */ jsx(TextLink, { expanded, onClick: () => setExpanded((v) => !v), children: expanded ? "Hide details" : "Show details" }),
+        /* @__PURE__ */ jsx(TextLink, { onClick: goToGlidepath, children: "Configure in Glidepath \u2192" })
       ] })
     ] }),
     !statusNote && cicd.data && /* @__PURE__ */ jsxs("div", { className: classes.chain, "aria-label": "Environments in promotion order", children: [

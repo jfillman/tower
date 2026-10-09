@@ -24,6 +24,7 @@ import { useFleetRoster } from '../../useFleetRoster.esm.js';
 import { useFleetSlos } from '../../useFleetSlos.esm.js';
 import { ActivityPanel, DoraPanel, DeploymentsPanel, PipelinesPanel, AttentionPanel, FitContext } from './opswall/panels.esm.js';
 import { useOpsStyles } from './opswall/styles.esm.js';
+import { FilterSelect, FilterChips } from '../../ui/index.esm.js';
 
 const WINDOWS = { "24h": 24 * 36e5, "7d": 7 * 24 * 36e5 };
 const isOpsWindow = (v) => v !== null && v in WINDOWS;
@@ -395,38 +396,27 @@ function OpsWallDashboard({ fit = false }) {
     probes,
     sloProbes,
     /* @__PURE__ */ jsxs("div", { className: c.toolbar, children: [
-      /* @__PURE__ */ jsxs("span", { className: c.toolGroup, children: [
-        /* @__PURE__ */ jsx("label", { className: c.toolLabel, htmlFor: "ops-owner", children: "Team" }),
-        /* @__PURE__ */ jsxs(
-          "select",
-          {
-            id: "ops-owner",
-            className: c.select,
-            value: owner ?? "",
-            onChange: (e) => setParam("owner", e.target.value || void 0),
-            children: [
-              /* @__PURE__ */ jsx("option", { value: "", children: "All teams" }),
-              owners.map((o) => /* @__PURE__ */ jsx("option", { value: o, children: o }, o))
-            ]
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("span", { className: c.toolGroup, children: [
-        /* @__PURE__ */ jsx("label", { className: c.toolLabel, htmlFor: "ops-window", children: "Window" }),
-        /* @__PURE__ */ jsxs(
-          "select",
-          {
-            id: "ops-window",
-            className: c.select,
-            value: opsWindow,
-            onChange: (e) => setParam("window", e.target.value === "24h" ? void 0 : e.target.value),
-            children: [
-              /* @__PURE__ */ jsx("option", { value: "24h", children: "Last 24 hours" }),
-              /* @__PURE__ */ jsx("option", { value: "7d", children: "Last 7 days" })
-            ]
-          }
-        )
-      ] }),
+      /* @__PURE__ */ jsx(
+        FilterSelect,
+        {
+          label: "Team",
+          value: owner ?? "",
+          onChange: (v) => setParam("owner", v || void 0),
+          options: [{ value: "", label: "All teams" }, ...owners.map((o) => ({ value: o, label: o }))]
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        FilterChips,
+        {
+          label: "Window",
+          value: opsWindow,
+          onChange: (v) => setParam("window", v === "24h" ? void 0 : v),
+          options: [
+            { id: "24h", label: "Last 24 hours" },
+            { id: "7d", label: "Last 7 days" }
+          ]
+        }
+      ),
       /* @__PURE__ */ jsxs("div", { className: c.sources, "aria-label": "Data sources", children: [
         /* @__PURE__ */ jsx("span", { className: c.sourcesLabel, children: "Sources" }),
         sources.map((src) => /* @__PURE__ */ jsx(Tooltip, { title: src.tip, arrow: true, children: /* @__PURE__ */ jsxs("span", { className: c.source, tabIndex: 0, children: [
