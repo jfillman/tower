@@ -420,7 +420,7 @@ export function GlidepathTab() {
 
   async function handleSubmit() {
     if (!owner || !appName || !yamlBlocksValid || !dirty) return;
-    await submitCicd.submit({ owner, appName, patch, summary });
+    await submitCicd.submit({ owner, appName, patch, summary, via: 'Glidepath tab' });
     setRefreshNonce(n => n + 1);
   }
 

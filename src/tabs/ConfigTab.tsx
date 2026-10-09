@@ -73,7 +73,18 @@ function Editor({ owner, appName, section, source, own }: { owner: string; appNa
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
   if (own && section.kind !== 'pr-env') return <RawValuesEditor source={source} chart={own} />;
-  return <ConfigEditor owner={owner} appName={appName} source={source} title={`${section.title} (${section.path})`} layout="side" componentCatalog={componentCatalog} chart={chart} />;
+  return (
+    <ConfigEditor
+      owner={owner}
+      appName={appName}
+      source={source}
+      title={`${section.title} (${section.path})`}
+      layout="side"
+      componentCatalog={componentCatalog}
+      chart={chart}
+      shared={section.kind !== 'pr-env'}
+    />
+  );
 }
 
 function PlatformValues(props: { owner: string; appName: string; section: Section; selector: PlatformEnvSelector; own?: ChartRef }) {

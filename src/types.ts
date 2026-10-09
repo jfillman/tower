@@ -828,6 +828,8 @@ export interface CicdConfigChangeRequest {
   deleteFiles?: string[];
   /** Environment values files to create in the same pull request (a duplicated Ground environment). */
   createFiles?: Array<{ path: string; content: string }>;
+  /** The Tower tab the change was made on, named in the PR body. */
+  via?: string;
 }
 
 export interface CicdConfigChangeResult {

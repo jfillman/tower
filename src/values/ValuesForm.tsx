@@ -1204,10 +1204,13 @@ export function ConfigEditor({
   sloContext,
   componentCatalog,
   chart,
+  shared = false,
 }: {
   owner: string;
   appName: string;
   source: ValuesSource;
+  /** A shared values file (App Configuration) rather than one environment's: the PR summary words its effect so. */
+  shared?: boolean;
   /** Names what is being edited in the panel, for example "TEST (kind-dev)". */
   title: string;
   prod?: boolean;
@@ -1457,7 +1460,11 @@ export function ConfigEditor({
       // long-running container" choice (2026-09-16), not a reset to
       // defaults.
       patch.rollout = null;
-      summary.push('rollout: disabled (no container deployed in this environment)');
+      summary.push(
+        shared
+          ? 'rollout: disabled in the shared values (no container in an environment that does not set its own)'
+          : 'rollout: disabled (no container deployed in this environment)',
+      );
     } else if (dirty.has('rollout')) {
       const advancedParsed = {
         ...asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed),
@@ -1498,10 +1505,15 @@ export function ConfigEditor({
         ...omitIfEmptyAndAbsent(origRollout, 'livenessProbe', buildProbeValue(form.liveness)),
         ...omitIfEmptyAndAbsent(origRollout, 'readinessProbe', buildProbeValue(form.readiness)),
       };
+      // Absent and null differ: absent is "not set in this file" (the chart default, or for a shared file each
+      // environment's own), null is "no container here". Only turning null back on is "a container will now deploy".
+      const wasNull = cfg.data!.values.rollout === null;
       summary.push(
-        originalRolloutEnabled
-          ? `rollout: replicas/resources/probes/steps and/or pod-template settings updated`
-          : `rollout: enabled (was previously null - a container will now deploy in this environment)`,
+        originalRolloutEnabled || !wasNull
+          ? `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? 'updated' : 'set'}${shared ? ' in the shared values' : ''}`
+          : shared
+            ? 'rollout: enabled in the shared values (was off)'
+            : 'rollout: enabled (was off: a container will now deploy in this environment)',
       );
       if (fieldsChanged(['ports'])) {
         summary.push(
@@ -1763,7 +1775,11 @@ export function ConfigEditor({
       <Section title="Deployment" dirty={rolloutEnabled !== originalRolloutEnabled} classes={classes}>
         <div className={classes.switchRow}>
           <Switch checked={rolloutEnabled} onChange={e => setRolloutEnabled(e.target.checked)} />
-          <Typography className={classes.switchLabel}>Deploy a Rollout (long-running container) in this environment</Typography>
+          <Typography className={classes.switchLabel}>
+            {shared
+              ? 'Deploy a Rollout (long-running container) in each environment that does not set its own'
+              : 'Deploy a Rollout (long-running container) in this environment'}
+          </Typography>
         </div>
         <Typography className={classes.hint} style={{ marginTop: 8 }}>
           {rolloutEnabled

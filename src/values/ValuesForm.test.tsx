@@ -187,3 +187,23 @@ describe('values form source', () => {
     expect(screen.getByText(/replicas: 2/)).toBeTruthy();
   });
 });
+
+describe('values form PR summary wording', () => {
+  const empty = { values: {}, raw: '', path: 'kind-prod/base.yaml' };
+  const off = { values: { rollout: null }, raw: 'rollout: null\n', path: 'glidepath/envs/test.yaml' };
+  const summaryAfterTurningOn = (d: typeof empty | typeof off, shared: boolean) => {
+    render(<ConfigEditor owner="o" appName="app" source={source({ data: d as never })} title="TEST" layout="side" shared={shared} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    return (submit.mock.calls[0] as unknown as [unknown, string[]])[1];
+  };
+
+  it('says "set in the shared values" for a shared file that had no rollout (2026-10-09: it said a container would now deploy)', () => {
+    const summary = summaryAfterTurningOn(empty, true);
+    expect(summary[0]).toBe('rollout: replicas/resources/probes/steps and/or pod-template settings set in the shared values');
+  });
+
+  it('says a container will now deploy only when an environment had rollout turned off', () => {
+    expect(summaryAfterTurningOn(off, false)[0]).toBe('rollout: enabled (was off: a container will now deploy in this environment)');
+  });
+});

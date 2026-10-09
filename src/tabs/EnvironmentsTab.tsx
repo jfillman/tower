@@ -361,6 +361,7 @@ export function EnvironmentsTab() {
       appName,
       patch: { deploy: buildDeploy(deploy, after), ...(releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {}) },
       summary: changes.map(l => l.title),
+      via: 'Environments tab',
       ...(deleteFiles.length > 0 ? { deleteFiles } : {}),
       ...(createFiles.length > 0 ? { createFiles } : {}),
     });
