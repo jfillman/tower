@@ -30,7 +30,11 @@ function Scalar({
         className: classes.input,
         "aria-label": label,
         value: value === void 0 ? "" : String(value),
-        onChange: (e) => onChange(e.target.value === "" ? void 0 : numeric ? Number(e.target.value) : e.target.value),
+        onChange: (e) => {
+          const v = e.target.value;
+          if (v === "") onChange(void 0);
+          else onChange(numeric ? Number(v) : v);
+        },
         children: [
           /* @__PURE__ */ jsx("option", { value: "", children: ghost }),
           node.enum.map((o) => /* @__PURE__ */ jsx("option", { value: String(o), children: String(o) }, String(o)))

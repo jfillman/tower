@@ -100,10 +100,15 @@ function argoHealthOf(status) {
   return void 0;
 }
 const HEALTH_SEVERITY = { healthy: 0, unknown: 1, paused: 2, progressing: 3, degraded: 4 };
+const CLOUD_HEALTH = {
+  succeeded: "healthy",
+  failed: "degraded",
+  running: "progressing",
+  none: "unknown"
+};
 function health(env) {
   if (env.cloud) {
-    const l = env.cloud.latest;
-    return l === "succeeded" ? "healthy" : l === "failed" ? "degraded" : l === "running" ? "progressing" : "unknown";
+    return CLOUD_HEALTH[env.cloud.latest];
   }
   const rollout = rolloutHealthOf(env);
   const argo = argoHealthOf(env.argoHealthStatus);

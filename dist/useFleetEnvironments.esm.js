@@ -2,7 +2,7 @@ import { jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { EntityProvider } from '@backstage/plugin-catalog-react';
 import { stringifyEntityRef } from '@backstage/catalog-model';
-import { useTowerEnvironments } from './useTowerEnvironments.esm.js';
+import { useTowerEnvironmentsLive } from './useTowerEnvironments.esm.js';
 import { useArgoStatusMap } from './useReleaseData.esm.js';
 import { envStageRank } from './types.esm.js';
 
@@ -19,7 +19,7 @@ function FleetAppProbeInner({
   const entityRef = stringifyEntityRef(entity);
   const appName = entity.metadata.annotations?.["github.com/project-slug"]?.split("/")[1] ?? entity.metadata.name;
   const owner = entity.spec?.owner;
-  const { environments: rawEnvironments, loading } = useTowerEnvironments();
+  const { environments: rawEnvironments, loading } = useTowerEnvironmentsLive();
   const argoStatusRaw = useArgoStatusMap(
     rawEnvironments.map((e) => e.argoAppName).filter((n) => Boolean(n))
   );

@@ -28,7 +28,7 @@ import { SlosTab } from './tabs/SlosTab.esm.js';
 import { NotificationsTab } from './tabs/NotificationsTab.esm.js';
 import { useAppNotifications } from './useAppNotifications.esm.js';
 import { useTektonPipelineRuns } from './tekton/useTektonPipelineRuns.esm.js';
-import { useTowerEnvironments } from './useTowerEnvironments.esm.js';
+import { TowerEnvironmentsProvider, useTowerEnvironments } from './useTowerEnvironments.esm.js';
 import { isRolloutActive } from './types.esm.js';
 
 const TABS = [
@@ -221,7 +221,7 @@ function TowerAppShell({
   recentCount,
   classes
 }) {
-  return /* @__PURE__ */ jsx(EntityProvider, { entity, children: /* @__PURE__ */ jsx(
+  return /* @__PURE__ */ jsx(EntityProvider, { entity, children: /* @__PURE__ */ jsx(TowerEnvironmentsProvider, { children: /* @__PURE__ */ jsx(
     TowerAppShellInner,
     {
       entity,
@@ -232,7 +232,7 @@ function TowerAppShell({
       recentCount,
       classes
     }
-  ) });
+  ) }) });
 }
 function TowerAppShellInner({
   entity,

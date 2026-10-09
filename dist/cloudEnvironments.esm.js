@@ -1,7 +1,11 @@
 import { summarizeCloudDeploys } from './cloudDeploy.esm.js';
 
 const DEFAULT_ENV = "dev";
-const latestOf = (d) => d.phase === "succeeded" ? "succeeded" : d.phase === "failed" ? "failed" : d.phase === "running" || d.phase === "pending" ? "running" : "none";
+const latestOf = (d) => {
+  if (d.phase === "succeeded" || d.phase === "failed") return d.phase;
+  if (d.phase === "running" || d.phase === "pending") return "running";
+  return "none";
+};
 function cloudEnvironmentsFromRuns(runs) {
   const { deploys } = summarizeCloudDeploys(runs);
   const byEnv = /* @__PURE__ */ new Map();

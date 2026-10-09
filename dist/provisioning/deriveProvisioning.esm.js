@@ -73,7 +73,9 @@ function deriveProvisioning(input, now, typical) {
     detail: requestMerged ? void 0 : "Merge the request PR to start provisioning",
     links: prLink("Request PR", reqPr)
   });
-  const appliedState = !pending ? "done" : requestMerged ? "run" : "pend";
+  let appliedState = "pend";
+  if (!pending) appliedState = "done";
+  else if (requestMerged) appliedState = "run";
   push({
     id: "request",
     title: "Request applied",
@@ -81,7 +83,7 @@ function deriveProvisioning(input, now, typical) {
     state: appliedState,
     startedAt: reqPr?.mergedAt,
     endedAt: !pending ? created : void 0,
-    seconds: !pending ? dur(reqPr?.mergedAt, created) : requestMerged ? dur(reqPr?.mergedAt, now) : void 0,
+    seconds: appliedState === "pend" ? void 0 : dur(reqPr?.mergedAt, pending ? now : created),
     detail: appliedState === "run" ? "Merged. ArgoCD polls the repo about every 3 minutes, then creates the resource" : void 0
   });
   const clusterDone = clusterC?.status === "True";

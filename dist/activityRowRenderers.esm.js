@@ -141,7 +141,9 @@ function renderDeployRow(n, ctx) {
   const runName = extractLine(desc, "Run");
   const tag = imageRef ? imageTag(imageRef) : void 0;
   const title = n.payload.title.toLowerCase();
-  const outcome = title.includes("failed") ? "failed" : title.includes("cancelled") ? "cancelled" : "succeeded";
+  let outcome = "succeeded";
+  if (title.includes("failed")) outcome = "failed";
+  else if (title.includes("cancelled")) outcome = "cancelled";
   const items = [];
   if (repoShort && sha) {
     items.push({
@@ -189,7 +191,7 @@ function renderDeployRow(n, ctx) {
       onClick: () => ctx.goToEnv(env)
     });
   }
-  const headline = outcome === "failed" ? `Deploy failed${env ? ` in ${env}` : ""}` : outcome === "cancelled" ? `Deploy cancelled${env ? ` in ${env}` : ""}` : `Deploy succeeded${env ? ` in ${env}` : ""}`;
+  const headline = `Deploy ${outcome}${env ? ` in ${env}` : ""}`;
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx(Typography, { className: ctx.classes.rowTitle, children: headline }),
     /* @__PURE__ */ jsx(PillChain, { items, n, ctx })

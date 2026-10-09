@@ -17,6 +17,8 @@ import { validateAgainstSchema } from '../schemaValidate.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { useStyles } from './styles.esm.js';
 import { SloPresets } from './SloPresets.esm.js';
+import { ClusterCheckPicker } from './ClusterCheckPicker.esm.js';
+import { checkArgs } from './analysisCatalog.esm.js';
 import { parseComponents, ComponentsEditor } from './ComponentsEditor.esm.js';
 import { componentProblems, catalogOutputs } from './componentCatalog.esm.js';
 import { annotateValues, mergeValues } from './annotatedValues.esm.js';
@@ -252,6 +254,7 @@ function StepsBuilder({
   onChange,
   declaredTemplateNames,
   clusterTemplateNames,
+  checkContext,
   classes
 }) {
   const update = (i, next) => {
@@ -268,6 +271,11 @@ function StepsBuilder({
     onChange(copy);
   };
   const addStep = (kind) => onChange([...steps, defaultStep(kind)]);
+  const addClusterCheck = (name) => {
+    if (!checkContext) return;
+    onChange([...steps, { kind: "analysis", templates: [{ name, cluster: true }], extraArgs: checkArgs(checkContext) }]);
+  };
+  const clusterChecksInUse = steps.flatMap((s) => s.kind === "analysis" ? s.templates.filter((t) => t.cluster).map((t) => t.name) : []);
   const updateExtraArg = (i, j, patch) => {
     const step = steps[i];
     if (step.kind !== "analysis") return;
@@ -391,7 +399,17 @@ function StepsBuilder({
       clusterTemplatesSentence(clusterTemplateNames),
       " ",
       "A template is looked up in the app's namespace unless it is marked as a cluster template; a wrong choice makes Argo reject the whole Rollout."
-    ] })
+    ] }),
+    checkContext && /* @__PURE__ */ jsx(
+      ClusterCheckPicker,
+      {
+        templates: clusterTemplateNames,
+        ctx: { app: checkContext.app, namespace: checkContext.namespace },
+        cluster: checkContext.cluster,
+        inUse: clusterChecksInUse,
+        onAdd: addClusterCheck
+      }
+    )
   ] });
 }
 function ConfigMapsSection({ rows, onChange, classes }) {
@@ -1065,9 +1083,15 @@ function ConfigEditor({
         ...omitIfEmptyAndAbsent(origRollout, "readinessProbe", buildProbeValue(form.readiness))
       };
       const wasNull = cfg.data.values.rollout === null;
-      summary.push(
-        originalRolloutEnabled || !wasNull ? `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? "updated" : "set"}${shared ? " in the shared values" : ""}` : shared ? "rollout: enabled in the shared values (was off)" : "rollout: enabled (was off: a container will now deploy in this environment)"
-      );
+      if (originalRolloutEnabled || !wasNull) {
+        summary.push(
+          `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? "updated" : "set"}${shared ? " in the shared values" : ""}`
+        );
+      } else if (shared) {
+        summary.push("rollout: enabled in the shared values (was off)");
+      } else {
+        summary.push("rollout: enabled (was off: a container will now deploy in this environment)");
+      }
       if (fieldsChanged(["ports"])) {
         summary.push(
           `service: ports set to ${form.ports.filter((p) => p.name.trim()).map((p) => `${p.name.trim()}:${p.containerPort}`).join(", ") || "(none)"}`
@@ -1383,7 +1407,7 @@ function ConfigEditor({
           /* @__PURE__ */ jsx("ul", { style: { margin: "6px 0 0", paddingLeft: 18 }, children: analysisIssues.map((m) => /* @__PURE__ */ jsx("li", { children: m }, m)) })
         ] }),
         tab === "release" && /* @__PURE__ */ jsxs(Section, { title: "Canary steps", dirty: dirty.has("rollout"), classes, children: [
-          stepsMode === "simple" ? /* @__PURE__ */ jsx(StepsBuilder, { steps: stepsSimple, onChange: setSteps, declaredTemplateNames, clusterTemplateNames: clusterAnalysisTemplates, classes }) : /* @__PURE__ */ jsx(
+          stepsMode === "simple" ? /* @__PURE__ */ jsx(StepsBuilder, { steps: stepsSimple, onChange: setSteps, declaredTemplateNames, clusterTemplateNames: clusterAnalysisTemplates, checkContext: sloContext, classes }) : /* @__PURE__ */ jsx(
             YamlBlockEditor,
             {
               label: "rollout.steps",

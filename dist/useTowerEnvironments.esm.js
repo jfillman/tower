@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { createContext, createElement, useContext, useMemo, useState, useEffect } from 'react';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useKubernetesObjects, useCustomResources } from '@backstage/plugin-kubernetes-react';
 
@@ -379,104 +379,77 @@ function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewa
     drift: distinctImages > 1 && !!e.image && e.image !== majorityImage
   }));
 }
-function useTowerEnvironments() {
+const CUSTOM_MATCHERS = [
+  ROLLOUT_MATCHER,
+  HTTPROUTE_MATCHER,
+  GATEWAY_MATCHER,
+  PDB_MATCHER,
+  SERVICEACCOUNT_MATCHER,
+  NETWORKPOLICY_MATCHER,
+  ENDPOINTS_MATCHER,
+  ROLE_MATCHER,
+  ROLEBINDING_MATCHER,
+  EXTERNALSECRET_MATCHER,
+  SERVICEMONITOR_MATCHER
+];
+const EXTRA_KINDS = [
+  "ServiceAccount",
+  "NetworkPolicy",
+  "Endpoints",
+  "Role",
+  "RoleBinding",
+  "ExternalSecret",
+  "ServiceMonitor"
+];
+function customResourcesByClusterAndKind(items) {
+  const out = /* @__PURE__ */ new Map();
+  for (const item of items) {
+    const byKind = /* @__PURE__ */ new Map();
+    for (const response of item.resources) {
+      if (response.type !== "customresources") continue;
+      for (const obj of response.resources) {
+        const kind = obj.kind ?? "";
+        byKind.set(kind, [...byKind.get(kind) ?? [], obj]);
+      }
+    }
+    out.set(item.cluster.name, byKind);
+  }
+  return out;
+}
+function pickKind(byCluster, kind) {
+  const map = /* @__PURE__ */ new Map();
+  byCluster.forEach((byKind, cluster) => map.set(cluster, byKind.get(kind) ?? []));
+  return map;
+}
+function useTowerEnvironmentsLive() {
   const { entity } = useEntity();
   const { kubernetesObjects, loading, error } = useKubernetesObjects(entity);
   const {
-    kubernetesObjects: rolloutObjects,
-    loading: rolloutsLoading,
-    error: rolloutsError
-  } = useCustomResources(entity, [ROLLOUT_MATCHER]);
-  const {
-    kubernetesObjects: httpRouteObjects,
-    loading: httpRoutesLoading
-  } = useCustomResources(entity, [HTTPROUTE_MATCHER]);
-  const {
-    kubernetesObjects: gatewayObjects,
-    loading: gatewaysLoading
-  } = useCustomResources(entity, [GATEWAY_MATCHER]);
-  const {
-    kubernetesObjects: pdbObjects,
-    loading: pdbsLoading
-  } = useCustomResources(entity, [PDB_MATCHER]);
-  const { kubernetesObjects: serviceAccountObjects, loading: serviceAccountsLoading } = useCustomResources(entity, [
-    SERVICEACCOUNT_MATCHER
-  ]);
-  const { kubernetesObjects: networkPolicyObjects, loading: networkPoliciesLoading } = useCustomResources(entity, [
-    NETWORKPOLICY_MATCHER
-  ]);
-  const { kubernetesObjects: endpointsObjects, loading: endpointsLoading } = useCustomResources(entity, [
-    ENDPOINTS_MATCHER
-  ]);
-  const { kubernetesObjects: roleObjects, loading: rolesLoading } = useCustomResources(entity, [ROLE_MATCHER]);
-  const { kubernetesObjects: roleBindingObjects, loading: roleBindingsLoading } = useCustomResources(entity, [
-    ROLEBINDING_MATCHER
-  ]);
-  const { kubernetesObjects: externalSecretObjects, loading: externalSecretsLoading } = useCustomResources(entity, [
-    EXTERNALSECRET_MATCHER
-  ]);
-  const { kubernetesObjects: serviceMonitorObjects, loading: serviceMonitorsLoading } = useCustomResources(entity, [
-    SERVICEMONITOR_MATCHER
-  ]);
-  const rolloutsByCluster = useMemo(() => {
-    const map = /* @__PURE__ */ new Map();
-    (rolloutObjects?.items ?? []).forEach((item) => {
-      const rollouts = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-      map.set(item.cluster.name, rollouts);
-    });
-    return map;
-  }, [rolloutObjects]);
-  const httpRoutesByCluster = useMemo(() => {
-    const map = /* @__PURE__ */ new Map();
-    (httpRouteObjects?.items ?? []).forEach((item) => {
-      const routes = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-      map.set(item.cluster.name, routes);
-    });
-    return map;
-  }, [httpRouteObjects]);
-  const gatewaysByCluster = useMemo(() => {
-    const map = /* @__PURE__ */ new Map();
-    (gatewayObjects?.items ?? []).forEach((item) => {
-      const gateways = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-      map.set(item.cluster.name, gateways);
-    });
-    return map;
-  }, [gatewayObjects]);
-  const pdbsByCluster = useMemo(() => {
-    const map = /* @__PURE__ */ new Map();
-    (pdbObjects?.items ?? []).forEach((item) => {
-      const pdbs = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-      map.set(item.cluster.name, pdbs);
-    });
-    return map;
-  }, [pdbObjects]);
+    kubernetesObjects: customObjects,
+    loading: customLoading,
+    error: customError
+  } = useCustomResources(entity, CUSTOM_MATCHERS);
+  const customByCluster = useMemo(() => customResourcesByClusterAndKind(customObjects?.items ?? []), [customObjects]);
+  const rolloutsByCluster = useMemo(() => pickKind(customByCluster, "Rollout"), [customByCluster]);
+  const httpRoutesByCluster = useMemo(
+    () => pickKind(customByCluster, "HTTPRoute"),
+    [customByCluster]
+  );
+  const gatewaysByCluster = useMemo(() => pickKind(customByCluster, "Gateway"), [customByCluster]);
+  const pdbsByCluster = useMemo(
+    () => pickKind(customByCluster, "PodDisruptionBudget"),
+    [customByCluster]
+  );
   const extraKindsByCluster = useMemo(() => {
     const map = /* @__PURE__ */ new Map();
-    const add = (kind, objects) => {
-      (objects?.items ?? []).forEach((item) => {
-        const resources = item.resources.find((r) => r.type === "customresources")?.resources ?? [];
-        const existing = map.get(item.cluster.name) ?? [];
-        existing.push({ kind, resources });
-        map.set(item.cluster.name, existing);
-      });
-    };
-    add("ServiceAccount", serviceAccountObjects);
-    add("NetworkPolicy", networkPolicyObjects);
-    add("Endpoints", endpointsObjects);
-    add("Role", roleObjects);
-    add("RoleBinding", roleBindingObjects);
-    add("ExternalSecret", externalSecretObjects);
-    add("ServiceMonitor", serviceMonitorObjects);
+    customByCluster.forEach((byKind, cluster) => {
+      map.set(
+        cluster,
+        EXTRA_KINDS.map((kind) => ({ kind, resources: byKind.get(kind) ?? [] }))
+      );
+    });
     return map;
-  }, [
-    serviceAccountObjects,
-    networkPolicyObjects,
-    endpointsObjects,
-    roleObjects,
-    roleBindingObjects,
-    externalSecretObjects,
-    serviceMonitorObjects
-  ]);
+  }, [customByCluster]);
   const environments = useMemo(
     () => buildEnvironments(
       kubernetesObjects?.items ?? [],
@@ -488,18 +461,31 @@ function useTowerEnvironments() {
     ),
     [kubernetesObjects, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster]
   );
-  const anyLoading = loading || rolloutsLoading || httpRoutesLoading || gatewaysLoading || pdbsLoading || serviceAccountsLoading || networkPoliciesLoading || endpointsLoading || rolesLoading || roleBindingsLoading || externalSecretsLoading || serviceMonitorsLoading;
+  const anyLoading = loading || customLoading;
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   useEffect(() => {
     if (!anyLoading) setHasLoadedOnce(true);
   }, [anyLoading]);
-  return {
-    environments,
-    loading: !hasLoadedOnce && anyLoading,
-    refreshing: hasLoadedOnce && anyLoading,
-    error: error ?? rolloutsError
-  };
+  return useMemo(
+    () => ({
+      environments,
+      loading: !hasLoadedOnce && anyLoading,
+      refreshing: hasLoadedOnce && anyLoading,
+      error: error ?? customError
+    }),
+    [environments, hasLoadedOnce, anyLoading, error, customError]
+  );
+}
+const TowerEnvironmentsContext = createContext(void 0);
+function TowerEnvironmentsProvider({ children }) {
+  const value = useTowerEnvironmentsLive();
+  return createElement(TowerEnvironmentsContext.Provider, { value }, children);
+}
+function useTowerEnvironments() {
+  const value = useContext(TowerEnvironmentsContext);
+  if (!value) throw new Error("useTowerEnvironments must be used inside a TowerEnvironmentsProvider");
+  return value;
 }
 
-export { useTowerEnvironments };
+export { TowerEnvironmentsProvider, customResourcesByClusterAndKind, useTowerEnvironments, useTowerEnvironmentsLive };
 //# sourceMappingURL=useTowerEnvironments.esm.js.map

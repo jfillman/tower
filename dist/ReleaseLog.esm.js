@@ -24,7 +24,9 @@ function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistor
       const tag = imageTag(entry.imageTag);
       const tier = envTierOf(env.env, pipelineOrder);
       const mergedPr = tier === "upper" ? gitopsPrForEnvAndImage(gitopsPrs, env.env, tag) : void 0;
-      const trigger = tier === "lower" ? "direct commit" : mergedPr?.state === "merged" ? `PR #${mergedPr.number} \xB7 merged` : "promoted";
+      let trigger = "promoted";
+      if (tier === "lower") trigger = "direct commit";
+      else if (mergedPr?.state === "merged") trigger = `PR #${mergedPr.number} \xB7 merged`;
       entries.push({
         id: `${env.env}-${entry.sha}`,
         date: entry.date,
@@ -153,7 +155,8 @@ function ReleaseLog({
         )
       ] })
     ] }),
-    view === "table" ? entries.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.emptyRow, children: "No recorded promotions yet." }) : /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+    view === "table" && entries.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.emptyRow, children: "No recorded promotions yet." }),
+    view === "table" && entries.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
         /* @__PURE__ */ jsx("th", { className: classes.th, children: "Time" }),
         /* @__PURE__ */ jsx("th", { className: classes.th, children: "Env" }),
@@ -203,7 +206,8 @@ function ReleaseLog({
           ] }) }) }) })
         ] }, entry.id);
       }) })
-    ] }) }) : /* @__PURE__ */ jsx("div", { className: classes.timelineWrap, children: /* @__PURE__ */ jsx(ReleaseTimelinePanel, { environments: pipelineEnvironments, history: deployHistory }) })
+    ] }) }),
+    view !== "table" && /* @__PURE__ */ jsx("div", { className: classes.timelineWrap, children: /* @__PURE__ */ jsx(ReleaseTimelinePanel, { environments: pipelineEnvironments, history: deployHistory }) })
   ] });
 }
 

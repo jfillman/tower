@@ -90,7 +90,9 @@ function FleetGridDashboard() {
   return /* @__PURE__ */ jsxs("div", { children: [
     probes,
     sloProbes,
-    loading ? /* @__PURE__ */ jsx(Progress, {}) : apps.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No NodeJSApplication / SpringBootApplication / PythonApplication / GoApplication services found in the catalog." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+    loading && /* @__PURE__ */ jsx(Progress, {}),
+    !loading && apps.length === 0 && /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No NodeJSApplication / SpringBootApplication / PythonApplication / GoApplication services found in the catalog." }),
+    !loading && apps.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.kpis, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.kpi, children: [
           /* @__PURE__ */ jsx("div", { className: classes.kpiLabel, children: "Services monitored" }),
