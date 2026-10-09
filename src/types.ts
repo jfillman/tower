@@ -660,10 +660,16 @@ function argoHealthOf(status: string | undefined): Health | undefined {
 // only ArgoCD's was actually catching the problem.
 const HEALTH_SEVERITY: Record<Health, number> = { healthy: 0, unknown: 1, paused: 2, progressing: 3, degraded: 4 };
 
+const CLOUD_HEALTH: Record<NonNullable<EnvironmentSummary['cloud']>['latest'], Health> = {
+  succeeded: 'healthy',
+  failed: 'degraded',
+  running: 'progressing',
+  none: 'unknown',
+};
+
 export function health(env: EnvironmentSummary): Health {
   if (env.cloud) {
-    const l = env.cloud.latest;
-    return l === 'succeeded' ? 'healthy' : l === 'failed' ? 'degraded' : l === 'running' ? 'progressing' : 'unknown';
+    return CLOUD_HEALTH[env.cloud.latest];
   }
   const rollout = rolloutHealthOf(env);
   const argo = argoHealthOf(env.argoHealthStatus);

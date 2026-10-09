@@ -10,8 +10,11 @@ import type { DeployHistoryEntry, EnvironmentSummary } from './types';
 
 const DEFAULT_ENV = 'dev';
 
-const latestOf = (d: CloudDeploy) =>
-  d.phase === 'succeeded' ? 'succeeded' : d.phase === 'failed' ? 'failed' : d.phase === 'running' || d.phase === 'pending' ? 'running' : 'none';
+const latestOf = (d: CloudDeploy) => {
+  if (d.phase === 'succeeded' || d.phase === 'failed') return d.phase;
+  if (d.phase === 'running' || d.phase === 'pending') return 'running';
+  return 'none';
+};
 
 export interface CloudEnvironments {
   environments: EnvironmentSummary[];

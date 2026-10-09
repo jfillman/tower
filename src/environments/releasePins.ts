@@ -63,12 +63,15 @@ export function promoteCandidates(
     seen.add(d.imageRef);
     const ok = d.phase === 'succeeded';
     const fromPrev = Boolean(fromEnv && d.env === fromEnv);
-    const where = d.env ? `${d.env}, ${ok ? 'deployed' : `deploy ${d.phase}`}` : ok ? 'deployed' : `deploy ${d.phase}`;
+    const status = ok ? 'deployed' : `deploy ${d.phase}`;
+    const where = d.env ? `${d.env}, ${status}` : status;
+    let rank = 2;
+    if (ok) rank = fromPrev ? 0 : 1;
     out.push({
       image: d.imageRef,
       tag: d.imageTag,
       label: `${d.imageTag} (${where})`,
-      rank: fromPrev && ok ? 0 : ok ? 1 : 2,
+      rank,
       at: Date.parse(d.completionTime ?? d.startTime ?? '') || 0,
     });
   }
