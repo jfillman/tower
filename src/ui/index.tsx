@@ -3,7 +3,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
-import { useControls, useUi } from './styles';
+import { useControls, useStatus, useUi } from './styles';
 
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 
@@ -350,6 +350,71 @@ export function healthColor(h: Health, t: HangarTokens): string {
     default:
       return t.textFaint;
   }
+}
+
+/** ok: done or healthy · warn: needs attention or waiting · bad: failed · info: in progress, live (blue) · neutral: unknown, none. */
+export type StatusTone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral';
+
+export function healthTone(h: Health): StatusTone {
+  switch (h) {
+    case 'healthy':
+      return 'ok';
+    case 'degraded':
+      return 'bad';
+    case 'progressing':
+      return 'info';
+    case 'paused':
+      return 'warn';
+    default:
+      return 'neutral';
+  }
+}
+
+/**
+ * What state something is in: Healthy, promoted, failed, running. Rounded with a soft tint, so it never reads as a
+ * label chip (square, `Chip`) or a button. `onClick` makes it a button (an environment pill that opens its page).
+ */
+export function StatusChip({
+  tone,
+  dot,
+  title,
+  onClick,
+  className,
+  children,
+}: {
+  tone: StatusTone;
+  dot?: boolean;
+  title?: string;
+  onClick?: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  const t = useHangarTokens();
+  const s = useStatus({ t });
+  const content = (
+    <>
+      {dot && <i className={s.statusDot} aria-hidden />}
+      {children}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        title={title}
+        onMouseDown={preventFocusScroll}
+        onClick={onClick}
+        className={cx(s.status, s[tone], s.statusButton, className)}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span title={title} className={cx(s.status, s[tone], className)}>
+      {content}
+    </span>
+  );
 }
 
 export const HEALTH_LABEL: Record<Health, string> = {

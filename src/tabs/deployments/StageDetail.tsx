@@ -15,7 +15,7 @@ import { RolloutTopologyDag } from '../../RolloutTopologyDag';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary, PodSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
-import { Button, TextLink } from '../../ui';
+import { Button, StatusChip, TextLink } from '../../ui';
 
 // Tier 2 rollout controls (Promote/Pause/Resume/...) - UI-ready but disabled
 // pending the authorization model HANDOFF-tower-write-actions.md scopes;
@@ -55,10 +55,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { textDecoration: 'underline' },
   },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
-  chip: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 12, alignSelf: 'flex-start' },
-  chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  chipAmber: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
+  chipPos: { alignSelf: 'flex-start' },
   '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
   // Amber + pulsing while the canary is live (2026-09-23 feedback).
   resourceList: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 },
@@ -181,9 +178,9 @@ function MergedBody({
         )}
         {gateCi && (
           <>
-            <span className={`${classes.chip} ${gateCi.state === 'success' ? classes.chipOk : classes.chipAmber}`}>
+            <StatusChip tone={gateCi.state === 'success' ? 'ok' : 'warn'} className={classes.chipPos}>
               {gateCi.passedChecks}/{gateCi.totalChecks} guardrails passed
-            </span>
+            </StatusChip>
             <TextLink onClick={() => onSelectStage('guardrails')}>Guardrail results →</TextLink>
           </>
         )}
@@ -199,14 +196,12 @@ function MergedBody({
         </a>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {gateCi && (
-            <span className={`${classes.chip} ${gateCi.state === 'success' ? classes.chipOk : classes.chipAmber}`}>
+            <StatusChip tone={gateCi.state === 'success' ? 'ok' : 'warn'}>
               {gateCi.passedChecks}/{gateCi.totalChecks} guardrails
-            </span>
+            </StatusChip>
           )}
           {reviewLabel(delivery.pr.review) && (
-            <span className={`${classes.chip} ${delivery.pr.review?.state === 'approved' ? classes.chipOk : classes.chipAmber}`}>
-              {reviewLabel(delivery.pr.review)}
-            </span>
+            <StatusChip tone={delivery.pr.review?.state === 'approved' ? 'ok' : 'warn'}>{reviewLabel(delivery.pr.review)}</StatusChip>
           )}
         </div>
         <div>
@@ -404,7 +399,11 @@ export function StageDetail({
           </span>
           <Typography className={classes.title}>Application sync</Typography>
         </div>
-        {step?.status === 'bad' && <span className={`${classes.chip} ${classes.chipBad}`}>sync operation failed</span>}
+        {step?.status === 'bad' && (
+          <StatusChip tone="bad" className={classes.chipPos}>
+            sync operation failed
+          </StatusChip>
+        )}
         <Typography className={classes.meta}>{timeText(step?.at)}</Typography>
         {targetImageTag && <Typography className={classes.meta}>target image: {targetImageTag}</Typography>}
         {argoOperationMessage && <Typography className={classes.body}>{argoOperationMessage}</Typography>}

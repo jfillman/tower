@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { PageHeader, StatusChip } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
@@ -73,15 +73,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.sky,
   },
   headRight: { display: 'flex', alignItems: 'center', gap: 8 },
-  verdictChip: {
-    display: 'inline-flex',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    fontWeight: 700,
-    padding: '3px 9px',
-    borderRadius: 3,
-    border: '1px solid',
-  },
   statsRow: { display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 12 },
   stat: { minWidth: 140 },
   statLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, marginBottom: 4 },
@@ -335,16 +326,9 @@ function SloCard({
         </div>
         <div className={classes.headRight}>
           {meetingObjective !== undefined && (
-            <span
-              className={classes.verdictChip}
-              style={{
-                backgroundColor: verdictTone(t, meetingObjective).bg,
-                borderColor: verdictTone(t, meetingObjective).border,
-                color: verdictTone(t, meetingObjective).fg,
-              }}
-            >
+            <StatusChip tone={meetingObjective ? 'ok' : 'bad'}>
               {meetingObjective ? 'meeting objective' : 'breaching objective'}
-            </span>
+            </StatusChip>
           )}
           <span className={classes.chip}>{slo.indicator.type}</span>
         </div>

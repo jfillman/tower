@@ -4,6 +4,7 @@ import CheckIcon from '@material-ui/icons/Check';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from './useReleaseContext';
+import { StatusChip } from './ui';
 
 // The Hangar Brand System mockup's PR-button design ("04 - Tower, in the
 // flesh"), ported verbatim rather than left as three near-identical
@@ -40,9 +41,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexShrink: 0,
   },
   title: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  draft: { color: ({ t }) => t.textFaint, flexShrink: 0 },
   ciDot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
-  reviewTag: { flexShrink: 0 },
 }));
 
 type CiState = NonNullable<PullRequestSummary['ci']>['state'];
@@ -93,14 +92,11 @@ export function PrButton({
           </span>
         </>
       )}
-      {pr.draft && <span className={classes.draft}>draft</span>}
+      {pr.draft && <StatusChip tone="neutral">draft</StatusChip>}
       {!merged && pr.review && pr.review.state !== 'pending' && (
-        <span
-          className={classes.reviewTag}
-          style={{ color: pr.review.state === 'approved' ? t.good : t.bad }}
-        >
+        <StatusChip tone={pr.review.state === 'approved' ? 'ok' : 'bad'}>
           {pr.review.state === 'approved' ? 'approved' : 'changes requested'}
-        </span>
+        </StatusChip>
       )}
       {!merged && pr.ci && (
         <span

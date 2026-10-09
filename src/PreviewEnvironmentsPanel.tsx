@@ -7,6 +7,7 @@ import { TowerEmptyState } from './TowerEmptyState';
 import { PrButton } from './PrButton';
 import { health, imageTag, previewPrNumber, type EnvironmentSummary } from './types';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
+import { healthTone, StatusChip } from './ui';
 
 // Preview/PR environments' own tab - the 2026-09-16 revamp's answer to
 // "preview environments need to be relegated, not given equal billing":
@@ -34,8 +35,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   nameStale: { color: ({ t }) => t.textFaint },
   meta: { fontSize: 11.5, color: ({ t }) => t.textFaint },
   facts: { marginTop: 8, fontSize: 11.5, color: ({ t }) => t.textLo },
-  pill: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '2px 9px', borderRadius: 100, marginLeft: 'auto' },
-  dot: { width: 6, height: 6, borderRadius: '50%' },
+  pillPos: { marginLeft: 'auto' },
 }));
 
 const STALE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -80,13 +80,9 @@ export function PreviewEnvironmentsPanel({
               <span className={classes.meta}>
                 spun up {relativeTime(env.deployedAt)} · {imageTag(env.image)}
               </span>
-              <span
-                className={classes.pill}
-                style={{ backgroundColor: t.panel, color: h === 'degraded' ? t.bad : t.good }}
-              >
-                <span className={classes.dot} style={{ backgroundColor: h === 'degraded' ? t.bad : t.good }} />
+              <StatusChip tone={healthTone(h)} dot className={classes.pillPos}>
                 {h}
-              </span>
+              </StatusChip>
             </div>
             {pr && <div style={{ marginTop: 10 }}><PrButton pr={pr} /></div>}
             <Typography className={classes.facts}>

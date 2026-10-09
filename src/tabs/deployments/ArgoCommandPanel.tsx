@@ -7,7 +7,8 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../..
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import type { useArgoActions } from '../../useReleaseData';
-import { Button, TextLink } from '../../ui';
+import { Button, StatusChip, TextLink } from '../../ui';
+import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
 // the resource itself (argocd.argoproj.io/sync-wave) - it's never part of
@@ -54,11 +55,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   headRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi, flexShrink: 0 },
   statusChips: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
-  chip: { fontSize: 10.5, fontWeight: 700, padding: '3px 9px', borderRadius: 12 },
-  chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  chipProg: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  chipUnknown: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' },
   argoErr: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.bad },
@@ -146,7 +142,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   cellKind: { padding: '6px 8px', color: ({ t }) => t.sky, fontWeight: 600, verticalAlign: 'top', whiteSpace: 'nowrap' },
   cellName: { padding: '6px 8px', color: ({ t }) => t.textHi, verticalAlign: 'top', wordBreak: 'break-word' },
   cellMessage: { padding: '6px 8px', color: ({ t }) => t.textFaint, verticalAlign: 'top', wordBreak: 'break-word', maxWidth: 260 },
-  statusBadge: { display: 'inline-block', fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap' },
   hookBadge: {
     display: 'inline-block',
     fontSize: 9.5,
@@ -161,12 +156,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textLo, padding: '2px 0' },
 }));
 
-function statusChipClass(classes: ReturnType<typeof useStyles>, status: string | undefined): string {
-  if (status === 'Healthy' || status === 'Synced') return classes.chipOk;
-  if (status === 'Progressing' || status === 'Suspended' || status === 'OutOfSync') return classes.chipProg;
-  if (status === 'Degraded' || status === 'Missing') return classes.chipBad;
-  return classes.chipUnknown;
-}
 
 const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
   {
@@ -304,12 +293,8 @@ export function ArgoCommandPanel({
           </span>
         )}
         <div className={classes.statusChips}>
-          <span className={`${classes.chip} ${statusChipClass(classes, env.argoSyncStatus)}`}>
-            {env.argoSyncStatus ?? 'unknown'}
-          </span>
-          <span className={`${classes.chip} ${statusChipClass(classes, env.argoHealthStatus)}`}>
-            {env.argoHealthStatus ?? 'unknown'}
-          </span>
+          <StatusChip tone={argoTone(env.argoSyncStatus)}>{env.argoSyncStatus ?? 'unknown'}</StatusChip>
+          <StatusChip tone={argoTone(env.argoHealthStatus)}>{env.argoHealthStatus ?? 'unknown'}</StatusChip>
           {env.argoRevision && <span className={classes.revision}>@ {env.argoRevision.slice(0, 9)}</span>}
         </div>
         <div className={classes.actions}>
@@ -474,13 +459,11 @@ export function ArgoCommandPanel({
                         <td className={classes.cellKind}>{r.kind}</td>
                         <td className={classes.cellName}>{r.name}</td>
                         <td className={classes.cell}>
-                          <span className={`${classes.statusBadge} ${statusChipClass(classes, r.syncStatus)}`}>
-                            {r.syncStatus ?? '—'}
-                          </span>
+                          {r.syncStatus ? <StatusChip tone={argoTone(r.syncStatus)}>{r.syncStatus}</StatusChip> : '—'}
                         </td>
                         <td className={classes.cell}>
                           {r.health ? (
-                            <span className={`${classes.statusBadge} ${statusChipClass(classes, r.health)}`}>{r.health}</span>
+                            <StatusChip tone={argoTone(r.health)}>{r.health}</StatusChip>
                           ) : (
                             '—'
                           )}

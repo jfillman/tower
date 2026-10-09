@@ -15,7 +15,7 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { healthColor, healthTone, PageHeader, StatusChip } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary, type Health } from '../types';
 
@@ -279,16 +279,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // own pass for the fuller rationale.
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, textTransform: 'lowercase', color: ({ t }) => t.textHi },
   dot: { width: 6, height: 6, borderRadius: '50%', display: 'inline-block' },
-  pill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 100,
-    marginBottom: 10,
-  },
+  healthChip: { alignSelf: 'flex-start', marginBottom: 10 },
   flowRow: { marginBottom: 12 },
   pendingPr: { marginBottom: 12 },
   pendingPrLabel: {
@@ -403,22 +394,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   notifText: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
   notifLink: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky },
 }));
-
-const STATUS_COLOR: Record<Health, keyof HangarTokens> = {
-  healthy: 'good',
-  progressing: 'amber',
-  paused: 'sky',
-  degraded: 'bad',
-  unknown: 'textFaint',
-};
-
-const STATUS_SOFT: Record<Health, keyof HangarTokens> = {
-  healthy: 'goodSoft',
-  progressing: 'amberSoft',
-  paused: 'skySoft',
-  degraded: 'badSoft',
-  unknown: 'panelAlt',
-};
 
 // Splits a release track's envs into rows that fit `gridWidth` - each row then gets its own
 // image label and band. Before the grid has been measured (width 0) everything stays on one
@@ -577,13 +552,9 @@ export function OverviewTab() {
           <div className={classes.cardHead}>
             <span className={classes.envName}>{env.env}</span>
           </div>
-          <span
-            className={classes.pill}
-            style={{ backgroundColor: t[STATUS_SOFT.unknown] as string, color: t[STATUS_COLOR.unknown] as string }}
-          >
-            <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR.unknown] as string }} />
+          <StatusChip tone="neutral" dot className={classes.healthChip}>
             Not yet deployed
-          </span>
+          </StatusChip>
           <div className={classes.kv} style={{ borderBottom: 'none' }}>
             <span className={classes.kvLabel}>Cluster</span>
             <span className={classes.kvValue}>{env.cluster || '—'}</span>
@@ -612,13 +583,9 @@ export function OverviewTab() {
           <span className={classes.envName}>{env.env}</span>
           {isPreviewEnvName(env.env) && <span className={classes.previewBadge}>preview · own build</span>}
         </div>
-        <span
-          className={classes.pill}
-          style={{ backgroundColor: t[STATUS_SOFT[h]] as string, color: t[STATUS_COLOR[h]] as string }}
-        >
-          <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR[h]] as string }} />
+        <StatusChip tone={healthTone(h)} dot className={classes.healthChip}>
           {HEALTH_LABEL[h]}
-        </span>
+        </StatusChip>
         <div className={classes.flowRow}>
           <MiniFlow stages={scStages} />
         </div>
@@ -853,7 +820,7 @@ export function OverviewTab() {
                     onClick={() => togglePreview(env.key)}
                     aria-expanded={isOpen}
                   >
-                    <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR[h]] as string }} />
+                    <span className={classes.dot} style={{ backgroundColor: healthColor(h, t) }} />
                     {env.env}
                     <span className={classes.previewBadge}>preview</span>
                     {isOpen ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}

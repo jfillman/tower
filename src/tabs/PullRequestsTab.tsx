@@ -9,7 +9,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { PageHeader, StatusChip } from '../ui';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -203,7 +203,7 @@ function PrTable({
               <td className={`${classes.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
               <td className={classes.td}>
                 {variant === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
-                {pr.draft && <span className={classes.draftChip}>draft</span>}
+                {pr.draft && <StatusChip tone="neutral">draft</StatusChip>}
                 {showPreviewChip && hasPreviewLabel(pr) && <span className={classes.draftChip}>preview</span>}
               </td>
               <td className={`${classes.td} ${classes.mono}`}>{pr.author ?? '—'}</td>

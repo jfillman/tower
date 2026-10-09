@@ -5,7 +5,7 @@ import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
-import { Button, FilterBar, FilterChips, SearchField, TextLink } from './ui';
+import { Button, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink } from './ui';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -82,15 +82,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   shaLink: { '&:hover': { textDecoration: 'underline' } },
   thumb: { flex: 1, minWidth: 0 },
   side: { display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 },
-  pill: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    letterSpacing: '0.03em',
-    padding: '3px 9px',
-    borderRadius: 11,
-    border: '1px solid',
-    whiteSpace: 'nowrap',
-  },
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', minWidth: 70 },
   empty: { padding: '22px 18px', textAlign: 'center', fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
@@ -145,16 +136,16 @@ export function slugHue(slug: string): number {
 export function phaseTone(t: HangarTokens, phase: RunPhase) {
   switch (phase) {
     case 'succeeded':
-      return { bg: t.goodSoft, border: t.good, fg: t.good, label: 'succeeded' };
+      return { bg: t.goodSoft, border: t.good, fg: t.good, label: 'succeeded', status: 'ok' as StatusTone };
     case 'failed':
-      return { bg: t.badSoft, border: t.bad, fg: t.bad, label: 'failed' };
+      return { bg: t.badSoft, border: t.bad, fg: t.bad, label: 'failed', status: 'bad' as StatusTone };
     case 'running':
-      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: 'running' };
+      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: 'running', status: 'warn' as StatusTone };
     case 'cancelled':
-      return { bg: t.panelAlt, border: t.line, fg: t.textLo, label: 'cancelled' };
+      return { bg: t.panelAlt, border: t.line, fg: t.textLo, label: 'cancelled', status: 'neutral' as StatusTone };
     case 'pending':
     default:
-      return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: 'pending' };
+      return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: 'pending', status: 'neutral' as StatusTone };
   }
 }
 
@@ -509,9 +500,7 @@ export function PipelineRunList({
                     {cancelling ? 'Canceling…' : 'Cancel'}
                   </Button>
                 )}
-                <span className={classes.pill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg }}>
-                  {tone.label}
-                </span>
+                <StatusChip tone={tone.status}>{tone.label}</StatusChip>
                 <span className={classes.when}>{durationLabel}</span>
                 <span className={classes.when} title={run.startTime ? formatDateTime(run.startTime) : undefined}>
                   {run.startTime ? relativeTime(run.startTime) : '—'}

@@ -17,7 +17,7 @@ import { confidenceColor } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
-import { ActionSelect, Button, TextLink } from './ui';
+import { ActionSelect, Button, StatusChip, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -173,19 +173,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   runRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
   runName: { color: ({ t }) => t.textHi, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   runStage: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, flex: 'none' },
-  runPill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 10,
-    letterSpacing: '0.02em',
-    padding: '2px 7px',
-    borderRadius: 99,
-    flex: 'none',
-  },
-  runPillDot: { width: 5, height: 5, borderRadius: '50%' },
   testRow: { display: 'flex', gap: 8, fontSize: 12, alignItems: 'baseline' },
   testTask: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 10.5, flex: 'none' },
   testResult: { color: ({ t }) => t.textHi, flex: 1, overflowWrap: 'anywhere' },
@@ -528,12 +515,9 @@ export function ReleaseRecordDetail({
         <div className={classes.col}>
           <div className={`${classes.colHead} ${classes.colHeadHappened}`}>
             <span className={classes.colTitle}>What happened</span>
-            <span
-              className={classes.chip}
-              style={record.incidents.length === 0 ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : undefined}
-            >
+            <StatusChip tone={record.incidents.length === 0 ? 'ok' : 'bad'}>
               {record.incidents.length === 0 ? 'no incidents' : `${record.incidents.length} incidents`}
-            </span>
+            </StatusChip>
           </div>
           <div className={classes.colBody}>
             {record.promotionChain.length === 0 ? (
@@ -578,12 +562,7 @@ export function ReleaseRecordDetail({
         <div className={classes.col}>
           <div className={`${classes.colHead} ${classes.colHeadBuilt}`}>
             <span className={classes.colTitle}>What was built</span>
-            <span
-              className={classes.chip}
-              style={verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : undefined}
-            >
-              {verified ? 'verified' : 'unverified'}
-            </span>
+            <StatusChip tone={verified ? 'ok' : 'neutral'}>{verified ? 'verified' : 'unverified'}</StatusChip>
           </div>
           {/* Full width (2026-10-07): one summary line, then pipeline runs and the release gates side by side at their
               own heights; security only when there are scans or tests. */}
@@ -608,10 +587,9 @@ export function ReleaseRecordDetail({
                         <div key={run.name} className={classes.runRow}>
                           {run.pipelineName && <span className={classes.runStage}>{run.pipelineName}</span>}
                           <span className={classes.runName}>{run.name}</span>
-                          <span className={classes.runPill} style={{ backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: '1px solid' }}>
-                            <span className={classes.runPillDot} style={{ backgroundColor: tone.fg }} />
+                          <StatusChip tone={tone.status} dot>
                             {tone.label}
-                          </span>
+                          </StatusChip>
                         </div>
                       );
                     })}
@@ -626,16 +604,7 @@ export function ReleaseRecordDetail({
                       <div className={classes.scanHead}>
                         <span className={classes.scanName}>{scan.scanner.replace('-', ' ')}</span>
                         {scan.outcome && (
-                          <span
-                            className={classes.chip}
-                            style={
-                              scan.outcome === 'passed'
-                                ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft }
-                                : { color: t.bad, borderColor: t.bad, backgroundColor: t.badSoft }
-                            }
-                          >
-                            {scan.outcome}
-                          </span>
+                          <StatusChip tone={scan.outcome === 'passed' ? 'ok' : 'bad'}>{scan.outcome}</StatusChip>
                         )}
                       </div>
                       {scan.findingsSummary && <div className={classes.scanFindings}>{scan.findingsSummary}</div>}
