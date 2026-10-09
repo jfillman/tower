@@ -4,7 +4,6 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { STALE_THRESHOLD_MS, relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { RefreshButton } from './RefreshButton';
 import { PrButton } from './PrButton';
 import { gitopsPrForEnv } from './useReleaseContext';
 import { health, type DeployHistoryEntry, type EnvironmentSummary, type Health } from './types';
@@ -34,8 +33,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     overflow: 'hidden',
   },
   deckInner: { padding: '14px 20px 16px' },
-  deckRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 },
-  eyebrow: { fontFamily: fontMono, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: ({ t }) => t.textFaint },
 
   envRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: {
@@ -261,9 +258,6 @@ export function CommandDeck({
   sourcePrs,
   deployHistory,
   provenanceByImage,
-  owner,
-  appName,
-  refresh,
   onSelectTab,
 }: {
   environments: EnvironmentSummary[];
@@ -272,9 +266,6 @@ export function CommandDeck({
   sourcePrs: PullRequestSummary[];
   deployHistory: Record<string, DeployHistoryEntry[]> | undefined;
   provenanceByImage: Record<string, ProvenanceState>;
-  owner?: string;
-  appName?: string;
-  refresh: () => void;
   onSelectTab: (tab: ReleasesSubTab) => void;
 }) {
   const t = useHangarTokens();
@@ -322,14 +313,6 @@ export function CommandDeck({
   return (
     <div className={classes.deck}>
       <div className={classes.deckInner}>
-        <div className={classes.deckRow}>
-          <Typography className={classes.eyebrow}>
-            {environments.length} environment{environments.length === 1 ? '' : 's'} tracked
-            {owner && appName ? ` · ${owner}/${appName}` : ''}
-          </Typography>
-          <RefreshButton onClick={refresh} />
-        </div>
-
         <div className={classes.envRow}>
           {environments.map(env => {
             const h = health(env);

@@ -9,6 +9,7 @@ import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useArgoActions } from '../useReleaseData';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { PipelineFlow, buildSupplyChainStages } from '../PipelineFlow';
 import { Rail, deliveryTag, useSignalRailStyles } from '../SignalRail';
 import { EnvPicker, type EnvPickerGroup } from '../EnvPicker';
@@ -264,9 +265,11 @@ export function DeploymentsTab() {
   if (cdEnvs.length === 0) {
     return (
       <div className={classes.main}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <RefreshButton onClick={refresh} />
-        </div>
+        <PageHeader
+          title="Deployments"
+          subtitle="What is rolling out where, step by step: the ArgoCD sync, then the Rollout."
+          actions={<RefreshButton onClick={refresh} />}
+        />
         <EnvPicker
           summary="0 envs"
           groups={TIER_ORDER.map(tier => ({ tier, items: [] }))}
@@ -361,9 +364,11 @@ export function DeploymentsTab() {
 
   return (
     <div className={classes.main}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <RefreshButton onClick={refresh} />
-      </div>
+      <PageHeader
+        title="Deployments"
+        subtitle="What is rolling out where, step by step: the ArgoCD sync, then the Rollout."
+        actions={<RefreshButton onClick={refresh} />}
+      />
 
       <EnvPicker
         summary={`${summary.total} env${summary.total === 1 ? '' : 's'} · ${summary.progressing} progressing · ${summary.blocked} blocked`}

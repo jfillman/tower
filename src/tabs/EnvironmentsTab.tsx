@@ -68,7 +68,7 @@ const COLUMNS = '20px 120px 80px 110px 100px 90px minmax(0, 1fr) 36px';
 type Filter = 'all' | 'ground' | 'flight' | 'cloud';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  wrap: { padding: '20px 24px 40px', maxWidth: 1380 },
+  wrap: { paddingBottom: 40, maxWidth: 1380 },
   layout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
   main: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
   side: { display: 'flex', flexDirection: 'column', gap: 12, alignSelf: 'start' },

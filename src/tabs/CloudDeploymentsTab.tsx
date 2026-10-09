@@ -2,16 +2,16 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { summarizeCloudDeploys, type CloudDeploy } from '../cloudDeploy';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
+import { Chip, PageHeader } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -20,19 +20,7 @@ import { FlightPins } from './cloud/FlightPins';
 // deployed and whether that run worked, and says it does not read live health from the cloud.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  wrap: { padding: '20px 24px 40px', maxWidth: 1080 },
-  head: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 20, color: ({ t }) => t.textHi },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.04em',
-    padding: '3px 9px',
-    borderRadius: 4,
-    background: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-  },
+  wrap: { paddingBottom: 40 },
   resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
   link: {
     fontFamily: fontMono,
@@ -41,7 +29,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textDecoration: 'none',
     '&:hover': { textDecoration: 'underline' },
   },
-  note: { fontSize: 12.5, color: ({ t }) => t.textFaint, margin: '4px 0 18px', lineHeight: 1.5 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginBottom: 22 },
   card: {
     background: ({ t }) => t.panel,
@@ -147,7 +134,7 @@ export function CloudDeploymentsTab() {
   if (deploys.length === 0) {
     return (
       <div className={classes.wrap}>
-        <Typography className={classes.title}>Deployments</Typography>
+        <PageHeader title="Deployments" subtitle="What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." />
         <div className={classes.empty}>
           No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs);
           a Flight environment&apos;s current release is its pin, below.
@@ -159,31 +146,32 @@ export function CloudDeploymentsTab() {
 
   return (
     <div className={classes.wrap}>
-      <div className={classes.head}>
-        <Typography className={classes.title}>Deployments</Typography>
-        {targetLabel && <span className={classes.chip}>{targetLabel}</span>}
-        {resource && (
-          <span className={classes.resource}>
-            {resource.kind} {resource.name}
-            {resource.scope ? ` · ${resource.scope}` : ''}
-            {resource.region ? ` · ${resource.region}` : ''}
-          </span>
-        )}
-        {deploys.find(d => d.consoleUrl)?.consoleUrl && (
-          <a
-            className={classes.link}
-            href={deploys.find(d => d.consoleUrl)!.consoleUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            open in console ↗
-          </a>
-        )}
-      </div>
-      <div className={classes.note}>
-        What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot
-        tell you the service is up, only that the deploy finished.
-      </div>
+      <PageHeader
+        title="Deployments"
+        subtitle="What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished."
+        actions={
+          <>
+            {targetLabel && <Chip tone="ground">{targetLabel}</Chip>}
+            {resource && (
+              <span className={classes.resource}>
+                {resource.kind} {resource.name}
+                {resource.scope ? ` · ${resource.scope}` : ''}
+                {resource.region ? ` · ${resource.region}` : ''}
+              </span>
+            )}
+            {deploys.find(d => d.consoleUrl)?.consoleUrl && (
+              <a
+                className={classes.link}
+                href={deploys.find(d => d.consoleUrl)!.consoleUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                open in console ↗
+              </a>
+            )}
+          </>
+        }
+      />
 
       <div className={classes.grid}>
         <div className={classes.card}>
