@@ -67,6 +67,53 @@ export function useArchivedRuns(
 }
 
 /**
+ * The archive ids of one run, found by PipelineRun name - for a run that is still on the cluster but whose pod is
+ * already gone (something swept completed pods, 2026-10-09), so TaskRunLogConsole can fall back to the archived log.
+ * Results stores a finished run within seconds of completion; a run still in progress has no record yet, which
+ * surfaces as `notFound`. Undefined params: nothing.
+ */
+export function useArchivedRunLookup(
+  params: { app: string; runName: string } | undefined,
+): { loading: boolean; archive?: { app: string; result: string }; notFound?: boolean } {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState<{ loading: boolean; archive?: { app: string; result: string }; notFound?: boolean }>({
+    loading: Boolean(params),
+  });
+  const key = params ? `${params.app}/${params.runName}` : '';
+
+  useEffect(() => {
+    if (!params) {
+      setState({ loading: false });
+      return undefined;
+    }
+    let cancelled = false;
+    setState({ loading: true });
+    (async () => {
+      try {
+        const base = await discoveryApi.getBaseUrl('glidepath');
+        // Recent window, generous limit: a point lookup for one run name, not a listing.
+        const q = new URLSearchParams({ app: params.app, sinceHours: '48', limit: '200' });
+        const res = await fetchApi.fetch(`${base}/pipeline-history/runs?${q}`);
+        if (!res.ok) throw new Error(`pipeline history: ${res.status}`);
+        const body = (await res.json()) as { runs: ArchivedRunDto[] };
+        const hit = body.runs.find(r => r.pipelineRun.metadata.name === params.runName);
+        if (!cancelled) setState(hit ? { loading: false, archive: { app: params.app, result: hit.result } } : { loading: false, notFound: true });
+      } catch {
+        if (!cancelled) setState({ loading: false, notFound: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Same key-based dependency shape as useArchivedTaskRunLogs below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, discoveryApi, fetchApi]);
+
+  return state;
+}
+
+/**
  * Splits an archived TaskRun log into per-step blocks. Results stores one text stream per TaskRun with each line
  * prefixed by its container's short name (`[build] ...`, init containers included); lines without a prefix continue
  * the previous step. Only the TaskRun's own steps are kept, in step order.
