@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import {
   useAppConfig,
+  useFlightBase,
   usePlatformFile,
   useSubmitConfigChange,
+  useSubmitFlightBase,
   useSubmitPlatformFileChange,
 } from '../useConfigData';
 import type { ConfigTopLevelField, PlatformEnvSelector } from '../types';
@@ -98,4 +100,23 @@ export function useEnvValuesLoader(): (target: EnvValuesTarget) => Promise<Parti
     },
     [discoveryApi, fetchApi],
   );
+}
+
+/** Shared values of the app's Flight environments on one cluster: gitops-<app>/<cluster>/base.yaml, edited through a PR. */
+export function useFlightBaseValuesSource(target: { owner: string; appName: string; cluster: string }): ValuesSource {
+  const [nonce, setNonce] = useState(0);
+  const file = useFlightBase(target, nonce);
+  const sub = useSubmitFlightBase();
+  return {
+    loading: file.loading,
+    error: file.error,
+    data: file.data,
+    refresh: () => setNonce(n => n + 1),
+    submit: (patch, summary) => sub.submit({ ...target, patch, summary }),
+    submitRaw: (raw, summary) => sub.submit({ ...target, patch: {}, raw, summary }),
+    submitting: sub.loading,
+    result: sub.result,
+    submitError: sub.error,
+    resetSubmit: sub.reset,
+  };
 }

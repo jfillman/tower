@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import type {
+  ConfigTopLevelField,
   AppConfigResponse,
   CicdConfigChangeRequest,
   CicdConfigChangeResult,
@@ -519,4 +520,73 @@ export function useSubmitConfigMapFiles() {
   const reset = () => setState({ loading: false });
 
   return { ...state, submit, reset };
+}
+
+/** Shared values of an app's Flight environments on one cluster (gitops-<app>/<cluster>/base.yaml). */
+export function useFlightBase(target: { owner: string; appName: string; cluster: string } | undefined, refreshNonce = 0) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState<{ loading: boolean; error?: string; data?: { values: Partial<Record<ConfigTopLevelField, unknown>>; raw: string; path: string } }>({
+    loading: Boolean(target),
+  });
+  const key = target ? `${target.owner}/${target.appName}/${target.cluster}` : '';
+  useEffect(() => {
+    if (!target) {
+      setState({ loading: false });
+      return undefined;
+    }
+    let cancelled = false;
+    setState({ loading: true });
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('glidepath');
+        const res = await fetchApi.fetch(`${baseUrl}/config/flight-base?${new URLSearchParams(target).toString()}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => undefined);
+          throw new Error(body?.error ?? `request failed with ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) setState({ loading: false, data });
+      } catch (e) {
+        if (!cancelled) setState({ loading: false, error: String(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, discoveryApi, fetchApi, refreshNonce]);
+  return state;
+}
+
+export function useSubmitFlightBase() {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState<{ loading: boolean; error?: string; result?: { prUrl: string; alreadyOpen: boolean } }>({ loading: false });
+  const submit = async (request: {
+    owner: string;
+    appName: string;
+    cluster: string;
+    patch: Partial<Record<ConfigTopLevelField, unknown>>;
+    raw?: string;
+    summary: string[];
+  }) => {
+    setState({ loading: true });
+    try {
+      const baseUrl = await discoveryApi.getBaseUrl('glidepath');
+      const res = await fetchApi.fetch(`${baseUrl}/config/flight-base`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => undefined);
+        throw new Error(body?.error ?? `request failed with ${res.status}`);
+      }
+      setState({ loading: false, result: await res.json() });
+    } catch (e) {
+      setState({ loading: false, error: String(e) });
+    }
+  };
+  return { ...state, submit, reset: () => setState({ loading: false }) };
 }

@@ -44,11 +44,17 @@ Tekton pipeline execution visibility:
 
 ### Config ("App Configuration")
 
-The config an app shares across its environments, as two sub-tabs that each use the values form and its Pending changes panel:
-- **Shared values**: `glidepath/base.yaml`, the values every Ground environment starts from
+The config an app shares across its environments, as sub-tabs that each use the values form and its Pending changes panel:
+- **Ground shared values**: `glidepath/base.yaml`, the values every Ground environment starts from (PR on the app's repo)
+- **Flight shared values**, one per cluster the app has Flight environments on: `gitops-<app>/<cluster>/base.yaml`,
+  layered under each Flight environment's `values.yaml` on that cluster (PR on the gitops repo, checked by the values
+  gate like a release). A separate file on purpose: a source-repo change never reaches a Flight environment without a
+  reviewed gitops PR.
 - **Preview environments**: `glidepath/pr-env.yaml`, the template of each pull request preview
 
-An environment's own values are edited in its row on the Environments tab. Every change is a pull request on the app's repo.
+An app whose environments render their own chart (`deploy.chart`) gets the raw YAML editor for its shared values, as
+its environment rows do; previews render the default chart, so their template keeps the form. An environment's own
+values are edited in its row on the Environments tab.
 
 **Key exports:** `ConfigTab`
 

@@ -49,7 +49,8 @@ the tenants repo is what keeps the Application alive, so a partial automated rem
 Application. The row's Danger zone lists the manual steps in order.
 
 The values form is the one App Configuration used to hold alone; it now takes a *source* (`src/values/sources.ts`) so the same form edits a
-Ground or a Flight environment, or one of the app-wide files (`glidepath/base.yaml`, `glidepath/pr-env.yaml`) on the App Configuration tab.
+Ground or a Flight environment, or one of the app-wide files (`glidepath/base.yaml`, each Flight cluster's
+`gitops-<app>/<cluster>/base.yaml`, `glidepath/pr-env.yaml`) on the App Configuration tab.
 The Glidepath tab is the same shape for `cicd.yaml`: sub-tabs (Build, Test, Deploy, Preview environments, Governance, Notifications,
 Secrets, Pipelines, Advanced), a dot on the ones with a staged change, and one Pending changes panel for its single pull request. The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
