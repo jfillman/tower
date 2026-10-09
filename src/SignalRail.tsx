@@ -108,8 +108,8 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   meta: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint, textAlign: 'center' },
   gatesTogglePulse: { animation: '$pulse 1.6s ease-in-out infinite' },
   // Real GitHub Check Runs on the release PR's head commit - this
-  // platform's release guardrails (sast/image-scan/provenance/sbom/itsm/qa/
-  // policy-validation/image-promotion, see glidepath-catalog's docs/admin/
+  // platform's release guardrails (sast/image-scan/provenance/sbom/values/itsm/qa/
+  // policy-validation, see glidepath-catalog's docs/admin/
   // release-guardrails.md) each post exactly one of these. `gatesTogglePulse`
   // above is this ledger's per-check pulsing dot while a check is still
   // running - `gateAggregateTone`'s own PR-title header treatment.
