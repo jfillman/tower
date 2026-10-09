@@ -334,10 +334,19 @@ export function CanaryRampChart({
                 const filled = state === 'done' || state === 'current' || state === 'bad';
                 const live = state === 'current';
                 const halo = live ? <circle cx={x} cy={y} r={7} fill="none" stroke={color} strokeWidth={1.5} className={classes.chartHalo} /> : null;
+                // The live dot pulses its opacity; an opaque copy under it keeps the weight line from showing through.
+                const backing = (shape: 'diamond' | 'dot', r: number) => {
+                  if (!live) return null;
+                  if (shape === 'diamond') {
+                    return <rect x={x - 5} y={y - 5} width={10} height={10} fill={t.panel} transform={`rotate(45 ${x} ${y})`} />;
+                  }
+                  return <circle cx={x} cy={y} r={r + 0.75} fill={t.panel} />;
+                };
                 if (s.kind === 'analysis') {
                   return (
                     <g key={i}>
                     {halo}
+                    {backing('diamond', 5)}
                     <rect className={live ? classes.chartDotLive : undefined} x={x - 5} y={y - 5} width={10} height={10} fill={filled ? color : t.panel} stroke={color} strokeWidth={1.5} transform={`rotate(45 ${x} ${y})`} />
                     </g>
                   );
@@ -346,6 +355,7 @@ export function CanaryRampChart({
                   return (
                     <g key={i}>
                       {halo}
+                      {backing('dot', 4)}
                       <circle className={live ? classes.chartDotLive : undefined} cx={x} cy={y} r={4} fill={t.panel} stroke={color} strokeWidth={1.5} />
                     </g>
                   );
@@ -353,6 +363,7 @@ export function CanaryRampChart({
                 return (
                   <g key={i}>
                   {halo}
+                  {backing('dot', 5)}
                   <circle
                     className={live ? classes.chartDotLive : undefined}
                     cx={x}

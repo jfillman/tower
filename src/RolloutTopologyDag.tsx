@@ -332,8 +332,8 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                       <button
                         key={n.id}
                         type="button"
-                        className={`${dag.node} ${openId === n.id ? dag.nodeSelected : ''} ${n.pulse ? dag.nodeRunning : ''}`}
-                        style={{ left: p.x, top: p.y, borderColor: color.border, opacity: n.dim ? 0.55 : 1 }}
+                        className={`${dag.node} ${openId === n.id ? dag.nodeSelected : ''} ${n.pulse ? dag.nodeRunning : ''} ${n.dim ? dag.nodeDim : ''}`}
+                        style={{ left: p.x, top: p.y, borderColor: color.border }}
                         onMouseDown={preventFocusScroll}
                         onClick={() => {
                           setOpenId(prev => (prev === n.id ? undefined : n.id));
