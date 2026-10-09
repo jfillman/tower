@@ -297,15 +297,45 @@ describe('removing environments', () => {
     expect(validateRemovals(before, after, { ci: { steps: [{ env: 'dev' }] } })).toEqual([]);
   });
 
-  it('refuses to remove a Flight environment', () => {
+  it('refuses to remove a Kubernetes app\'s Flight environment, allows a cloud app\'s', () => {
     expect(validateRemovals(before, [ground('dev'), ground('qa')], undefined)[0]).toMatch(/Flight environment "prod" cannot be removed/);
+    expect(validateRemovals(before, [ground('dev'), ground('qa')], undefined, 'k8s-rollout')[0]).toMatch(/cannot be removed/);
+    expect(validateRemovals(before, [ground('dev'), ground('qa')], undefined, 'aws-lambda')).toEqual([]);
+    // A pipeline step that still deploys to it blocks a cloud removal like any other.
+    expect(validateRemovals(before, [ground('dev'), ground('qa')], { ci: { steps: [{ env: 'prod' }] } }, 'aws-lambda')).toEqual([
+      'Pipeline "ci" still has a step for "prod". Remove that step in the Glidepath tab first.',
+    ]);
   });
 
-  it('deletes files only for removed Ground environments of a Kubernetes app', () => {
+  it('deletes a removed cloud Flight environment\'s release pin and promote flow, nothing for its Ground ones', () => {
+    expect(deleteFilesFor(before, [ground('dev'), ground('qa')], 'aws-lambda')).toEqual([
+      'glidepath/releases/prod.yaml',
+      '.tekton/flow-promote-prod.yaml',
+    ]);
+    expect(deleteFilesFor([ground('dev'), flight('prod')], [ground('dev')], 'azure-container-apps')).toEqual([
+      'glidepath/releases/prod.yaml',
+      '.tekton/flow-promote-prod.yaml',
+    ]);
+    // Removing only a Ground environment of a cloud app deletes nothing.
+    expect(deleteFilesFor(before, [ground('dev'), flight('prod', 'kind-prod')], 'aws-lambda')).toEqual([]);
+    // A Kubernetes app's Flight environment never gets a delete from here.
+    expect(deleteFilesFor(before, [ground('dev'), ground('qa')], 'k8s-rollout')).toEqual([]);
+  });
+
+  it('says a cloud Flight removal starts no deploy and leaves the cloud resource', () => {
+    const out = followUps(before, [ground('dev'), ground('qa')], 'aws-lambda', 'smoke-fn');
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatch(/glidepath\/releases\/prod\.yaml/);
+    expect(out[0]).toMatch(/flow-promote-prod\.yaml/);
+    expect(out[0]).toMatch(/starts no deploy/);
+    expect(out[0]).toMatch(/not deleted/);
+  });
+
+  it('deletes a Kubernetes app\'s removed Ground environments\' files', () => {
     const after = [ground('dev')];
     expect(deleteFilesFor(before, after, undefined)).toEqual(envFilePaths('qa'));
     expect(deleteFilesFor(before, after, 'k8s-rollout')).toEqual(envFilePaths('qa'));
-    expect(deleteFilesFor(before, after, 'aws-lambda')).toEqual([]);
+    expect(deleteFilesFor(before, after, 'aws-lambda')).toEqual(['glidepath/releases/prod.yaml', '.tekton/flow-promote-prod.yaml']);
     expect(deleteFilesFor(before, before, undefined)).toEqual([]);
   });
 

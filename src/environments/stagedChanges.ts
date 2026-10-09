@@ -244,6 +244,16 @@ export function envFilePaths(env: string): string[] {
   return [`${ENVS_ROOT}/envs/${env}.yaml`, `${ENVS_ROOT}/envs/${env}.release.yaml`];
 }
 
+/**
+ * The files a cloud app's Flight environment owns on its source repo (ADR-0020): its release pin and the promote flow
+ * Glidepath's onboarding generated for it. The flow is deleted in the same pull request as the pin: it runs on any
+ * change to the pin, a deletion included, and PaC reads .tekton/ from the merge commit, so deleting both together
+ * means no deploy starts from a missing pin. Onboarding's resync would remove the flow too, but only after the merge.
+ */
+export function cloudFlightFilePaths(env: string): string[] {
+  return [`${ENVS_ROOT}/releases/${env}.yaml`, `.tekton/flow-promote-${env}.yaml`];
+}
+
 /** Names of the pipelines that still have a step for this environment (either list or map form). */
 export function pipelinesNamingEnv(pipelines: unknown, env: string): string[] {
   let entries: Array<[string, unknown]> = [];
@@ -263,11 +273,16 @@ export function removedEnvs(before: EnvDef[], after: EnvDef[]): EnvDef[] {
   return before.filter(e => !kept.has(e.name));
 }
 
-/** Why removals could not be submitted. Only a Ground environment on a Kubernetes app can be removed here. */
-export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: unknown): string[] {
+/**
+ * Why removals could not be submitted. Ground environments, and a cloud app's Flight environments, can be removed here; a
+ * Kubernetes app's Flight environment also has a tenants directory, a gitops directory and an ApplicationEnvironment,
+ * so it is removed by hand (its row says how).
+ */
+export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: unknown, target?: string): string[] {
   const problems: string[] = [];
+  const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
   for (const e of removedEnvs(before, after)) {
-    if (e.tier === 'flight') {
+    if (e.tier === 'flight' && !cloud) {
       problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
     }
     for (const p of pipelinesNamingEnv(pipelines, e.name)) {
@@ -277,12 +292,16 @@ export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: u
   return problems;
 }
 
-/** The files to delete in the same pull request: those of removed Ground environments of a Kubernetes app. */
+/**
+ * The files to delete in the same pull request: a removed Ground environment's values files on a Kubernetes app, a removed
+ * Flight environment's release pin and promote flow on a cloud app.
+ */
 export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string | undefined): string[] {
-  if ((target || 'k8s-rollout') !== 'k8s-rollout') return [];
-  return removedEnvs(before, after)
-    .filter(e => e.tier === 'ground')
-    .flatMap(e => envFilePaths(e.name));
+  const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
+  return removedEnvs(before, after).flatMap(e => {
+    if (cloud) return e.tier === 'flight' ? cloudFlightFilePaths(e.name) : [];
+    return e.tier === 'ground' ? envFilePaths(e.name) : [];
+  });
 }
 
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */
@@ -291,6 +310,12 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
   const had = new Set(before.map(e => e.name));
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
   for (const e of removedEnvs(before, after)) {
+    if (e.tier === 'flight' && cloud) {
+      out.push(
+        `The pull request also deletes ${ENVS_ROOT}/releases/${e.name}.yaml (its release pin) and .tekton/flow-promote-${e.name}.yaml, so merging it starts no deploy. The ${target} resource ${e.name} deployed to is not deleted: remove it in your cloud account. Close any open release pull request for ${e.name}.`,
+      );
+      continue;
+    }
     if (e.tier !== 'ground') continue;
     out.push(
       cloud

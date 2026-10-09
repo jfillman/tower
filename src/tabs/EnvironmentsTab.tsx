@@ -11,6 +11,7 @@ import {
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
+  cloudFlightFilePaths,
   copiedEnvs,
   deleteFilesFor,
   describeChanges,
@@ -179,7 +180,7 @@ export function EnvironmentsTab() {
     () => [
       ...validateEnvironments(after, targetId),
       ...validateAddedFlight(before, after, targetId),
-      ...validateRemovals(before, after, pipelines),
+      ...validateRemovals(before, after, pipelines, targetId),
     ],
     [before, after, targetId, pipelines],
   );
@@ -194,8 +195,15 @@ export function EnvironmentsTab() {
     [releasePlan],
   );
   const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  // What the remove dialog says the pull request deletes: a Kubernetes app's values files, a cloud app's Flight pin and flow.
+  const removalFiles = (name: string): string[] => {
+    if (!cloudBlock) return envFilePaths(name);
+    return before.find(e => e.name === name)?.tier === 'flight' ? cloudFlightFilePaths(name) : [];
+  };
   const flightOrderChanged = useMemo(() => {
-    const names = (envs: EnvDef[]) => envs.filter(e => e.tier === 'flight' && before.some(b => b.name === e.name)).map(e => e.name);
+    // Only Flight environments that exist on both sides: a removal or an addition is not a reorder.
+    const names = (envs: EnvDef[]) =>
+      envs.filter(e => e.tier === 'flight' && before.some(b => b.name === e.name) && after.some(a => a.name === e.name)).map(e => e.name);
     return !same(names(before), names(after));
   }, [before, after]);
   const notes = useMemo(
@@ -684,7 +692,7 @@ export function EnvironmentsTab() {
           name={removing}
           appName={appName}
           cloud={Boolean(cloudBlock)}
-          files={envFilePaths(removing)}
+          files={removalFiles(removing)}
           blockedBy={pipelinesNamingEnv(pipelines, removing)}
           onCancel={() => setRemoving(undefined)}
           onConfirm={() => stageRemove(removing)}
