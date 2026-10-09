@@ -87,7 +87,15 @@ function extractFlowSlug(name, meta) {
 function chainIdOf(run) {
   const fromParam = run.params.find((p) => p.name === "chain-id")?.value;
   if (fromParam) return fromParam;
-  return run.taskRunsByPipelineTask["start-flow"]?.results.find((r) => r.name === "chain-id")?.value;
+  return firstTaskResult(run.taskRunsByPipelineTask, "chain-id");
+}
+const ID_TASK_NAMES = ["preflight", "start-flow"];
+function firstTaskResult(byTask, resultName) {
+  for (const task of ID_TASK_NAMES) {
+    const v = byTask[task]?.results.find((r) => r.name === resultName)?.value;
+    if (v) return v;
+  }
+  return void 0;
 }
 const derivedSlugRuns = /* @__PURE__ */ new WeakSet();
 function linkFlowSlugsByChainId(runs) {
@@ -166,7 +174,7 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
     // linkFlowSlugsByChainId borrowing one from a downstream sibling that
     // may not exist. Falls back to the name-based extraction for any run
     // that predates the toolbox image carrying this result.
-    flowSlug: taskRunsByPipelineTask["start-flow"]?.results.find((r) => r.name === "chain-slug")?.value ?? extractFlowSlug(meta.name, meta),
+    flowSlug: firstTaskResult(taskRunsByPipelineTask, "chain-slug") ?? extractFlowSlug(meta.name, meta),
     // Falls back to a derived 'guardrail' bucket, or folds into 'ci', when
     // there's no explicit flow label at all (every real guardrail
     // PipelineRun and both release-tracking PipelineRuns today) - anything
