@@ -10,6 +10,7 @@ import { keepAnchored, preventFocusScroll } from '../../preventFocusScroll';
 import { MetricsPanel } from './MetricsPanel';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, K8sResourceRef, PodSummary } from '../../types';
+import { StatusChip } from '../../ui';
 
 // Items 6 & 7 of the Topology-tab modernization ("pod logs should be
 // accessible" / "more info/details about each resource, especially pods").
@@ -129,9 +130,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexWrap: 'wrap',
   },
   containerName: { color: ({ t }) => t.textHi, fontWeight: 600, minWidth: 90 },
-  containerState: { fontSize: 10, padding: '1px 7px', borderRadius: 10 },
-  containerStateOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  containerStateBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
   containerRes: { color: ({ t }) => t.textFaint, fontSize: 10 },
   conditionRow: { display: 'flex', gap: 8, fontSize: 11, alignItems: 'baseline' },
   conditionType: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, minWidth: 90 },
@@ -267,9 +265,7 @@ function PodDetail({
               return (
                 <div key={c.name} className={classes.containerRow}>
                   <span className={classes.containerName}>{c.name}</span>
-                  <span className={`${classes.containerState} ${state.ok ? classes.containerStateOk : classes.containerStateBad}`}>
-                    {state.label}
-                  </span>
+                  <StatusChip tone={state.ok ? 'ok' : 'bad'}>{state.label}</StatusChip>
                   {cs?.restartCount ? <span className={classes.containerRes}>{cs.restartCount} restarts</span> : null}
                   <span className={classes.containerRes}>
                     req {c.resources?.requests?.cpu ?? '—'}/{c.resources?.requests?.memory ?? '—'} · lim{' '}

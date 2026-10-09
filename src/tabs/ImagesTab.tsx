@@ -10,7 +10,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
-import { FilterBar, FilterChips, PageHeader, TextLink } from '../ui';
+import { FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -82,16 +82,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   hintRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
-  hint: {
-    display: 'inline-flex',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '2px 8px',
-    borderRadius: 3,
-    border: '1px solid',
-  },
-  hintPresent: { borderColor: ({ t }) => t.line, color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt },
-  hintAbsent: { borderColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint, backgroundColor: 'transparent' },
   expandRow: { padding: '10px 20px 14px' },
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
@@ -389,15 +379,9 @@ function ImagePanel({
             </div>
           </div>
           <div className={classes.hintRow}>
-            <span className={`${classes.hint} ${hasProvenanceHint ? classes.hintPresent : classes.hintAbsent}`}>
-              provenance {hasProvenanceHint ? 'attached' : 'not found'}
-            </span>
-            <span className={`${classes.hint} ${hasSbomHint ? classes.hintPresent : classes.hintAbsent}`}>
-              SBOM {hasSbomHint ? 'attached' : 'not found'}
-            </span>
-            <span className={`${classes.hint} ${hasSignatureHint ? classes.hintPresent : classes.hintAbsent}`}>
-              signature {hasSignatureHint ? 'attached' : 'not found'}
-            </span>
+            <StatusChip tone={hasProvenanceHint ? 'ok' : 'neutral'}>provenance {hasProvenanceHint ? 'attached' : 'not found'}</StatusChip>
+            <StatusChip tone={hasSbomHint ? 'ok' : 'neutral'}>SBOM {hasSbomHint ? 'attached' : 'not found'}</StatusChip>
+            <StatusChip tone={hasSignatureHint ? 'ok' : 'neutral'}>signature {hasSignatureHint ? 'attached' : 'not found'}</StatusChip>
           </div>
         </div>
         {entry.htmlUrl && (

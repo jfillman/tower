@@ -27,6 +27,8 @@ import { YamlView } from './YamlView';
 import { RbacDetailView, RBAC_KINDS } from './RbacDetailView';
 import { resourceKey } from '../../ResourceInspector';
 import type { ArgoResourceNode, K8sResourceRef } from '../../types';
+import { StatusChip } from '../../ui';
+import { argoTone } from '../../argoTone';
 
 // Item 4's "surface all the remaining resources in a more graphical, useful
 // way" - replaces the old plain <table> ResourceList with kind-grouped
@@ -108,10 +110,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   cardBadges: { display: 'flex', gap: 4, flexWrap: 'wrap' },
-  badge: { fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8 },
-  badgeOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  badgeWarn: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  badgeBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
   detail: { marginTop: 10, padding: '10px 12px', borderRadius: 8, border: ({ t }) => `1px dashed ${t.line}`, backgroundColor: ({ t }) => t.panel },
   none: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textFaint },
   detailModeRow: { display: 'flex', gap: 6, marginBottom: 10 },
@@ -130,13 +128,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 
 function isRbacKind(kind: string): boolean {
   return (RBAC_KINDS as readonly string[]).includes(kind);
-}
-
-function badgeClass(classes: ReturnType<typeof useStyles>, status: string | undefined): string {
-  if (status === 'Healthy' || status === 'Synced') return classes.badgeOk;
-  if (status === 'Progressing' || status === 'OutOfSync') return classes.badgeWarn;
-  if (status === 'Degraded' || status === 'Missing') return classes.badgeBad;
-  return classes.badgeWarn;
 }
 
 export function ResourceGallery({ resources, argoResources }: { resources: K8sResourceRef[]; argoResources?: ArgoResourceNode[] }) {
@@ -197,8 +188,8 @@ export function ResourceGallery({ resources, argoResources }: { resources: K8sRe
                     <span className={classes.cardName} title={r.name}>{r.name}</span>
                     {argo && (
                       <span className={classes.cardBadges}>
-                        {argo.syncStatus && <span className={`${classes.badge} ${badgeClass(classes, argo.syncStatus)}`}>{argo.syncStatus}</span>}
-                        {argo.health && <span className={`${classes.badge} ${badgeClass(classes, argo.health)}`}>{argo.health}</span>}
+                        {argo.syncStatus && <StatusChip tone={argoTone(argo.syncStatus)}>{argo.syncStatus}</StatusChip>}
+                        {argo.health && <StatusChip tone={argoTone(argo.health)}>{argo.health}</StatusChip>}
                       </span>
                     )}
                   </button>

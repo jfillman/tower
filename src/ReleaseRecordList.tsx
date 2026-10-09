@@ -7,7 +7,7 @@ import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
-import { IconButton } from './ui';
+import { IconButton, StatusChip, type StatusTone } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -48,19 +48,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
-  pill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: '0.03em',
-    padding: '4px 10px',
-    borderRadius: 99,
-    whiteSpace: 'nowrap',
-  },
-  pillDot: { width: 6, height: 6, borderRadius: '50%' },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   actions: { display: 'flex', alignItems: 'center', gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
@@ -75,12 +62,12 @@ export function confidenceColor(t: HangarTokens, confidence: number): string {
   return t.bad;
 }
 
-export function statusPill(t: HangarTokens, record: ReleaseRecord): { label: string; bg: string; border: string; fg: string } {
+export function statusPill(record: ReleaseRecord): { label: string; tone: StatusTone } {
   if (record.current) {
-    if (record.status === 'degraded') return { label: 'DEGRADED', bg: t.badSoft, border: t.bad, fg: t.bad };
-    return { label: 'CURRENT', bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
+    if (record.status === 'degraded') return { label: 'degraded', tone: 'bad' };
+    return { label: 'current', tone: 'warn' };
   }
-  return { label: 'SUPERSEDED', bg: t.goodSoft, border: t.good, fg: t.good };
+  return { label: 'superseded', tone: 'ok' };
 }
 
 export function ReleaseRecordList({
@@ -114,7 +101,7 @@ export function ReleaseRecordList({
       </div>
       <div className={classes.list}>
         {records.map(record => {
-          const pill = statusPill(t, record);
+          const pill = statusPill(record);
           const prAuthor = record.pullRequests[0]?.author;
           return (
             <button
@@ -145,10 +132,9 @@ export function ReleaseRecordList({
                   {record.status === 'degraded' && record.current ? ' · currently degraded' : ''}
                 </div>
               </div>
-              <span className={classes.pill} style={{ backgroundColor: pill.bg, borderColor: pill.border, color: pill.fg }}>
-                <span className={classes.pillDot} style={{ backgroundColor: pill.fg }} />
+              <StatusChip tone={pill.tone} dot>
                 {pill.label}
-              </span>
+              </StatusChip>
               <span className={classes.date}>{formatDateTime(record.createdAt)}</span>
               <div className={classes.actions}>
                 <IconButton

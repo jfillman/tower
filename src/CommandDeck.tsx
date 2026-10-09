@@ -6,11 +6,11 @@ import { STALE_THRESHOLD_MS, relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { PrButton } from './PrButton';
 import { gitopsPrForEnv } from './useReleaseContext';
-import { health, type DeployHistoryEntry, type EnvironmentSummary, type Health } from './types';
+import { health, type DeployHistoryEntry, type EnvironmentSummary } from './types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
-import { TextLink } from './ui';
+import { healthTone, StatusChip, TextLink } from './ui';
 
 // The "permanent, dynamic command panel" from the 2026-09-16 Releases revamp
 // (Command Deck concept, merged with Split Sub-tabs and the Log's Table/
@@ -36,19 +36,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   deckInner: { padding: '14px 20px 16px' },
 
   envRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: '4px 10px',
-    borderRadius: 100,
-    border: '1px solid',
-    cursor: 'pointer',
-  },
-  dot: { width: 6, height: 6, borderRadius: '50%', flexShrink: 0 },
-  previewChip: { borderStyle: 'dashed' },
 
   tasks: { marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 },
   task: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 5, flexWrap: 'wrap' },
@@ -81,21 +68,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   statValSm: { fontSize: 14 },
   statLabel: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
 }));
-
-const STATUS_COLOR: Record<Health, keyof HangarTokens> = {
-  healthy: 'good',
-  progressing: 'amber',
-  paused: 'sky',
-  degraded: 'bad',
-  unknown: 'textFaint',
-};
-const STATUS_SOFT: Record<Health, keyof HangarTokens> = {
-  healthy: 'goodSoft',
-  progressing: 'amberSoft',
-  paused: 'skySoft',
-  degraded: 'badSoft',
-  unknown: 'panelAlt',
-};
 
 interface DeckTask {
   tone: 'bad' | 'warn' | 'good' | 'neutral';
@@ -307,31 +279,22 @@ export function CommandDeck({
             const h = health(env);
             const stale = env.deployedAt && Date.now() - new Date(env.deployedAt).getTime() > STALE_THRESHOLD_MS;
             return (
-              <button
-                type="button"
+              <StatusChip
                 key={env.key}
-                className={classes.chip}
-                style={{ backgroundColor: t[STATUS_SOFT[h]] as string, borderColor: t[STATUS_COLOR[h]] as string, color: t[STATUS_COLOR[h]] as string }}
+                tone={healthTone(h)}
+                dot
                 onClick={goToEnvTopology(env.env)}
                 title={`View ${env.env} in Topology${stale ? ` - deployed ${relativeTime(env.deployedAt)}` : ''}`}
               >
-                <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR[h]] as string }} />
                 {env.env}
                 {env.drift && <span title="Running a different image than the majority">⚠</span>}
-              </button>
+              </StatusChip>
             );
           })}
           {previewCount > 0 && (
-            <button
-              type="button"
-              className={`${classes.chip} ${classes.previewChip}`}
-              style={{ backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }}
-              onClick={() => onSelectTab('preview')}
-              title="View preview environments"
-            >
-              <span className={classes.dot} style={{ backgroundColor: t.sky }} />
+            <StatusChip tone="info" dot onClick={() => onSelectTab('preview')} title="View preview environments">
               {previewCount} preview
-            </button>
+            </StatusChip>
           )}
         </div>
 

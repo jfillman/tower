@@ -7,7 +7,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { confidenceColor, statusPill } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
-import { TextLink } from './ui';
+import { StatusChip, type StatusTone, TextLink } from './ui';
 
 // Board 4 of the mockup (HANDOFF-tower-release-record.md /
 // idp_session_tower_release_record_spec) - "Compare two records." Records
@@ -72,19 +72,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   colLeft: { borderRight: ({ t }) => `1px solid ${t.line}`, '@media (max-width: 760px)': { borderRight: 'none', borderBottom: ({ t }) => `1px solid ${t.line}` } },
   colHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 14 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
-  pill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: '0.03em',
-    padding: '4px 10px',
-    borderRadius: 99,
-    whiteSpace: 'nowrap',
-  },
-  pillDot: { width: 6, height: 6, borderRadius: '50%' },
   kv: { display: 'flex', flexDirection: 'column', gap: 8 },
   kvRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 },
   kvK: { color: ({ t }) => t.textFaint },
@@ -155,7 +142,7 @@ function RecordColumn({
   classes,
 }: {
   record: ReleaseRecord;
-  pill: { label: string; bg: string; border: string; fg: string };
+  pill: { label: string; tone: StatusTone };
   side: 'left' | 'right';
   t: HangarTokens;
   classes: ReturnType<typeof useStyles>;
@@ -172,10 +159,9 @@ function RecordColumn({
             </span>
           )}
         </span>
-        <span className={classes.pill} style={{ backgroundColor: pill.bg, borderColor: pill.border, color: pill.fg }}>
-          <span className={classes.pillDot} style={{ backgroundColor: pill.fg }} />
+        <StatusChip tone={pill.tone} dot>
           {pill.label}
-        </span>
+        </StatusChip>
       </div>
       <div className={classes.kv}>
         <div className={classes.kvRow}>
@@ -231,8 +217,8 @@ export function ReleaseRecordCompare({
   const ratioDelta = leftRatio !== undefined && rightRatio !== undefined ? rightRatio - leftRatio : undefined;
   const confidenceDelta = right.confidence - left.confidence;
 
-  const leftPill = { label: 'BASELINE', bg: t.panelAlt, border: t.line, fg: t.textLo };
-  const rightPill = statusPill(t, right);
+  const leftPill = { label: 'baseline', tone: 'neutral' as StatusTone };
+  const rightPill = statusPill(right);
 
   return (
     <div>

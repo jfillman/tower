@@ -17,7 +17,7 @@ import { slugHue } from './PipelineRunList';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseCell, ReleaseRow } from './useReleaseContext';
 import type { EnvironmentSummary } from './types';
-import { Button, TextLink } from './ui';
+import { Button, StatusChip, TextLink } from './ui';
 
 // Top-of-tab release matrix: rows are releases (newest first), columns are
 // environments in the app's own real promotionOrder. Reading a column
@@ -122,16 +122,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   expandTag: { fontFamily: fontMono, fontSize: 13, fontWeight: 700, color: ({ t }) => t.textHi },
   expandArrow: { color: ({ t }) => t.textFaint, fontSize: 13 },
   expandEnv: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  pill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '2px 8px',
-    borderRadius: 12,
-    border: '1px solid',
-  },
   close: {
     marginLeft: 'auto',
     fontFamily: fontMono,
@@ -347,24 +337,16 @@ export function ReleaseMatrix({
               <span className={classes.expandArrow}>→</span>
               <span className={classes.expandEnv}>{open.env}</span>
               {openCell.status === 'pending' && openCell.pr && (
-                <span className={classes.pill} style={{ backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }}>
-                  pending
-                </span>
+                <StatusChip tone="warn">pending</StatusChip>
               )}
               {openCell.status === 'deployed' && (
-                <span className={classes.pill} style={{ backgroundColor: t.goodSoft, borderColor: t.good, color: t.good }}>
-                  deployed
-                </span>
+                <StatusChip tone="ok">deployed</StatusChip>
               )}
               {openCell.status === 'pinned' && (
-                <span className={classes.pill} style={{ backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }}>
-                  pinned, not deployed
-                </span>
+                <StatusChip tone="warn">pinned, not deployed</StatusChip>
               )}
               {openCell.status === 'promotable' && (
-                <span className={classes.pill} style={{ backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }}>
-                  not yet promoted
-                </span>
+                <StatusChip tone="info">not yet promoted</StatusChip>
               )}
               <button type="button" className={classes.close} onClick={() => setOpen(null)}>
                 close ✕

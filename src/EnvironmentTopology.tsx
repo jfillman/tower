@@ -12,7 +12,7 @@ import { TopoDag, buildTopoStages, type TopoStageKey } from './tabs/topology/Top
 import { TopologyStageDetail } from './tabs/topology/StageDetail';
 import { ResourceGallery } from './tabs/topology/ResourceGallery';
 import { ENV_TIER_LABEL, health, type EnvironmentSummary, type EnvTier, type Health } from './types';
-import { FilterChip, FilterGroup } from './ui';
+import { FilterChip, FilterGroup, healthTone, StatusChip } from './ui';
 
 // The single-environment topology view Ground Control's own DAG/detail
 // pattern established on the Deployments tab (2026-09-17 Topology
@@ -24,20 +24,6 @@ import { FilterChip, FilterGroup } from './ui';
 // for the flow itself; Events/Logs/Metrics/YAML are the real per-click
 // fetches, same as before.
 
-const STATUS_COLOR: Record<Health, keyof HangarTokens> = {
-  healthy: 'good',
-  progressing: 'amber',
-  paused: 'sky',
-  degraded: 'bad',
-  unknown: 'textFaint',
-};
-const STATUS_SOFT: Record<Health, keyof HangarTokens> = {
-  healthy: 'goodSoft',
-  progressing: 'amberSoft',
-  paused: 'skySoft',
-  degraded: 'badSoft',
-  unknown: 'panelAlt',
-};
 const HEALTH_LABEL: Record<Health, string> = {
   healthy: 'Healthy',
   progressing: 'Scaling',
@@ -67,8 +53,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 3, display: 'inline-flex', alignItems: 'center' },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   routeLink: { display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
-  pill: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100 },
-  dot: { width: 6, height: 6, borderRadius: '50%', display: 'inline-block' },
   dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: 'flex', flexDirection: 'column' },
   dagInner: { padding: '10px 12px 4px' },
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
@@ -145,10 +129,9 @@ export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; ti
             </a>
           )}
         </div>
-        <span className={classes.pill} style={{ backgroundColor: t[STATUS_SOFT[h]] as string, color: t[STATUS_COLOR[h]] as string }}>
-          <span className={classes.dot} style={{ backgroundColor: t[STATUS_COLOR[h]] as string }} />
+        <StatusChip tone={healthTone(h)} dot>
           {HEALTH_LABEL[h]}
-        </span>
+        </StatusChip>
       </div>
 
       <div className={classes.dagCard}>

@@ -11,7 +11,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Chip, PageHeader } from '../ui';
+import { Chip, PageHeader, StatusChip, type StatusTone } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -61,11 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   td: { padding: '9px 10px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
-  pill: { fontFamily: fontMono, fontSize: 11, padding: '2px 8px', borderRadius: 10, whiteSpace: 'nowrap' },
-  good: { background: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  bad: { background: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  run: { background: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  idle: { background: ({ t }) => t.panelAlt, color: ({ t }) => t.textLo },
   empty: { padding: '36px 8px', color: ({ t }) => t.textLo, fontSize: 14, lineHeight: 1.6 },
   linkBtn: {
     background: 'none',
@@ -118,11 +113,11 @@ export function CloudDeploymentsTab() {
     });
 
   const pill = (d: CloudDeploy) => {
-    let tone = classes.idle;
-    if (d.phase === 'succeeded') tone = classes.good;
-    else if (d.phase === 'failed') tone = classes.bad;
-    else if (d.phase === 'running' || d.phase === 'pending') tone = classes.run;
-    return <span className={`${classes.pill} ${tone}`}>{PHASE_LABEL[d.phase] ?? d.phase}</span>;
+    let tone: StatusTone = 'neutral';
+    if (d.phase === 'succeeded') tone = 'ok';
+    else if (d.phase === 'failed') tone = 'bad';
+    else if (d.phase === 'running' || d.phase === 'pending') tone = 'warn';
+    return <StatusChip tone={tone}>{PHASE_LABEL[d.phase] ?? d.phase}</StatusChip>;
   };
 
   if (loading && runs.length === 0) return <Progress />;

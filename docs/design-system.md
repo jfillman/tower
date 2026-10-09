@@ -21,7 +21,13 @@ its own title, chip, table header and button styles with slightly different numb
   | Action | Changes something (Sync, Promote, Re-run, Cancel, Open PR, Download) | A box: `Button`, one amber `primary` per view, `danger` for destructive, `small` inside a panel or row | `Button`, `IconButton`, `ActionSelect` |
   | Filter | Changes what this view shows, nothing else (History, Tier, Type, Status, View: Cards/List) | Separate pills with a label in front; the one that is on is amber. Search is a field in the same row | `FilterChips` (one on), `FilterChip` in a `FilterGroup` (several on), `FilterSelect` (too many values for pills), `SearchField` |
   | Link | Goes somewhere (another tab, GitHub, the registry) or shows/hides a detail | Sky mono text, no box: `→` for another tab, `↗` for another site, `▸`/`▾` for show/hide | `TextLink` (`href` for external, `expanded` for show/hide) |
-  | Status | Says what state something is in (Healthy, promoted, failed) | A chip; not clickable | `Chip`, `StatusDot` |
+  | Status | Says what state something is in (Healthy, promoted, failed, running) | Rounded, a soft tint of the state's colour, optional dot; clickable only when it opens what it describes | `StatusChip` (tone `ok`, `warn`, `bad`, `info`, `neutral`), `StatusDot` in tables |
+
+  A label (Ground, Flight, Container app, a repo name) is the square `Chip`: square means "what it is", rounded means
+  "what state it is in". Status tones: `ok` done or healthy; `info` (blue) in motion or live, such as progressing,
+  spun up, not yet promoted; `warn` (amber) waiting on someone or out of step, such as paused, pending, OutOfSync;
+  `bad` failed; `neutral` unknown or none. Health uses `healthTone`, ArgoCD's words use `argoTone` (src/argoTone.ts).
+  The release slug (the hue-coloured nickname chip, `flow: <slug>`) is not a status and keeps its own look.
 
   The ArgoCD Refresh/Sync buttons are actions; the Pipelines History pills are a filter. They used to look alike;
   they must not.
@@ -49,8 +55,8 @@ shows, its actions such as Refresh on the right) and starts at the tab bar's lef
 
 **Controls: done everywhere** (2026-10-09). Every filter, search, action button and link in Tower uses the kit:
 Services, Pipelines and its run list, Environments, Images, Release log, Deployments (ArgoCD actions, stage detail),
-Release matrix and records, Topology, Overview's Recent activity, pod logs, the dialogs and the Ops Wall. Not yet:
-status chips and pills (Healthy, promoted, unknown) still come in several shapes.
+Release matrix and records, Topology, Overview's Recent activity, pod logs, the dialogs and the Ops Wall. Status chips
+too (2026-10-09): every state display is a `StatusChip`.
 
 **Inside the tabs: not done.** Below the header, most tabs still declare their own section titles, chips, tables, cards
 and buttons. A tab is done when it declares no title, chip, table-header, panel or button style of its own.

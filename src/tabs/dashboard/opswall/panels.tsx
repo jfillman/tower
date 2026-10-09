@@ -23,7 +23,7 @@ import type {
 } from '../../../fleet/opsWallModel';
 import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
-import { FilterChip, FilterGroup } from '../../../ui';
+import { FilterChip, FilterGroup, StatusChip, type StatusTone } from '../../../ui';
 
 function useKit() {
   const t = useHangarTokens();
@@ -344,11 +344,13 @@ const KIND_LABEL: Record<DeploymentItem['kind'], string> = {
   rollout: 'rollout',
 };
 
-function toneColors(t: HangarTokens, tone: DeploymentItem['tone']) {
-  if (tone === 'bad') return { color: t.bad, backgroundColor: t.badSoft };
-  if (tone === 'paused') return { color: t.amberInk, backgroundColor: t.amberSoft };
-  return { color: t.sky, backgroundColor: t.skySoft };
+function deployTone(tone: DeploymentItem['tone']): StatusTone {
+  if (tone === 'bad') return 'bad';
+  if (tone === 'paused') return 'warn';
+  return 'info';
 }
+
+const BAND_TONE: Record<DoraBand, StatusTone> = { good: 'ok', fair: 'warn', poor: 'bad', neutral: 'neutral' };
 
 export function DeploymentsPanel({
   items,
@@ -411,9 +413,7 @@ export function DeploymentsPanel({
                     </span>
                   </>
                 )}
-                <span className={c.stateChip} style={toneColors(t, d.tone)}>
-                  {d.state}
-                </span>
+                <StatusChip tone={deployTone(d.tone)}>{d.state}</StatusChip>
                 {d.startedAt && <span className={c.age}>{fmtAge(now, d.startedAt)}</span>}
                 <Links links={d.links} />
               </div>
@@ -532,12 +532,7 @@ function DoraTile({
       </div>
       <div className={c.doraFoot}>
         {BAND_LABEL[band] && (
-          <span
-            className={c.stateChip}
-            style={{ color: bandColor(t, band), border: `1px solid ${bandColor(t, band)}` }}
-          >
-            {BAND_LABEL[band]}
-          </span>
+          <StatusChip tone={BAND_TONE[band]}>{BAND_LABEL[band]}</StatusChip>
         )}
         {trend}
         {spark}

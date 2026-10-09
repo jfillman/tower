@@ -1,7 +1,8 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { useHangarTokens, type HangarTokens } from './brand/tokens';
 import type { ProvenanceResponse } from './types';
+import { StatusChip } from './ui';
 
 // One canonical rendering of "is this release's supply chain verified" -
 // cosign + SLSA + a real Rekor transparency-log link. Previously duplicated
@@ -13,17 +14,6 @@ import type { ProvenanceResponse } from './types';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   row: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '3px 9px',
-    borderRadius: 11,
-    border: '1px solid',
-    textDecoration: 'none',
-  },
 }));
 
 export function SupplyChainChips({ provenance }: { provenance?: ProvenanceResponse }) {
@@ -39,21 +29,10 @@ export function SupplyChainChips({ provenance }: { provenance?: ProvenanceRespon
   return (
     <div className={classes.row}>
       {anyVerified && (
-        <span className={classes.chip} style={{ backgroundColor: t.goodSoft, borderColor: t.good, color: t.good }}>
-          cosign verified
-        </span>
+        <StatusChip tone="ok">cosign verified</StatusChip>
       )}
       {slsa && (
-        <span
-          className={classes.chip}
-          style={
-            slsa.verified
-              ? { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good }
-              : { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }
-          }
-        >
-          SLSA {slsa.verified ? 'provenance' : 'unverified'}
-        </span>
+        <StatusChip tone={slsa.verified ? 'ok' : 'warn'}>SLSA {slsa.verified ? 'provenance' : 'unverified'}</StatusChip>
       )}
       {rekor && (
         // Not a link: this platform runs its own internal Rekor
@@ -62,12 +41,7 @@ export function SupplyChainChips({ provenance }: { provenance?: ProvenanceRespon
         // that internal log, so linking out to sigstore's public
         // search.sigstore.dev would either 404 or, worse, silently resolve
         // to an unrelated public entry that happens to share the index.
-        <span
-          className={classes.chip}
-          style={{ backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }}
-        >
-          Rekor entry #{rekor.logIndex}
-        </span>
+        <StatusChip tone="info">Rekor entry #{rekor.logIndex}</StatusChip>
       )}
     </div>
   );

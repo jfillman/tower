@@ -14,7 +14,7 @@ import { envTierOf, imageTag, previewPrNumber, type DeployHistoryEntry, type Env
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { FilterChips } from './ui';
+import { FilterChips, StatusChip, type StatusTone } from './ui';
 
 // The real chronological "release log" the 2026-09-16 Releases revamp asked
 // for, replacing the old always-on Gantt track (ReleaseTimelinePanel, kept
@@ -151,7 +151,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     border: '1px solid',
     whiteSpace: 'nowrap',
   },
-  pill: { display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: fontMono, fontSize: 10.5, padding: '2px 9px', borderRadius: 11, border: '1px solid' },
   emptyRow: { padding: '18px 20px', fontSize: 12.5, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   expandRow: { padding: '2px 20px 14px' },
   expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
@@ -180,10 +179,10 @@ export function ReleaseLog({
   const [view, setView] = useState<'table' | 'timeline'>('table');
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const statusColors = (status: ReleaseLogEntry['status']) => {
-    if (status === 'pending') return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
-    if (status === 'spun-up') return { bg: t.skySoft, border: t.skyLine, fg: t.sky };
-    return { bg: t.goodSoft, border: t.good, fg: t.good };
+  const statusTone = (status: ReleaseLogEntry['status']): StatusTone => {
+    if (status === 'pending') return 'warn';
+    if (status === 'spun-up') return 'info';
+    return 'ok';
   };
 
   return (
@@ -225,7 +224,7 @@ export function ReleaseLog({
             </thead>
             <tbody>
               {entries.map(entry => {
-                const colors = statusColors(entry.status);
+                const tone = statusTone(entry.status);
                 const clickable = Boolean(entry.fullImage) || Boolean(entry.pr);
                 const isOpen = expanded === entry.id;
                 return (
@@ -254,9 +253,7 @@ export function ReleaseLog({
                       <td className={classes.td}>{entry.trigger}</td>
                       <td className={classes.td}>{entry.duration ?? '—'}</td>
                       <td className={classes.td}>
-                        <span className={classes.pill} style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.fg }}>
-                          {STATUS_LABEL[entry.status]}
-                        </span>
+                        <StatusChip tone={tone}>{STATUS_LABEL[entry.status]}</StatusChip>
                       </td>
                     </tr>
                     {clickable && (
