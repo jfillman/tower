@@ -15,6 +15,7 @@ import { MetricsPanel } from './MetricsPanel';
 import { PodsPanel } from './PodsPanel';
 import type { TopoStageKey } from './TopoDag';
 import type { EnvironmentSummary, K8sResourceRef } from '../../types';
+import { TextLink } from '../../ui';
 
 // The per-stage detail panel the DAG drives (item 3: "each stage in the DAG
 // shows details in the attached details section below... be more
@@ -310,9 +311,11 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
 
           {workloadResource && (
             <>
-              <button type="button" className={classes.yamlBtn} onMouseDown={preventFocusScroll} onClick={() => setShowYaml(v => !v)}>
-                {showYaml ? '▾ hide YAML' : '▸ view workload YAML'}
-              </button>
+              <div>
+                <TextLink expanded={showYaml} onClick={() => setShowYaml(v => !v)}>
+                  Workload YAML
+                </TextLink>
+              </div>
               {showYaml && <YamlView resource={workloadResource} />}
             </>
           )}

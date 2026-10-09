@@ -8,6 +8,7 @@ import FullscreenExitIcon from '@material-ui/icons/FullscreenExit';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { HangarMark } from '../../brand/HangarMark';
 import { DASHBOARDS, DEFAULT_DASHBOARD, isDashboardId, type DashboardId } from './dashboards';
+import { Button } from '../../ui';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // The whole point of this page: kept open in a browser tab and
@@ -45,22 +46,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 24, color: ({ t }) => t.textHi },
   headRight: { display: 'flex', alignItems: 'center', gap: 14 },
   clock: { fontFamily: fontMono, fontSize: 14, color: ({ t }) => t.textFaint },
-  fsButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panelAlt,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    padding: '7px 12px',
-    cursor: 'pointer',
-    '&:hover': { borderColor: ({ t }) => t.amberLine },
-  },
+  fsButton: { display: 'inline-flex', alignItems: 'center', gap: 6 },
   tabbar: {
     display: 'flex',
     gap: 2,
@@ -147,10 +133,10 @@ export function TowerDashboardPage({ onBack }: { onBack: () => void }) {
         </div>
         <div className={classes.headRight}>
           <span className={classes.clock}>{clock}</span>
-          <button className={classes.fsButton} onClick={toggleFullscreen} type="button">
+          <Button small onClick={toggleFullscreen} className={classes.fsButton}>
             {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
             {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          </button>
+          </Button>
         </div>
       </div>
 

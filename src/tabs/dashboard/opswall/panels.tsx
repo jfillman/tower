@@ -22,8 +22,8 @@ import type {
   WindowStats,
 } from '../../../fleet/opsWallModel';
 import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
-import { preventFocusScroll } from '../../../preventFocusScroll';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
+import { FilterChip, FilterGroup } from '../../../ui';
 
 function useKit() {
   const t = useHangarTokens();
@@ -217,22 +217,14 @@ export function PipelinesPanel({
   const failRate = stats.runs > 0 ? Math.round((stats.failedRuns / stats.runs) * 100) : undefined;
   return (
     <OpsPanel id="ops-pipelines" title="Pipelines" count={items.length} stale={stale}>
-      <div className={c.filterRow} role="group" aria-label="Pipeline types">
-        {PIPELINE_CATEGORIES.map(cat => {
-          const on = categories.has(cat);
-          return (
-            <button
-              key={cat}
-              type="button"
-              aria-pressed={on}
-              className={`${c.toggle} ${on ? c.toggleOn : ''}`}
-              onMouseDown={preventFocusScroll}
-              onClick={() => onToggleCategory(cat)}
-            >
-              {CATEGORY_LABEL[cat]} <span className={c.toggleCount}>{counts[cat]}</span>
-            </button>
-          );
-        })}
+      <div className={c.filterRow}>
+        <FilterGroup label="Pipeline types" hideLabel>
+          {PIPELINE_CATEGORIES.map(cat => (
+            <FilterChip key={cat} on={categories.has(cat)} count={counts[cat]} onClick={() => onToggleCategory(cat)}>
+              {CATEGORY_LABEL[cat]}
+            </FilterChip>
+          ))}
+        </FilterGroup>
       </div>
 
       <div className={c.subhead}>Running now</div>
@@ -579,27 +571,16 @@ export function DoraPanel({
   const { t, c } = useKit();
   const [perApp, setPerApp] = useState(false);
   const controls = (
-    <span className={c.links}>
+    <FilterGroup label="Window" hideLabel>
       {windows.map(w => (
-        <button
-          key={w}
-          type="button"
-          className={`${c.toggle} ${w === windowDays ? c.toggleOn : ''}`}
-          onMouseDown={preventFocusScroll}
-          onClick={() => onWindow(w)}
-        >
+        <FilterChip key={w} on={w === windowDays} onClick={() => onWindow(w)}>
           {w}d
-        </button>
+        </FilterChip>
       ))}
-      <button
-        type="button"
-        className={`${c.toggle} ${perApp ? c.toggleOn : ''}`}
-        onMouseDown={preventFocusScroll}
-        onClick={() => setPerApp(v => !v)}
-      >
+      <FilterChip on={perApp} onClick={() => setPerApp(v => !v)}>
         per app
-      </button>
-    </span>
+      </FilterChip>
+    </FilterGroup>
   );
 
   let body: ReactNode;

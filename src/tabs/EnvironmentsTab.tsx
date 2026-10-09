@@ -38,7 +38,7 @@ import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
-import { Button, Chip, ColumnLabel, HEALTH_LABEL, IconButton, PageHeader, Panel, Segmented, StatusDot, TierChip } from '../ui';
+import { Button, Chip, ColumnLabel, HEALTH_LABEL, FilterBar, FilterChips, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
@@ -72,7 +72,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   layout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
   main: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
   side: { display: 'flex', flexDirection: 'column', gap: 12, alignSelf: 'start' },
-  toolbar: { display: 'flex', gap: 10, alignItems: 'center' },
   hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
   headRow: { display: 'grid', gridTemplateColumns: COLUMNS, gap: 10, padding: '9px 14px', borderLeft: '3px solid transparent' },
   row: {
@@ -442,9 +441,9 @@ export function EnvironmentsTab() {
       )}
       <div className={canEdit ? c.layout : undefined}>
         <div className={c.main}>
-          <div className={c.toolbar}>
-            <Segmented<Filter>
-              label="Filter environments"
+          <FilterBar end={canEdit && <span className={c.hint}>Drag the handle to reorder</span>}>
+            <FilterChips<Filter>
+              label="Tier"
               value={filter}
               onChange={setFilter}
               options={[
@@ -454,9 +453,7 @@ export function EnvironmentsTab() {
                 { id: 'cloud', label: 'Cloud', count: counts.cloud },
               ]}
             />
-            <div style={{ flex: 1 }} />
-            {canEdit && <span className={c.hint}>Drag the handle to reorder</span>}
-          </div>
+          </FilterBar>
           <Panel>
             {shown.length === 0 ? (
               <div className={c.empty}>

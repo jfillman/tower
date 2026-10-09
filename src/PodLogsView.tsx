@@ -6,6 +6,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { preventFocusScroll } from './preventFocusScroll';
+import { FilterChip, FilterSelect } from './ui';
 
 // Item 6: "Pod logs". kubernetesProxyApiRef.getPodLogs handles cluster
 // auth/routing the same way NamespaceEvents' proxy() call does - confirmed
@@ -17,26 +18,6 @@ import { preventFocusScroll } from './preventFocusScroll';
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: '3px 8px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi,
-  },
-  toggle: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: '3px 9px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: 'none',
-    color: ({ t }) => t.textFaint,
-    cursor: 'pointer',
-  },
-  toggleActive: { color: ({ t }) => t.amberInk, borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
   refresh: {
     fontFamily: fontMono,
     fontSize: 11,
@@ -161,22 +142,11 @@ export function PodLogsView({
       <div className={classes.head}>
         <Typography className={classes.title}>Logs — {podName}</Typography>
         {containers.length > 1 && (
-          <select className={classes.select} value={container} onChange={e => setContainer(e.target.value)}>
-            {containers.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <FilterSelect label="Container" value={container} onChange={setContainer} options={containers.map(c => ({ value: c, label: c }))} />
         )}
-        <button
-          type="button"
-          className={`${classes.toggle} ${previous ? classes.toggleActive : ''}`}
-          onMouseDown={preventFocusScroll}
-          onClick={() => setPrevious(v => !v)}
-        >
-          previous
-        </button>
+        <FilterChip on={previous} title="The container's previous run (before its last restart)" onClick={() => setPrevious(v => !v)}>
+          Previous run
+        </FilterChip>
         {live ? (
           <span className={classes.liveBadge}>
             <span className={classes.liveDot} />

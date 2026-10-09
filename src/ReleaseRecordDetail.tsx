@@ -17,6 +17,7 @@ import { confidenceColor } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
+import { ActionSelect, Button, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -34,19 +35,6 @@ import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanCont
 // use, deliberately not a different one for this fourth form.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  backBtn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    color: ({ t }) => t.textLo,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 0 14px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-  },
   head: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -89,19 +77,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   explainRow: { display: 'grid', gridTemplateColumns: '150px 60px 1fr', gap: 12, padding: '5px 0', borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: 'baseline' },
   explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
   actionsBar: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  btn: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11.5,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panelAlt,
-    color: ({ t }) => t.textLo,
-    padding: '7px 12px',
-    borderRadius: 6,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  btnPrimary: { backgroundColor: ({ t }) => t.amber, borderColor: ({ t }) => t.amber, color: '#241a05' },
   // alignItems: 'start' is the actual fix for the "huge empty space" complaint -
   // grid's default 'stretch' forces every column's box to the row's tallest
   // column (built, by far the densest), so a short column (changed/happened)
@@ -412,9 +387,7 @@ export function ReleaseRecordDetail({
 
   return (
     <div>
-      <button type="button" className={classes.backBtn} onClick={onBack}>
-        ← Back to records
-      </button>
+      <TextLink onClick={onBack}>← Back to records</TextLink>
 
       <div className={classes.head}>
         <div className={classes.headLeft}>
@@ -463,34 +436,21 @@ export function ReleaseRecordDetail({
             </span>
           </div>
           <div className={classes.actionsBar}>
-            <button
-              type="button"
-              className={`${classes.btn} ${classes.btnPrimary}`}
-              onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext)}
-            >
+            <Button small onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext)}>
               ⤓ PDF
-            </button>
-            <button type="button" className={classes.btn} onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext)}>
+            </Button>
+            <Button small onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext)}>
               ⤓ HTML
-            </button>
+            </Button>
             {otherRecords.length > 0 && (
-              <select
-                className={classes.btn}
-                value=""
-                onChange={e => {
-                  if (e.target.value) onCompare(e.target.value);
-                }}
-              >
-                <option value="" disabled>
-                  Compare ▾
-                </option>
-                {otherRecords.map(r => (
-                  <option key={r.id} value={r.id}>
-                    {r.version ?? r.imageTag}
-                    {r.nickname ? ` · ${r.nickname}` : ''} — {formatDateTime(r.createdAt)}
-                  </option>
-                ))}
-              </select>
+              <ActionSelect
+                label="Compare"
+                onSelect={onCompare}
+                options={otherRecords.map(r => ({
+                  value: r.id,
+                  label: `${r.version ?? r.imageTag}${r.nickname ? ` · ${r.nickname}` : ''} — ${formatDateTime(r.createdAt)}`,
+                }))}
+              />
             )}
           </div>
         </div>
@@ -841,25 +801,20 @@ export function ReleaseRecordDetail({
                   value={approvalRole}
                   onChange={e => setApprovalRole(e.target.value)}
                 />
-                <button type="button" className={classes.btn} onClick={addMyApproval}>
+                <Button small onClick={addMyApproval}>
                   + Add my approval
-                </button>
+                </Button>
               </div>
             </div>
             <div className={classes.humanActions}>
               {submitContext.result ? (
-                <button type="button" className={classes.btn} onClick={() => submitContext.reset()}>
+                <Button small onClick={() => submitContext.reset()}>
                   Close
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
-                  className={`${classes.btn} ${classes.btnPrimary}`}
-                  disabled={!dirty || submitContext.loading}
-                  onClick={onSubmitContext}
-                >
+                <Button small variant="primary" disabled={!dirty || submitContext.loading} onClick={onSubmitContext}>
                   {submitContext.loading ? 'Opening PR…' : 'Open PR for human context'}
-                </button>
+                </Button>
               )}
               {persisted.data.humanContext.authoredBy && (
                 <Typography className={classes.humanNote} style={{ marginBottom: 0 }}>

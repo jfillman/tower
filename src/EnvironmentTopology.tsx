@@ -6,13 +6,13 @@ import Collapse from '@material-ui/core/Collapse';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { NamespaceEvents } from './NamespaceEvents';
-import { preventFocusScroll } from './preventFocusScroll';
 import { useNamespaceResource } from './useNamespaceResource';
 import { useClusterRbac } from './useClusterRbac';
 import { TopoDag, buildTopoStages, type TopoStageKey } from './tabs/topology/TopoDag';
 import { TopologyStageDetail } from './tabs/topology/StageDetail';
 import { ResourceGallery } from './tabs/topology/ResourceGallery';
 import { ENV_TIER_LABEL, health, type EnvironmentSummary, type EnvTier, type Health } from './types';
+import { FilterChip, FilterGroup } from './ui';
 
 // The single-environment topology view Ground Control's own DAG/detail
 // pattern established on the Deployments tab (2026-09-17 Topology
@@ -75,20 +75,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   stageDetailInner: { padding: '16px 18px' },
   panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
   panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  toolbar: { display: 'flex', gap: 8 },
-  toolbarBtn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.02em',
-    padding: '5px 11px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: 'none',
-    color: ({ t }) => t.textLo,
-    cursor: 'pointer',
-    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
-  },
-  toolbarBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
 }));
 
 export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; tier: EnvTier }) {
@@ -176,14 +162,14 @@ export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; ti
       </div>
 
       <div>
-        <div className={classes.toolbar}>
-          <button type="button" className={`${classes.toolbarBtn} ${showResources ? classes.toolbarBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => setShowResources(v => !v)}>
-            All resources ({galleryResources.length})
-          </button>
-          <button type="button" className={`${classes.toolbarBtn} ${showEvents ? classes.toolbarBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => setShowEvents(v => !v)}>
+        <FilterGroup label="Show">
+          <FilterChip on={showResources} count={galleryResources.length} onClick={() => setShowResources(v => !v)}>
+            All resources
+          </FilterChip>
+          <FilterChip on={showEvents} onClick={() => setShowEvents(v => !v)}>
             Events
-          </button>
-        </div>
+          </FilterChip>
+        </FilterGroup>
         <Collapse in={showResources} unmountOnExit>
           <div className={classes.panel} style={{ marginTop: 10 }}>
             <Typography className={classes.panelTitle}>All resources in {env.namespace}</Typography>

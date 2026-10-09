@@ -15,7 +15,7 @@ import { PipelineRunList } from '../PipelineRunList';
 import { PipelineDag } from '../PipelineDag';
 import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { FilterBar, FilterChips, PageHeader } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 
@@ -28,8 +28,6 @@ import { isPreviewEnvName, isRolloutActive } from '../types';
 // removal of the CD panel (which moved to DeploymentsTab) and the
 // cross-link to it at the bottom.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  sectionHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
   sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
   dagGap: { marginTop: 12 },
   note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
@@ -79,23 +77,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
   activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  rangeGroup: { display: 'flex', alignItems: 'center', gap: 6 },
-  rangeLabel: { fontSize: 12, color: ({ t }) => t.textFaint },
-  rangeChip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: '4px 9px',
-    borderRadius: 6,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textLo,
-    cursor: 'pointer',
-  },
-  rangeChipOn: {
-    borderColor: ({ t }) => t.amberLine,
-    backgroundColor: ({ t }) => t.amberSoft,
-    color: ({ t }) => t.amberInk,
-  },
 }));
 
 // How far back the run list reaches. 'live' is what the cluster still holds (Tekton deletes a finished run about an
@@ -289,35 +270,31 @@ export function PipelinesTab() {
         </div>
       )}
       <div>
-        <div className={classes.sectionHead}>
-          {/* No section title (2026-09-24: "does it make sense to still have the
-              'Continuous Integration' header?") - CD moved to the Deployments tab,
-              so this tab is only pipelines and the tab name already says so. */}
-          <span className={classes.sectionSub}>
-            {listLoading
-              ? 'loading…'
-              : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
-                  historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
-                }`}{' '}
-            &middot; kind-dev
-          </span>
-          <div className={classes.rangeGroup} role="group" aria-label="Run history range">
-            <span className={classes.rangeLabel}>History</span>
-            {HISTORY_RANGES.map(r => (
-              <button
-                key={r.key}
-                type="button"
-                className={`${classes.rangeChip} ${historyRange === r.key ? classes.rangeChipOn : ''}`}
-                aria-pressed={historyRange === r.key}
-                title={r.key === 'live' ? 'Runs still on the cluster (about the last hour)' : `Include archived runs from the last ${r.label}`}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => setHistoryRange(r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* No section title (2026-09-24: "does it make sense to still have the 'Continuous Integration' header?") - CD
+            moved to the Deployments tab, so this tab is only pipelines and the tab name already says so. */}
+        <FilterBar
+          end={
+            <span className={classes.sectionSub}>
+              {listLoading
+                ? 'loading…'
+                : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
+                    historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
+                  }`}{' '}
+              &middot; kind-dev
+            </span>
+          }
+        >
+          <FilterChips<HistoryRange>
+            label="History"
+            value={historyRange}
+            onChange={setHistoryRange}
+            options={HISTORY_RANGES.map(r => ({
+              id: r.key,
+              label: r.label,
+              title: r.key === 'live' ? 'Runs still on the cluster (about the last hour)' : `Include archived runs from the last ${r.label}`,
+            }))}
+          />
+        </FilterBar>
         {ciBody}
       </div>
     </div>

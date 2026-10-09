@@ -4,14 +4,13 @@ import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { FilterBar, FilterChips, PageHeader, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -82,17 +81,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textFaint,
   },
   metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
-  registryLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    whiteSpace: 'nowrap',
-    '&:hover': { textDecoration: 'underline' },
-  },
   hintRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   hint: {
     display: 'inline-flex',
@@ -104,46 +92,18 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   hintPresent: { borderColor: ({ t }) => t.line, color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt },
   hintAbsent: { borderColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint, backgroundColor: 'transparent' },
-  expandToggle: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.03em',
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    padding: '10px 20px 14px',
-    cursor: 'pointer',
-    textAlign: 'left',
-  },
+  expandRow: { padding: '10px 20px 14px' },
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
   },
   detailNote: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
+  countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
   note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
-  toolbarRight: { display: 'flex', alignItems: 'center', gap: 14 },
-  pageSizeLabel: { display: 'flex', alignItems: 'center', gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  select: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    padding: '3px 8px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    backgroundColor: ({ t }) => t.panel,
-    color: ({ t }) => t.textHi,
-  },
   footer: {
     padding: '10px 20px',
     fontFamily: fontMono,
     fontSize: 11.5,
     color: ({ t }) => t.textFaint,
-  },
-  footerLink: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    font: 'inherit',
-    color: ({ t }) => t.sky,
   },
 }));
 
@@ -298,41 +258,22 @@ function ImagesTable({
       <PageHeader
         title="Images"
         subtitle={`ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}: every image this service pushed, with its signature, provenance and SBOM.`}
-        actions={
-        <div className={classes.toolbarRight}>
-          <label className={classes.pageSizeLabel}>
-            Filter
-            <select
-              className={classes.select}
-              value={tagFilter}
-              onChange={e => setTagFilter(e.target.value as TagFilter)}
-            >
-              {TAG_FILTER_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={classes.pageSizeLabel}>
-            Show
-            <select
-              className={classes.select}
-              value={pageSize}
-              onChange={e => setPageSize(e.target.value === 'all' ? 'all' : (Number(e.target.value) as PageSize))}
-            >
-              {PAGE_SIZE_OPTIONS.map(n => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="all">All</option>
-            </select>
-          </label>
-          <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
-        </div>
-        }
+        actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
       />
+      <FilterBar end={versions.data && <span className={classes.countNote}>{filteredEntries.length} image{filteredEntries.length === 1 ? '' : 's'}</span>}>
+        <FilterChips<TagFilter>
+          label="Tags"
+          value={tagFilter}
+          onChange={setTagFilter}
+          options={TAG_FILTER_OPTIONS.map(o => ({ id: o.value, label: o.label }))}
+        />
+        <FilterChips<string>
+          label="Show"
+          value={String(pageSize)}
+          onChange={v => setPageSize(v === 'all' ? 'all' : (Number(v) as PageSize))}
+          options={[...PAGE_SIZE_OPTIONS.map(n => ({ id: String(n), label: String(n) })), { id: 'all', label: 'All' }]}
+        />
+      </FilterBar>
       {versions.loading && <Progress />}
       {versions.error && (
         <Typography className={classes.note}>Couldn't list image versions: {versions.error}</Typography>
@@ -370,9 +311,7 @@ function ImagesTable({
       {versions.data && visibleEntries.length < filteredEntries.length && (
         <Typography className={classes.footer}>
           Showing {visibleEntries.length} of {filteredEntries.length} &middot;{' '}
-          <button type="button" className={classes.footerLink} onClick={() => setPageSize('all')}>
-            show all
-          </button>
+          <TextLink onClick={() => setPageSize('all')}>show all</TextLink>
         </Typography>
       )}
     </div>
@@ -462,21 +401,20 @@ function ImagePanel({
           </div>
         </div>
         {entry.htmlUrl && (
-          <a href={entry.htmlUrl} target="_blank" rel="noopener noreferrer" className={classes.registryLink}>
-            Open in registry <OpenInNewIcon style={{ fontSize: 13 }} />
-          </a>
+          <TextLink href={entry.htmlUrl}>Open in registry ↗</TextLink>
         )}
       </div>
-      <button
-        type="button"
-        className={classes.expandToggle}
-        onClick={() => {
-          setExpanded(v => !v);
-          setFetchEnabled(true);
-        }}
-      >
-        {expanded ? '▾ Hide signature, provenance & SBOM' : '▸ View signature, provenance & SBOM'}
-      </button>
+      <div className={classes.expandRow}>
+        <TextLink
+          expanded={expanded}
+          onClick={() => {
+            setExpanded(v => !v);
+            setFetchEnabled(true);
+          }}
+        >
+          Signature, provenance & SBOM
+        </TextLink>
+      </div>
       {expanded && (
         <div className={classes.detailBody}>
           {provenance?.loading && <Progress />}

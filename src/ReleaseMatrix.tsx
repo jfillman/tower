@@ -17,6 +17,7 @@ import { slugHue } from './PipelineRunList';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseCell, ReleaseRow } from './useReleaseContext';
 import type { EnvironmentSummary } from './types';
+import { Button, TextLink } from './ui';
 
 // Top-of-tab release matrix: rows are releases (newest first), columns are
 // environments in the app's own real promotionOrder. Reading a column
@@ -111,17 +112,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderColor: ({ t }) => t.skyLine,
     color: ({ t }) => t.sky,
     cursor: 'pointer',
-  },
-  promoteBtn: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    borderRadius: 4,
-    padding: '6px 12px',
-    cursor: 'pointer',
-    marginTop: 10,
   },
   expand: {
     margin: '4px 20px 18px',
@@ -387,10 +377,7 @@ export function ReleaseMatrix({
                   {open.env} is already pinned to this image (its pin PR merged), but no deploy of it has succeeded in{' '}
                   {open.env} yet, so there is nothing to promote. The deploy runs on the Pipelines tab say why.
                 </Typography>
-                <button
-                  type="button"
-                  className={classes.promoteBtn}
-                  onMouseDown={e => e.preventDefault()}
+                <TextLink
                   onClick={() =>
                     setSearchParams(prev => {
                       const next = new URLSearchParams(prev);
@@ -400,7 +387,7 @@ export function ReleaseMatrix({
                   }
                 >
                   Open Pipelines →
-                </button>
+                </TextLink>
               </>
             )}
 
@@ -409,13 +396,11 @@ export function ReleaseMatrix({
                 <Typography className={classes.fact} style={{ marginTop: 0 }}>
                   Currently live in {openCell.sourceEnv}, not yet in {open.env}.
                 </Typography>
-                <button
-                  type="button"
-                  className={classes.promoteBtn}
-                  onClick={() => onPromote({ env: openCell.sourceEnv }, open.env)}
-                >
-                  Promote to {open.env} →
-                </button>
+                <div>
+                  <Button small variant="primary" onClick={() => onPromote({ env: openCell.sourceEnv }, open.env)}>
+                    Promote to {open.env}
+                  </Button>
+                </div>
               </>
             )}
 
@@ -424,13 +409,11 @@ export function ReleaseMatrix({
                 <Typography className={classes.fact} style={{ marginTop: 0 }}>
                   Not yet deployed anywhere - this deploys it to {open.env} for the first time.
                 </Typography>
-                <button
-                  type="button"
-                  className={classes.promoteBtn}
-                  onClick={() => onPromote({ image: openCell.sourceImage }, open.env)}
-                >
-                  Deploy to {open.env} →
-                </button>
+                <div>
+                  <Button small variant="primary" onClick={() => onPromote({ image: openCell.sourceImage }, open.env)}>
+                    Deploy to {open.env}
+                  </Button>
+                </div>
               </>
             )}
 

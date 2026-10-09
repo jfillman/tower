@@ -10,7 +10,7 @@ import { useCicdConfig, usePlatformEnvs, usePlatformFile } from './useConfigData
 import { PipelineFlowPreview } from './PipelineFlowPreview';
 import { pipelinesNamingEnv, readEnvironments, type Deploy } from './environments/stagedChanges';
 import { DEPLOY_TARGETS } from './serviceClass';
-import { Button, ColumnLabel, TierChip } from './ui';
+import { ColumnLabel, TextLink, TierChip } from './ui';
 import { ENVS_ROOT } from './types';
 
 // Read-only "what's configured" companion to the Glidepath tab's own editor
@@ -34,7 +34,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
   headLeft: { display: 'flex', alignItems: 'center', gap: 8 },
-  headRight: { display: 'flex', gap: 8, alignItems: 'center' },
+  headRight: { display: 'flex', gap: 18, alignItems: 'center' },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
   chain: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   chainItem: { display: 'inline-flex', alignItems: 'center', gap: 6 },
@@ -140,13 +140,11 @@ export function GlidepathSummaryPanel({ owner, appName }: { owner: string; appNa
         </div>
         <div className={classes.headRight}>
           {!statusNote && (
-            <Button small onClick={() => setExpanded(v => !v)} aria-expanded={expanded}>
+            <TextLink expanded={expanded} onClick={() => setExpanded(v => !v)}>
               {expanded ? 'Hide details' : 'Show details'}
-            </Button>
+            </TextLink>
           )}
-          <Button small onClick={goToGlidepath}>
-            Configure in Glidepath →
-          </Button>
+          <TextLink onClick={goToGlidepath}>Configure in Glidepath →</TextLink>
         </div>
       </div>
       {!statusNote && cicd.data && (

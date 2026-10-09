@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ComponentType, type SVGProps } from 'react';
-import { preventFocusScroll, scrollPanelIntoView } from './preventFocusScroll';
+import { scrollPanelIntoView } from './preventFocusScroll';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -27,6 +27,7 @@ import {
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers';
 import type { DeployHistoryEntry } from './types';
 import type { PipelineRunSummary } from './tekton/types';
+import { FilterChip, FilterGroup, TextLink } from './ui';
 
 // Overview tab's "Recent Activity" panel (Concept 2 - Grouped Timeline, see
 // the published mockup artifact) - a typed, per-app, day-grouped read of the
@@ -278,40 +279,13 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 15,
     color: ({ t }) => t.textHi,
   },
-  viewAll: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-  },
-  filters: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
-  filterBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    padding: '4px 10px',
-    borderRadius: 100,
-    border: '1px solid transparent',
-    cursor: 'pointer',
-  },
+  filters: { marginBottom: 8 },
   // Unselected: the category's own color (background tint + icon/text in
   // its fg color, set inline per-button since it varies by category).
   // Selected overrides that with the same solid-inverted treatment the
   // plain text filters used before - stays visually "selected" instead of
   // just "this category's normal color", which the tinted background alone
   // wouldn't read as clearly.
-  filterBtnActive: {
-    backgroundColor: ({ t }) => t.textHi,
-    color: ({ t }) => t.bg,
-    borderColor: ({ t }) => t.textHi,
-  },
   // 2026-09-15 feedback ("the panel is really large"): tightened every
   // dimension in this row/badge/body cluster alongside MAX_ROWS above -
   // smaller badge (26->22), less vertical padding per row, tighter body gap.
@@ -614,52 +588,34 @@ export function RecentActivityPanel({
     <div className={classes.card} ref={panelRef} style={{ scrollMarginTop: 16, scrollMarginBottom: 16 }}>
       <div className={classes.headRow}>
         <Typography className={classes.title}>Recent activity</Typography>
-        <button type="button" className={classes.viewAll} onClick={onViewAll}>
-          View all in Notifications →
-        </button>
+        <TextLink onClick={onViewAll}>View all in Notifications →</TextLink>
       </div>
       <div className={classes.filters}>
-        {(Object.keys(CATEGORY_META) as Category[]).map(c => {
-          const meta = CATEGORY_META[c];
-          const active = category === c;
-          const CategoryIcon = meta.icon;
-          const catColor = categoryColor(c, t, isDark);
-          let style:
-            | { color: string; backgroundColor: string; borderColor?: string }
-            | undefined;
-          if (!active) {
-            style = catColor
-              ? { color: catColor.fg, backgroundColor: catColor.bg }
-              : {
-                  color: t.textLo,
-                  backgroundColor: t.panel,
-                  borderColor: t.line,
-                };
-          }
-          return (
-            <button
-              key={c}
-              type="button"
-              className={`${classes.filterBtn} ${
-                active ? classes.filterBtnActive : ''
-              }`}
-              style={style}
-              onMouseDown={preventFocusScroll}
-              onClick={() => {
-                setCategory(c);
-                // Keep the WHOLE panel in view after a filter change (2026-09-24: "don't
-                // fully focus on the entire panel when clicking on the filter label") -
-                // the row list re-renders at a different height, which used to leave the
-                // panel's bottom off-screen. 'nearest' only scrolls if it isn't already
-                // fully visible.
-                scrollPanelIntoView(() => panelRef.current, 60, 'nearest');
-              }}
-            >
-              {CategoryIcon && <CategoryIcon width={11} height={11} />}
-              {meta.label}
-            </button>
-          );
-        })}
+        <FilterGroup label="Show">
+          {(Object.keys(CATEGORY_META) as Category[]).map(c => {
+            const meta = CATEGORY_META[c];
+            const CategoryIcon = meta.icon;
+            // The category's own colour stays on its icon (2026-09-15: each type gets a colour), so the pill matches
+            // the row badges below; the pill itself is the kit's filter, amber when on.
+            const iconColor = categoryColor(c, t, isDark)?.fg;
+            return (
+              <FilterChip
+                key={c}
+                on={category === c}
+                onClick={() => {
+                  setCategory(c);
+                  // Keep the WHOLE panel in view after a filter change (2026-09-24: "don't fully focus on the entire
+                  // panel when clicking on the filter label") - the row list re-renders at a different height, which
+                  // used to leave the panel's bottom off-screen. 'nearest' only scrolls if it isn't fully visible.
+                  scrollPanelIntoView(() => panelRef.current, 60, 'nearest');
+                }}
+              >
+                {CategoryIcon && <CategoryIcon width={11} height={11} style={{ color: iconColor }} />}
+                {meta.label}
+              </FilterChip>
+            );
+          })}
+        </FilterGroup>
       </div>
 
       <div className={classes.scrollArea}>

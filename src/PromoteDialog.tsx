@@ -6,12 +6,12 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
 import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { imageTag, type EnvironmentSummary } from './types';
 import type { usePromote } from './useReleaseData';
+import { Button, TextLink } from './ui';
 
 // Ported from GlidepathPage.tsx's inline promote dialog - same tier-aware
 // copy (direct commit for a lower-env target vs a real PR for an upper-env
@@ -40,11 +40,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   text: { color: ({ t }) => t.textLo },
   error: { color: ({ t }) => t.bad },
   link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky },
-  cancelBtn: { color: ({ t }) => t.textLo },
-  confirmBtn: {
-    borderColor: ({ t }) => t.amberLine,
-    color: ({ t }) => t.amberInk,
-  },
 }));
 
 const mono = { fontFamily: fontMono };
@@ -187,26 +182,17 @@ export function PromoteDialog({
           <DialogActions>
             {!promote.result ? (
               <>
-                <Button className={classes.cancelBtn} onClick={onClose} disabled={promote.loading}>
+                <Button onClick={onClose} disabled={promote.loading}>
                   Cancel
                 </Button>
-                <Button
-                  variant="outlined"
-                  className={classes.confirmBtn}
-                  disabled={promote.loading}
-                  onClick={onConfirm}
-                >
+                <Button variant="primary" disabled={promote.loading} onClick={onConfirm}>
                   {targetIsLower ? 'Commit and deploy' : 'Start release'}
                 </Button>
               </>
             ) : (
               <>
-                <Button className={classes.cancelBtn} onClick={onClose}>
-                  Close
-                </Button>
-                <Button variant="outlined" className={classes.confirmBtn} onClick={goToDeployment}>
-                  View deployment →
-                </Button>
+                <TextLink onClick={goToDeployment}>View deployment →</TextLink>
+                <Button onClick={onClose}>Close</Button>
               </>
             )}
           </DialogActions>
