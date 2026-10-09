@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { usePlatformFile, useSubmitPlatformFileChange, useAppConfig, useSubmitConfigChange } from '../useConfigData.esm.js';
+import { useFlightBase, useSubmitFlightBase, usePlatformFile, useSubmitPlatformFileChange, useAppConfig, useSubmitConfigChange } from '../useConfigData.esm.js';
 
 function useFlightValuesSource(target) {
   const [nonce, setNonce] = useState(0);
@@ -62,6 +62,23 @@ function useEnvValuesLoader() {
     [discoveryApi, fetchApi]
   );
 }
+function useFlightBaseValuesSource(target) {
+  const [nonce, setNonce] = useState(0);
+  const file = useFlightBase(target, nonce);
+  const sub = useSubmitFlightBase();
+  return {
+    loading: file.loading,
+    error: file.error,
+    data: file.data,
+    refresh: () => setNonce((n) => n + 1),
+    submit: (patch, summary) => sub.submit({ ...target, patch, summary }),
+    submitRaw: (raw, summary) => sub.submit({ ...target, patch: {}, raw, summary }),
+    submitting: sub.loading,
+    result: sub.result,
+    submitError: sub.error,
+    resetSubmit: sub.reset
+  };
+}
 
-export { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, usePlatformValuesSource };
+export { useEnvValuesLoader, useFlightBaseValuesSource, useFlightValuesSource, useGroundValuesSource, usePlatformValuesSource };
 //# sourceMappingURL=sources.esm.js.map

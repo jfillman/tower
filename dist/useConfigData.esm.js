@@ -396,6 +396,64 @@ function useSubmitConfigMapFiles() {
   const reset = () => setState({ loading: false });
   return { ...state, submit, reset };
 }
+function useFlightBase(target, refreshNonce = 0) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({
+    loading: Boolean(target)
+  });
+  const key = target ? `${target.owner}/${target.appName}/${target.cluster}` : "";
+  useEffect(() => {
+    if (!target) {
+      setState({ loading: false });
+      return void 0;
+    }
+    let cancelled = false;
+    setState({ loading: true });
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl("glidepath");
+        const res = await fetchApi.fetch(`${baseUrl}/config/flight-base?${new URLSearchParams(target).toString()}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => void 0);
+          throw new Error(body?.error ?? `request failed with ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) setState({ loading: false, data });
+      } catch (e) {
+        if (!cancelled) setState({ loading: false, error: String(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, discoveryApi, fetchApi, refreshNonce]);
+  return state;
+}
+function useSubmitFlightBase() {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({ loading: false });
+  const submit = async (request) => {
+    setState({ loading: true });
+    try {
+      const baseUrl = await discoveryApi.getBaseUrl("glidepath");
+      const res = await fetchApi.fetch(`${baseUrl}/config/flight-base`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request)
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => void 0);
+        throw new Error(body?.error ?? `request failed with ${res.status}`);
+      }
+      setState({ loading: false, result: await res.json() });
+    } catch (e) {
+      setState({ loading: false, error: String(e) });
+    }
+  };
+  return { ...state, submit, reset: () => setState({ loading: false }) };
+}
 
-export { useAppConfig, useCicdConfig, useConfigMapFiles, useEnvXr, usePlatformEnvs, usePlatformFile, useSubmitCicdConfigChange, useSubmitConfigChange, useSubmitConfigMapFiles, useSubmitEnvXrChange, useSubmitPlatformFileChange, useValuesSchema };
+export { useAppConfig, useCicdConfig, useConfigMapFiles, useEnvXr, useFlightBase, usePlatformEnvs, usePlatformFile, useSubmitCicdConfigChange, useSubmitConfigChange, useSubmitConfigMapFiles, useSubmitEnvXrChange, useSubmitFlightBase, useSubmitPlatformFileChange, useValuesSchema };
 //# sourceMappingURL=useConfigData.esm.js.map
