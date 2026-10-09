@@ -6,6 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
@@ -29,15 +30,6 @@ import type { SloSummary } from '../types';
 // recording rule for one SLO into a single query each, rather than one
 // request per metric.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.06em',
-    color: ({ t }) => t.textFaint,
-    textTransform: 'uppercase',
-    marginBottom: 14,
-  },
-  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 14, flexWrap: 'wrap' },
   envGroup: { marginBottom: 26 },
   envGroupHeader: {
     display: 'flex',
@@ -478,10 +470,13 @@ export function SlosTab() {
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
   if (slos.length === 0) {
     return (
-      <TowerEmptyState
-        title="No SLOs declared"
-        description="Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
-      />
+      <div>
+        <PageHeader title="SLOs" subtitle="Burn-rate views for the service level objectives each environment declares." />
+        <TowerEmptyState
+          title="No SLOs declared"
+          description="Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
+        />
+      </div>
     );
   }
 
@@ -498,14 +493,11 @@ export function SlosTab() {
 
   return (
     <div>
-      <div className={classes.toolbar}>
-        <Typography className={classes.eyebrow}>
-          {slos.length} SLO{slos.length === 1 ? '' : 's'} across {envOrder.length} environment
-          {envOrder.length === 1 ? '' : 's'}
-          {refreshing ? ' · refreshing…' : ''}
-        </Typography>
-        <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
-      </div>
+      <PageHeader
+        title="SLOs"
+        subtitle={`${slos.length} SLO${slos.length === 1 ? '' : 's'} across ${envOrder.length} environment${envOrder.length === 1 ? '' : 's'}${refreshing ? ' · refreshing…' : ''}`}
+        actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
+      />
       {groups.map(group => {
         const accent = envAccentFor(group.env, envOrder, isDark);
         return (

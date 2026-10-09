@@ -9,6 +9,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -305,9 +306,11 @@ export function PullRequestsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-        <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
-      </div>
+      <PageHeader
+        title="Pull requests"
+        subtitle="Open release, preview and source pull requests, and what merged recently."
+        actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
+      />
       <div className={classes.section}>
         <div className={classes.sectionHead}>
           <span className={classes.sectionTitle}>

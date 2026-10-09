@@ -8,6 +8,7 @@ import type { Notification } from '@backstage/plugin-notifications-common';
 import { relativeTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { TowerEmptyState } from '../TowerEmptyState';
+import { PageHeader } from '../ui';
 import { isRecentNotification, useAppNotifications } from '../useAppNotifications';
 import { renderNotificationDescription } from '../notificationFormatting';
 
@@ -156,10 +157,13 @@ export function NotificationsTab() {
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
   if (notifications.length === 0) {
     return (
-      <TowerEmptyState
-        title="No notifications yet"
-        description={`Nothing from Glidepath's pipelines has landed here for ${appName}. Enable notifications.backstage in this app's cicd.yaml to start receiving build/test/deploy/release results here.`}
-      />
+      <div>
+        <PageHeader title="Notifications" subtitle={`Build, test, deploy and release results Glidepath posted for ${appName}.`} />
+        <TowerEmptyState
+          title="No notifications yet"
+          description={`Nothing from Glidepath's pipelines has landed here for ${appName}. Enable notifications.backstage in this app's cicd.yaml to start receiving build/test/deploy/release results here.`}
+        />
+      </div>
     );
   }
 
@@ -168,6 +172,7 @@ export function NotificationsTab() {
 
   return (
     <div>
+      <PageHeader title="Notifications" subtitle={`Build, test, deploy and release results Glidepath posted for ${appName}.`} />
       <div className={classes.section}>
         <div className={classes.sectionHead}>
           <span className={classes.sectionTitle}>New</span>

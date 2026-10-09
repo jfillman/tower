@@ -288,7 +288,7 @@ function buildCicdPatch(
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  root: { padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 },
+  root: { paddingBottom: 40, display: 'flex', flexDirection: 'column', gap: 20 },
   headerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerTitle: { display: 'flex', alignItems: 'center', gap: 10 },
   title: {

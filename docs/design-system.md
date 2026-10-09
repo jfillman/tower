@@ -28,12 +28,19 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Migration status
 
-Done: Environments tab (and its dialogs), the values form's sub-tabs, sections and pending panel, the platform file editor. The values form's individual inputs still use the older MUI controls. Everything else still declares its own styles
-and moves onto the kit tab by tab; see the table below. A tab is done when it declares no title, chip, table-header,
-panel or button style of its own.
+**Page frame: done on every tab.** Each tab opens with the kit's `PageHeader` (title, one line saying what the tab
+shows, its actions such as Refresh on the right) and starts at the tab bar's left edge, with no padding of its own
+(Environments, Glidepath and the cloud Deployments tab used to add 24px). The Releases tab's views use `Subtabs`.
 
-| Tab | Own style declarations | Status |
+**Inside the tabs: not done.** Below the header, most tabs still declare their own section titles, chips, tables, cards
+and buttons. A tab is done when it declares no title, chip, table-header, panel or button style of its own.
+
+| Tab | Inside the tab | Status |
 |---|---|---|
-| Environments | none | done |
-| Overview, Pipelines, Deployments, Releases, Images, SLOs, Pull requests, Topology, Notifications, Cloud deployments | title / section title / chip / table / panel | not started |
-| App Configuration, Glidepath | `PageHeader`, `Subtabs`, `PendingPanel` | done (their form inputs and section cards are still the older MUI ones) |
+| Environments | kit only | done |
+| App Configuration, Glidepath | `Subtabs`, `PendingPanel`; form inputs and section cards are the older MUI ones | partly |
+| Releases | `Subtabs`; the command deck, matrix, log and record panels have their own styles | partly |
+| Overview, Pipelines, Deployments, Images, SLOs, Pull requests, Topology, Notifications, cloud Deployments | section titles, chips, tables, cards, buttons of their own | not started |
+
+To check a change by eye, run the backstage app locally (`yarn start` with guest sign-in) and copy this package's
+built `dist/` into its `node_modules/@jfillman/tower/dist`; the dev server needs a restart to pick it up.

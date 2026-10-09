@@ -15,6 +15,7 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary, type Health } from '../types';
 
@@ -718,6 +719,11 @@ export function OverviewTab() {
 
   return (
     <div>
+      <PageHeader
+        title="Overview"
+        subtitle="Where this service runs, what is live in each environment, and what happened recently."
+        actions={<RefreshButton onClick={refresh} />}
+      />
       {recentCount > 0 && (
         <div
           className={classes.notifCard}
@@ -740,9 +746,6 @@ export function OverviewTab() {
           <span className={classes.notifLink}>View →</span>
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-        <RefreshButton onClick={refresh} />
-      </div>
       <div className={classes.metaCard}>
         <div className={classes.metaItem}>
           <span className={classes.metaLabel}>Source repo</span>

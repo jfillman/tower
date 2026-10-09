@@ -11,6 +11,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -49,14 +50,6 @@ import type { PipelineRunSummary } from '../tekton/types';
 // registry, not just what's live right now.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.06em',
-    color: ({ t }) => t.textFaint,
-    textTransform: 'uppercase',
-    marginBottom: 14,
-  },
   list: { display: 'flex', flexDirection: 'column', gap: 12 },
   panel: {
     backgroundColor: ({ t }) => t.panel,
@@ -127,7 +120,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   detailNote: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
   note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
-  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' },
   toolbarRight: { display: 'flex', alignItems: 'center', gap: 14 },
   pageSizeLabel: { display: 'flex', alignItems: 'center', gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   select: {
@@ -264,10 +256,13 @@ function ImagesTable({
 
   if (!ownerRepo) {
     return (
-      <TowerEmptyState
-        title="No GHCR image found"
-        description="Tower couldn't find a live container image for this entity to look up on GHCR yet."
-      />
+      <div>
+        <PageHeader title="Images" subtitle="Every image this service pushed, with its signature, provenance and SBOM." />
+        <TowerEmptyState
+          title="No GHCR image found"
+          description="Tower couldn't find a live container image for this entity to look up on GHCR yet."
+        />
+      </div>
     );
   }
 
@@ -300,10 +295,10 @@ function ImagesTable({
 
   return (
     <div>
-      <div className={classes.toolbar}>
-        <Typography className={classes.eyebrow}>
-          ghcr.io/{ownerRepo.owner}/{ownerRepo.repo}
-        </Typography>
+      <PageHeader
+        title="Images"
+        subtitle={`ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}: every image this service pushed, with its signature, provenance and SBOM.`}
+        actions={
         <div className={classes.toolbarRight}>
           <label className={classes.pageSizeLabel}>
             Filter
@@ -336,7 +331,8 @@ function ImagesTable({
           </label>
           <RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />
         </div>
-      </div>
+        }
+      />
       {versions.loading && <Progress />}
       {versions.error && (
         <Typography className={classes.note}>Couldn't list image versions: {versions.error}</Typography>

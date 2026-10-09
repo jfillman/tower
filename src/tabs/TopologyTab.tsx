@@ -4,7 +4,8 @@ import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { PageHeader } from '../ui';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
@@ -24,13 +25,6 @@ const TIER_DISPLAY_ORDER: EnvTier[] = ['lower', 'upper', 'preview'];
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   main: { display: 'flex', flexDirection: 'column', gap: 16 },
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: '0.06em',
-    color: ({ t }) => t.textFaint,
-    textTransform: 'uppercase',
-  },
   note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
 }));
 
@@ -93,12 +87,11 @@ export function TopologyTab() {
   if (environments.length === 0) {
     return (
       <div className={classes.main}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <Typography className={classes.eyebrow}>
-            route → service → workload → pods, real-time from each cluster
-          </Typography>
-          <RefreshButton onClick={refresh} />
-        </div>
+        <PageHeader
+          title="Topology"
+          subtitle="Route, service, workload and pods for one environment, read live from its cluster."
+          actions={<RefreshButton onClick={refresh} />}
+        />
         <EnvPicker
           summary="0 environments"
           groups={[
@@ -119,12 +112,11 @@ export function TopologyTab() {
 
   return (
     <div className={classes.main}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <Typography className={classes.eyebrow}>
-          route → service → workload → pods, real-time from each cluster
-        </Typography>
-        <RefreshButton onClick={refresh} />
-      </div>
+      <PageHeader
+        title="Topology"
+        subtitle="Route, service, workload and pods for one environment, read live from its cluster."
+        actions={<RefreshButton onClick={refresh} />}
+      />
 
       <EnvPicker
         summary={`${environments.length} environment${environments.length === 1 ? '' : 's'}`}

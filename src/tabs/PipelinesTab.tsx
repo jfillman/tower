@@ -15,6 +15,7 @@ import { PipelineRunList } from '../PipelineRunList';
 import { PipelineDag } from '../PipelineDag';
 import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
+import { PageHeader } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 
@@ -252,9 +253,11 @@ export function PipelinesTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-        <RefreshButton onClick={refreshAll} />
-      </div>
+      <PageHeader
+        title="Pipelines"
+        subtitle="Build and check runs. Deliveries to environments are on the Deployments tab."
+        actions={<RefreshButton onClick={refreshAll} />}
+      />
       {owner && appName && <GlidepathSummaryPanel owner={owner} appName={appName} />}
       {hasActivity && (
         <div className={classes.activityBanner}>

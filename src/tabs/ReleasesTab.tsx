@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { RefreshButton } from '../RefreshButton';
+import { PageHeader, Subtabs } from '../ui';
 import { usePromote } from '../useReleaseData';
 import { applyCloudPins, useReleaseContext } from '../useReleaseContext';
 import { usePinnedTags } from '../environments/releasePins';
@@ -49,32 +51,6 @@ import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../typ
 export type ReleasesSubTab = 'matrix' | 'log' | 'lead' | 'preview' | 'record';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  subnav: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 0,
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-  },
-  subtab: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    padding: '9px 18px',
-    borderRadius: '6px 6px 0 0',
-    color: ({ t }) => t.textFaint,
-    background: 'none',
-    border: '1px solid transparent',
-    borderBottom: 'none',
-    position: 'relative',
-    top: 1,
-    cursor: 'pointer',
-  },
-  subtabActive: {
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panel,
-    borderColor: ({ t }) => t.line,
-  },
   panelSpacer: { marginTop: 16 },
 }));
 
@@ -168,6 +144,11 @@ export function ReleasesTab() {
 
   return (
     <div>
+      <PageHeader
+        title="Releases"
+        subtitle={`${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? '' : 's'} tracked${owner && appName ? ` · ${owner}/${appName}` : ''}`}
+        actions={<RefreshButton onClick={refresh} />}
+      />
       <CommandDeck
         environments={pipelineEnvironments}
         previewCount={previewEnvironments.length}
@@ -175,49 +156,21 @@ export function ReleasesTab() {
         sourcePrs={sourcePrs}
         deployHistory={deployHistory.data}
         provenanceByImage={provenanceByImage}
-        owner={owner}
-        appName={appName}
-        refresh={refresh}
         onSelectTab={setActiveTab}
       />
 
-      <div className={classes.subnav}>
-        <button
-          type="button"
-          className={`${classes.subtab} ${activeTab === 'matrix' ? classes.subtabActive : ''}`}
-          onClick={() => setActiveTab('matrix')}
-        >
-          Matrix
-        </button>
-        <button
-          type="button"
-          className={`${classes.subtab} ${activeTab === 'log' ? classes.subtabActive : ''}`}
-          onClick={() => setActiveTab('log')}
-        >
-          Log
-        </button>
-        <button
-          type="button"
-          className={`${classes.subtab} ${activeTab === 'lead' ? classes.subtabActive : ''}`}
-          onClick={() => setActiveTab('lead')}
-        >
-          Lead time
-        </button>
-        <button
-          type="button"
-          className={`${classes.subtab} ${activeTab === 'preview' ? classes.subtabActive : ''}`}
-          onClick={() => setActiveTab('preview')}
-        >
-          Preview ({previewEnvironments.length})
-        </button>
-        <button
-          type="button"
-          className={`${classes.subtab} ${activeTab === 'record' ? classes.subtabActive : ''}`}
-          onClick={() => setActiveTab('record')}
-        >
-          Record ({releaseRecords.length})
-        </button>
-      </div>
+      <Subtabs
+        label="Release views"
+        tabs={[
+          { id: 'matrix', label: 'Matrix' },
+          { id: 'log', label: 'Log' },
+          { id: 'lead', label: 'Lead time' },
+          { id: 'preview', label: `Preview (${previewEnvironments.length})` },
+          { id: 'record', label: `Record (${releaseRecords.length})` },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       <div className={classes.panelSpacer}>
         {activeTab === 'matrix' && (
