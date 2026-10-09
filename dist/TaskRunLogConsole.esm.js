@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs.esm.js';
-import { useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi.esm.js';
+import { useArchivedRunLookup, useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi.esm.js';
 import { renderAnsi } from './ansi.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -55,21 +55,28 @@ function TaskRunLogConsole({
   namespace,
   podName,
   steps,
-  archive
+  archive,
+  fallback
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const live = useTaskRunLogs(archive ? void 0 : { cluster, namespace, podName, steps });
-  const archived = useArchivedTaskRunLogs(archive ? { ...archive, steps } : void 0);
-  const { loading, blocks } = archive ? archived : live;
+  const podGone = !archive && Boolean(fallback) && !live.loading && live.blocks.length > 0 && live.blocks.filter((b) => b.state !== "waiting").every((b) => Boolean(b.error) && /not found/i.test(b.error ?? ""));
+  const lookup = useArchivedRunLookup(podGone && fallback ? { app: fallback.app, runName: fallback.runName } : void 0);
+  const effectiveArchive = archive ?? (podGone && fallback && lookup.archive ? { ...lookup.archive, taskRun: fallback.taskRun } : void 0);
+  const archived = useArchivedTaskRunLogs(effectiveArchive ? { ...effectiveArchive, steps } : void 0);
+  const { loading, blocks } = effectiveArchive ? archived : live;
   const logRef = useRef(null);
   const stuckToBottom = useRef(true);
   useEffect(() => {
     const el = logRef.current;
     if (el && stuckToBottom.current) el.scrollTop = el.scrollHeight;
   }, [blocks]);
-  if (loading) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading logs\u2026" });
-  if (archive && archived.error) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: archived.error });
+  if (loading || podGone && lookup.loading) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading logs\u2026" });
+  if (effectiveArchive && archived.error) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: archived.error });
+  if (podGone && lookup.notFound) {
+    return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This task's pod is already gone and Tekton Results has not archived the run yet - its logs appear here once the run finishes and is archived." });
+  }
   return /* @__PURE__ */ jsx(
     "pre",
     {

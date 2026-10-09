@@ -19,6 +19,8 @@ import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 
 const NODE_W = 150;
 const NODE_H = 56;
+const HOVER_CARD_BASE_PX = 36;
+const HOVER_CARD_ROW_PX = 20;
 const COL_GAP = 90;
 const ROW_GAP = 24;
 const PAD = 32;
@@ -417,25 +419,34 @@ function PipelineDag({ run, expandSignal }) {
                 ]
               }
             ),
-            hoverTaskRun && hoverTaskRun.steps.length > 0 && /* @__PURE__ */ jsxs(
-              "div",
-              {
-                className: classes.hoverCard,
-                style: {
-                  left: p.x,
-                  top: p.y - NODE_H / 2 - 8,
-                  transform: `translate(-50%, -100%) scale(${1 / zoom})`,
-                  transformOrigin: "bottom center"
-                },
-                children: [
-                  /* @__PURE__ */ jsx("div", { className: classes.hoverTitle, children: "Steps" }),
-                  hoverTaskRun.steps.map((step) => /* @__PURE__ */ jsxs("div", { className: classes.hoverRow, children: [
-                    /* @__PURE__ */ jsx("span", { className: classes.hoverStep, children: step.name }),
-                    /* @__PURE__ */ jsx("span", { className: classes.hoverDuration, children: step.state === "waiting" ? "queued" : stepDuration(step) ?? "\u2014" })
-                  ] }, step.container))
-                ]
-              }
-            )
+            hoverTaskRun && hoverTaskRun.steps.length > 0 && (() => {
+              const estimatedHeight = (HOVER_CARD_BASE_PX + hoverTaskRun.steps.length * HOVER_CARD_ROW_PX) / zoom;
+              const below = p.y - NODE_H / 2 - 8 - estimatedHeight < 0;
+              return /* @__PURE__ */ jsxs(
+                "div",
+                {
+                  className: classes.hoverCard,
+                  style: below ? {
+                    left: p.x,
+                    top: p.y + NODE_H / 2 + 8,
+                    transform: `translate(-50%, 0) scale(${1 / zoom})`,
+                    transformOrigin: "top center"
+                  } : {
+                    left: p.x,
+                    top: p.y - NODE_H / 2 - 8,
+                    transform: `translate(-50%, -100%) scale(${1 / zoom})`,
+                    transformOrigin: "bottom center"
+                  },
+                  children: [
+                    /* @__PURE__ */ jsx("div", { className: classes.hoverTitle, children: "Steps" }),
+                    hoverTaskRun.steps.map((step) => /* @__PURE__ */ jsxs("div", { className: classes.hoverRow, children: [
+                      /* @__PURE__ */ jsx("span", { className: classes.hoverStep, children: step.name }),
+                      /* @__PURE__ */ jsx("span", { className: classes.hoverDuration, children: step.state === "waiting" ? "queued" : stepDuration(step) ?? "\u2014" })
+                    ] }, step.container))
+                  ]
+                }
+              );
+            })()
           ] }, n.id);
         })
       ] }) }) }),
@@ -527,7 +538,8 @@ function PipelineDag({ run, expandSignal }) {
               namespace: openTaskRun.namespace,
               podName: openTaskRun.podName,
               steps: openTaskRun.steps,
-              archive: run.archive ? { ...run.archive, taskRun: openTaskRun.name } : void 0
+              archive: run.archive ? { ...run.archive, taskRun: openTaskRun.name } : void 0,
+              fallback: !run.archive && run.appName && openTaskRun.phase !== "running" ? { app: run.appName, runName: run.name, taskRun: openTaskRun.name } : void 0
             }
           )
         ] })

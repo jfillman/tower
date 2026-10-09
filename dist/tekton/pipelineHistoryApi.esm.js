@@ -35,6 +35,39 @@ function useArchivedRuns(appName, sinceHours, limit, refreshNonce = 0) {
   }, [appName, sinceHours, limit, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
+function useArchivedRunLookup(params) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({
+    loading: Boolean(params)
+  });
+  const key = params ? `${params.app}/${params.runName}` : "";
+  useEffect(() => {
+    if (!params) {
+      setState({ loading: false });
+      return void 0;
+    }
+    let cancelled = false;
+    setState({ loading: true });
+    (async () => {
+      try {
+        const base = await discoveryApi.getBaseUrl("glidepath");
+        const q = new URLSearchParams({ app: params.app, sinceHours: "48", limit: "200" });
+        const res = await fetchApi.fetch(`${base}/pipeline-history/runs?${q}`);
+        if (!res.ok) throw new Error(`pipeline history: ${res.status}`);
+        const body = await res.json();
+        const hit = body.runs.find((r) => r.pipelineRun.metadata.name === params.runName);
+        if (!cancelled) setState(hit ? { loading: false, archive: { app: params.app, result: hit.result } } : { loading: false, notFound: true });
+      } catch {
+        if (!cancelled) setState({ loading: false, notFound: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, discoveryApi, fetchApi]);
+  return state;
+}
 function parseArchivedLog(text, steps) {
   const byStep = /* @__PURE__ */ new Map();
   let current;
@@ -92,5 +125,5 @@ function useArchivedTaskRunLogs(params) {
   return state;
 }
 
-export { archivedRunToSummary, parseArchivedLog, useArchivedRuns, useArchivedTaskRunLogs };
+export { archivedRunToSummary, parseArchivedLog, useArchivedRunLookup, useArchivedRuns, useArchivedTaskRunLogs };
 //# sourceMappingURL=pipelineHistoryApi.esm.js.map
