@@ -14,6 +14,7 @@ import { PipelineRunList } from '../PipelineRunList.esm.js';
 import { PipelineDag } from '../PipelineDag.esm.js';
 import { scrollPanelIntoView } from '../preventFocusScroll.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 
@@ -199,7 +200,14 @@ function PipelinesTab() {
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 }, children: /* @__PURE__ */ jsx(RefreshButton, { onClick: refreshAll }) }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Pipelines",
+        subtitle: "Build and check runs. Deliveries to environments are on the Deployments tab.",
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refreshAll })
+      }
+    ),
     owner && appName && /* @__PURE__ */ jsx(GlidepathSummaryPanel, { owner, appName }),
     hasActivity && /* @__PURE__ */ jsxs("div", { className: classes.activityBanner, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.activityHead, children: [

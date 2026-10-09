@@ -15,6 +15,7 @@ import { slugHue } from '../PipelineRunList.esm.js';
 import { RecentActivityPanel } from '../RecentActivityPanel.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
 
@@ -590,6 +591,14 @@ function OverviewTab() {
     ] }, env.key);
   };
   return /* @__PURE__ */ jsxs("div", { children: [
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Overview",
+        subtitle: "Where this service runs, what is live in each environment, and what happened recently.",
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+      }
+    ),
     recentCount > 0 && /* @__PURE__ */ jsxs(
       "div",
       {
@@ -617,7 +626,6 @@ function OverviewTab() {
         ]
       }
     ),
-    /* @__PURE__ */ jsx("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 }, children: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh }) }),
     /* @__PURE__ */ jsxs("div", { className: classes.metaCard, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
         /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Source repo" }),

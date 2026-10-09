@@ -4,7 +4,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { STALE_THRESHOLD_MS, relativeTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
-import { RefreshButton } from './RefreshButton.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
@@ -19,8 +18,6 @@ const useStyles = makeStyles(() => ({
     overflow: "hidden"
   },
   deckInner: { padding: "14px 20px 16px" },
-  deckRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10 },
-  eyebrow: { fontFamily: fontMono, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: ({ t }) => t.textFaint },
   envRow: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 },
   chip: {
     display: "inline-flex",
@@ -196,9 +193,6 @@ function CommandDeck({
   sourcePrs,
   deployHistory,
   provenanceByImage,
-  owner,
-  appName,
-  refresh,
   onSelectTab
 }) {
   const t = useHangarTokens();
@@ -233,16 +227,6 @@ function CommandDeck({
   const releasesWeek = releasesThisWeek(deployHistory);
   const { verified, total } = verifiedSupplyChainCount(environments, provenanceByImage);
   return /* @__PURE__ */ jsx("div", { className: classes.deck, children: /* @__PURE__ */ jsxs("div", { className: classes.deckInner, children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.deckRow, children: [
-      /* @__PURE__ */ jsxs(Typography, { className: classes.eyebrow, children: [
-        environments.length,
-        " environment",
-        environments.length === 1 ? "" : "s",
-        " tracked",
-        owner && appName ? ` \xB7 ${owner}/${appName}` : ""
-      ] }),
-      /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
-    ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.envRow, children: [
       environments.map((env) => {
         const h = health(env);

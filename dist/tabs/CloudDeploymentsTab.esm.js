@@ -2,31 +2,19 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
-import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { FlightPins } from './cloud/FlightPins.esm.js';
+import { PageHeader, Chip } from '../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
-  wrap: { padding: "20px 24px 40px", maxWidth: 1080 },
-  head: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 20, color: ({ t }) => t.textHi },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.04em",
-    padding: "3px 9px",
-    borderRadius: 4,
-    background: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-    border: ({ t }) => `1px solid ${t.skyLine}`
-  },
+  wrap: { paddingBottom: 40 },
   resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
   link: {
     fontFamily: fontMono,
@@ -35,7 +23,6 @@ const useStyles = makeStyles(() => ({
     textDecoration: "none",
     "&:hover": { textDecoration: "underline" }
   },
-  note: { fontSize: 12.5, color: ({ t }) => t.textFaint, margin: "4px 0 18px", lineHeight: 1.5 },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginBottom: 22 },
   card: {
     background: ({ t }) => t.panel,
@@ -130,34 +117,39 @@ function CloudDeploymentsTab() {
   const targetLabel = deploys[0]?.targetLabel;
   if (deploys.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
+      /* @__PURE__ */ jsx(PageHeader, { title: "Deployments", subtitle: "What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." }),
       /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs); a Flight environment's current release is its pin, below." }),
       owner && /* @__PURE__ */ jsx(FlightPins, { owner, appName, flight, deploys })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Deployments" }),
-      targetLabel && /* @__PURE__ */ jsx("span", { className: classes.chip, children: targetLabel }),
-      resource && /* @__PURE__ */ jsxs("span", { className: classes.resource, children: [
-        resource.kind,
-        " ",
-        resource.name,
-        resource.scope ? ` \xB7 ${resource.scope}` : "",
-        resource.region ? ` \xB7 ${resource.region}` : ""
-      ] }),
-      deploys.find((d) => d.consoleUrl)?.consoleUrl && /* @__PURE__ */ jsx(
-        "a",
-        {
-          className: classes.link,
-          href: deploys.find((d) => d.consoleUrl).consoleUrl,
-          target: "_blank",
-          rel: "noreferrer",
-          children: "open in console \u2197"
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.note, children: "What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Deployments",
+        subtitle: "What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished.",
+        actions: /* @__PURE__ */ jsxs(Fragment, { children: [
+          targetLabel && /* @__PURE__ */ jsx(Chip, { tone: "ground", children: targetLabel }),
+          resource && /* @__PURE__ */ jsxs("span", { className: classes.resource, children: [
+            resource.kind,
+            " ",
+            resource.name,
+            resource.scope ? ` \xB7 ${resource.scope}` : "",
+            resource.region ? ` \xB7 ${resource.region}` : ""
+          ] }),
+          deploys.find((d) => d.consoleUrl)?.consoleUrl && /* @__PURE__ */ jsx(
+            "a",
+            {
+              className: classes.link,
+              href: deploys.find((d) => d.consoleUrl).consoleUrl,
+              target: "_blank",
+              rel: "noreferrer",
+              children: "open in console \u2197"
+            }
+          )
+        ] })
+      }
+    ),
     /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
         /* @__PURE__ */ jsx("div", { className: classes.label, children: "Last successful deploy" }),

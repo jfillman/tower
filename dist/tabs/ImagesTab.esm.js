@@ -10,20 +10,13 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
 import { isPreviewEnvName, parseGhcrOwnerRepo, classifyGhcrVersion } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.06em",
-    color: ({ t }) => t.textFaint,
-    textTransform: "uppercase",
-    marginBottom: 14
-  },
   list: { display: "flex", flexDirection: "column", gap: 12 },
   panel: {
     backgroundColor: ({ t }) => t.panel,
@@ -94,7 +87,6 @@ const useStyles = makeStyles(() => ({
   },
   detailNote: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
   note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
-  toolbar: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" },
   toolbarRight: { display: "flex", alignItems: "center", gap: 14 },
   pageSizeLabel: { display: "flex", alignItems: "center", gap: 6, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   select: {
@@ -169,13 +161,16 @@ function ImagesTable({
     }
   }, [highlightTag, versions.data]);
   if (!ownerRepo) {
-    return /* @__PURE__ */ jsx(
-      TowerEmptyState,
-      {
-        title: "No GHCR image found",
-        description: "Tower couldn't find a live container image for this entity to look up on GHCR yet."
-      }
-    );
+    return /* @__PURE__ */ jsxs("div", { children: [
+      /* @__PURE__ */ jsx(PageHeader, { title: "Images", subtitle: "Every image this service pushed, with its signature, provenance and SBOM." }),
+      /* @__PURE__ */ jsx(
+        TowerEmptyState,
+        {
+          title: "No GHCR image found",
+          description: "Tower couldn't find a live container image for this entity to look up on GHCR yet."
+        }
+      )
+    ] });
   }
   const allVersions = versions.data ?? [];
   const imageEntries = allVersions.filter((v) => classifyGhcrVersion(v.tags) === "image");
@@ -195,44 +190,43 @@ function ImagesTable({
   }
   const visibleEntries = filteredEntries.slice(0, visibleCount);
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-      /* @__PURE__ */ jsxs(Typography, { className: classes.eyebrow, children: [
-        "ghcr.io/",
-        ownerRepo.owner,
-        "/",
-        ownerRepo.repo
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.toolbarRight, children: [
-        /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
-          "Filter",
-          /* @__PURE__ */ jsx(
-            "select",
-            {
-              className: classes.select,
-              value: tagFilter,
-              onChange: (e) => setTagFilter(e.target.value),
-              children: TAG_FILTER_OPTIONS.map((opt) => /* @__PURE__ */ jsx("option", { value: opt.value, children: opt.label }, opt.value))
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
-          "Show",
-          /* @__PURE__ */ jsxs(
-            "select",
-            {
-              className: classes.select,
-              value: pageSize,
-              onChange: (e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value)),
-              children: [
-                PAGE_SIZE_OPTIONS.map((n) => /* @__PURE__ */ jsx("option", { value: n, children: n }, n)),
-                /* @__PURE__ */ jsx("option", { value: "all", children: "All" })
-              ]
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
-      ] })
-    ] }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Images",
+        subtitle: `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}: every image this service pushed, with its signature, provenance and SBOM.`,
+        actions: /* @__PURE__ */ jsxs("div", { className: classes.toolbarRight, children: [
+          /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
+            "Filter",
+            /* @__PURE__ */ jsx(
+              "select",
+              {
+                className: classes.select,
+                value: tagFilter,
+                onChange: (e) => setTagFilter(e.target.value),
+                children: TAG_FILTER_OPTIONS.map((opt) => /* @__PURE__ */ jsx("option", { value: opt.value, children: opt.label }, opt.value))
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxs("label", { className: classes.pageSizeLabel, children: [
+            "Show",
+            /* @__PURE__ */ jsxs(
+              "select",
+              {
+                className: classes.select,
+                value: pageSize,
+                onChange: (e) => setPageSize(e.target.value === "all" ? "all" : Number(e.target.value)),
+                children: [
+                  PAGE_SIZE_OPTIONS.map((n) => /* @__PURE__ */ jsx("option", { value: n, children: n }, n)),
+                  /* @__PURE__ */ jsx("option", { value: "all", children: "All" })
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
+        ] })
+      }
+    ),
     versions.loading && /* @__PURE__ */ jsx(Progress, {}),
     versions.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
       "Couldn't list image versions: ",

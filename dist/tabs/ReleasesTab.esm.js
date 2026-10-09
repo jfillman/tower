@@ -2,7 +2,9 @@ import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { useHangarTokens } from '../brand/tokens.esm.js';
+import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader, Subtabs } from '../ui/index.esm.js';
 import { usePromote } from '../useReleaseData.esm.js';
 import { useReleaseContext, applyCloudPins } from '../useReleaseContext.esm.js';
 import { usePinnedTags } from '../environments/releasePins.esm.js';
@@ -20,32 +22,6 @@ import { useReleaseRecords } from '../useReleaseRecords.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
-  subnav: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 0,
-    borderBottom: ({ t }) => `1px solid ${t.line}`
-  },
-  subtab: {
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 12,
-    padding: "9px 18px",
-    borderRadius: "6px 6px 0 0",
-    color: ({ t }) => t.textFaint,
-    background: "none",
-    border: "1px solid transparent",
-    borderBottom: "none",
-    position: "relative",
-    top: 1,
-    cursor: "pointer"
-  },
-  subtabActive: {
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panel,
-    borderColor: ({ t }) => t.line
-  },
   panelSpacer: { marginTop: 16 }
 }));
 function ReleasesTab() {
@@ -104,6 +80,14 @@ function ReleasesTab() {
   };
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Releases",
+        subtitle: `${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? "" : "s"} tracked${owner && appName ? ` \xB7 ${owner}/${appName}` : ""}`,
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+      }
+    ),
+    /* @__PURE__ */ jsx(
       CommandDeck,
       {
         environments: pipelineEnvironments,
@@ -112,67 +96,24 @@ function ReleasesTab() {
         sourcePrs,
         deployHistory: deployHistory.data,
         provenanceByImage,
-        owner,
-        appName,
-        refresh,
         onSelectTab: setActiveTab
       }
     ),
-    /* @__PURE__ */ jsxs("div", { className: classes.subnav, children: [
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: `${classes.subtab} ${activeTab === "matrix" ? classes.subtabActive : ""}`,
-          onClick: () => setActiveTab("matrix"),
-          children: "Matrix"
-        }
-      ),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: `${classes.subtab} ${activeTab === "log" ? classes.subtabActive : ""}`,
-          onClick: () => setActiveTab("log"),
-          children: "Log"
-        }
-      ),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          type: "button",
-          className: `${classes.subtab} ${activeTab === "lead" ? classes.subtabActive : ""}`,
-          onClick: () => setActiveTab("lead"),
-          children: "Lead time"
-        }
-      ),
-      /* @__PURE__ */ jsxs(
-        "button",
-        {
-          type: "button",
-          className: `${classes.subtab} ${activeTab === "preview" ? classes.subtabActive : ""}`,
-          onClick: () => setActiveTab("preview"),
-          children: [
-            "Preview (",
-            previewEnvironments.length,
-            ")"
-          ]
-        }
-      ),
-      /* @__PURE__ */ jsxs(
-        "button",
-        {
-          type: "button",
-          className: `${classes.subtab} ${activeTab === "record" ? classes.subtabActive : ""}`,
-          onClick: () => setActiveTab("record"),
-          children: [
-            "Record (",
-            releaseRecords.length,
-            ")"
-          ]
-        }
-      )
-    ] }),
+    /* @__PURE__ */ jsx(
+      Subtabs,
+      {
+        label: "Release views",
+        tabs: [
+          { id: "matrix", label: "Matrix" },
+          { id: "log", label: "Log" },
+          { id: "lead", label: "Lead time" },
+          { id: "preview", label: `Preview (${previewEnvironments.length})` },
+          { id: "record", label: `Record (${releaseRecords.length})` }
+        ],
+        value: activeTab,
+        onChange: setActiveTab
+      }
+    ),
     /* @__PURE__ */ jsxs("div", { className: classes.panelSpacer, children: [
       activeTab === "matrix" && /* @__PURE__ */ jsx(
         ReleaseMatrix,

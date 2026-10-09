@@ -4,7 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
+import { useHangarTokens } from '../brand/tokens.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
@@ -15,13 +16,6 @@ import { envStageRank, envTierOf, imageTag, health } from '../types.esm.js';
 const TIER_DISPLAY_ORDER = ["lower", "upper", "preview"];
 const useStyles = makeStyles(() => ({
   main: { display: "flex", flexDirection: "column", gap: 16 },
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.06em",
-    color: ({ t }) => t.textFaint,
-    textTransform: "uppercase"
-  },
   note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo }
 }));
 function TopologyTab() {
@@ -71,10 +65,14 @@ function TopologyTab() {
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   if (environments.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-      /* @__PURE__ */ jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" }, children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.eyebrow, children: "route \u2192 service \u2192 workload \u2192 pods, real-time from each cluster" }),
-        /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
-      ] }),
+      /* @__PURE__ */ jsx(
+        PageHeader,
+        {
+          title: "Topology",
+          subtitle: "Route, service, workload and pods for one environment, read live from its cluster.",
+          actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+        }
+      ),
       /* @__PURE__ */ jsx(
         EnvPicker,
         {
@@ -92,10 +90,14 @@ function TopologyTab() {
   const selected = environments.find((e) => e.env === selectedEnv) ?? environments[0];
   const selectedTier = envTierOf(selected.env, { lower: pipelineOrder.lower, upper: pipelineOrder.upper });
   return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-    /* @__PURE__ */ jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" }, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.eyebrow, children: "route \u2192 service \u2192 workload \u2192 pods, real-time from each cluster" }),
-      /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
-    ] }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Topology",
+        subtitle: "Route, service, workload and pods for one environment, read live from its cluster.",
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+      }
+    ),
     /* @__PURE__ */ jsx(
       EnvPicker,
       {

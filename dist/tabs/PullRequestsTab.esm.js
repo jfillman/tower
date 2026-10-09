@@ -9,6 +9,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format.esm.js';
 import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
 import { parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -244,7 +245,14 @@ function PullRequestsTab() {
     (a, b) => new Date(b.mergedAt ?? b.updatedAt).getTime() - new Date(a.mergedAt ?? a.updatedAt).getTime()
   ).slice(0, MERGED_DISPLAY_CAP);
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 }, children: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) }) }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Pull requests",
+        subtitle: "Open release, preview and source pull requests, and what merged recently.",
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
+      }
+    ),
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsxs("span", { className: classes.sectionTitle, children: [

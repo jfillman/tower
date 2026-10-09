@@ -6,20 +6,12 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useSlos } from '../useSlos.esm.js';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery.esm.js';
 
 const useStyles = makeStyles(() => ({
-  eyebrow: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    letterSpacing: "0.06em",
-    color: ({ t }) => t.textFaint,
-    textTransform: "uppercase",
-    marginBottom: 14
-  },
-  toolbar: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 14, flexWrap: "wrap" },
   envGroup: { marginBottom: 26 },
   envGroupHeader: {
     display: "flex",
@@ -336,13 +328,16 @@ function SlosTab() {
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   if (slos.length === 0) {
-    return /* @__PURE__ */ jsx(
-      TowerEmptyState,
-      {
-        title: "No SLOs declared",
-        description: "Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
-      }
-    );
+    return /* @__PURE__ */ jsxs("div", { children: [
+      /* @__PURE__ */ jsx(PageHeader, { title: "SLOs", subtitle: "Burn-rate views for the service level objectives each environment declares." }),
+      /* @__PURE__ */ jsx(
+        TowerEmptyState,
+        {
+          title: "No SLOs declared",
+          description: "Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
+        }
+      )
+    ] });
   }
   const envOrder = Array.from(new Set(slos.map((s) => s.env ?? UNKNOWN_ENV_KEY))).sort();
   const groups = envOrder.map((env) => ({
@@ -350,19 +345,14 @@ function SlosTab() {
     slos: slos.filter((s) => (s.env ?? UNKNOWN_ENV_KEY) === env)
   }));
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.toolbar, children: [
-      /* @__PURE__ */ jsxs(Typography, { className: classes.eyebrow, children: [
-        slos.length,
-        " SLO",
-        slos.length === 1 ? "" : "s",
-        " across ",
-        envOrder.length,
-        " environment",
-        envOrder.length === 1 ? "" : "s",
-        refreshing ? " \xB7 refreshing\u2026" : ""
-      ] }),
-      /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
-    ] }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "SLOs",
+        subtitle: `${slos.length} SLO${slos.length === 1 ? "" : "s"} across ${envOrder.length} environment${envOrder.length === 1 ? "" : "s"}${refreshing ? " \xB7 refreshing\u2026" : ""}`,
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
+      }
+    ),
     groups.map((group) => {
       const accent = envAccentFor(group.env, envOrder, isDark);
       return /* @__PURE__ */ jsxs("div", { className: classes.envGroup, children: [

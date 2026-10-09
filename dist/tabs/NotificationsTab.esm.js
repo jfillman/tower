@@ -7,6 +7,7 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { relativeTime } from '../shared/format.esm.js';
 import { fontDisplay, fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { useAppNotifications, isRecentNotification } from '../useAppNotifications.esm.js';
 import { renderNotificationDescription } from '../notificationFormatting.esm.js';
 
@@ -126,17 +127,21 @@ function NotificationsTab() {
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   if (notifications.length === 0) {
-    return /* @__PURE__ */ jsx(
-      TowerEmptyState,
-      {
-        title: "No notifications yet",
-        description: `Nothing from Glidepath's pipelines has landed here for ${appName}. Enable notifications.backstage in this app's cicd.yaml to start receiving build/test/deploy/release results here.`
-      }
-    );
+    return /* @__PURE__ */ jsxs("div", { children: [
+      /* @__PURE__ */ jsx(PageHeader, { title: "Notifications", subtitle: `Build, test, deploy and release results Glidepath posted for ${appName}.` }),
+      /* @__PURE__ */ jsx(
+        TowerEmptyState,
+        {
+          title: "No notifications yet",
+          description: `Nothing from Glidepath's pipelines has landed here for ${appName}. Enable notifications.backstage in this app's cicd.yaml to start receiving build/test/deploy/release results here.`
+        }
+      )
+    ] });
   }
   const recent = notifications.filter((n) => isRecentNotification(n));
   const earlier = notifications.filter((n) => !isRecentNotification(n));
   return /* @__PURE__ */ jsxs("div", { children: [
+    /* @__PURE__ */ jsx(PageHeader, { title: "Notifications", subtitle: `Build, test, deploy and release results Glidepath posted for ${appName}.` }),
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsx("span", { className: classes.sectionTitle, children: "New" }),

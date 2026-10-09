@@ -9,6 +9,7 @@ import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm
 import { useArgoActions } from '../useReleaseData.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
+import { PageHeader } from '../ui/index.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { useSignalRailStyles, deliveryTag, Rail } from '../SignalRail.esm.js';
 import { EnvPicker } from '../EnvPicker.esm.js';
@@ -154,7 +155,14 @@ function DeploymentsTab() {
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   if (cdEnvs.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-      /* @__PURE__ */ jsx("div", { style: { display: "flex", justifyContent: "flex-end" }, children: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh }) }),
+      /* @__PURE__ */ jsx(
+        PageHeader,
+        {
+          title: "Deployments",
+          subtitle: "What is rolling out where, step by step: the ArgoCD sync, then the Rollout.",
+          actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+        }
+      ),
       /* @__PURE__ */ jsx(
         EnvPicker,
         {
@@ -214,7 +222,14 @@ function DeploymentsTab() {
     })
   }));
   return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-    /* @__PURE__ */ jsx("div", { style: { display: "flex", justifyContent: "flex-end" }, children: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh }) }),
+    /* @__PURE__ */ jsx(
+      PageHeader,
+      {
+        title: "Deployments",
+        subtitle: "What is rolling out where, step by step: the ArgoCD sync, then the Rollout.",
+        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+      }
+    ),
     /* @__PURE__ */ jsx(
       EnvPicker,
       {
