@@ -7,7 +7,7 @@ const run = (pipelineName: string, params: Record<string, string> = {}): Run =>
 describe('pipelineTitle', () => {
   it('titles a stub gate by its gate name, not the shared governance-check Pipeline', () => {
     expect(pipelineTitle(run('governance-check', { 'gate-name': 'itsm' }))).toBe('itsm-check');
-    expect(pipelineTitle(run('governance-check', { 'gate-name': 'image-promotion' }))).toBe('image-promotion-check');
+    expect(pipelineTitle(run('governance-check', { 'gate-name': 'policy-validation' }))).toBe('policy-validation-check');
   });
   it('keeps the Pipeline name for real gates and the env for stage pipelines', () => {
     expect(pipelineTitle(run('sast-check'))).toBe('sast-check');

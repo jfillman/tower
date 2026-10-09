@@ -142,7 +142,6 @@ const GUARDRAIL_PIPELINE_NAMES = [
   'sbom-check',
   'governance-check',
   'qa-check',
-  'image-promotion-check',
   'bypass-merge-check',
 ];
 
