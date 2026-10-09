@@ -277,7 +277,24 @@ function extractFlowSlug(name: string, meta: RawObjectMeta): string | undefined 
 function chainIdOf(run: PipelineRunSummary): string | undefined {
   const fromParam = run.params.find(p => p.name === 'chain-id')?.value;
   if (fromParam) return fromParam;
-  return run.taskRunsByPipelineTask['start-flow']?.results.find(r => r.name === 'chain-id')?.value;
+  return firstTaskResult(run.taskRunsByPipelineTask, 'chain-id');
+}
+
+// glidepath's catalog folded start-flow (and the rest of each stage's pre-work) into a
+// single `preflight` task on 2026-10-09 (stage-preflight.yaml); it writes the same
+// chain-id / chain-slug results start-flow did. Runs created before that catalog
+// change still carry them on `start-flow`, so look there second. Without this fallback
+// every pre-collapse run would lose its flow grouping the moment the catalog changed.
+const ID_TASK_NAMES = ['preflight', 'start-flow'] as const;
+function firstTaskResult(
+  byTask: Record<string, { results: { name: string; value: string }[] }>,
+  resultName: string,
+): string | undefined {
+  for (const task of ID_TASK_NAMES) {
+    const v = byTask[task]?.results.find(r => r.name === resultName)?.value;
+    if (v) return v;
+  }
+  return undefined;
 }
 
 // Backward-compatibility fallback only, now that every run's own start-flow
@@ -407,7 +424,7 @@ export function toPipelineRunSummary(
     // may not exist. Falls back to the name-based extraction for any run
     // that predates the toolbox image carrying this result.
     flowSlug:
-      taskRunsByPipelineTask['start-flow']?.results.find(r => r.name === 'chain-slug')?.value ??
+      firstTaskResult(taskRunsByPipelineTask, 'chain-slug') ??
       extractFlowSlug(meta.name, meta),
     // Falls back to a derived 'guardrail' bucket, or folds into 'ci', when
     // there's no explicit flow label at all (every real guardrail
