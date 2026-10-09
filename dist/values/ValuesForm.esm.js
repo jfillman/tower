@@ -856,7 +856,8 @@ function ConfigEditor({
   clusterAnalysisTemplates,
   sloContext,
   componentCatalog,
-  chart
+  chart,
+  shared = false
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1025,7 +1026,9 @@ function ConfigEditor({
     const summary = [];
     if (dirty.has("rollout") && !rolloutEnabled) {
       patch.rollout = null;
-      summary.push("rollout: disabled (no container deployed in this environment)");
+      summary.push(
+        shared ? "rollout: disabled in the shared values (no container in an environment that does not set its own)" : "rollout: disabled (no container deployed in this environment)"
+      );
     } else if (dirty.has("rollout")) {
       const advancedParsed = {
         ...asRecord(validateYamlBlock(advanced.rolloutStrategy).parsed),
@@ -1061,8 +1064,9 @@ function ConfigEditor({
         ...omitIfEmptyAndAbsent(origRollout, "livenessProbe", buildProbeValue(form.liveness)),
         ...omitIfEmptyAndAbsent(origRollout, "readinessProbe", buildProbeValue(form.readiness))
       };
+      const wasNull = cfg.data.values.rollout === null;
       summary.push(
-        originalRolloutEnabled ? `rollout: replicas/resources/probes/steps and/or pod-template settings updated` : `rollout: enabled (was previously null - a container will now deploy in this environment)`
+        originalRolloutEnabled || !wasNull ? `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? "updated" : "set"}${shared ? " in the shared values" : ""}` : shared ? "rollout: enabled in the shared values (was off)" : "rollout: enabled (was off: a container will now deploy in this environment)"
       );
       if (fieldsChanged(["ports"])) {
         summary.push(
@@ -1265,7 +1269,7 @@ function ConfigEditor({
       tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Deployment", dirty: rolloutEnabled !== originalRolloutEnabled, classes, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
           /* @__PURE__ */ jsx(Switch, { checked: rolloutEnabled, onChange: (e) => setRolloutEnabled(e.target.checked) }),
-          /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Deploy a Rollout (long-running container) in this environment" })
+          /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: shared ? "Deploy a Rollout (long-running container) in each environment that does not set its own" : "Deploy a Rollout (long-running container) in this environment" })
         ] }),
         /* @__PURE__ */ jsx(Typography, { className: classes.hint, style: { marginTop: 8 }, children: rolloutEnabled ? "Scaling, resources, health checks, and canary steps below configure this Rollout. Turn this off if this environment should only run a Job/CronJob/other resource - see the advanced fields further down." : "This environment has rollout: null - no Rollout, Service, HPA, or PodDisruptionBudget is deployed here. That's a normal, deliberate state, not a placeholder waiting to be filled in - a good fit for an env that only runs a Job/CronJob or another XR. Turn this on to deploy a real container instead." })
       ] }),

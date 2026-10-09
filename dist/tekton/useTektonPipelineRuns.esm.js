@@ -20,7 +20,6 @@ const GUARDRAIL_PIPELINE_NAMES = [
   "sbom-check",
   "governance-check",
   "qa-check",
-  "image-promotion-check",
   "bypass-merge-check"
 ];
 const RELEASE_TRACKING_SUBCOMPONENTS = ["release-outcome", "release-progress"];

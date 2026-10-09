@@ -51,7 +51,19 @@ function Editor({ owner, appName, section, source, own }) {
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
   if (own && section.kind !== "pr-env") return /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
-  return /* @__PURE__ */ jsx(ConfigEditor, { owner, appName, source, title: `${section.title} (${section.path})`, layout: "side", componentCatalog, chart });
+  return /* @__PURE__ */ jsx(
+    ConfigEditor,
+    {
+      owner,
+      appName,
+      source,
+      title: `${section.title} (${section.path})`,
+      layout: "side",
+      componentCatalog,
+      chart,
+      shared: section.kind !== "pr-env"
+    }
+  );
 }
 function PlatformValues(props) {
   const source = usePlatformValuesSource({ owner: props.owner, appName: props.appName, selector: props.selector });
