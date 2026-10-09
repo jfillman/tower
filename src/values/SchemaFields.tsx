@@ -49,7 +49,11 @@ function Scalar({
         className={classes.input}
         aria-label={label}
         value={value === undefined ? '' : String(value)}
-        onChange={e => onChange(e.target.value === '' ? undefined : numeric ? Number(e.target.value) : e.target.value)}
+        onChange={e => {
+          const v = e.target.value;
+          if (v === '') onChange(undefined);
+          else onChange(numeric ? Number(v) : v);
+        }}
       >
         <option value="">{ghost}</option>
         {node.enum.map(o => (

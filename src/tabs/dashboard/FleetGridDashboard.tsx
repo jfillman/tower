@@ -95,13 +95,13 @@ export function FleetGridDashboard() {
     <div>
       {probes}
       {sloProbes}
-      {loading ? (
-        <Progress />
-      ) : apps.length === 0 ? (
+      {loading && <Progress />}
+      {!loading && apps.length === 0 && (
         <div className={classes.empty}>
           No NodeJSApplication / SpringBootApplication / PythonApplication / GoApplication services found in the catalog.
         </div>
-      ) : (
+      )}
+      {!loading && apps.length > 0 && (
         <>
           <div className={classes.kpis}>
             <div className={classes.kpi}>

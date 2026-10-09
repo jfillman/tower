@@ -15,6 +15,7 @@ jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false,
 // The real staging values file of boarding-api (gitops-boarding-api, kind-prod/staging), as Crossplane and a person
 // left it: env vars from a ConfigMap and a Secret, a rollout with probes and steps, an HTTPRoute, attached components.
 // A change to ONE field must put back every other field of that block exactly as it was; anything else is data loss.
+const fixtureJson = (name: string) => JSON.parse(readFileSync(join(__dirname, '__fixtures__', name), 'utf8'));
 const original = load(readFileSync(join(__dirname, '__fixtures__/boarding-api-staging.values.yaml'), 'utf8')) as Record<string, any>;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -597,8 +598,7 @@ describe('values form: common SLOs', () => {
 });
 
 describe('values form: components', () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const catalog = require('./__fixtures__/componentCatalog.json');
+  const catalog = fixtureJson('componentCatalog.json');
   const edit = (field: () => HTMLElement, value: string) => fireEvent.change(field(), { target: { value } });
 
   it('shows the staging components on the Components tab and writes an edit back to components, nothing else changed', () => {
@@ -656,8 +656,7 @@ describe('values form: components', () => {
 
 describe('values form: full annotated values', () => {
   it('shows the committed file marked as set, and a staged change in it', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    open(original, { chart: require('./__fixtures__/chartValues.json') });
+    open(original, { chart: fixtureJson('chartValues.json') });
     fireEvent.click(screen.getByRole('button', { name: /View full values/ }));
     const view = () => screen.getByLabelText('Full values').textContent ?? '';
     expect(view()).toContain('# set here');

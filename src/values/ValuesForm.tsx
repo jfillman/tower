@@ -1508,13 +1508,15 @@ export function ConfigEditor({
       // Absent and null differ: absent is "not set in this file" (the chart default, or for a shared file each
       // environment's own), null is "no container here". Only turning null back on is "a container will now deploy".
       const wasNull = cfg.data!.values.rollout === null;
-      summary.push(
-        originalRolloutEnabled || !wasNull
-          ? `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? 'updated' : 'set'}${shared ? ' in the shared values' : ''}`
-          : shared
-            ? 'rollout: enabled in the shared values (was off)'
-            : 'rollout: enabled (was off: a container will now deploy in this environment)',
-      );
+      if (originalRolloutEnabled || !wasNull) {
+        summary.push(
+          `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? 'updated' : 'set'}${shared ? ' in the shared values' : ''}`,
+        );
+      } else if (shared) {
+        summary.push('rollout: enabled in the shared values (was off)');
+      } else {
+        summary.push('rollout: enabled (was off: a container will now deploy in this environment)');
+      }
       if (fieldsChanged(['ports'])) {
         summary.push(
           `service: ports set to ${form.ports.filter(p => p.name.trim()).map(p => `${p.name.trim()}:${p.containerPort}`).join(', ') || '(none)'}`,

@@ -69,8 +69,9 @@ export function buildLogEntries(
       const tag = imageTag(entry.imageTag);
       const tier = envTierOf(env.env, pipelineOrder);
       const mergedPr = tier === 'upper' ? gitopsPrForEnvAndImage(gitopsPrs, env.env, tag) : undefined;
-      const trigger =
-        tier === 'lower' ? 'direct commit' : mergedPr?.state === 'merged' ? `PR #${mergedPr.number} · merged` : 'promoted';
+      let trigger = 'promoted';
+      if (tier === 'lower') trigger = 'direct commit';
+      else if (mergedPr?.state === 'merged') trigger = `PR #${mergedPr.number} · merged`;
       entries.push({
         id: `${env.env}-${entry.sha}`,
         date: entry.date,
@@ -215,83 +216,83 @@ export function ReleaseLog({
         </div>
       </div>
 
-      {view === 'table' ? (
-        entries.length === 0 ? (
-          <Typography className={classes.emptyRow}>No recorded promotions yet.</Typography>
-        ) : (
-          <div className={classes.scroll}>
-            <table className={classes.table}>
-              <thead>
-                <tr>
-                  <th className={classes.th}>Time</th>
-                  <th className={classes.th}>Env</th>
-                  <th className={classes.th}>Release</th>
-                  <th className={classes.th}>Trigger</th>
-                  <th className={classes.th}>Duration</th>
-                  <th className={classes.th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map(entry => {
-                  const colors = statusColors(entry.status);
-                  const clickable = Boolean(entry.fullImage) || Boolean(entry.pr);
-                  const isOpen = expanded === entry.id;
-                  return (
-                    <Fragment key={entry.id}>
-                      <tr
-                        className={`${classes.tr} ${clickable ? classes.trClickable : ''}`}
-                        onClick={clickable ? () => setExpanded(isOpen ? null : entry.id) : undefined}
-                      >
-                        <td className={`${classes.td} ${classes.time}`}>{relativeTime(entry.date)}</td>
-                        <td className={`${classes.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ''}`}>{entry.env}</td>
-                        <td className={`${classes.td} ${classes.tag}`}>
-                          {entry.imageTag ?? '—'}
-                          {entry.nickname && (
-                            <span
-                              className={classes.nicknameChip}
-                              style={{
-                                color: `hsl(${slugHue(entry.nickname)}, 65%, 60%)`,
-                                borderColor: `hsl(${slugHue(entry.nickname)}, 65%, 60%)`,
-                                backgroundColor: `hsla(${slugHue(entry.nickname)}, 65%, 60%, 0.12)`,
-                              }}
-                            >
-                              {entry.nickname}
-                            </span>
-                          )}
-                        </td>
-                        <td className={classes.td}>{entry.trigger}</td>
-                        <td className={classes.td}>{entry.duration ?? '—'}</td>
-                        <td className={classes.td}>
-                          <span className={classes.pill} style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.fg }}>
-                            {STATUS_LABEL[entry.status]}
+      {view === 'table' && entries.length === 0 && (
+        <Typography className={classes.emptyRow}>No recorded promotions yet.</Typography>
+      )}
+      {view === 'table' && entries.length > 0 && (
+        <div className={classes.scroll}>
+          <table className={classes.table}>
+            <thead>
+              <tr>
+                <th className={classes.th}>Time</th>
+                <th className={classes.th}>Env</th>
+                <th className={classes.th}>Release</th>
+                <th className={classes.th}>Trigger</th>
+                <th className={classes.th}>Duration</th>
+                <th className={classes.th}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(entry => {
+                const colors = statusColors(entry.status);
+                const clickable = Boolean(entry.fullImage) || Boolean(entry.pr);
+                const isOpen = expanded === entry.id;
+                return (
+                  <Fragment key={entry.id}>
+                    <tr
+                      className={`${classes.tr} ${clickable ? classes.trClickable : ''}`}
+                      onClick={clickable ? () => setExpanded(isOpen ? null : entry.id) : undefined}
+                    >
+                      <td className={`${classes.td} ${classes.time}`}>{relativeTime(entry.date)}</td>
+                      <td className={`${classes.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ''}`}>{entry.env}</td>
+                      <td className={`${classes.td} ${classes.tag}`}>
+                        {entry.imageTag ?? '—'}
+                        {entry.nickname && (
+                          <span
+                            className={classes.nicknameChip}
+                            style={{
+                              color: `hsl(${slugHue(entry.nickname)}, 65%, 60%)`,
+                              borderColor: `hsl(${slugHue(entry.nickname)}, 65%, 60%)`,
+                              backgroundColor: `hsla(${slugHue(entry.nickname)}, 65%, 60%, 0.12)`,
+                            }}
+                          >
+                            {entry.nickname}
                           </span>
+                        )}
+                      </td>
+                      <td className={classes.td}>{entry.trigger}</td>
+                      <td className={classes.td}>{entry.duration ?? '—'}</td>
+                      <td className={classes.td}>
+                        <span className={classes.pill} style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.fg }}>
+                          {STATUS_LABEL[entry.status]}
+                        </span>
+                      </td>
+                    </tr>
+                    {clickable && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 0, border: 'none' }}>
+                          <Collapse in={isOpen} unmountOnExit>
+                            <div className={classes.expandRow}>
+                              {entry.pr && <PrButton pr={entry.pr} />}
+                              {entry.fullImage && (
+                                <SupplyChainChips provenance={provenanceByImage[entry.fullImage]?.data} />
+                              )}
+                              {!entry.fullImage && !entry.pr && (
+                                <Typography className={classes.expandFact}>No further detail recorded.</Typography>
+                              )}
+                            </div>
+                          </Collapse>
                         </td>
                       </tr>
-                      {clickable && (
-                        <tr>
-                          <td colSpan={6} style={{ padding: 0, border: 'none' }}>
-                            <Collapse in={isOpen} unmountOnExit>
-                              <div className={classes.expandRow}>
-                                {entry.pr && <PrButton pr={entry.pr} />}
-                                {entry.fullImage && (
-                                  <SupplyChainChips provenance={provenanceByImage[entry.fullImage]?.data} />
-                                )}
-                                {!entry.fullImage && !entry.pr && (
-                                  <Typography className={classes.expandFact}>No further detail recorded.</Typography>
-                                )}
-                              </div>
-                            </Collapse>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      ) : (
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {view !== 'table' && (
         <div className={classes.timelineWrap}>
           <ReleaseTimelinePanel environments={pipelineEnvironments} history={deployHistory} />
         </div>

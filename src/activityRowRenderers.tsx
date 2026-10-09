@@ -316,11 +316,9 @@ export function renderDeployRow(
   const runName = extractLine(desc, 'Run');
   const tag = imageRef ? imageTag(imageRef) : undefined;
   const title = n.payload.title.toLowerCase();
-  const outcome: 'failed' | 'cancelled' | 'succeeded' = title.includes('failed')
-    ? 'failed'
-    : title.includes('cancelled')
-      ? 'cancelled'
-      : 'succeeded';
+  let outcome: 'failed' | 'cancelled' | 'succeeded' = 'succeeded';
+  if (title.includes('failed')) outcome = 'failed';
+  else if (title.includes('cancelled')) outcome = 'cancelled';
 
   const items: PillItem[] = [];
   if (repoShort && sha) {
@@ -370,12 +368,7 @@ export function renderDeployRow(
     });
   }
 
-  const headline =
-    outcome === 'failed'
-      ? `Deploy failed${env ? ` in ${env}` : ''}`
-      : outcome === 'cancelled'
-        ? `Deploy cancelled${env ? ` in ${env}` : ''}`
-        : `Deploy succeeded${env ? ` in ${env}` : ''}`;
+  const headline = `Deploy ${outcome}${env ? ` in ${env}` : ''}`;
 
   return (
     <>
