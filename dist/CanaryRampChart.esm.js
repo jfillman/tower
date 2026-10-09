@@ -245,20 +245,30 @@ function CanaryRampChart({
             const filled = state === "done" || state === "current" || state === "bad";
             const live = state === "current";
             const halo = live ? /* @__PURE__ */ jsx("circle", { cx: x, cy: y, r: 7, fill: "none", stroke: color, strokeWidth: 1.5, className: classes.chartHalo }) : null;
+            const backing = (shape, r) => {
+              if (!live) return null;
+              if (shape === "diamond") {
+                return /* @__PURE__ */ jsx("rect", { x: x - 5, y: y - 5, width: 10, height: 10, fill: t.panel, transform: `rotate(45 ${x} ${y})` });
+              }
+              return /* @__PURE__ */ jsx("circle", { cx: x, cy: y, r: r + 0.75, fill: t.panel });
+            };
             if (s.kind === "analysis") {
               return /* @__PURE__ */ jsxs("g", { children: [
                 halo,
+                backing("diamond", 5),
                 /* @__PURE__ */ jsx("rect", { className: live ? classes.chartDotLive : void 0, x: x - 5, y: y - 5, width: 10, height: 10, fill: filled ? color : t.panel, stroke: color, strokeWidth: 1.5, transform: `rotate(45 ${x} ${y})` })
               ] }, i);
             }
             if (s.kind === "pause") {
               return /* @__PURE__ */ jsxs("g", { children: [
                 halo,
+                backing("dot", 4),
                 /* @__PURE__ */ jsx("circle", { className: live ? classes.chartDotLive : void 0, cx: x, cy: y, r: 4, fill: t.panel, stroke: color, strokeWidth: 1.5 })
               ] }, i);
             }
             return /* @__PURE__ */ jsxs("g", { children: [
               halo,
+              backing("dot", 5),
               /* @__PURE__ */ jsx(
                 "circle",
                 {

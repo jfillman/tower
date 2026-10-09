@@ -5,7 +5,8 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { ImageTagPill } from './ImageTagPill.esm.js';
-import { Button, TextLink } from '../../ui/index.esm.js';
+import { StatusChip, Button, TextLink } from '../../ui/index.esm.js';
+import { argoTone } from '../../argoTone.esm.js';
 
 function syncWaveFor(node, k8sResources) {
   return k8sResources.find((r) => r.kind === node.kind && r.name === node.name)?.annotations?.["argocd.argoproj.io/sync-wave"];
@@ -23,11 +24,6 @@ const useStyles = makeStyles(() => ({
   headRow: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi, flexShrink: 0 },
   statusChips: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" },
-  chip: { fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 12 },
-  chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  chipProg: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  chipUnknown: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" },
   argoErr: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad },
@@ -115,7 +111,6 @@ const useStyles = makeStyles(() => ({
   cellKind: { padding: "6px 8px", color: ({ t }) => t.sky, fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" },
   cellName: { padding: "6px 8px", color: ({ t }) => t.textHi, verticalAlign: "top", wordBreak: "break-word" },
   cellMessage: { padding: "6px 8px", color: ({ t }) => t.textFaint, verticalAlign: "top", wordBreak: "break-word", maxWidth: 260 },
-  statusBadge: { display: "inline-block", fontSize: 9.5, fontWeight: 700, padding: "2px 7px", borderRadius: 10, whiteSpace: "nowrap" },
   hookBadge: {
     display: "inline-block",
     fontSize: 9.5,
@@ -129,12 +124,6 @@ const useStyles = makeStyles(() => ({
   diffNote: { fontSize: 11, color: ({ t }) => t.textFaint, paddingTop: 6 },
   note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textLo, padding: "2px 0" }
 }));
-function statusChipClass(classes, status) {
-  if (status === "Healthy" || status === "Synced") return classes.chipOk;
-  if (status === "Progressing" || status === "Suspended" || status === "OutOfSync") return classes.chipProg;
-  if (status === "Degraded" || status === "Missing") return classes.chipBad;
-  return classes.chipUnknown;
-}
 const SYNC_GUIDE = [
   {
     name: "Refresh",
@@ -226,8 +215,8 @@ function ArgoCommandPanel({
         /* @__PURE__ */ jsx(ImageTagPill, { tag: incomingImage.tag, nickname: incomingImage.nickname, size: "small" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.statusChips, children: [
-        /* @__PURE__ */ jsx("span", { className: `${classes.chip} ${statusChipClass(classes, env.argoSyncStatus)}`, children: env.argoSyncStatus ?? "unknown" }),
-        /* @__PURE__ */ jsx("span", { className: `${classes.chip} ${statusChipClass(classes, env.argoHealthStatus)}`, children: env.argoHealthStatus ?? "unknown" }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoSyncStatus), children: env.argoSyncStatus ?? "unknown" }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoHealthStatus), children: env.argoHealthStatus ?? "unknown" }),
         env.argoRevision && /* @__PURE__ */ jsxs("span", { className: classes.revision, children: [
           "@ ",
           env.argoRevision.slice(0, 9)
@@ -358,8 +347,8 @@ function ArgoCommandPanel({
             /* @__PURE__ */ jsx("td", { className: classes.cellMuted, children: syncWaveFor(r, env.resources) ?? "\u2014" }),
             /* @__PURE__ */ jsx("td", { className: classes.cellKind, children: r.kind }),
             /* @__PURE__ */ jsx("td", { className: classes.cellName, children: r.name }),
-            /* @__PURE__ */ jsx("td", { className: classes.cell, children: /* @__PURE__ */ jsx("span", { className: `${classes.statusBadge} ${statusChipClass(classes, r.syncStatus)}`, children: r.syncStatus ?? "\u2014" }) }),
-            /* @__PURE__ */ jsx("td", { className: classes.cell, children: r.health ? /* @__PURE__ */ jsx("span", { className: `${classes.statusBadge} ${statusChipClass(classes, r.health)}`, children: r.health }) : "\u2014" }),
+            /* @__PURE__ */ jsx("td", { className: classes.cell, children: r.syncStatus ? /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(r.syncStatus), children: r.syncStatus }) : "\u2014" }),
+            /* @__PURE__ */ jsx("td", { className: classes.cell, children: r.health ? /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(r.health), children: r.health }) : "\u2014" }),
             /* @__PURE__ */ jsx("td", { className: classes.cell, children: r.hookType && /* @__PURE__ */ jsx("span", { className: classes.hookBadge, children: r.hookType }) }),
             /* @__PURE__ */ jsx("td", { className: classes.cellMessage, children: r.message ?? "\u2014" })
           ] }, `${r.kind}-${r.name}-${i}`)) })

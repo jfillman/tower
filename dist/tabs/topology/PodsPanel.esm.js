@@ -9,6 +9,7 @@ import { PodLogsView } from '../../PodLogsView.esm.js';
 import { preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { YamlView } from './YamlView.esm.js';
+import { StatusChip } from '../../ui/index.esm.js';
 
 function findPodResource(resources, name) {
   return resources.find((r) => r.kind === "Pod" && r.name === name);
@@ -75,9 +76,6 @@ const useStyles = makeStyles(() => ({
     flexWrap: "wrap"
   },
   containerName: { color: ({ t }) => t.textHi, fontWeight: 600, minWidth: 90 },
-  containerState: { fontSize: 10, padding: "1px 7px", borderRadius: 10 },
-  containerStateOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  containerStateBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
   containerRes: { color: ({ t }) => t.textFaint, fontSize: 10 },
   conditionRow: { display: "flex", gap: 8, fontSize: 11, alignItems: "baseline" },
   conditionType: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, minWidth: 90 },
@@ -182,7 +180,7 @@ function PodDetail({
         const state = containerStateLabel(cs);
         return /* @__PURE__ */ jsxs("div", { className: classes.containerRow, children: [
           /* @__PURE__ */ jsx("span", { className: classes.containerName, children: c.name }),
-          /* @__PURE__ */ jsx("span", { className: `${classes.containerState} ${state.ok ? classes.containerStateOk : classes.containerStateBad}`, children: state.label }),
+          /* @__PURE__ */ jsx(StatusChip, { tone: state.ok ? "ok" : "bad", children: state.label }),
           cs?.restartCount ? /* @__PURE__ */ jsxs("span", { className: classes.containerRes, children: [
             cs.restartCount,
             " restarts"

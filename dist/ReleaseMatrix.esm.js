@@ -14,7 +14,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { PipelineFlow, buildSupplyChainStages } from './PipelineFlow.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
-import { TextLink, Button } from './ui/index.esm.js';
+import { StatusChip, TextLink, Button } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: {
@@ -110,16 +110,6 @@ const useStyles = makeStyles(() => ({
   expandTag: { fontFamily: fontMono, fontSize: 13, fontWeight: 700, color: ({ t }) => t.textHi },
   expandArrow: { color: ({ t }) => t.textFaint, fontSize: 13 },
   expandEnv: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  pill: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "2px 8px",
-    borderRadius: 12,
-    border: "1px solid"
-  },
   close: {
     marginLeft: "auto",
     fontFamily: fontMono,
@@ -256,10 +246,10 @@ function ReleaseMatrix({
         /* @__PURE__ */ jsx("span", { className: classes.expandTag, children: open.tag }),
         /* @__PURE__ */ jsx("span", { className: classes.expandArrow, children: "\u2192" }),
         /* @__PURE__ */ jsx("span", { className: classes.expandEnv, children: open.env }),
-        openCell.status === "pending" && openCell.pr && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }, children: "pending" }),
-        openCell.status === "deployed" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good }, children: "deployed" }),
-        openCell.status === "pinned" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk }, children: "pinned, not deployed" }),
-        openCell.status === "promotable" && /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky }, children: "not yet promoted" }),
+        openCell.status === "pending" && openCell.pr && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "pending" }),
+        openCell.status === "deployed" && /* @__PURE__ */ jsx(StatusChip, { tone: "ok", children: "deployed" }),
+        openCell.status === "pinned" && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "pinned, not deployed" }),
+        openCell.status === "promotable" && /* @__PURE__ */ jsx(StatusChip, { tone: "info", children: "not yet promoted" }),
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.close, onClick: () => setOpen(null), children: "close \u2715" })
       ] }),
       openCell.status === "pinned" && /* @__PURE__ */ jsxs(Fragment, { children: [

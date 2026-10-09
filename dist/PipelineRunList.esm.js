@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
-import { FilterBar, FilterChips, SearchField, Button, TextLink } from './ui/index.esm.js';
+import { FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
 
 const STATUS_FILTERS = [
   { key: "all", label: "All" },
@@ -52,15 +52,6 @@ const useStyles = makeStyles(() => ({
   shaLink: { "&:hover": { textDecoration: "underline" } },
   thumb: { flex: 1, minWidth: 0 },
   side: { display: "flex", alignItems: "center", gap: 14, flexShrink: 0 },
-  pill: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    letterSpacing: "0.03em",
-    padding: "3px 9px",
-    borderRadius: 11,
-    border: "1px solid",
-    whiteSpace: "nowrap"
-  },
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "right", minWidth: 70 },
   empty: { padding: "22px 18px", textAlign: "center", fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
@@ -102,16 +93,16 @@ function slugHue(slug) {
 function phaseTone(t, phase) {
   switch (phase) {
     case "succeeded":
-      return { bg: t.goodSoft, border: t.good, fg: t.good, label: "succeeded" };
+      return { bg: t.goodSoft, border: t.good, fg: t.good, label: "succeeded", status: "ok" };
     case "failed":
-      return { bg: t.badSoft, border: t.bad, fg: t.bad, label: "failed" };
+      return { bg: t.badSoft, border: t.bad, fg: t.bad, label: "failed", status: "bad" };
     case "running":
-      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: "running" };
+      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: "running", status: "warn" };
     case "cancelled":
-      return { bg: t.panelAlt, border: t.line, fg: t.textLo, label: "cancelled" };
+      return { bg: t.panelAlt, border: t.line, fg: t.textLo, label: "cancelled", status: "neutral" };
     case "pending":
     default:
-      return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: "pending" };
+      return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: "pending", status: "neutral" };
   }
 }
 function miniDotColor(t, phase) {
@@ -370,7 +361,7 @@ function PipelineRunList({
                     children: cancelling ? "Canceling\u2026" : "Cancel"
                   }
                 ),
-                /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg }, children: tone.label }),
+                /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, children: tone.label }),
                 /* @__PURE__ */ jsx("span", { className: classes.when, children: durationLabel }),
                 /* @__PURE__ */ jsx("span", { className: classes.when, title: run.startTime ? formatDateTime(run.startTime) : void 0, children: run.startTime ? relativeTime(run.startTime) : "\u2014" })
               ] })

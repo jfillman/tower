@@ -4,7 +4,7 @@ import { useHangarTokens } from '../../../brand/tokens.esm.js';
 import { deployFrequencyBand, leadTimeBand, changeFailureBand, restoreBand } from '../../../fleet/dora.esm.js';
 import { PIPELINE_CATEGORIES, CATEGORY_LABEL } from '../../../fleet/pipelineHistory.esm.js';
 import { fmtAge, fmtSeconds, bandColor, severityColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
-import { FilterGroup, FilterChip } from '../../../ui/index.esm.js';
+import { FilterGroup, FilterChip, StatusChip } from '../../../ui/index.esm.js';
 
 function useKit() {
   const t = useHangarTokens();
@@ -237,11 +237,12 @@ const KIND_LABEL = {
   cloud: "cloud deploy",
   rollout: "rollout"
 };
-function toneColors(t, tone) {
-  if (tone === "bad") return { color: t.bad, backgroundColor: t.badSoft };
-  if (tone === "paused") return { color: t.amberInk, backgroundColor: t.amberSoft };
-  return { color: t.sky, backgroundColor: t.skySoft };
+function deployTone(tone) {
+  if (tone === "bad") return "bad";
+  if (tone === "paused") return "warn";
+  return "info";
 }
+const BAND_TONE = { good: "ok", fair: "warn", poor: "bad", neutral: "neutral" };
 function DeploymentsPanel({
   items,
   approvals,
@@ -283,7 +284,7 @@ function DeploymentsPanel({
               d.progress.total
             ] })
           ] }),
-          /* @__PURE__ */ jsx("span", { className: c.stateChip, style: toneColors(t, d.tone), children: d.state }),
+          /* @__PURE__ */ jsx(StatusChip, { tone: deployTone(d.tone), children: d.state }),
           d.startedAt && /* @__PURE__ */ jsx("span", { className: c.age, children: fmtAge(now, d.startedAt) }),
           /* @__PURE__ */ jsx(Links, { links: d.links })
         ] })
@@ -367,14 +368,7 @@ function DoraTile({
       unit && /* @__PURE__ */ jsx("span", { className: c.doraUnit, children: unit })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: c.doraFoot, children: [
-      BAND_LABEL[band] && /* @__PURE__ */ jsx(
-        "span",
-        {
-          className: c.stateChip,
-          style: { color: bandColor(t, band), border: `1px solid ${bandColor(t, band)}` },
-          children: BAND_LABEL[band]
-        }
-      ),
+      BAND_LABEL[band] && /* @__PURE__ */ jsx(StatusChip, { tone: BAND_TONE[band], children: BAND_LABEL[band] }),
       trend,
       spark,
       note && /* @__PURE__ */ jsx("span", { className: c.mono, children: note })

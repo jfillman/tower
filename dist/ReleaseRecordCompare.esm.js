@@ -6,7 +6,7 @@ import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { TextLink } from './ui/index.esm.js';
+import { TextLink, StatusChip } from './ui/index.esm.js';
 
 function leadTimeMs(record) {
   const promo = [...record.promotionChain].reverse().find((p) => p.mergedAt);
@@ -44,19 +44,6 @@ const useStyles = makeStyles(() => ({
   colLeft: { borderRight: ({ t }) => `1px solid ${t.line}`, "@media (max-width: 760px)": { borderRight: "none", borderBottom: ({ t }) => `1px solid ${t.line}` } },
   colHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 14 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
-  pill: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: "0.03em",
-    padding: "4px 10px",
-    borderRadius: 99,
-    whiteSpace: "nowrap"
-  },
-  pillDot: { width: 6, height: 6, borderRadius: "50%" },
   kv: { display: "flex", flexDirection: "column", gap: 8 },
   kvRow: { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5 },
   kvK: { color: ({ t }) => t.textFaint },
@@ -115,10 +102,7 @@ function RecordColumn({
         record.version ?? record.imageTag,
         record.nickname && /* @__PURE__ */ jsx("span", { style: { marginLeft: 8 }, children: /* @__PURE__ */ jsx(NicknameChip, { nickname: record.nickname }) })
       ] }),
-      /* @__PURE__ */ jsxs("span", { className: classes.pill, style: { backgroundColor: pill.bg, borderColor: pill.border, color: pill.fg }, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.pillDot, style: { backgroundColor: pill.fg } }),
-        pill.label
-      ] })
+      /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
@@ -159,8 +143,8 @@ function ReleaseRecordCompare({
   const leadDelta = leftLead !== void 0 && rightLead !== void 0 ? rightLead - leftLead : void 0;
   const ratioDelta = leftRatio !== void 0 && rightRatio !== void 0 ? rightRatio - leftRatio : void 0;
   const confidenceDelta = right.confidence - left.confidence;
-  const leftPill = { label: "BASELINE", bg: t.panelAlt, border: t.line, fg: t.textLo };
-  const rightPill = statusPill(t, right);
+  const leftPill = { label: "baseline", tone: "neutral" };
+  const rightPill = statusPill(right);
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to record" }),
     /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Compare releases" }),

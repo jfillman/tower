@@ -11,7 +11,7 @@ import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { FlightPins } from './cloud/FlightPins.esm.js';
-import { PageHeader, Chip } from '../ui/index.esm.js';
+import { PageHeader, Chip, StatusChip } from '../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { paddingBottom: 40 },
@@ -55,11 +55,6 @@ const useStyles = makeStyles(() => ({
   },
   td: { padding: "9px 10px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
-  pill: { fontFamily: fontMono, fontSize: 11, padding: "2px 8px", borderRadius: 10, whiteSpace: "nowrap" },
-  good: { background: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  bad: { background: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  run: { background: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  idle: { background: ({ t }) => t.panelAlt, color: ({ t }) => t.textLo },
   empty: { padding: "36px 8px", color: ({ t }) => t.textLo, fontSize: 14, lineHeight: 1.6 },
   linkBtn: {
     background: "none",
@@ -105,11 +100,11 @@ function CloudDeploymentsTab() {
     return next;
   });
   const pill = (d) => {
-    let tone = classes.idle;
-    if (d.phase === "succeeded") tone = classes.good;
-    else if (d.phase === "failed") tone = classes.bad;
-    else if (d.phase === "running" || d.phase === "pending") tone = classes.run;
-    return /* @__PURE__ */ jsx("span", { className: `${classes.pill} ${tone}`, children: PHASE_LABEL[d.phase] ?? d.phase });
+    let tone = "neutral";
+    if (d.phase === "succeeded") tone = "ok";
+    else if (d.phase === "failed") tone = "bad";
+    else if (d.phase === "running" || d.phase === "pending") tone = "warn";
+    return /* @__PURE__ */ jsx(StatusChip, { tone, children: PHASE_LABEL[d.phase] ?? d.phase });
   };
   if (loading && runs.length === 0) return /* @__PURE__ */ jsx(Progress, {});
   if (error && runs.length === 0) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });

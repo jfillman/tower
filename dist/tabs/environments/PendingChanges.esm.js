@@ -30,7 +30,7 @@ function PendingChanges({
   const c = useStyles({ t });
   const ui = useUi({ t });
   const several = flightAdds.length > 0;
-  const files = ["cicd.yaml", ...deleteFiles.length > 0 ? ["environment values files deleted where they exist"] : []];
+  const files = ["cicd.yaml", ...deleteFiles.length > 0 ? ["environment files deleted where they exist"] : []];
   return /* @__PURE__ */ jsx(
     PendingPanel,
     {

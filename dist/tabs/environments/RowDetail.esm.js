@@ -288,9 +288,15 @@ function Danger({ row, ctx, removed }) {
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(Button, { onClick: () => ctx.onUndoRemove(row.name), children: "Undo removal" }) })
     ] });
   }
-  if (def.tier === "ground") {
+  if (def.tier === "ground" || ctx.cloudBlock) {
+    let note = `Removes ${row.name} from cicd.yaml and deletes its values files in the same pull request. Argo CD then deletes everything running in it.`;
+    if (ctx.cloudBlock && def.tier === "flight") {
+      note = `Removes ${row.name} from cicd.yaml and, in the same pull request, deletes its release pin (glidepath/releases/${row.name}.yaml) and its promote flow, so merging it starts no deploy. The ${ctx.targetLabel} resource it deployed to is not deleted.`;
+    } else if (ctx.cloudBlock) {
+      note = `Removes ${row.name} from cicd.yaml. The ${ctx.targetLabel} resource it deployed to is not deleted.`;
+    }
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx("div", { className: ui.note, children: ctx.cloudBlock ? `Removes ${row.name} from cicd.yaml. The ${ctx.targetLabel} resource it deployed to is not deleted.` : `Removes ${row.name} from cicd.yaml and deletes its values files in the same pull request. Argo CD then deletes everything running in it.` }),
+      /* @__PURE__ */ jsx("div", { className: ui.note, children: note }),
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs(Button, { variant: "danger", onClick: () => ctx.onRemove(row.name), children: [
         "Remove ",
         row.name,

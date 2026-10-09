@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { parseGitopsPrTitle } from './useReleaseContext.esm.js';
+import { StatusChip } from './ui/index.esm.js';
 
 const TITLE_TRUNCATE = 40;
 const useStyles = makeStyles(() => ({
@@ -30,9 +31,7 @@ const useStyles = makeStyles(() => ({
     flexShrink: 0
   },
   title: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  draft: { color: ({ t }) => t.textFaint, flexShrink: 0 },
-  ciDot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 },
-  reviewTag: { flexShrink: 0 }
+  ciDot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 }
 }));
 const CI_DOT_COLOR = {
   success: "good",
@@ -73,15 +72,8 @@ function PrButton({
             target ? ` \u2192 ${target}` : ""
           ] })
         ] }),
-        pr.draft && /* @__PURE__ */ jsx("span", { className: classes.draft, children: "draft" }),
-        !merged && pr.review && pr.review.state !== "pending" && /* @__PURE__ */ jsx(
-          "span",
-          {
-            className: classes.reviewTag,
-            style: { color: pr.review.state === "approved" ? t.good : t.bad },
-            children: pr.review.state === "approved" ? "approved" : "changes requested"
-          }
-        ),
+        pr.draft && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "draft" }),
+        !merged && pr.review && pr.review.state !== "pending" && /* @__PURE__ */ jsx(StatusChip, { tone: pr.review.state === "approved" ? "ok" : "bad", children: pr.review.state === "approved" ? "approved" : "changes requested" }),
         !merged && pr.ci && /* @__PURE__ */ jsx(
           "span",
           {

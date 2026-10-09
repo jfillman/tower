@@ -12,7 +12,7 @@ import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { PodLogsView } from '../../PodLogsView.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
-import { Button, TextLink } from '../../ui/index.esm.js';
+import { StatusChip, Button, TextLink } from '../../ui/index.esm.js';
 
 const TIER2_ACTIONS = ["Promote", "Promote full", "Pause", "Resume", "Retry", "Restart", "Abort"];
 const PR_BODY_TRUNCATE = 700;
@@ -34,10 +34,7 @@ const useStyles = makeStyles(() => ({
     "&:hover": { textDecoration: "underline" }
   },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
-  chip: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 12, alignSelf: "flex-start" },
-  chipOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  chipBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
-  chipAmber: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
+  chipPos: { alignSelf: "flex-start" },
   "@keyframes livePulse": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0.5 } },
   // Amber + pulsing while the canary is live (2026-09-23 feedback).
   resourceList: { display: "flex", flexDirection: "column", gap: 5, marginTop: 2 },
@@ -136,7 +133,7 @@ function MergedBody({
         ] })
       ] }),
       gateCi && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs("span", { className: `${classes.chip} ${gateCi.state === "success" ? classes.chipOk : classes.chipAmber}`, children: [
+        /* @__PURE__ */ jsxs(StatusChip, { tone: gateCi.state === "success" ? "ok" : "warn", className: classes.chipPos, children: [
           gateCi.passedChecks,
           "/",
           gateCi.totalChecks,
@@ -156,13 +153,13 @@ function MergedBody({
         delivery.pr.title
       ] }),
       /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" }, children: [
-        gateCi && /* @__PURE__ */ jsxs("span", { className: `${classes.chip} ${gateCi.state === "success" ? classes.chipOk : classes.chipAmber}`, children: [
+        gateCi && /* @__PURE__ */ jsxs(StatusChip, { tone: gateCi.state === "success" ? "ok" : "warn", children: [
           gateCi.passedChecks,
           "/",
           gateCi.totalChecks,
           " guardrails"
         ] }),
-        reviewLabel(delivery.pr.review) && /* @__PURE__ */ jsx("span", { className: `${classes.chip} ${delivery.pr.review?.state === "approved" ? classes.chipOk : classes.chipAmber}`, children: reviewLabel(delivery.pr.review) })
+        reviewLabel(delivery.pr.review) && /* @__PURE__ */ jsx(StatusChip, { tone: delivery.pr.review?.state === "approved" ? "ok" : "warn", children: reviewLabel(delivery.pr.review) })
       ] }),
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(
         Button,
@@ -272,7 +269,7 @@ function StageDetail({
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(SyncIcon, { fontSize: "small" }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Application sync" })
       ] }),
-      step?.status === "bad" && /* @__PURE__ */ jsx("span", { className: `${classes.chip} ${classes.chipBad}`, children: "sync operation failed" }),
+      step?.status === "bad" && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", className: classes.chipPos, children: "sync operation failed" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.meta, children: timeText(step?.at) }),
       targetImageTag && /* @__PURE__ */ jsxs(Typography, { className: classes.meta, children: [
         "target image: ",

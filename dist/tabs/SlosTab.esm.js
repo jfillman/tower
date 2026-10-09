@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, StatusChip } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useSlos } from '../useSlos.esm.js';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery.esm.js';
@@ -55,15 +55,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.sky
   },
   headRight: { display: "flex", alignItems: "center", gap: 8 },
-  verdictChip: {
-    display: "inline-flex",
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    fontWeight: 700,
-    padding: "3px 9px",
-    borderRadius: 3,
-    border: "1px solid"
-  },
   statsRow: { display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 12 },
   stat: { minWidth: 140 },
   statLabel: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, marginBottom: 4 },
@@ -218,18 +209,7 @@ function SloCard({
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.headRight, children: [
-        meetingObjective !== void 0 && /* @__PURE__ */ jsx(
-          "span",
-          {
-            className: classes.verdictChip,
-            style: {
-              backgroundColor: verdictTone(t, meetingObjective).bg,
-              borderColor: verdictTone(t, meetingObjective).border,
-              color: verdictTone(t, meetingObjective).fg
-            },
-            children: meetingObjective ? "meeting objective" : "breaching objective"
-          }
-        ),
+        meetingObjective !== void 0 && /* @__PURE__ */ jsx(StatusChip, { tone: meetingObjective ? "ok" : "bad", children: meetingObjective ? "meeting objective" : "breaching objective" }),
         /* @__PURE__ */ jsx("span", { className: classes.chip, children: slo.indicator.type })
       ] })
     ] }),

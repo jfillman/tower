@@ -26,6 +26,8 @@ import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { RbacDetailView, RBAC_KINDS } from './RbacDetailView.esm.js';
 import { resourceKey } from '../../ResourceInspector.esm.js';
+import { StatusChip } from '../../ui/index.esm.js';
+import { argoTone } from '../../argoTone.esm.js';
 
 const KIND_ICON = {
   ConfigMap: /* @__PURE__ */ jsx(DescriptionIcon, { fontSize: "inherit" }),
@@ -97,10 +99,6 @@ const useStyles = makeStyles(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   cardBadges: { display: "flex", gap: 4, flexWrap: "wrap" },
-  badge: { fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 8 },
-  badgeOk: { backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  badgeWarn: { backgroundColor: ({ t }) => t.amberSoft, color: ({ t }) => t.amberInk },
-  badgeBad: { backgroundColor: ({ t }) => t.badSoft, color: ({ t }) => t.bad },
   detail: { marginTop: 10, padding: "10px 12px", borderRadius: 8, border: ({ t }) => `1px dashed ${t.line}`, backgroundColor: ({ t }) => t.panel },
   none: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textFaint },
   detailModeRow: { display: "flex", gap: 6, marginBottom: 10 },
@@ -118,12 +116,6 @@ const useStyles = makeStyles(() => ({
 }));
 function isRbacKind(kind) {
   return RBAC_KINDS.includes(kind);
-}
-function badgeClass(classes, status) {
-  if (status === "Healthy" || status === "Synced") return classes.badgeOk;
-  if (status === "Progressing" || status === "OutOfSync") return classes.badgeWarn;
-  if (status === "Degraded" || status === "Missing") return classes.badgeBad;
-  return classes.badgeWarn;
 }
 function ResourceGallery({ resources, argoResources }) {
   const t = useHangarTokens();
@@ -188,8 +180,8 @@ function ResourceGallery({ resources, argoResources }) {
               children: [
                 /* @__PURE__ */ jsx("span", { className: classes.cardName, title: r.name, children: r.name }),
                 argo && /* @__PURE__ */ jsxs("span", { className: classes.cardBadges, children: [
-                  argo.syncStatus && /* @__PURE__ */ jsx("span", { className: `${classes.badge} ${badgeClass(classes, argo.syncStatus)}`, children: argo.syncStatus }),
-                  argo.health && /* @__PURE__ */ jsx("span", { className: `${classes.badge} ${badgeClass(classes, argo.health)}`, children: argo.health })
+                  argo.syncStatus && /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(argo.syncStatus), children: argo.syncStatus }),
+                  argo.health && /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(argo.health), children: argo.health })
                 ] })
               ]
             },

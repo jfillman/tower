@@ -7,7 +7,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
-import { TextLink } from './ui/index.esm.js';
+import { StatusChip, healthTone, TextLink } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   deck: {
@@ -20,19 +20,6 @@ const useStyles = makeStyles(() => ({
   },
   deckInner: { padding: "14px 20px 16px" },
   envRow: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  chip: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: "4px 10px",
-    borderRadius: 100,
-    border: "1px solid",
-    cursor: "pointer"
-  },
-  dot: { width: 6, height: 6, borderRadius: "50%", flexShrink: 0 },
-  previewChip: { borderStyle: "dashed" },
   tasks: { marginTop: 14, display: "flex", flexDirection: "column", gap: 6 },
   task: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 5, flexWrap: "wrap" },
   taskIcon: {
@@ -63,20 +50,6 @@ const useStyles = makeStyles(() => ({
   statValSm: { fontSize: 14 },
   statLabel: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 }
 }));
-const STATUS_COLOR = {
-  healthy: "good",
-  progressing: "amber",
-  paused: "sky",
-  degraded: "bad",
-  unknown: "textFaint"
-};
-const STATUS_SOFT = {
-  healthy: "goodSoft",
-  progressing: "amberSoft",
-  paused: "skySoft",
-  degraded: "badSoft",
-  unknown: "panelAlt"
-};
 function toneColors(t, tone) {
   switch (tone) {
     case "bad":
@@ -221,15 +194,13 @@ function CommandDeck({
         const h = health(env);
         const stale = env.deployedAt && Date.now() - new Date(env.deployedAt).getTime() > STALE_THRESHOLD_MS;
         return /* @__PURE__ */ jsxs(
-          "button",
+          StatusChip,
           {
-            type: "button",
-            className: classes.chip,
-            style: { backgroundColor: t[STATUS_SOFT[h]], borderColor: t[STATUS_COLOR[h]], color: t[STATUS_COLOR[h]] },
+            tone: healthTone(h),
+            dot: true,
             onClick: goToEnvTopology(env.env),
             title: `View ${env.env} in Topology${stale ? ` - deployed ${relativeTime(env.deployedAt)}` : ""}`,
             children: [
-              /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR[h]] } }),
               env.env,
               env.drift && /* @__PURE__ */ jsx("span", { title: "Running a different image than the majority", children: "\u26A0" })
             ]
@@ -237,21 +208,10 @@ function CommandDeck({
           env.key
         );
       }),
-      previewCount > 0 && /* @__PURE__ */ jsxs(
-        "button",
-        {
-          type: "button",
-          className: `${classes.chip} ${classes.previewChip}`,
-          style: { backgroundColor: t.skySoft, borderColor: t.skyLine, color: t.sky },
-          onClick: () => onSelectTab("preview"),
-          title: "View preview environments",
-          children: [
-            /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t.sky } }),
-            previewCount,
-            " preview"
-          ]
-        }
-      )
+      previewCount > 0 && /* @__PURE__ */ jsxs(StatusChip, { tone: "info", dot: true, onClick: () => onSelectTab("preview"), title: "View preview environments", children: [
+        previewCount,
+        " preview"
+      ] })
     ] }),
     /* @__PURE__ */ jsx("div", { className: classes.tasks, children: tasks.map((task, i) => {
       const colors = toneColors(t, task.tone);

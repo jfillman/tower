@@ -15,7 +15,7 @@ import { confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
-import { TextLink, Button, ActionSelect } from './ui/index.esm.js';
+import { TextLink, Button, ActionSelect, StatusChip } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -156,19 +156,6 @@ const useStyles = makeStyles(() => ({
   runRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   runName: { color: ({ t }) => t.textHi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   runStage: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, flex: "none" },
-  runPill: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 10,
-    letterSpacing: "0.02em",
-    padding: "2px 7px",
-    borderRadius: 99,
-    flex: "none"
-  },
-  runPillDot: { width: 5, height: 5, borderRadius: "50%" },
   testRow: { display: "flex", gap: 8, fontSize: 12, alignItems: "baseline" },
   testTask: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 10.5, flex: "none" },
   testResult: { color: ({ t }) => t.textHi, flex: 1, overflowWrap: "anywhere" },
@@ -458,14 +445,7 @@ function ReleaseRecordDetail({
       /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
         /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadHappened}`, children: [
           /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What happened" }),
-          /* @__PURE__ */ jsx(
-            "span",
-            {
-              className: classes.chip,
-              style: record.incidents.length === 0 ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
-              children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents`
-            }
-          )
+          /* @__PURE__ */ jsx(StatusChip, { tone: record.incidents.length === 0 ? "ok" : "bad", children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents` })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
           record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
@@ -494,14 +474,7 @@ function ReleaseRecordDetail({
     /* @__PURE__ */ jsxs("div", { className: classes.col, children: [
       /* @__PURE__ */ jsxs("div", { className: `${classes.colHead} ${classes.colHeadBuilt}`, children: [
         /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "What was built" }),
-        /* @__PURE__ */ jsx(
-          "span",
-          {
-            className: classes.chip,
-            style: verified ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : void 0,
-            children: verified ? "verified" : "unverified"
-          }
-        )
+        /* @__PURE__ */ jsx(StatusChip, { tone: verified ? "ok" : "neutral", children: verified ? "verified" : "unverified" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.builtBody, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.builtSummary, children: [
@@ -522,10 +495,7 @@ function ReleaseRecordDetail({
               return /* @__PURE__ */ jsxs("div", { className: classes.runRow, children: [
                 run.pipelineName && /* @__PURE__ */ jsx("span", { className: classes.runStage, children: run.pipelineName }),
                 /* @__PURE__ */ jsx("span", { className: classes.runName, children: run.name }),
-                /* @__PURE__ */ jsxs("span", { className: classes.runPill, style: { backgroundColor: tone.bg, borderColor: tone.border, color: tone.fg, border: "1px solid" }, children: [
-                  /* @__PURE__ */ jsx("span", { className: classes.runPillDot, style: { backgroundColor: tone.fg } }),
-                  tone.label
-                ] })
+                /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, dot: true, children: tone.label })
               ] }, run.name);
             }) })
           ] }),
@@ -534,14 +504,7 @@ function ReleaseRecordDetail({
             record.securityScans.map((scan) => /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, children: [
               /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [
                 /* @__PURE__ */ jsx("span", { className: classes.scanName, children: scan.scanner.replace("-", " ") }),
-                scan.outcome && /* @__PURE__ */ jsx(
-                  "span",
-                  {
-                    className: classes.chip,
-                    style: scan.outcome === "passed" ? { color: t.good, borderColor: t.good, backgroundColor: t.goodSoft } : { color: t.bad, borderColor: t.bad, backgroundColor: t.badSoft },
-                    children: scan.outcome
-                  }
-                )
+                scan.outcome && /* @__PURE__ */ jsx(StatusChip, { tone: scan.outcome === "passed" ? "ok" : "bad", children: scan.outcome })
               ] }),
               scan.findingsSummary && /* @__PURE__ */ jsx("div", { className: classes.scanFindings, children: scan.findingsSummary })
             ] }, scan.scanner)),

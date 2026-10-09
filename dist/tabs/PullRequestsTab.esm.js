@@ -9,7 +9,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format.esm.js';
 import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
 import { parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, StatusChip } from '../ui/index.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -171,7 +171,7 @@ function PrTable({
             ] }),
             /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
               variant === "gitops" ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title,
-              pr.draft && /* @__PURE__ */ jsx("span", { className: classes.draftChip, children: "draft" }),
+              pr.draft && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "draft" }),
               showPreviewChip && hasPreviewLabel(pr) && /* @__PURE__ */ jsx("span", { className: classes.draftChip, children: "preview" })
             ] }),
             /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),

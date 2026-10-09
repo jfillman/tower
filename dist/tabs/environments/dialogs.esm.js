@@ -181,7 +181,13 @@ function RemoveEnvironmentDialog({
         "Staging this removes ",
         name,
         " from cicd.yaml. Nothing happens until you open the pull request and merge it.",
-        cloud ? /* @__PURE__ */ jsx("div", { className: c.note, children: "The cloud resource this environment deployed to is not deleted. Remove it in your cloud account." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+        cloud ? /* @__PURE__ */ jsxs(Fragment, { children: [
+          files.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsx("div", { className: c.note, children: "The same pull request deletes its release pin and promote flow, so merging it starts no deploy:" }),
+            /* @__PURE__ */ jsx("ul", { className: c.mono, children: files.map((f) => /* @__PURE__ */ jsx("li", { children: f }, f)) })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: c.note, children: "The cloud resource this environment deployed to is not deleted. Remove it in your cloud account." })
+        ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
           /* @__PURE__ */ jsx("div", { className: c.note, children: "The same pull request deletes, where they exist:" }),
           /* @__PURE__ */ jsx("ul", { className: c.mono, children: files.map((f) => /* @__PURE__ */ jsx("li", { children: f }, f)) }),
           /* @__PURE__ */ jsxs("div", { className: c.note, children: [

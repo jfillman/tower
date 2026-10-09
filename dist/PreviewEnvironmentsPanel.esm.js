@@ -6,6 +6,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { health, previewPrNumber, imageTag } from './types.esm.js';
+import { StatusChip, healthTone } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: "hidden" },
@@ -25,8 +26,7 @@ const useStyles = makeStyles(() => ({
   nameStale: { color: ({ t }) => t.textFaint },
   meta: { fontSize: 11.5, color: ({ t }) => t.textFaint },
   facts: { marginTop: 8, fontSize: 11.5, color: ({ t }) => t.textLo },
-  pill: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, padding: "2px 9px", borderRadius: 100, marginLeft: "auto" },
-  dot: { width: 6, height: 6, borderRadius: "50%" }
+  pillPos: { marginLeft: "auto" }
 }));
 const STALE_MS = 5 * 24 * 60 * 60 * 1e3;
 function PreviewEnvironmentsPanel({
@@ -66,17 +66,7 @@ function PreviewEnvironmentsPanel({
             " \xB7 ",
             imageTag(env.image)
           ] }),
-          /* @__PURE__ */ jsxs(
-            "span",
-            {
-              className: classes.pill,
-              style: { backgroundColor: t.panel, color: h === "degraded" ? t.bad : t.good },
-              children: [
-                /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: h === "degraded" ? t.bad : t.good } }),
-                h
-              ]
-            }
-          )
+          /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(h), dot: true, className: classes.pillPos, children: h })
         ] }),
         pr && /* @__PURE__ */ jsx("div", { style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(PrButton, { pr }) }),
         /* @__PURE__ */ jsxs(Typography, { className: classes.facts, children: [

@@ -15,7 +15,7 @@ import { slugHue } from '../PipelineRunList.esm.js';
 import { RecentActivityPanel } from '../RecentActivityPanel.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, healthColor, StatusChip, healthTone } from '../ui/index.esm.js';
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
 
@@ -245,16 +245,7 @@ const useStyles = makeStyles(() => ({
   // own pass for the fuller rationale.
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, textTransform: "lowercase", color: ({ t }) => t.textHi },
   dot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
-  pill: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    fontSize: 11,
-    fontWeight: 600,
-    padding: "2px 8px",
-    borderRadius: 100,
-    marginBottom: 10
-  },
+  healthChip: { alignSelf: "flex-start", marginBottom: 10 },
   flowRow: { marginBottom: 12 },
   pendingPr: { marginBottom: 12 },
   pendingPrLabel: {
@@ -369,20 +360,6 @@ const useStyles = makeStyles(() => ({
   notifText: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
   notifLink: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky }
 }));
-const STATUS_COLOR = {
-  healthy: "good",
-  progressing: "amber",
-  paused: "sky",
-  degraded: "bad",
-  unknown: "textFaint"
-};
-const STATUS_SOFT = {
-  healthy: "goodSoft",
-  progressing: "amberSoft",
-  paused: "skySoft",
-  degraded: "badSoft",
-  unknown: "panelAlt"
-};
 function trackRows(envs, gridWidth) {
   if (gridWidth <= 0) return [envs];
   const perRow = Math.max(1, Math.floor((gridWidth + TRACK_GAP) / (TRACK_CARD_W + TRACK_GAP)));
@@ -478,17 +455,7 @@ function OverviewTab() {
           className: `${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ""} ${!opts?.skipImage && hasRail ? classes.cardBelowRail : ""}`,
           children: [
             /* @__PURE__ */ jsx("div", { className: classes.cardHead, children: /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }) }),
-            /* @__PURE__ */ jsxs(
-              "span",
-              {
-                className: classes.pill,
-                style: { backgroundColor: t[STATUS_SOFT.unknown], color: t[STATUS_COLOR.unknown] },
-                children: [
-                  /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR.unknown] } }),
-                  "Not yet deployed"
-                ]
-              }
-            ),
+            /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", dot: true, className: classes.healthChip, children: "Not yet deployed" }),
             /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { borderBottom: "none" }, children: [
               /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster" }),
               /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cluster || "\u2014" })
@@ -509,17 +476,7 @@ function OverviewTab() {
         /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }),
         isPreviewEnvName(env.env) && /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview \xB7 own build" })
       ] }),
-      /* @__PURE__ */ jsxs(
-        "span",
-        {
-          className: classes.pill,
-          style: { backgroundColor: t[STATUS_SOFT[h]], color: t[STATUS_COLOR[h]] },
-          children: [
-            /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR[h]] } }),
-            HEALTH_LABEL[h]
-          ]
-        }
-      ),
+      /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(h), dot: true, className: classes.healthChip, children: HEALTH_LABEL[h] }),
       /* @__PURE__ */ jsx("div", { className: classes.flowRow, children: /* @__PURE__ */ jsx(MiniFlow, { stages: scStages }) }),
       pendingPr && /* @__PURE__ */ jsxs("div", { className: classes.pendingPr, children: [
         /* @__PURE__ */ jsx("span", { className: classes.pendingPrLabel, children: "Promotion pending" }),
@@ -714,7 +671,7 @@ function OverviewTab() {
               onClick: () => togglePreview(env.key),
               "aria-expanded": isOpen,
               children: [
-                /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR[h]] } }),
+                /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: healthColor(h, t) } }),
                 env.env,
                 /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview" }),
                 isOpen ? /* @__PURE__ */ jsx(ExpandLessIcon, { style: { fontSize: 16 } }) : /* @__PURE__ */ jsx(ExpandMoreIcon, { style: { fontSize: 16 } })

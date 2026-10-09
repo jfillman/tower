@@ -12,22 +12,8 @@ import { buildTopoStages, TopoDag } from './tabs/topology/TopoDag.esm.js';
 import { TopologyStageDetail } from './tabs/topology/StageDetail.esm.js';
 import { ResourceGallery } from './tabs/topology/ResourceGallery.esm.js';
 import { health, ENV_TIER_LABEL } from './types.esm.js';
-import { FilterGroup, FilterChip } from './ui/index.esm.js';
+import { StatusChip, healthTone, FilterGroup, FilterChip } from './ui/index.esm.js';
 
-const STATUS_COLOR = {
-  healthy: "good",
-  progressing: "amber",
-  paused: "sky",
-  degraded: "bad",
-  unknown: "textFaint"
-};
-const STATUS_SOFT = {
-  healthy: "goodSoft",
-  progressing: "amberSoft",
-  paused: "skySoft",
-  degraded: "badSoft",
-  unknown: "panelAlt"
-};
 const HEALTH_LABEL = {
   healthy: "Healthy",
   progressing: "Scaling",
@@ -56,8 +42,6 @@ const useStyles = makeStyles(() => ({
   tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 8px", borderRadius: 3, display: "inline-flex", alignItems: "center" },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   routeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, textDecoration: "none", "&:hover": { textDecoration: "underline" } },
-  pill: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 100 },
-  dot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
   dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: "flex", flexDirection: "column" },
   dagInner: { padding: "10px 12px 4px" },
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
@@ -110,10 +94,7 @@ function EnvironmentTopology({ env, tier }) {
           /* @__PURE__ */ jsx(OpenInNewIcon, { style: { fontSize: 12 } })
         ] })
       ] }),
-      /* @__PURE__ */ jsxs("span", { className: classes.pill, style: { backgroundColor: t[STATUS_SOFT[h]], color: t[STATUS_COLOR[h]] }, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: t[STATUS_COLOR[h]] } }),
-        HEALTH_LABEL[h]
-      ] })
+      /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(h), dot: true, children: HEALTH_LABEL[h] })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.dagCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.dagInner, children: /* @__PURE__ */ jsx(TopoDag, { stages, selectedKey: selectedStage, onSelectKey: setSelectedStage, t }) }),

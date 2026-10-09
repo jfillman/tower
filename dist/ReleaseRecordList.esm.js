@@ -6,7 +6,7 @@ import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { IconButton } from './ui/index.esm.js';
+import { StatusChip, IconButton } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 10 },
@@ -43,19 +43,6 @@ const useStyles = makeStyles(() => ({
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
-  pill: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    fontFamily: fontDisplay,
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: "0.03em",
-    padding: "4px 10px",
-    borderRadius: 99,
-    whiteSpace: "nowrap"
-  },
-  pillDot: { width: 6, height: 6, borderRadius: "50%" },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   actions: { display: "flex", alignItems: "center", gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
@@ -68,12 +55,12 @@ function confidenceColor(t, confidence) {
   if (confidence >= 50) return t.amberInk;
   return t.bad;
 }
-function statusPill(t, record) {
+function statusPill(record) {
   if (record.current) {
-    if (record.status === "degraded") return { label: "DEGRADED", bg: t.badSoft, border: t.bad, fg: t.bad };
-    return { label: "CURRENT", bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
+    if (record.status === "degraded") return { label: "degraded", tone: "bad" };
+    return { label: "current", tone: "warn" };
   }
-  return { label: "SUPERSEDED", bg: t.goodSoft, border: t.good, fg: t.good };
+  return { label: "superseded", tone: "ok" };
 }
 function ReleaseRecordList({
   records,
@@ -104,7 +91,7 @@ function ReleaseRecordList({
       ] })
     ] }),
     /* @__PURE__ */ jsx("div", { className: classes.list, children: records.map((record) => {
-      const pill = statusPill(t, record);
+      const pill = statusPill(record);
       const prAuthor = record.pullRequests[0]?.author;
       return /* @__PURE__ */ jsxs(
         "button",
@@ -131,10 +118,7 @@ function ReleaseRecordList({
                 record.status === "degraded" && record.current ? " \xB7 currently degraded" : ""
               ] })
             ] }),
-            /* @__PURE__ */ jsxs("span", { className: classes.pill, style: { backgroundColor: pill.bg, borderColor: pill.border, color: pill.fg }, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.pillDot, style: { backgroundColor: pill.fg } }),
-              pill.label
-            ] }),
+            /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),
             /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
               /* @__PURE__ */ jsx(

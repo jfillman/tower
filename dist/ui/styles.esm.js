@@ -211,6 +211,32 @@ const useControls = makeStyles(() => ({
     "&:focus-visible": { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 2 }
   }
 }));
+const useStatus = makeStyles(() => ({
+  status: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    fontFamily: fontMono,
+    fontWeight: 500,
+    fontSize: 11,
+    lineHeight: 1.3,
+    padding: "2px 9px",
+    borderRadius: 11,
+    border: "1px solid",
+    whiteSpace: "nowrap"
+  },
+  statusButton: {
+    cursor: "pointer",
+    "&:hover": { filter: "brightness(0.97)" },
+    "&:focus-visible": { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 }
+  },
+  statusDot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: "currentColor", flexShrink: 0 },
+  ok: { color: ({ t }) => t.good, backgroundColor: ({ t }) => t.goodSoft, borderColor: ({ t }) => t.good },
+  warn: { color: ({ t }) => t.amberInk, backgroundColor: ({ t }) => t.amberSoft, borderColor: ({ t }) => t.amberLine },
+  bad: { color: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft, borderColor: ({ t }) => t.bad },
+  info: { color: ({ t }) => t.sky, backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine },
+  neutral: { color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line }
+}));
 
-export { useControls, useUi };
+export { useControls, useStatus, useUi };
 //# sourceMappingURL=styles.esm.js.map

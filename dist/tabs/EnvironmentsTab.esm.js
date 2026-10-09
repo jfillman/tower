@@ -7,7 +7,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, envFilePaths, stageSetBlock, buildDeploy } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, envFilePaths, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { dump } from 'js-yaml';
 import { useEnvValuesLoader } from '../values/sources.esm.js';
@@ -125,7 +125,7 @@ function EnvironmentsTab() {
     () => [
       ...validateEnvironments(after, targetId),
       ...validateAddedFlight(before, after, targetId),
-      ...validateRemovals(before, after, pipelines)
+      ...validateRemovals(before, after, pipelines, targetId)
     ],
     [before, after, targetId, pipelines]
   );
@@ -139,8 +139,12 @@ function EnvironmentsTab() {
     [releasePlan]
   );
   const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const removalFiles = (name) => {
+    if (!cloudBlock) return envFilePaths(name);
+    return before.find((e) => e.name === name)?.tier === "flight" ? cloudFlightFilePaths(name) : [];
+  };
   const flightOrderChanged = useMemo(() => {
-    const names = (envs) => envs.filter((e) => e.tier === "flight" && before.some((b) => b.name === e.name)).map((e) => e.name);
+    const names = (envs) => envs.filter((e) => e.tier === "flight" && before.some((b) => b.name === e.name) && after.some((a) => a.name === e.name)).map((e) => e.name);
     return !same(names(before), names(after));
   }, [before, after]);
   const notes = useMemo(
@@ -569,7 +573,7 @@ function EnvironmentsTab() {
         name: removing,
         appName,
         cloud: Boolean(cloudBlock),
-        files: envFilePaths(removing),
+        files: removalFiles(removing),
         blockedBy: pipelinesNamingEnv(pipelines, removing),
         onCancel: () => setRemoving(void 0),
         onConfirm: () => stageRemove(removing)

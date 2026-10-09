@@ -11,7 +11,7 @@ import { SupplyChainChips } from './SupplyChainChips.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { gitopsPrForEnvAndImage, nicknameForImageTag, parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import { imageTag, envTierOf, previewPrNumber } from './types.esm.js';
-import { FilterChips } from './ui/index.esm.js';
+import { FilterChips, StatusChip } from './ui/index.esm.js';
 
 const LOG_ROW_CAP = 25;
 function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns) {
@@ -100,7 +100,6 @@ const useStyles = makeStyles(() => ({
     border: "1px solid",
     whiteSpace: "nowrap"
   },
-  pill: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 10.5, padding: "2px 9px", borderRadius: 11, border: "1px solid" },
   emptyRow: { padding: "18px 20px", fontSize: 12.5, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   expandRow: { padding: "2px 20px 14px" },
   expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
@@ -121,10 +120,10 @@ function ReleaseLog({
   const classes = useStyles({ t });
   const [view, setView] = useState("table");
   const [expanded, setExpanded] = useState(null);
-  const statusColors = (status) => {
-    if (status === "pending") return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
-    if (status === "spun-up") return { bg: t.skySoft, border: t.skyLine, fg: t.sky };
-    return { bg: t.goodSoft, border: t.good, fg: t.good };
+  const statusTone = (status) => {
+    if (status === "pending") return "warn";
+    if (status === "spun-up") return "info";
+    return "ok";
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
@@ -156,7 +155,7 @@ function ReleaseLog({
         /* @__PURE__ */ jsx("th", { className: classes.th, children: "Status" })
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: entries.map((entry) => {
-        const colors = statusColors(entry.status);
+        const tone = statusTone(entry.status);
         const clickable = Boolean(entry.fullImage) || Boolean(entry.pr);
         const isOpen = expanded === entry.id;
         return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -185,7 +184,7 @@ function ReleaseLog({
                 ] }),
                 /* @__PURE__ */ jsx("td", { className: classes.td, children: entry.trigger }),
                 /* @__PURE__ */ jsx("td", { className: classes.td, children: entry.duration ?? "\u2014" }),
-                /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("span", { className: classes.pill, style: { backgroundColor: colors.bg, borderColor: colors.border, color: colors.fg }, children: STATUS_LABEL[entry.status] }) })
+                /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx(StatusChip, { tone, children: STATUS_LABEL[entry.status] }) })
               ]
             }
           ),

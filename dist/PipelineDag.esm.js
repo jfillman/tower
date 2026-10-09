@@ -151,7 +151,11 @@ const usePipelineDagStyles = makeStyles(() => ({
     "0%, 100%": { opacity: 1 },
     "50%": { opacity: 0.5 }
   },
-  nodeRunning: { animation: "$pulse 1.6s ease-in-out infinite" },
+  // The node's contents pulse, never the node itself: a node is drawn over the edges, and pulsing the whole box's
+  // opacity let the edges behind it show through at mid-pulse (2026-10-09). The box stays opaque.
+  nodeRunning: { "& > *": { animation: "$pulse 1.6s ease-in-out infinite" } },
+  // Same rule for a dimmed node (the Rollout DAG's steps that do not apply): fade what is in it, not the box.
+  nodeDim: { "& > *": { opacity: 0.55 } },
   // A sibling of the node, not a child: the running node's opacity pulse would otherwise fade the card too.
   hoverCard: {
     position: "absolute",

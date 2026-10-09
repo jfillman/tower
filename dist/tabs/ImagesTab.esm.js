@@ -9,7 +9,7 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, FilterBar, FilterChips, TextLink } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips, TextLink, StatusChip } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
@@ -49,16 +49,6 @@ const useStyles = makeStyles(() => ({
   },
   metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   hintRow: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 },
-  hint: {
-    display: "inline-flex",
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "2px 8px",
-    borderRadius: 3,
-    border: "1px solid"
-  },
-  hintPresent: { borderColor: ({ t }) => t.line, color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt },
-  hintAbsent: { borderColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint, backgroundColor: "transparent" },
   expandRow: { padding: "10px 20px 14px" },
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`
@@ -267,15 +257,15 @@ function ImagePanel({
               ] })
             ] }),
             /* @__PURE__ */ jsxs("div", { className: classes.hintRow, children: [
-              /* @__PURE__ */ jsxs("span", { className: `${classes.hint} ${hasProvenanceHint ? classes.hintPresent : classes.hintAbsent}`, children: [
+              /* @__PURE__ */ jsxs(StatusChip, { tone: hasProvenanceHint ? "ok" : "neutral", children: [
                 "provenance ",
                 hasProvenanceHint ? "attached" : "not found"
               ] }),
-              /* @__PURE__ */ jsxs("span", { className: `${classes.hint} ${hasSbomHint ? classes.hintPresent : classes.hintAbsent}`, children: [
+              /* @__PURE__ */ jsxs(StatusChip, { tone: hasSbomHint ? "ok" : "neutral", children: [
                 "SBOM ",
                 hasSbomHint ? "attached" : "not found"
               ] }),
-              /* @__PURE__ */ jsxs("span", { className: `${classes.hint} ${hasSignatureHint ? classes.hintPresent : classes.hintAbsent}`, children: [
+              /* @__PURE__ */ jsxs(StatusChip, { tone: hasSignatureHint ? "ok" : "neutral", children: [
                 "signature ",
                 hasSignatureHint ? "attached" : "not found"
               ] })

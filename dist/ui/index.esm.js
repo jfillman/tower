@@ -1,8 +1,8 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
-import { useUi, useControls } from './styles.esm.js';
+import { useUi, useControls, useStatus } from './styles.esm.js';
 
 const cx = (...c) => c.filter(Boolean).join(" ");
 function useKit() {
@@ -238,6 +238,49 @@ function healthColor(h, t) {
       return t.textFaint;
   }
 }
+function healthTone(h) {
+  switch (h) {
+    case "healthy":
+      return "ok";
+    case "degraded":
+      return "bad";
+    case "progressing":
+      return "info";
+    case "paused":
+      return "warn";
+    default:
+      return "neutral";
+  }
+}
+function StatusChip({
+  tone,
+  dot,
+  title,
+  onClick,
+  className,
+  children
+}) {
+  const t = useHangarTokens();
+  const s = useStatus({ t });
+  const content = /* @__PURE__ */ jsxs(Fragment, { children: [
+    dot && /* @__PURE__ */ jsx("i", { className: s.statusDot, "aria-hidden": true }),
+    children
+  ] });
+  if (onClick) {
+    return /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        title,
+        onMouseDown: preventFocusScroll,
+        onClick,
+        className: cx(s.status, s[tone], s.statusButton, className),
+        children: content
+      }
+    );
+  }
+  return /* @__PURE__ */ jsx("span", { title, className: cx(s.status, s[tone], className), children: content });
+}
 const HEALTH_LABEL = {
   healthy: "Healthy",
   progressing: "Progressing",
@@ -265,5 +308,5 @@ function Field({
   ] });
 }
 
-export { ActionSelect, Button, Chip, ColumnLabel, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, IconButton, PageHeader, Panel, SearchField, SectionLabel, StatusDot, Subtabs, TextLink, TierChip, healthColor };
+export { ActionSelect, Button, Chip, ColumnLabel, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, IconButton, PageHeader, Panel, SearchField, SectionLabel, StatusChip, StatusDot, Subtabs, TextLink, TierChip, healthColor, healthTone };
 //# sourceMappingURL=index.esm.js.map

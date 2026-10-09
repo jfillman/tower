@@ -163,13 +163,6 @@ const useOpsStyles = makeStyles(() => ({
     whiteSpace: "nowrap",
     "&:hover": { color: ({ t }) => t.textHi, borderColor: ({ t }) => t.textFaint }
   },
-  stateChip: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    padding: "1px 7px",
-    borderRadius: 4,
-    whiteSpace: "nowrap"
-  },
   bar: {
     position: "relative",
     height: 5,

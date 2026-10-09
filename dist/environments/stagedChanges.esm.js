@@ -161,6 +161,9 @@ function describeChanges(before, after, shape) {
 function envFilePaths(env) {
   return [`${ENVS_ROOT}/envs/${env}.yaml`, `${ENVS_ROOT}/envs/${env}.release.yaml`];
 }
+function cloudFlightFilePaths(env) {
+  return [`${ENVS_ROOT}/releases/${env}.yaml`, `.tekton/flow-promote-${env}.yaml`];
+}
 function pipelinesNamingEnv(pipelines, env) {
   let entries = [];
   if (Array.isArray(pipelines)) entries = pipelines.map((p, i) => [String(p?.name ?? i), p]);
@@ -174,10 +177,11 @@ function removedEnvs(before, after) {
   const kept = new Set(after.map((e) => e.name));
   return before.filter((e) => !kept.has(e.name));
 }
-function validateRemovals(before, after, pipelines) {
+function validateRemovals(before, after, pipelines, target) {
   const problems = [];
+  const cloud = (target) !== "k8s-rollout";
   for (const e of removedEnvs(before, after)) {
-    if (e.tier === "flight") {
+    if (e.tier === "flight" && !cloud) {
       problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
     }
     for (const p of pipelinesNamingEnv(pipelines, e.name)) {
@@ -187,14 +191,23 @@ function validateRemovals(before, after, pipelines) {
   return problems;
 }
 function deleteFilesFor(before, after, target) {
-  if ((target) !== "k8s-rollout") return [];
-  return removedEnvs(before, after).filter((e) => e.tier === "ground").flatMap((e) => envFilePaths(e.name));
+  const cloud = (target) !== "k8s-rollout";
+  return removedEnvs(before, after).flatMap((e) => {
+    if (cloud) return e.tier === "flight" ? cloudFlightFilePaths(e.name) : [];
+    return e.tier === "ground" ? envFilePaths(e.name) : [];
+  });
 }
 function followUps(before, after, target, appName) {
   const out = [];
   const had = new Set(before.map((e) => e.name));
   const cloud = (target) !== "k8s-rollout";
   for (const e of removedEnvs(before, after)) {
+    if (e.tier === "flight" && cloud) {
+      out.push(
+        `The pull request also deletes ${ENVS_ROOT}/releases/${e.name}.yaml (its release pin) and .tekton/flow-promote-${e.name}.yaml, so merging it starts no deploy. The ${target} resource ${e.name} deployed to is not deleted: remove it in your cloud account. Close any open release pull request for ${e.name}.`
+      );
+      continue;
+    }
     if (e.tier !== "ground") continue;
     out.push(
       cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${ENVS_ROOT}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
@@ -304,5 +317,5 @@ function copiedEnvs(staged, after) {
   });
 }
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, planReleaseSteps, readEnvironments, releaseStepEnvs, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, cloudFlightFilePaths, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelinesNamingEnv, planReleaseSteps, readEnvironments, releaseStepEnvs, removedEnvs, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map
