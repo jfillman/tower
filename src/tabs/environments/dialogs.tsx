@@ -241,7 +241,19 @@ export function RemoveEnvironmentDialog({
             <DialogContentText component="div">
               Staging this removes {name} from cicd.yaml. Nothing happens until you open the pull request and merge it.
               {cloud ? (
-                <div className={c.note}>The cloud resource this environment deployed to is not deleted. Remove it in your cloud account.</div>
+                <>
+                  {files.length > 0 && (
+                    <>
+                      <div className={c.note}>The same pull request deletes its release pin and promote flow, so merging it starts no deploy:</div>
+                      <ul className={c.mono}>
+                        {files.map(f => (
+                          <li key={f}>{f}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  <div className={c.note}>The cloud resource this environment deployed to is not deleted. Remove it in your cloud account.</div>
+                </>
               ) : (
                 <>
                   <div className={c.note}>The same pull request deletes, where they exist:</div>

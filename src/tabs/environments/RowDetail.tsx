@@ -329,14 +329,18 @@ function Danger({ row, ctx, removed }: { row: DisplayRow & { def: EnvDef }; ctx:
       </>
     );
   }
-  if (def.tier === 'ground') {
+  // A cloud app's environment is cicd.yaml plus, for a Flight one, its release pin and promote flow: Tower removes all of
+  // it in one pull request. A Kubernetes app's Flight environment also has tenants and gitops directories: by hand, below.
+  if (def.tier === 'ground' || ctx.cloudBlock) {
+    let note = `Removes ${row.name} from cicd.yaml and deletes its values files in the same pull request. Argo CD then deletes everything running in it.`;
+    if (ctx.cloudBlock && def.tier === 'flight') {
+      note = `Removes ${row.name} from cicd.yaml and, in the same pull request, deletes its release pin (glidepath/releases/${row.name}.yaml) and its promote flow, so merging it starts no deploy. The ${ctx.targetLabel} resource it deployed to is not deleted.`;
+    } else if (ctx.cloudBlock) {
+      note = `Removes ${row.name} from cicd.yaml. The ${ctx.targetLabel} resource it deployed to is not deleted.`;
+    }
     return (
       <>
-        <div className={ui.note}>
-          {ctx.cloudBlock
-            ? `Removes ${row.name} from cicd.yaml. The ${ctx.targetLabel} resource it deployed to is not deleted.`
-            : `Removes ${row.name} from cicd.yaml and deletes its values files in the same pull request. Argo CD then deletes everything running in it.`}
-        </div>
+        <div className={ui.note}>{note}</div>
         <div>
           <Button variant="danger" onClick={() => ctx.onRemove(row.name)}>
             Remove {row.name}…
