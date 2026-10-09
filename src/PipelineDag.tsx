@@ -27,6 +27,10 @@ import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/typ
 
 export const NODE_W = 150;
 export const NODE_H = 56;
+// Hover-card height estimate (title block + one row per step) - only decides whether the card
+// opens above or below its node, see the hover-card render.
+const HOVER_CARD_BASE_PX = 36;
+const HOVER_CARD_ROW_PX = 20;
 export const COL_GAP = 90;
 export const ROW_GAP = 24;
 export const PAD = 32;
@@ -503,15 +507,32 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                         {n.sub ?? n.id} <PhaseIcon phase={n.phase} />
                       </span>
                     </button>
-                      {hoverTaskRun && hoverTaskRun.steps.length > 0 && (
+                      {hoverTaskRun && hoverTaskRun.steps.length > 0 && (() => {
+                        // Above the node by default; below it when the card would run past the
+                        // top of the canvas (2026-10-09: a debrief task has 8 steps, so its card
+                        // outgrew the room above the top row and the first rows were clipped by
+                        // the scroll container). Height estimate = title + one row per step, in
+                        // canvas pixels (the card is scaled by 1/zoom, so divide the same way).
+                        const estimatedHeight = (HOVER_CARD_BASE_PX + hoverTaskRun.steps.length * HOVER_CARD_ROW_PX) / zoom;
+                        const below = p.y - NODE_H / 2 - 8 - estimatedHeight < 0;
+                        return (
                         <div
                           className={classes.hoverCard}
-                          style={{
-                            left: p.x,
-                            top: p.y - NODE_H / 2 - 8,
-                            transform: `translate(-50%, -100%) scale(${1 / zoom})`,
-                            transformOrigin: 'bottom center',
-                          }}
+                          style={
+                            below
+                              ? {
+                                  left: p.x,
+                                  top: p.y + NODE_H / 2 + 8,
+                                  transform: `translate(-50%, 0) scale(${1 / zoom})`,
+                                  transformOrigin: 'top center',
+                                }
+                              : {
+                                  left: p.x,
+                                  top: p.y - NODE_H / 2 - 8,
+                                  transform: `translate(-50%, -100%) scale(${1 / zoom})`,
+                                  transformOrigin: 'bottom center',
+                                }
+                          }
                         >
                           <div className={classes.hoverTitle}>Steps</div>
                           {hoverTaskRun.steps.map(step => (
@@ -523,7 +544,8 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                             </div>
                           ))}
                         </div>
-                      )}
+                        );
+                      })()}
                     </Fragment>
                   );
                 })}
@@ -652,6 +674,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                     podName={openTaskRun.podName}
                     steps={openTaskRun.steps}
                     archive={run.archive ? { ...run.archive, taskRun: openTaskRun.name } : undefined}
+                    fallback={
+                      !run.archive && run.appName && openTaskRun.phase !== 'running'
+                        ? { app: run.appName, runName: run.name, taskRun: openTaskRun.name }
+                        : undefined
+                    }
                   />
                 </div>
               )}

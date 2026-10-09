@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs';
-import { useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi';
+import { useArchivedRunLookup, useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi';
 import type { TaskStepSummary } from './tekton/types';
 import { renderAnsi, type AnsiState } from './ansi';
 
@@ -67,6 +67,7 @@ export function TaskRunLogConsole({
   podName,
   steps,
   archive,
+  fallback,
 }: {
   cluster: string;
   namespace: string;
@@ -74,12 +75,28 @@ export function TaskRunLogConsole({
   steps: TaskStepSummary[];
   // An archived run's pod is gone: its logs come from Tekton Results by Log record id instead.
   archive?: { app: string; result: string; taskRun: string };
+  // A live run whose task has finished: if its pod turns out to be gone already (2026-10-09: a
+  // completed-pod sweep removed every finished pod while the runs were still on the cluster, and
+  // Tower showed "(log unavailable: pods ... not found)"), look the run up in Tekton Results by
+  // name and read the archived log instead. Results stores a finished task's log within seconds.
+  fallback?: { app: string; runName: string; taskRun: string };
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const live = useTaskRunLogs(archive ? undefined : { cluster, namespace, podName, steps });
-  const archived = useArchivedTaskRunLogs(archive ? { ...archive, steps } : undefined);
-  const { loading, blocks } = archive ? archived : live;
+  // The pod is gone when every step we tried to read failed the same way. Only then is the
+  // archive worth a round trip - a transient error on one step is not a missing pod.
+  const podGone =
+    !archive &&
+    Boolean(fallback) &&
+    !live.loading &&
+    live.blocks.length > 0 &&
+    live.blocks.filter(b => b.state !== 'waiting').every(b => Boolean(b.error) && /not found/i.test(b.error ?? ''));
+  const lookup = useArchivedRunLookup(podGone && fallback ? { app: fallback.app, runName: fallback.runName } : undefined);
+  const effectiveArchive =
+    archive ?? (podGone && fallback && lookup.archive ? { ...lookup.archive, taskRun: fallback.taskRun } : undefined);
+  const archived = useArchivedTaskRunLogs(effectiveArchive ? { ...effectiveArchive, steps } : undefined);
+  const { loading, blocks } = effectiveArchive ? archived : live;
 
   // Follows new lines to the bottom as they stream in (2026-09-12 bug:
   // "watching live CI logs doesn't keep the screen scrolled to the bottom").
@@ -94,8 +111,16 @@ export function TaskRunLogConsole({
     if (el && stuckToBottom.current) el.scrollTop = el.scrollHeight;
   }, [blocks]);
 
-  if (loading) return <Typography className={classes.note}>Loading logs&hellip;</Typography>;
-  if (archive && archived.error) return <Typography className={classes.note}>{archived.error}</Typography>;
+  if (loading || (podGone && lookup.loading)) return <Typography className={classes.note}>Loading logs&hellip;</Typography>;
+  if (effectiveArchive && archived.error) return <Typography className={classes.note}>{archived.error}</Typography>;
+  if (podGone && lookup.notFound) {
+    return (
+      <Typography className={classes.note}>
+        This task&apos;s pod is already gone and Tekton Results has not archived the run yet - its logs appear here
+        once the run finishes and is archived.
+      </Typography>
+    );
+  }
 
   return (
     <pre
