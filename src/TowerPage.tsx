@@ -29,7 +29,7 @@ import { SlosTab } from './tabs/SlosTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { useAppNotifications } from './useAppNotifications';
 import { useTektonPipelineRuns } from './tekton/useTektonPipelineRuns';
-import { useTowerEnvironments } from './useTowerEnvironments';
+import { TowerEnvironmentsProvider, useTowerEnvironments } from './useTowerEnvironments';
 import { isRolloutActive } from './types';
 
 // Order follows the real lifecycle of a change (2026-09-11 decision, see
@@ -301,15 +301,17 @@ function TowerAppShell({
 }) {
   return (
     <EntityProvider entity={entity}>
-      <TowerAppShellInner
-        entity={entity}
-        entityRef={entityRef}
-        tabParam={tabParam}
-        clearApp={clearApp}
-        selectTab={selectTab}
-        recentCount={recentCount}
-        classes={classes}
-      />
+      <TowerEnvironmentsProvider>
+        <TowerAppShellInner
+          entity={entity}
+          entityRef={entityRef}
+          tabParam={tabParam}
+          clearApp={clearApp}
+          selectTab={selectTab}
+          recentCount={recentCount}
+          classes={classes}
+        />
+      </TowerEnvironmentsProvider>
     </EntityProvider>
   );
 }

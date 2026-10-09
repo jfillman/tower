@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type {
   V1Container,
   V1Deployment,
@@ -737,88 +737,81 @@ function buildEnvironments(
   }));
 }
 
-export function useTowerEnvironments() {
+// Every custom kind in one useCustomResources call. Each call polls every 10s and
+// first re-fetches /api/kubernetes/clusters, so the 11 separate calls this used
+// to make (times two mounted copies, see TowerEnvironmentsProvider) were ~5 req/s
+// from one open Tower page, and each custom/query also costs the backend a
+// catalog by-name lookup (2026-10-09, measured from kind-prod Backstage logs).
+// The backend answers one 'customresources' entry per matcher and stamps every
+// object with its kind, so the per-kind lists are split back out by kind below.
+const CUSTOM_MATCHERS = [
+  ROLLOUT_MATCHER,
+  HTTPROUTE_MATCHER,
+  GATEWAY_MATCHER,
+  PDB_MATCHER,
+  SERVICEACCOUNT_MATCHER,
+  NETWORKPOLICY_MATCHER,
+  ENDPOINTS_MATCHER,
+  ROLE_MATCHER,
+  ROLEBINDING_MATCHER,
+  EXTERNALSECRET_MATCHER,
+  SERVICEMONITOR_MATCHER,
+];
+
+const EXTRA_KINDS = [
+  'ServiceAccount',
+  'NetworkPolicy',
+  'Endpoints',
+  'Role',
+  'RoleBinding',
+  'ExternalSecret',
+  'ServiceMonitor',
+];
+
+/** cluster name -> kind -> objects of that kind, from one multi-matcher response. */
+export function customResourcesByClusterAndKind(items: ClusterObjects[]): Map<string, Map<string, unknown[]>> {
+  const out = new Map<string, Map<string, unknown[]>>();
+  for (const item of items) {
+    const byKind = new Map<string, unknown[]>();
+    for (const response of item.resources) {
+      if (response.type !== 'customresources') continue;
+      for (const obj of response.resources as Array<{ kind?: string }>) {
+        const kind = obj.kind ?? '';
+        byKind.set(kind, [...(byKind.get(kind) ?? []), obj]);
+      }
+    }
+    out.set(item.cluster.name, byKind);
+  }
+  return out;
+}
+
+function pickKind<T>(byCluster: Map<string, Map<string, unknown[]>>, kind: string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  byCluster.forEach((byKind, cluster) => map.set(cluster, (byKind.get(kind) ?? []) as T[]));
+  return map;
+}
+
+/** The live poller. Mount it once per page through TowerEnvironmentsProvider; the fleet views call it per app. */
+export function useTowerEnvironmentsLive() {
   const { entity } = useEntity();
   const { kubernetesObjects, loading, error } = useKubernetesObjects(entity);
   const {
-    kubernetesObjects: rolloutObjects,
-    loading: rolloutsLoading,
-    error: rolloutsError,
-  } = useCustomResources(entity, [ROLLOUT_MATCHER]);
-  const {
-    kubernetesObjects: httpRouteObjects,
-    loading: httpRoutesLoading,
-  } = useCustomResources(entity, [HTTPROUTE_MATCHER]);
-  const {
-    kubernetesObjects: gatewayObjects,
-    loading: gatewaysLoading,
-  } = useCustomResources(entity, [GATEWAY_MATCHER]);
-  const {
-    kubernetesObjects: pdbObjects,
-    loading: pdbsLoading,
-  } = useCustomResources(entity, [PDB_MATCHER]);
-  // One explicit call per extra kind, not a loop - a hook call inside
-  // .map()/a loop trips the rules-of-hooks lint even over a fixed-length
-  // constant array, so each stays written out.
-  const { kubernetesObjects: serviceAccountObjects, loading: serviceAccountsLoading } = useCustomResources(entity, [
-    SERVICEACCOUNT_MATCHER,
-  ]);
-  const { kubernetesObjects: networkPolicyObjects, loading: networkPoliciesLoading } = useCustomResources(entity, [
-    NETWORKPOLICY_MATCHER,
-  ]);
-  const { kubernetesObjects: endpointsObjects, loading: endpointsLoading } = useCustomResources(entity, [
-    ENDPOINTS_MATCHER,
-  ]);
-  const { kubernetesObjects: roleObjects, loading: rolesLoading } = useCustomResources(entity, [ROLE_MATCHER]);
-  const { kubernetesObjects: roleBindingObjects, loading: roleBindingsLoading } = useCustomResources(entity, [
-    ROLEBINDING_MATCHER,
-  ]);
-  const { kubernetesObjects: externalSecretObjects, loading: externalSecretsLoading } = useCustomResources(entity, [
-    EXTERNALSECRET_MATCHER,
-  ]);
-  const { kubernetesObjects: serviceMonitorObjects, loading: serviceMonitorsLoading } = useCustomResources(entity, [
-    SERVICEMONITOR_MATCHER,
-  ]);
+    kubernetesObjects: customObjects,
+    loading: customLoading,
+    error: customError,
+  } = useCustomResources(entity, CUSTOM_MATCHERS);
 
-  const rolloutsByCluster = useMemo(() => {
-    const map = new Map<string, RolloutResource[]>();
-    (rolloutObjects?.items ?? []).forEach(item => {
-      const rollouts = (item.resources.find(r => r.type === 'customresources')?.resources ??
-        []) as RolloutResource[];
-      map.set(item.cluster.name, rollouts);
-    });
-    return map;
-  }, [rolloutObjects]);
-
-  const httpRoutesByCluster = useMemo(() => {
-    const map = new Map<string, HttpRouteResource[]>();
-    (httpRouteObjects?.items ?? []).forEach(item => {
-      const routes = (item.resources.find(r => r.type === 'customresources')?.resources ??
-        []) as HttpRouteResource[];
-      map.set(item.cluster.name, routes);
-    });
-    return map;
-  }, [httpRouteObjects]);
-
-  const gatewaysByCluster = useMemo(() => {
-    const map = new Map<string, GatewayResource[]>();
-    (gatewayObjects?.items ?? []).forEach(item => {
-      const gateways = (item.resources.find(r => r.type === 'customresources')?.resources ??
-        []) as GatewayResource[];
-      map.set(item.cluster.name, gateways);
-    });
-    return map;
-  }, [gatewayObjects]);
-
-  const pdbsByCluster = useMemo(() => {
-    const map = new Map<string, PdbResource[]>();
-    (pdbObjects?.items ?? []).forEach(item => {
-      const pdbs = (item.resources.find(r => r.type === 'customresources')?.resources ??
-        []) as PdbResource[];
-      map.set(item.cluster.name, pdbs);
-    });
-    return map;
-  }, [pdbObjects]);
+  const customByCluster = useMemo(() => customResourcesByClusterAndKind(customObjects?.items ?? []), [customObjects]);
+  const rolloutsByCluster = useMemo(() => pickKind<RolloutResource>(customByCluster, 'Rollout'), [customByCluster]);
+  const httpRoutesByCluster = useMemo(
+    () => pickKind<HttpRouteResource>(customByCluster, 'HTTPRoute'),
+    [customByCluster],
+  );
+  const gatewaysByCluster = useMemo(() => pickKind<GatewayResource>(customByCluster, 'Gateway'), [customByCluster]);
+  const pdbsByCluster = useMemo(
+    () => pickKind<PdbResource>(customByCluster, 'PodDisruptionBudget'),
+    [customByCluster],
+  );
 
   // One shared map, kind-labeled, rather than 7 more separate byCluster
   // maps threaded individually through buildEnvironments - none of these 7
@@ -827,32 +820,14 @@ export function useTowerEnvironments() {
   // to gain from keeping them apart.
   const extraKindsByCluster = useMemo(() => {
     const map = new Map<string, Array<{ kind: string; resources: NamedNamespacedResource[] }>>();
-    const add = (kind: string, objects: { items?: ClusterObjects[] } | undefined) => {
-      (objects?.items ?? []).forEach(item => {
-        const resources = (item.resources.find(r => r.type === 'customresources')?.resources ??
-          []) as NamedNamespacedResource[];
-        const existing = map.get(item.cluster.name) ?? [];
-        existing.push({ kind, resources });
-        map.set(item.cluster.name, existing);
-      });
-    };
-    add('ServiceAccount', serviceAccountObjects);
-    add('NetworkPolicy', networkPolicyObjects);
-    add('Endpoints', endpointsObjects);
-    add('Role', roleObjects);
-    add('RoleBinding', roleBindingObjects);
-    add('ExternalSecret', externalSecretObjects);
-    add('ServiceMonitor', serviceMonitorObjects);
+    customByCluster.forEach((byKind, cluster) => {
+      map.set(
+        cluster,
+        EXTRA_KINDS.map(kind => ({ kind, resources: (byKind.get(kind) ?? []) as NamedNamespacedResource[] })),
+      );
+    });
     return map;
-  }, [
-    serviceAccountObjects,
-    networkPolicyObjects,
-    endpointsObjects,
-    roleObjects,
-    roleBindingObjects,
-    externalSecretObjects,
-    serviceMonitorObjects,
-  ]);
+  }, [customByCluster]);
 
   const environments = useMemo(
     () =>
@@ -870,28 +845,37 @@ export function useTowerEnvironments() {
   // Same "only the first load blocks" fix as GlidepathPage.tsx's
   // anyLoading/hasLoadedOnce - useKubernetesObjects/useCustomResources flip
   // loading back to true on every background poll tick, not just the first.
-  const anyLoading =
-    loading ||
-    rolloutsLoading ||
-    httpRoutesLoading ||
-    gatewaysLoading ||
-    pdbsLoading ||
-    serviceAccountsLoading ||
-    networkPoliciesLoading ||
-    endpointsLoading ||
-    rolesLoading ||
-    roleBindingsLoading ||
-    externalSecretsLoading ||
-    serviceMonitorsLoading;
+  const anyLoading = loading || customLoading;
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   useEffect(() => {
     if (!anyLoading) setHasLoadedOnce(true);
   }, [anyLoading]);
 
-  return {
-    environments,
-    loading: !hasLoadedOnce && anyLoading,
-    refreshing: hasLoadedOnce && anyLoading,
-    error: error ?? rolloutsError,
-  };
+  return useMemo(
+    () => ({
+      environments,
+      loading: !hasLoadedOnce && anyLoading,
+      refreshing: hasLoadedOnce && anyLoading,
+      error: error ?? customError,
+    }),
+    [environments, hasLoadedOnce, anyLoading, error, customError],
+  );
+}
+
+export type TowerEnvironments = ReturnType<typeof useTowerEnvironmentsLive>;
+
+const TowerEnvironmentsContext = createContext<TowerEnvironments | undefined>(undefined);
+
+// TowerPage's tab bar (for its CD activity dot) and the open tab (through
+// useReleaseContext) both need the environments; each used to mount its own
+// poller, doubling every request. The provider mounts one and both read it.
+export function TowerEnvironmentsProvider({ children }: { children: ReactNode }) {
+  const value = useTowerEnvironmentsLive();
+  return createElement(TowerEnvironmentsContext.Provider, { value }, children);
+}
+
+export function useTowerEnvironments(): TowerEnvironments {
+  const value = useContext(TowerEnvironmentsContext);
+  if (!value) throw new Error('useTowerEnvironments must be used inside a TowerEnvironmentsProvider');
+  return value;
 }

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { EntityProvider } from '@backstage/plugin-catalog-react';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import type { Entity } from '@backstage/catalog-model';
-import { useTowerEnvironments } from './useTowerEnvironments';
+import { useTowerEnvironmentsLive } from './useTowerEnvironments';
 import { useArgoStatusMap } from './useReleaseData';
 import { envStageRank, type EnvironmentSummary } from './types';
 
@@ -26,7 +26,7 @@ export interface FleetApp {
   loading: boolean;
 }
 
-// useTowerEnvironments/useArgoStatusMap both resolve via useEntity(), which
+// useTowerEnvironmentsLive/useArgoStatusMap both resolve via useEntity(), which
 // only works inside an EntityProvider - today that's mounted exactly once,
 // for whichever single app TowerAppShell has selected. Aggregating across
 // every app means mounting one invisible EntityProvider-wrapped probe per
@@ -57,7 +57,7 @@ function FleetAppProbeInner({
   const appName =
     entity.metadata.annotations?.['github.com/project-slug']?.split('/')[1] ?? entity.metadata.name;
   const owner = entity.spec?.owner as string | undefined;
-  const { environments: rawEnvironments, loading } = useTowerEnvironments();
+  const { environments: rawEnvironments, loading } = useTowerEnvironmentsLive();
 
   const argoStatusRaw = useArgoStatusMap(
     rawEnvironments.map(e => e.argoAppName).filter((n): n is string => Boolean(n)),
@@ -126,8 +126,8 @@ export function useFleetEnvironments(roster: Entity[]): UseFleetEnvironmentsResu
   // check hung the whole fleet dashboard indefinitely (confirmed: both
   // layouts stuck on the loading spinner past 90s) because at least one real
   // catalog entity in this sandbox never flips its own `loading` to false -
-  // most likely one of useTowerEnvironments's 4 custom-resource watches
-  // (Rollout/HTTPRoute/Gateway/PDB) sitting on a CRD that isn't installed on
+  // most likely a custom-resource watch (then one per kind, now a single
+  // multi-kind call) sitting on a CRD that isn't installed on
   // whichever cluster that entity lives on, which this Kubernetes-plugin
   // version appears to treat as perpetually loading rather than a clean
   // empty/error result. The real cost of the simpler check below is only a
