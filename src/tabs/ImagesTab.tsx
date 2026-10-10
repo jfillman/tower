@@ -14,6 +14,7 @@ import { FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui'
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
+import { ImageCleanup } from './images/ImageCleanup';
 import { classifyGhcrVersion, parseGhcrOwnerRepo, isPreviewEnvName, type ImageVersion } from '../types';
 import type { PipelineRunSummary } from '../tekton/types';
 
@@ -139,12 +140,15 @@ export function ImagesTab() {
     (image ? parseGhcrOwnerRepo(image) : undefined) ?? (owner && appName ? { owner, repo: appName } : undefined);
 
   return (
-    <ImagesTable
-      ownerRepo={ownerRepo}
-      pipelineRuns={pipelineRuns}
-      classes={classes}
-      highlightTag={highlightTag}
-    />
+    <>
+      {owner && appName && <ImageCleanup owner={owner} appName={appName} />}
+      <ImagesTable
+        ownerRepo={ownerRepo}
+        pipelineRuns={pipelineRuns}
+        classes={classes}
+        highlightTag={highlightTag}
+      />
+    </>
   );
 }
 

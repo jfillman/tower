@@ -39,6 +39,7 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Cloud release pin (promote or roll back) | `tower.release.pin` | owners | owners | medium |
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
 | Edit a release record's human context | `tower.release-record.edit` | owners | owners | medium |
+| Delete old images (Images tab → Clean up old images) | `tower.images.prune` | owners | owners | high |
 
 - The `.flight` permissions are **grant-only**: ownership never satisfies them. Today only admins hold them.
 - An environment the server cannot place in either tier is treated as Flight, the stricter one.
@@ -105,6 +106,29 @@ target), and the outcome. A refusal is audited too.
 Severity is `medium` by default, `high` for the `.flight` permissions, rollback, force sync and Flight Rollout
 actions, and `critical` for a Flight analysis bypass.
 
+## Image pruning
+
+Images tab → **Clean up old images** deletes an app's old package versions from the registry. It covers only the
+app's own packages (`<app>`, `<app>-pr`, `<app>/cache`). Platform images (`glidepath-*`, `function-*`,
+`provider-*`, `airframe-*`, `charts/*`) are refused whatever the app is called.
+
+- **Plan first.** The plan lists every release it would delete, and the reason each other release is kept. The
+  delete runs only that plan: the backend re-plans and, if anything changed, refuses and shows the new plan.
+- **Always kept:**
+  - anything running in a pod on any cluster;
+  - anything in a ReplicaSet a Deployment or Rollout can scale back to;
+  - anything named in the app repo's `glidepath/` files or the gitops repo, on the default branch or any open PR;
+  - each environment's last five releases that reached healthy (the rollback window), and any release in flight;
+  - a PR image whose tag is an open PR's head;
+  - anything younger than 14 days, and the 10 newest builds. Build cache: the 20 newest layers and anything under
+    14 days.
+- **A release goes whole**: its index, platform images, signature, attestation and referrers, so nothing is left
+  half-deleted.
+- **The credential** is a classic token with only `read:packages` and `delete:packages` (user-owned packages accept
+  nothing narrower). It is held by the backend from Infisical, never by the browser. Without it the plan still shows
+  and Prune is disabled.
+- At most 300 versions per run, paced. The run is audited `high` and announced to everyone.
+
 ## What Tower never does
 
 - **No pod exec or shell.** Not on any environment today. A break-glass design (time-boxed, two-person approval,
@@ -127,5 +151,5 @@ Ground actions, and is refused Flight sync and force sync.
 - Release PRs to gitops repositories are on a plan without branch protection, so a break-glass merge is possible
   for anyone with write access to the repository. The PR keeps its failed checks visible.
 - Merging a release PR from Tower is not offered; merge it on GitHub.
-- Image pruning in the registry is not built. When it is, it will need its own narrowly scoped token and a guard
-  that never deletes a tag running in any environment.
+- Image pruning does not scan the cluster repositories. Platform deployments defined there, such as Backstage
+  itself, are protected by the running-pod and ReplicaSet rules, not by their git history.
