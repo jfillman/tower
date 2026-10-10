@@ -191,7 +191,7 @@ function useArgoActions() {
   const fetchApi = useApi(fetchApiRef);
   const [pending, setPending] = useState(void 0);
   const [error, setError] = useState(void 0);
-  const call = async (pendingKey, path, cluster, appName, hard) => {
+  const call = async (pendingKey, path, cluster, appName, extra = {}) => {
     setPending(pendingKey);
     setError(void 0);
     try {
@@ -199,7 +199,7 @@ function useArgoActions() {
       const res = await fetchApi.fetch(`${baseUrl}/argo/${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cluster, appName, ...hard ? { hard: true } : {} })
+        body: JSON.stringify({ cluster, appName, ...extra })
       });
       if (!res.ok) {
         const body = await res.json().catch(() => void 0);
@@ -223,9 +223,36 @@ function useArgoActions() {
     // panel, left the earlier failed attempt's message sitting forever).
     clearError: () => setError(void 0),
     refresh: (cluster, appName) => call("refresh", "refresh", cluster, appName),
-    hardRefresh: (cluster, appName) => call("hardRefresh", "refresh", cluster, appName, true),
-    sync: (cluster, appName) => call("sync", "sync", cluster, appName)
+    hardRefresh: (cluster, appName) => call("hardRefresh", "refresh", cluster, appName, { hard: true }),
+    sync: (cluster, appName) => call("sync", "sync", cluster, appName),
+    forceSync: (cluster, appName) => call("force", "sync", cluster, appName, { force: true }),
+    terminate: (cluster, appName) => call("terminate", "terminate", cluster, appName)
   };
+}
+function useArgoCapabilities(cluster, appName) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({});
+  useEffect(() => {
+    if (!cluster || !appName) return void 0;
+    let cancelled = false;
+    setState({});
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl("glidepath");
+        const res = await fetchApi.fetch(`${baseUrl}/argo/capabilities?${new URLSearchParams({ cluster, appName })}`);
+        const body = await res.json().catch(() => void 0);
+        if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
+        if (!cancelled) setState({ data: body });
+      } catch (e) {
+        if (!cancelled) setState({ error: errorMessage(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [discoveryApi, fetchApi, cluster, appName]);
+  return state;
 }
 function useArgoStatusMap(appNames, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
@@ -357,5 +384,5 @@ function useDeployHistory(repoRef, environments, refreshNonce = 0) {
   return state;
 }
 
-export { useArgoActions, useArgoStatusMap, useDeployHistory, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useRepoHead };
+export { useArgoActions, useArgoCapabilities, useArgoStatusMap, useDeployHistory, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useRepoHead };
 //# sourceMappingURL=useReleaseData.esm.js.map
