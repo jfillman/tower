@@ -316,19 +316,17 @@ export function usePromote() {
 // re-diff), it just had no frontend caller passing `hard: true` yet. Zero
 // new backend work, zero new RBAC (same `get`-only Tier 1 action as a plain
 // refresh) - purely a missing button.
+export type ArgoPending = 'refresh' | 'hardRefresh' | 'sync' | 'force' | 'terminate';
+
+// 2026-10-10: Force sync (`force: true` on /argo/sync) and Terminate (/argo/terminate) join them. Sync's prune is
+// not a choice here: the backend follows the Application's own policy.
 export function useArgoActions() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const [pending, setPending] = useState<'refresh' | 'hardRefresh' | 'sync' | undefined>(undefined);
+  const [pending, setPending] = useState<ArgoPending | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
-  const call = async (
-    pendingKey: 'refresh' | 'hardRefresh' | 'sync',
-    path: 'refresh' | 'sync',
-    cluster: string,
-    appName: string,
-    hard?: boolean,
-  ) => {
+  const call = async (pendingKey: ArgoPending, path: 'refresh' | 'sync' | 'terminate', cluster: string, appName: string, extra: Record<string, boolean> = {}) => {
     setPending(pendingKey);
     setError(undefined);
     try {
@@ -336,7 +334,7 @@ export function useArgoActions() {
       const res = await fetchApi.fetch(`${baseUrl}/argo/${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cluster, appName, ...(hard ? { hard: true } : {}) }),
+        body: JSON.stringify({ cluster, appName, ...extra }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => undefined);
@@ -361,9 +359,47 @@ export function useArgoActions() {
     // panel, left the earlier failed attempt's message sitting forever).
     clearError: () => setError(undefined),
     refresh: (cluster: string, appName: string) => call('refresh', 'refresh', cluster, appName),
-    hardRefresh: (cluster: string, appName: string) => call('hardRefresh', 'refresh', cluster, appName, true),
+    hardRefresh: (cluster: string, appName: string) => call('hardRefresh', 'refresh', cluster, appName, { hard: true }),
     sync: (cluster: string, appName: string) => call('sync', 'sync', cluster, appName),
+    forceSync: (cluster: string, appName: string) => call('force', 'sync', cluster, appName, { force: true }),
+    terminate: (cluster: string, appName: string) => call('terminate', 'terminate', cluster, appName),
   };
+}
+
+/** Which Argo CD controls this user may use on one Application (backend /argo/capabilities). */
+export interface ArgoCapabilities {
+  tier: 'ground' | 'flight';
+  autoPrune: boolean;
+  refresh: boolean;
+  sync: boolean;
+  force: boolean;
+  terminate: boolean;
+}
+
+export function useArgoCapabilities(cluster: string | undefined, appName: string | undefined) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState<{ data?: ArgoCapabilities; error?: string }>({});
+  useEffect(() => {
+    if (!cluster || !appName) return undefined;
+    let cancelled = false;
+    setState({});
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('glidepath');
+        const res = await fetchApi.fetch(`${baseUrl}/argo/capabilities?${new URLSearchParams({ cluster, appName })}`);
+        const body = await res.json().catch(() => undefined);
+        if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
+        if (!cancelled) setState({ data: body as ArgoCapabilities });
+      } catch (e) {
+        if (!cancelled) setState({ error: errorMessage(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [discoveryApi, fetchApi, cluster, appName]);
+  return state;
 }
 
 // Best-effort ArgoCD sync status, same route Glidepath's module already

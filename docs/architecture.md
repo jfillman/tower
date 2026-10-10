@@ -111,7 +111,12 @@ State management uses React Context (for release data) and custom hooks (for clu
 ### ArgoCD
 
 - Fetch Application status, sync state, last sync time
-- Trigger manual sync, force sync
+- Refresh and hard refresh; Sync, which follows the Application's own prune policy (environment Applications
+  auto-prune); Force sync, confirmed with the out-of-sync resources it replaces (Ground owners, Flight admins);
+  Terminate a running sync (owners). The backend's `/argo/capabilities` says which the user may run; the write
+  routes decide either way.
+- An environment with nothing live still has its Application (`<app>-<env>`), so these stay available after its
+  workload is turned off.
 - Application-to-namespace mapping for environment visibility
 
 ### Tekton
