@@ -21,6 +21,7 @@ import {
   imageTag,
   isPreviewEnvName,
   parseGithubUrl,
+  type ArgoApplicationSummary,
   type DeployHistoryEntry,
   type EnvironmentSummary,
   type SlsaProvenanceV02Predicate,
@@ -48,6 +49,40 @@ function undeployedEnvironment(env: string, cluster: string): EnvironmentSummary
     pods: [],
     services: [],
     resources: [],
+  };
+}
+
+/**
+ * A declared environment with nothing live in it, given its Argo CD Application (<app>-<env>) when Argo CD has one.
+ * The Application's instance is named after its cluster, which beats the cluster inferred for a placeholder.
+ */
+export function attachArgoApplication(
+  e: EnvironmentSummary,
+  appName: string | undefined,
+  argoStatusRaw: Record<string, ArgoApplicationSummary | undefined>,
+): EnvironmentSummary {
+  const argoAppName = appName ? `${appName}-${e.env}` : undefined;
+  if (!argoAppName || !argoStatusRaw[argoAppName]) return e;
+  return { ...e, cluster: argoStatusRaw[argoAppName]?.instance || e.cluster, argoAppName, ...argoFields(argoAppName, argoStatusRaw) };
+}
+
+// The Argo CD fields folded onto an EnvironmentSummary from its Application's status (useArgoStatusMap).
+function argoFields(argoAppName: string | undefined, argoStatusRaw: Record<string, ArgoApplicationSummary | undefined>) {
+  const s = argoAppName ? argoStatusRaw[argoAppName] : undefined;
+  return {
+    argoHealthStatus: s?.healthStatus,
+    argoSyncStatus: s?.syncStatus,
+    argoOperationStartedAt: s?.operationStartedAt,
+    argoOperationFinishedAt: s?.operationFinishedAt,
+    argoHealthSince: s?.healthSince,
+    argoOperationPhase: s?.operationPhase,
+    argoSource: s?.source,
+    argoSyncPolicy: s?.syncPolicy,
+    argoRevision: s?.revision,
+    argoOperationMessage: s?.operationMessage,
+    argoReconciledAt: s?.reconciledAt,
+    argoResources: s?.resources,
+    argoConditions: s?.conditions,
   };
 }
 
@@ -144,8 +179,18 @@ export function useReleaseContext() {
   // via refreshNonce for the manual refresh path) - not gated behind the
   // GitHub-rate-limit-driven "fetch once" posture the PR/provenance/image
   // hooks use, since this hits ArgoCD, not GitHub.
+  // A declared environment with nothing live in it (its workload turned off and pruned, or not deployed yet) still
+  // has its Argo CD Application, <app>-<env>, the same name the live entries derive from their Rollout. It is looked
+  // up too, so Refresh/Sync stay available there (2026-10-10: turning sky-marshall dev's workload off lost them).
+  const declaredArgoNames = useMemo(() => {
+    if (!appName) return [];
+    const live = new Set(rawEnvironments.map(e => e.env.toLowerCase()));
+    return [...(pipelineOrder.lower ?? []), ...(pipelineOrder.upper ?? [])]
+      .filter(name => !live.has(name.toLowerCase()))
+      .map(name => `${appName}-${name}`);
+  }, [appName, rawEnvironments, pipelineOrder.lower, pipelineOrder.upper]);
   const argoStatusRaw = useArgoStatusMap(
-    rawEnvironments.map(e => e.argoAppName).filter((n): n is string => Boolean(n)),
+    [...rawEnvironments.map(e => e.argoAppName).filter((n): n is string => Boolean(n)), ...declaredArgoNames],
     refreshNonce,
   );
 
@@ -230,16 +275,17 @@ export function useReleaseContext() {
     const liveNames = new Set([...rawEnvironments, ...cloud.environments].map(e => e.env.toLowerCase()));
     const fallbackCluster = rawEnvironments[0]?.cluster ?? '';
     const result: EnvironmentSummary[] = [];
+    const withArgo = (e: EnvironmentSummary) => attachArgoApplication(e, appName, argoStatusRaw);
     (pipelineOrder.lower ?? []).forEach(name => {
       if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, fallbackCluster));
+      result.push(withArgo(undeployedEnvironment(name, fallbackCluster)));
     });
     (pipelineOrder.upper ?? []).forEach(name => {
       if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
+      result.push(withArgo(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster)));
     });
     return result;
-  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
+  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters, appName, argoStatusRaw]);
 
   // THE fix: pipelineOrder.data is now actually passed through.
   const environments = useMemo(
@@ -248,19 +294,7 @@ export function useReleaseContext() {
         ...rawEnvironments.map(e => ({
           ...e,
           deployed: true,
-          argoHealthStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthStatus : undefined,
-          argoSyncStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncStatus : undefined,
-          argoOperationStartedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationStartedAt : undefined,
-          argoOperationFinishedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationFinishedAt : undefined,
-          argoHealthSince: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthSince : undefined,
-          argoOperationPhase: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationPhase : undefined,
-          argoSource: e.argoAppName ? argoStatusRaw[e.argoAppName]?.source : undefined,
-          argoSyncPolicy: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncPolicy : undefined,
-          argoRevision: e.argoAppName ? argoStatusRaw[e.argoAppName]?.revision : undefined,
-          argoOperationMessage: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationMessage : undefined,
-          argoReconciledAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.reconciledAt : undefined,
-          argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : undefined,
-          argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : undefined,
+          ...argoFields(e.argoAppName, argoStatusRaw),
         })),
         ...declaredEnvironments,
         ...cloud.environments,

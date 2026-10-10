@@ -391,6 +391,7 @@ export function useArgoStatusMap(
           );
           if (!res.ok) return;
           const instances = (await res.json()) as Array<{
+            name?: string;
             applications?: Array<{
               spec?: {
                 source?: { repoURL?: string; path?: string; targetRevision?: string };
@@ -441,11 +442,13 @@ export function useArgoStatusMap(
               };
             }>;
           }>;
-          const app = instances.flatMap(i => i.applications ?? [])[0];
+          const holder = instances.find(i => (i.applications ?? []).length > 0);
+          const app = holder?.applications?.[0];
           if (!cancelled && app) {
             setState(prev => ({
               ...prev,
               [name]: {
+                instance: holder?.name,
                 syncStatus: app.status?.sync?.status,
                 healthStatus: app.status?.health?.status,
                 operationStartedAt: app.status?.operationState?.startedAt,
