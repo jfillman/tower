@@ -62,7 +62,7 @@ const STEP_LABEL: Record<CdStepKey, string> = {
   merged: 'PR merged',
   // Renamed from "Sync triggered" (2026-09-16 feedback round 3) now that
   // this stage's own detail panel shows real ArgoCD sync activity (out-of-
-  // sync resources, the PreSync hook), not just a single "triggered" instant.
+  // sync resources), not just a single "triggered" instant.
   synced: 'Application sync',
   progressing: 'Rollout starts',
   healthy: 'Rollout completes',
@@ -171,10 +171,8 @@ function buildStepsCore(
     // stage never advances" / "checkout-api-pre-prod's rollout failed with
     // no notification and the canary workflow just stalls" - confirmed live:
     // operationPhase was still reporting 'Running' long after the Rollout
-    // itself had already gone Degraded). This is the same class of fix as
-    // hookJobFailed below (a live resource-level signal overriding a stuck
-    // operation phase), just for the Rollout's own health instead of a hook
-    // Job's.
+    // itself had already gone Degraded): a live resource-level signal
+    // overriding a stuck operation phase.
     rolloutFailed?: boolean;
     // The release PR's own aggregate GitHub Check Runs state
     // (PullRequestSummary.ci.state) - the concrete pre-merge "guardrails
@@ -209,9 +207,10 @@ function buildStepsCore(
   // operationStartedAt is accurate the moment an operation begins,
   // regardless of whether it's finished.
   const operationRunning = argo?.operationPhase === 'Running';
-  // An ArgoCD sync operation with a PostSync hook (this platform's
-  // platform-outcome-postsync Job) stays phase 'Running' until that hook
-  // finishes - and PostSync hooks only run once the app is Healthy, i.e.
+  // An ArgoCD sync operation with a PostSync hook stays phase 'Running' until
+  // that hook finishes (the platform's own platform-outcome-postsync Job did
+  // this until glidepath ADR-0021 phase 3 removed it; an app can still bring
+  // its own hook) - and PostSync hooks only run once the app is Healthy, i.e.
   // AFTER the whole canary completes. So `operationRunning` is true through
   // the entire canary, not just the apply (2026-09-23 bug: "the DAG gets
   // stuck on 'application sync'... when the sync completes and the canary
@@ -247,28 +246,10 @@ function buildStepsCore(
   // failure), but a live Rollout-level Degraded is real regardless of
   // whatever ArgoCD's own operation phase currently claims.
   const degraded = !argoStale && (rolloutFailed || (!operationRunning && healthStatus === 'Degraded'));
-  // A sync operation that's genuinely broken - either ArgoCD itself gave up
-  // on it (operationState.phase a terminal 'Error'/'Failed') OR a release-
-  // outcome hook Job (platform-outcome-presync/postsync) is sitting
-  // Degraded/Missing in the live resource tree right now. The second check
-  // is the one that actually matters in practice (2026-09-16 bug, round 2:
-  // "the 'App sync' stage is still stuck, it pulses and never sets its
-  // timestamp" - operationPhase alone wasn't enough, confirmed still
-  // reproducing after the first fix: a Kubernetes-level Job deadline
-  // failure (activeDeadlineSeconds) doesn't reliably get reflected in
-  // ArgoCD's own operationState.phase, which can sit 'Running' forever even
-  // though the hook itself will never complete). Without this, `synced`
-  // could never become true (the hook keeps failing) AND never get marked
-  // 'bad' either, leaving `gapAssigned` stuck on it as an eternal 'current'
-  // pulse with the two rollout steps behind it stuck 'pending' forever too
-  // - visually indistinguishable from a live in-progress sync. `resources`
-  // is the SAME live resource-tree entries StageDetail's own findHookJob
-  // reads - not stale: hook-delete-policy: BeforeHookCreation means a
-  // Degraded entry here reflects the MOST RECENT hook run for that
-  // resource, not a leftover from some earlier, since-resolved failure.
-  const hookJobFailed = (argo?.resources ?? []).some(
-    r => r.kind === 'Job' && r.name.includes('platform-outcome') && (r.health === 'Degraded' || r.health === 'Missing'),
-  );
+  // A sync operation that's genuinely broken: ArgoCD itself gave up on it
+  // (operationState.phase a terminal 'Error'/'Failed'). The platform's
+  // release-outcome hook Jobs, which used to fail without ArgoCD's phase
+  // saying so, were removed in glidepath ADR-0021 phase 3.
   // `rolloutFailed` included here too (not just in `degraded` above) - a
   // real Rollout failure has to actually resolve the DAG's gap at `synced`
   // (the first still-unsatisfied step while operationRunning is stuck),
@@ -277,7 +258,7 @@ function buildStepsCore(
   // unsatisfied step. Without this, a genuinely failed rollout left `synced`
   // pulsing 'current' forever instead of surfacing as the real failure it is.
   const syncOperationFailed =
-    !argoStale && (argo?.operationPhase === 'Error' || argo?.operationPhase === 'Failed' || hookJobFailed || Boolean(rolloutFailed));
+    !argoStale && (argo?.operationPhase === 'Error' || argo?.operationPhase === 'Failed' || Boolean(rolloutFailed));
 
   // `progressing` ("Rollout starts", see STEP_LABEL) fires the moment the
   // rollout genuinely begins - not gated on `healthy` the way the old

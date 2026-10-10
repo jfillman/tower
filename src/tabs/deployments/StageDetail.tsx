@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -10,11 +9,10 @@ import { relativeTime, formatDateTime } from '../../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { GateLedger, GitPrIcon, useSignalRailStyles } from '../../SignalRail';
 import { CanaryRampChart } from '../../CanaryRampChart';
-import { PodLogsView } from '../../PodLogsView';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag';
 import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
-import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary, PodSummary } from '../../types';
+import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
 import { Button, StatusChip, TextLink } from '../../ui';
 
@@ -225,84 +223,6 @@ function healthyNote(step: CdDelivery['steps'][number] | undefined): string {
   return 'Not finished yet.';
 }
 
-// This platform's release-outcome ArgoCD resource hooks (PreSync/PostSync
-// Jobs, see gitops-<app>'s own platform-outcome-presync.yaml/platform-
-// outcome-postsync.yaml - argocd.argoproj.io/hook: PreSync|PostSync,
-// reporting to the outcome-relay) - real objects ArgoCD's own resource tree
-// already carries (Argo tracks hook resources the same as any other managed
-// resource), so no new fetch, just a name match against the same
-// `argoResources` list the rest of this stage already reads (2026-09-16:
-// "there's a platform-outcome-presync job that runs... might be cool to
-// surface that as part of the App sync stage" / postsync on Rollout
-// completes). `hook-delete-policy: BeforeHookCreation` means the PREVIOUS
-// sync's hook Job survives until the NEXT sync creates a new one, not
-// forever - its absence here just means no sync has run since Tower last
-// saw one, not that anything's wrong.
-function findHookJob(resources: ArgoResourceNode[] | undefined, namePart: string): ArgoResourceNode | undefined {
-  return resources?.find(r => r.kind === 'Job' && r.name.includes(namePart));
-}
-
-// A Job's own pods are named `<job-name>-<random-suffix>` by the Job
-// controller - no label carried on ArgoCD's own resource-tree entry ties
-// them together, so this is a best-effort name-prefix match against
-// Tower's own already-fetched, namespace-wide pod list (env.pods - see
-// useTowerEnvironments.ts's own podList, which is every pod in the
-// namespace, not scoped to the main workload's selector) rather than a new
-// fetch. Undefined whenever no pod currently exists for it (hook Jobs get
-// pruned per hook-delete-policy, same as findHookJob's own comment).
-function hookPod(jobName: string, pods: PodSummary[]): PodSummary | undefined {
-  return pods.find(p => p.name.startsWith(`${jobName}-`));
-}
-
-function HookRow({
-  label,
-  job,
-  classes,
-  t,
-  env,
-}: {
-  label: string;
-  job: ArgoResourceNode | undefined;
-  classes: ReturnType<typeof useStyles>;
-  t: HangarTokens;
-  env: EnvironmentSummary;
-}) {
-  const [showLog, setShowLog] = useState(false);
-  if (!job) {
-    return <Typography className={classes.note}>{label}: no hook run recorded since Tower's last ArgoCD read.</Typography>;
-  }
-  const ok = job.health === 'Healthy' || job.syncStatus === 'Synced';
-  const pod = hookPod(job.name, env.pods);
-  return (
-    <div>
-      <div className={classes.resourceRow}>
-        <span className={classes.resourceDot} style={{ backgroundColor: ok ? t.good : t.amber }} />
-        <span className={classes.resourceKind}>{label}</span>
-        <span className={classes.resourceName}>{job.name}</span>
-        <span className={classes.resourceStatus}>{job.health ?? job.syncStatus ?? 'Unknown'}</span>
-      </div>
-      {job.message && (
-        <Typography className={classes.cellMessage ?? classes.note} style={{ padding: '2px 10px' }}>
-          {job.message}
-        </Typography>
-      )}
-      {pod && (
-        <>
-          <div style={{ margin: '4px 10px' }}>
-            <TextLink expanded={showLog} onClick={() => setShowLog(v => !v)}>
-              Job log
-            </TextLink>
-          </div>
-          {showLog && (
-            <div style={{ margin: '0 10px 6px' }}>
-              <PodLogsView cluster={env.cluster} namespace={env.namespace} podName={pod.name} containers={pod.containers} />
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
 
 export function StageDetail({
   delivery,
@@ -390,7 +310,6 @@ export function StageDetail({
     const rollout = resources.find(r => r.kind === 'Rollout');
     const outOfSync = resources.filter(r => r.syncStatus && r.syncStatus !== 'Synced');
     const rest = resources.filter(r => r !== rollout && r.syncStatus && r.syncStatus !== 'Synced');
-    const presyncJob = findHookJob(resources, 'platform-outcome-presync');
     return (
       <>
         <div className={classes.head}>
@@ -407,9 +326,6 @@ export function StageDetail({
         <Typography className={classes.meta}>{timeText(step?.at)}</Typography>
         {targetImageTag && <Typography className={classes.meta}>target image: {targetImageTag}</Typography>}
         {argoOperationMessage && <Typography className={classes.body}>{argoOperationMessage}</Typography>}
-        <div className={classes.resourceList}>
-          <HookRow label="PreSync hook" job={presyncJob} classes={classes} t={t} env={env} />
-        </div>
         {resources.length === 0 && <Typography className={classes.note}>No resource tree reported yet.</Typography>}
         {resources.length > 0 && outOfSync.length === 0 && (
           <Typography className={classes.note}>All {resources.length} managed resources synced.</Typography>
@@ -478,7 +394,6 @@ export function StageDetail({
   }
 
   // selectedKey === 'healthy'
-  const postsyncJob = findHookJob(argoResources, 'platform-outcome-postsync');
   return (
     <>
       <div className={classes.head}>
@@ -489,9 +404,6 @@ export function StageDetail({
       </div>
       <Typography className={classes.note}>{healthyNote(step)}</Typography>
       {rolloutControlsFor(env)}
-      <div className={classes.resourceList}>
-        <HookRow label="PostSync hook" job={postsyncJob} classes={classes} t={t} env={env} />
-      </div>
     </>
   );
 }
