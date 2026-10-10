@@ -8,6 +8,23 @@ Tower is a Backstage plugin that brings visibility and control to cloud-native p
 
 Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: [docs/brand/](docs/brand/README.md).
 
+## Highlights
+
+- **It tells you what is wrong, in plain language.** Each environment's Deployments view opens with one sentence:
+  *the canary failed and why*, *the image cannot be pulled*, *a container ran out of memory*, *canary in progress,
+  step 2 of 4, 50% traffic*, each with what to try first. It reads live Argo CD, Argo Rollouts, pod and event
+  signals, worst first, so a real failure is never hidden behind "in progress". See
+  [Deployments](docs/deployments.md#plain-language-troubleshooting).
+- **Every action explains itself.** A "Which one?" guide for the Argo CD actions, a one-line explanation on every
+  Rollout action, confirmations that name what will happen (Force sync lists what it will recreate), and buttons
+  you may not use say why.
+- **Safe by design.** Tower holds no Kubernetes write permissions. Changes are pull requests; Argo CD and Rollout
+  actions are delegated through one narrowly scoped Argo CD account; owners act on their own apps and Flight
+  (upper) environments need an admin for anything that bypasses review; every write is audited. See
+  [Security model](docs/security.md).
+- **Roll back without guesswork.** Abort a bad canary, then roll back to one of the environment's last five healthy
+  releases as an ordinary, gated release PR.
+
 ## Features
 
 Tabs, in the order of a change's lifecycle: Overview, Pull Requests, Pipelines, Deployments, Releases, Topology,
@@ -15,7 +32,7 @@ Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards
 
 - **Release Records**: structured release history, persisted as git commits, with compare and export
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
-- **Deployments ("Ground Control")**: pipeline DAG per environment, rollout topology, ArgoCD Refresh and Sync, Tekton Re-run and Cancel
+- **Deployments ("Ground Control")**: plain-language troubleshooting, the six-step delivery path per environment, Argo CD Refresh, Sync, Force sync and Terminate, Rollout controls (resume, pause, abort, retry, restart, promote), Roll back
 - **App Configuration and Glidepath**: edit environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images, notifications**: burn rate, live objects, artifact catalog, a time-sliced event feed
 
