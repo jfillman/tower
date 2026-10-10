@@ -1,4 +1,4 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
@@ -13,6 +13,7 @@ import { PageHeader, FilterBar, FilterChips, TextLink, StatusChip } from '../ui/
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
+import { ImageCleanup } from './images/ImageCleanup.esm.js';
 import { isPreviewEnvName, parseGhcrOwnerRepo, classifyGhcrVersion } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -79,15 +80,18 @@ function ImagesTab() {
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   const image = environments.find((e) => e.image && !isPreviewEnvName(e.env))?.image ?? environments.find((e) => e.image)?.image;
   const ownerRepo = (image ? parseGhcrOwnerRepo(image) : void 0) ?? (owner && appName ? { owner, repo: appName } : void 0);
-  return /* @__PURE__ */ jsx(
-    ImagesTable,
-    {
-      ownerRepo,
-      pipelineRuns,
-      classes,
-      highlightTag
-    }
-  );
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    owner && appName && /* @__PURE__ */ jsx(ImageCleanup, { owner, appName }),
+    /* @__PURE__ */ jsx(
+      ImagesTable,
+      {
+        ownerRepo,
+        pipelineRuns,
+        classes,
+        highlightTag
+      }
+    )
+  ] });
 }
 function hasSiblingVersion(all, imageDigest, suffix) {
   const hex = imageDigest.startsWith("sha256:") ? imageDigest.slice(7) : imageDigest;
