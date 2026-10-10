@@ -8,11 +8,14 @@ theme:
     - toc.integrate
 nav:
   - Home: index.md
+  - Deployments: deployments.md
+  - Security model: security.md
   - Installation: installation.md
   - Architecture: architecture.md
   - Components: components.md
   - Provisioning: provisioning.md
   - Environments: environments.md
   - Design system: design-system.md
-  - Patches: patches.md
+  - Cloud deploys: cloud-deploys.md
+  - Service classes: service-classes.md
   - Brand: brand/README.md
