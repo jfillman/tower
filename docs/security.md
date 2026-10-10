@@ -33,6 +33,7 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Argo CD force sync | `tower.argo.force` / `tower.argo.force.flight` | owners | **admins only** | high |
 | Terminate a running sync | `tower.argo.terminate` | owners | owners | medium |
 | Rollout: resume, pause, abort, retry, restart pods | `tower.rollout.action` | owners | owners | medium (Flight: high) |
+| Restart one pod (Topology → a pod) | `tower.pod.restart` | owners | owners, **never the last ready pod** | medium (Flight: high, announced) |
 | Rollout: promote, promote full (skip analysis) | `tower.rollout.bypass` | owners | owners, **as a bypass** | critical on Flight |
 | Promote / first deploy (opens a release PR) | `tower.release.promote` | owners | owners | medium |
 | Roll back (opens a rollback release PR) | `tower.release.rollback` | n/a | owners | high |
@@ -60,13 +61,15 @@ roles:
 | `role:readonly` | `get` (read; Refresh is a read with a refresh flag) | everything |
 | `role:tower-sync` | `sync` (also covers force sync and terminate) | app projects only |
 | `role:tower-rollout` | `action/argoproj.io/Rollout/*` | app projects only |
+| `role:tower-pod` | `delete//Pod/*`: delete a Pod, nothing else | app projects only |
 
 "App projects only" is enforced with **deny rules for the platform projects** (`default`, `idp-onboarding`). In
 Argo CD RBAC a deny overrides an allow, so this holds however app projects are named, with no list to maintain when
 an app is onboarded. It is checked with `argocd admin settings rbac can`: sync on an app environment is allowed, on
-an onboarding Application it is denied, and delete is denied everywhere.
+an onboarding Application it is denied, and deleting anything but a Pod (a Deployment, a Service, the Application) is
+denied everywhere.
 
-Tower never uses Argo CD to delete resources, roll back to an earlier Argo CD revision (that would fight automated
+Tower never uses Argo CD to delete anything but a single pod, roll back to an earlier Argo CD revision (that would fight automated
 sync and bypass the git rollback), or change an Application's spec.
 
 ## Environment Applications
@@ -133,8 +136,10 @@ app's own packages (`<app>`, `<app>-pr`, `<app>/cache`). Platform images (`glide
 
 - **No pod exec or shell.** Not on any environment today. A break-glass design (time-boxed, two-person approval,
   recorded, debug containers rather than exec, enforced by admission policy) is proposed, not built.
-- **No direct Kubernetes writes**: no scale, patch or delete of workloads from Tower. Rollout *Restart pods* covers
-  the restart case, delegated through Argo CD.
+- **No direct Kubernetes writes**: no scale, patch or delete of workloads from Tower. Restarting goes through Argo
+  CD: *Restart pods* on the Rollout (rolling), or *Restart pod* for one pod. A pod delete skips the
+  PodDisruptionBudget, so the backend counts the pod's ready siblings first: the last ready pod is refused on Flight
+  and needs an explicit "restart anyway, accepting downtime" on Ground.
 - **No direct commits to an environment's running configuration.** Every change is a PR.
 - **No standing credentials in the browser.** The browser talks only to Backstage's backend, which holds the
   Argo CD and GitHub credentials.

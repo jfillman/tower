@@ -8,6 +8,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../..
 import { PodLogsView } from '../../PodLogsView';
 import { keepAnchored, preventFocusScroll } from '../../preventFocusScroll';
 import { MetricsPanel } from './MetricsPanel';
+import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, K8sResourceRef, PodSummary } from '../../types';
 import { StatusChip } from '../../ui';
@@ -323,6 +324,7 @@ function PodDetail({
           <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
           {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
         </button>
+        <PodRestartControl env={env} podName={pod.name} buttonClass={classes.actionBtn} noteClass={classes.cardSub} badClass={classes.conditionBad} />
       </div>
 
       {panel === 'logs' && (
