@@ -74,6 +74,12 @@ admins). On a Flight environment, Promote and Promote full skip canary analysis:
 that said, audited as critical and announced to everyone like a break-glass bypass. Abort, Promote, Promote full and
 Restart pods always ask first.
 
+**Roll back** (Flight environments, under the Rollout controls): pick one of the environment's earlier images
+that ran healthy (the last five healthy releases, from the release records), give a reason, and Tower opens a
+rollback release PR through the app's own release Pipeline (glidepath ADR-0021 phase 4). On that PR the content
+checks report without blocking; integrity checks and approvals apply as always. Abort stops a bad canary now; the
+rollback is what makes git stop asking for the bad image.
+
 ### Topology
 One environment at a time (the same tiered picker as Deployments): the Kubernetes objects an environment runs and
 how they relate.
