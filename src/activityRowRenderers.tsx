@@ -67,7 +67,7 @@ export interface ActivityRowContext {
   // For the real flow-correlation nickname (e.g. "lively finch") shown next
   // to an image tag - see useReleaseContext.ts's nicknameForImageTag, the
   // same lookup the release matrix/log use. deployHistory additionally lets
-  // renderDeployingRow resolve the image tag its own PreSync CDEvent never
+  // renderDeployingRow resolve the image tag its own 'deploying' CDEvent never
   // carried (see that renderer's header) via a real sha match, rather than
   // fabricating one.
   pipelineRuns: PipelineRunSummary[];
@@ -294,7 +294,7 @@ export function renderBuildRow(
 
 // Lower-env deploy (topic 'deploy', deploy.yaml's own finally notify-backstage
 // call - direct-commit dev/test-tier promotions, distinct from 'deploying'
-// below which is the upper-env ArgoCD PreSync mid-flow signal). Missing from
+// below which is the upper-env mid-flow signal). Missing from
 // CUSTOM_ROW_RENDERERS entirely until now (2026-09-16 bug: "a deployment
 // event has lost its formatting and looks just like the notification in the
 // notification tab") - every other stage topic had its own row body, this
@@ -603,10 +603,11 @@ export function renderReleaseRow(
   );
 }
 
-// Deploying (topic 'deploying', fired from an ArgoCD PreSync hook - the
-// mid-flow signal between a release PR being opened and ArgoCD confirming an
+// Deploying (topic 'deploying', sent once the Rollout starts progressing - the
+// glidepath-relay reduces Argo Rollouts' own notifications into it since
+// glidepath ADR-0021; ArgoCD PreSync hooks sent it before that - the mid-flow signal between a release PR being opened and ArgoCD confirming an
 // outcome). The real image tag this env is deploying isn't threaded through
-// the PreSync CDEvent envelope itself (only git-revision is) - resolved
+// the 'deploying' CDEvent envelope itself (only git-revision is) - resolved
 // instead via a real correlation, not a guess: deployHistory (already
 // fetched for the Timeline/Lead-Time panels) pairs a sha with the imageTag
 // it deployed, so a match on this event's own sha gives the real tag. Falls
@@ -664,8 +665,9 @@ export function renderDeployingRow(
   );
 }
 
-// Resolved (topic 'release-outcome', ArgoCD PostSync/SyncFail - the
-// authoritative confirmed outcome). Consolidated per 2026-09-14 feedback:
+// Resolved (topic 'release-outcome', the Rollout's terminal state as the
+// glidepath-relay reduces it (ADR-0021; ArgoCD PostSync/SyncFail hooks before
+// that) - the authoritative confirmed outcome). Consolidated per 2026-09-14 feedback:
 // "don't touch/remove the older requested and deployed events from the
 // timeline... when the resolved event comes in, pull in the past events to
 // display the consolidated event." The Triggered/Deploying rows stay exactly

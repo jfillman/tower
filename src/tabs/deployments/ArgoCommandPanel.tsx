@@ -192,7 +192,7 @@ const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
   {
     name: 'Apply only',
     roadmap: true,
-    body: "Skips this app's PreSync/PostSync/SyncFail resource hooks (platform-outcome-presync/postsync included) and applies the plain manifests only. Use to get git's declared state onto the cluster without re-triggering release-outcome hooks - e.g. when the hook itself is what's broken, not the actual application resources. Effect: no release-outcome event gets reported for a sync run this way.",
+    body: "Skips any PreSync/PostSync/SyncFail resource hooks the app declares and applies the plain manifests only. Use to get git's declared state onto the cluster when a hook itself is what's broken, not the application resources. (Glidepath's own release events don't use hooks: they come from the Rollout, so they still report.)",
   },
   {
     name: 'Replace',

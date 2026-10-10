@@ -114,10 +114,11 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
 
   // Checked BEFORE the "sync is currently being applied" rule below (2026-09-23
   // bug: "the info panel doesn't always provide the current canary steps as
-  // the canary is progressing") - ArgoCD's sync operation stays phase
-  // 'Running' for the whole canary whenever a PostSync hook is waiting on
-  // the rollout to go Healthy, so that rule used to mask this one for the
-  // entire canary and the live step/weight text below never showed.
+  // the canary is progressing") - an ArgoCD sync operation stays phase
+  // 'Running' for the whole canary when the app has a PostSync hook waiting
+  // on the rollout to go Healthy, so that rule used to mask this one. The
+  // platform's own release-outcome hooks are gone (glidepath ADR-0021 phase
+  // 3), but an app can still bring its own.
   const weight = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.currentWeight : undefined;
   const stepIndex = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.currentStepIndex : undefined;
   const totalSteps = env.workload?.kind === 'Rollout' ? env.workload.canaryProgress?.steps.length : undefined;
@@ -128,7 +129,7 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
       tone: 'info',
       live: true,
       title: `Canary rollout in progress - ${stepText}${weight}% traffic`,
-      body: `The Rollout controller is mid-canary at ${weight}% traffic. ArgoCD reports Synced/Progressing${env.argoOperationPhase === 'Running' ? ' (and its sync operation stays open until the PostSync hook runs after the canary finishes)' : ''} because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`,
+      body: `The Rollout controller is mid-canary at ${weight}% traffic. ArgoCD reports Synced/Progressing because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`,
     };
   }
 
@@ -169,31 +170,6 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
       tone: 'info',
       title: "Couldn't reach ArgoCD for this environment",
       body: 'Sync/health facts elsewhere on this page may be stale rather than wrong - try Refresh, and if this persists it may be an RBAC or connectivity issue rather than a release problem.',
-    };
-  }
-
-  // A release-outcome hook (platform-outcome-presync/postsync) can fail on
-  // its OWN resource-level health while the Application's AGGREGATE sync/
-  // health still reads Synced/Healthy - e.g. a PostSync hook that hit
-  // DeadlineExceeded, superseded by a later sync that itself succeeded
-  // fully, leaving the stale failed hook Job still sitting in the resource
-  // tree (hook-delete-policy keeps it until the NEXT hook creation). Without
-  // this, that real failure was invisible everywhere: checked here BEFORE
-  // the "Synced and healthy" happy path below, so a real problem never gets
-  // masked by an otherwise-true "nothing needs attention" (2026-09-16 bug
-  // report: "the postsync hook failed with no indication... the app is
-  // synced and healthy but the deployment stages don't indicate that").
-  const failedHooks = (env.argoResources ?? []).filter(
-    r => r.kind === 'Job' && r.name.includes('platform-outcome') && (r.health === 'Degraded' || r.health === 'Missing'),
-  );
-  if (failedHooks.length > 0) {
-    const hook = failedHooks[0];
-    return {
-      tone: 'bad',
-      title: `${hook.name} failed`,
-      body:
-        hook.message ??
-        `ArgoCD reports this release-outcome hook as ${hook.health}. The Application's own aggregate sync/health can still read fine if a later sync has since succeeded - see its log in the Application sync (or Rollout completes) stage detail for what happened.`,
     };
   }
 
