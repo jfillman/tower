@@ -12,9 +12,13 @@ import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { PodLogsView } from '../../PodLogsView.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
-import { StatusChip, Button, TextLink } from '../../ui/index.esm.js';
+import { RolloutControls } from './RolloutControls.esm.js';
+import { StatusChip, TextLink, Button } from '../../ui/index.esm.js';
 
-const TIER2_ACTIONS = ["Promote", "Promote full", "Pause", "Resume", "Retry", "Restart", "Abort"];
+function rolloutControlsFor(env) {
+  if (env.workload?.kind !== "Rollout" || !env.argoAppName || !env.cluster || !env.namespace) return null;
+  return /* @__PURE__ */ jsx(RolloutControls, { cluster: env.cluster, argoAppName: env.argoAppName, namespace: env.namespace, rolloutName: env.workload.name });
+}
 const PR_BODY_TRUNCATE = 700;
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 9 },
@@ -44,10 +48,7 @@ const useStyles = makeStyles(() => ({
   resourceKind: { color: ({ t }) => t.sky, fontWeight: 600, minWidth: 80, flexShrink: 0 },
   resourceName: { color: ({ t }) => t.textHi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   resourceStatus: { color: ({ t }) => t.textFaint, flexShrink: 0 },
-  resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 },
-  rolloutActions: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10, paddingBottom: 12, borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
-  btnRow: { display: "flex", gap: 6, flexWrap: "wrap" },
-  roadmapNote: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint }
+  resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 }
 }));
 function guardrailsFallbackNote(delivery) {
   if (delivery.pr?.state === "merged") {
@@ -321,11 +322,8 @@ function StageDetail({
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(TrendingUpIcon, { fontSize: "small" }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout starts" })
       ] }),
+      rolloutControlsFor(env),
       rolloutProgress ? /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs("div", { className: classes.rolloutActions, children: [
-          /* @__PURE__ */ jsx("div", { className: classes.btnRow, children: TIER2_ACTIONS.map((label) => /* @__PURE__ */ jsx(Button, { small: true, disabled: true, children: label }, label)) }),
-          /* @__PURE__ */ jsx("span", { className: classes.roadmapNote, children: "Tier 2 \u2014 UI-ready, backend route not yet built (see HANDOFF-tower-write-actions.md)" })
-        ] }),
         /* @__PURE__ */ jsx(
           CanaryRampChart,
           {
@@ -347,6 +345,7 @@ function StageDetail({
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout completes" })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.note, children: healthyNote(step) }),
+    rolloutControlsFor(env),
     /* @__PURE__ */ jsx("div", { className: classes.resourceList, children: /* @__PURE__ */ jsx(HookRow, { label: "PostSync hook", job: postsyncJob, classes, t, env }) })
   ] });
 }
