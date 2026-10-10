@@ -61,6 +61,8 @@ export interface ImageVersion {
 }
 
 export interface ArgoApplicationSummary {
+  /** The Argo CD instance that holds the Application; instances are named after their cluster (app-config argocd:). */
+  instance?: string;
   syncStatus?: string;
   healthStatus?: string;
   // Real ArgoCD Application fields beyond the two Overview cards originally
