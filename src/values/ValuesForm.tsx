@@ -27,6 +27,7 @@ import { annotateValues, mergeValues, type ChartValues } from './annotatedValues
 import { analysisProblems, templateRefs } from './analysis';
 import { declaredComponents, matchComponentOutput, outputsOf } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
+import { workloadOn, workloadStatus, type LiveWorkload, type WorkloadView } from './workload';
 import {
   blankPeer,
   buildParentRefs,
@@ -978,7 +979,8 @@ const ADVANCED_META: Record<
 // section below rather than living in this raw passthrough (2026-09-16:
 // "how do i configure the service, especially its port?" - buried in raw
 // YAML wasn't discoverable).
-const ROLLOUT_STRATEGY_KEYS = ['strategy', 'canaryAnalysis', 'blueGreen'] as const;
+// rollbackWindow rides with the strategy keys so an edit through the form keeps it (airframe v0.3.139).
+const ROLLOUT_STRATEGY_KEYS = ['strategy', 'canaryAnalysis', 'blueGreen', 'rollbackWindow'] as const;
 const ROLLOUT_POD_KEYS = ['command', 'args', 'podSecurityContext', 'containerSecurityContext', 'extraContainers', 'podSpec'] as const;
 const ROLLOUT_RAW_KEYS: AdvancedKey[] = ['rolloutStrategy', 'rolloutPod'];
 
@@ -1224,6 +1226,7 @@ export function ConfigEditor({
   componentCatalog,
   chart,
   shared = false,
+  workload,
 }: {
   owner: string;
   appName: string;
@@ -1245,6 +1248,11 @@ export function ConfigEditor({
   componentCatalog?: ComponentDefinition[];
   /** The chart's schema and defaults (undefined when Tower could not read them). */
   chart?: ChartValues;
+  /**
+   * One environment's workload model (values/workload.ts): what its shared values give the Deployment switch when its
+   * own file says nothing, and the status beside the switch (release file, and what is actually running).
+   */
+  workload?: { view?: WorkloadView; live?: LiveWorkload };
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1256,16 +1264,13 @@ export function ConfigEditor({
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
   const [originalForm, setOriginalForm] = useState<FormState | undefined>(undefined);
-  // A `rollout: null` environment is a normal, deliberate state (2026-09-16:
-  // "someone might deploy just a job or cronjob or another XR... the config
-  // tab must allow for the toggling on/off of our deployment resource") -
-  // not something the chart itself needs a new field for (values-yaml.yaml's
-  // own composition already treats `rollout: null` as the complete "no
-  // Rollout/Service/HPA/PDB" signal). This is a UI-only toggle deciding
-  // whether buildPatchAndSummary submits the built rollout object or null -
-  // the form fields below stay in their own state regardless of this
-  // toggle's position, so switching it off and back on within the same
-  // editing session doesn't lose anything typed in.
+  // The Deployment switch is the workload shape (2026-10-10, airframe rollout.enabled): does this environment run a
+  // service at all. Off is a deliberate "only a Job/CronJob/other XR here" (2026-09-16), written as
+  // rollout.enabled: false so the rest of rollout: stays and turning it back on restores it; rollout: null (older
+  // files) also reads as off. A file that says nothing is on (the chart default) unless the shared values it
+  // inherits turn it off. Whether anything has been released is not this switch: WorkloadStatus shows that.
+  // The form fields below keep their own state whatever the switch says, so off-and-on in one session loses nothing.
+  const inheritedShape = workload?.view?.inherited ?? 'service';
   const [rolloutEnabled, setRolloutEnabled] = useState(true);
   const [originalRolloutEnabled, setOriginalRolloutEnabled] = useState(true);
   const [advanced, setAdvanced] = useState<Record<AdvancedKey, string> | undefined>(undefined);
@@ -1286,11 +1291,7 @@ export function ConfigEditor({
       setOriginalForm(builtForm);
       setAdvanced(builtAdvanced);
       setOriginalAdvanced(builtAdvanced);
-      // Helm/Sprig truthiness: `rollout: {}` is truthy (an explicit, if
-      // empty, object), only `rollout: null`/absent is falsy - matching the
-      // chart's own `{{- if .Values.rollout }}` gate exactly, not just
-      // "does asRecord give me something to read fields from".
-      const rolloutIsSet = (cfg.data.values.rollout !== undefined && cfg.data.values.rollout !== null);
+      const rolloutIsSet = workloadOn(cfg.data.values.rollout, inheritedShape);
       setRolloutEnabled(rolloutIsSet);
       setOriginalRolloutEnabled(rolloutIsSet);
       const rollout = asRecord(cfg.data.values.rollout);
@@ -1302,7 +1303,7 @@ export function ConfigEditor({
       submitCfg.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cfg.data]);
+  }, [cfg.data, inheritedShape]);
 
   const [copyNote, setCopyNote] = useState<{ text: string; bad?: boolean } | undefined>();
   // Loads another environment's values into the form as edits (the saved values are untouched until a pull request merges).
@@ -1315,7 +1316,7 @@ export function ConfigEditor({
     }
     setForm(buildFormState(values));
     setAdvanced(buildAdvancedYaml(values));
-    setRolloutEnabled(values.rollout !== undefined && values.rollout !== null);
+    setRolloutEnabled(workloadOn(values.rollout, inheritedShape));
     const rollout = asRecord(values.rollout);
     const simple = parseStepsSimple(rollout.steps);
     setStepsMode(simple ? 'simple' : 'raw');
@@ -1421,7 +1422,7 @@ export function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
-    const rolloutIsSet = (cfg.data!.values.rollout !== undefined && cfg.data!.values.rollout !== null);
+    const rolloutIsSet = workloadOn(cfg.data!.values.rollout, inheritedShape);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
     const rollout = asRecord(cfg.data!.values.rollout);
@@ -1471,14 +1472,10 @@ export function ConfigEditor({
     const summary: string[] = [];
 
     if (dirty.has('rollout') && !rolloutEnabled) {
-      // Explicit null, not an omitted key - values-yaml.yaml's own
-      // composition (and this chart generally) treats `rollout: null` as
-      // "no Rollout/Service/HPA/PDB for this env", the same state a
-      // freshly-scaffolded, nothing-deployed-yet env starts in. Turning
-      // this off is a deliberate "just a Job/CronJob/other XR here, no
-      // long-running container" choice (2026-09-16), not a reset to
-      // defaults.
-      patch.rollout = null;
+      // rollout.enabled: false, keeping whatever else this file's rollout: holds (an older rollout: null has nothing
+      // to keep). Glidepath refuses to release to an environment in this state.
+      const kept = cfg.data!.values.rollout;
+      patch.rollout = { ...(kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {}), enabled: false };
       summary.push(
         shared
           ? 'rollout: disabled in the shared values (no container in an environment that does not set its own)'
@@ -1523,18 +1520,19 @@ export function ConfigEditor({
         ...omitIfEmptyAndAbsent(origRollout, 'steps', stepsValue),
         ...omitIfEmptyAndAbsent(origRollout, 'livenessProbe', buildProbeValue(form.liveness)),
         ...omitIfEmptyAndAbsent(origRollout, 'readinessProbe', buildProbeValue(form.readiness)),
+        // Said explicitly only when the shared values turn it off and this file must turn it back on; otherwise left
+        // out (the chart default), which also drops an enabled: false this file had.
+        ...(inheritedShape === 'none' ? { enabled: true } : {}),
       };
-      // Absent and null differ: absent is "not set in this file" (the chart default, or for a shared file each
-      // environment's own), null is "no container here". Only turning null back on is "a container will now deploy".
-      const wasNull = cfg.data!.values.rollout === null;
-      if (originalRolloutEnabled || !wasNull) {
+      // Only turning an off workload back on is "a container will now deploy"; an edit to one that was on is not.
+      if (originalRolloutEnabled) {
         summary.push(
           `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? 'updated' : 'set'}${shared ? ' in the shared values' : ''}`,
         );
       } else if (shared) {
         summary.push('rollout: enabled in the shared values (was off)');
       } else {
-        summary.push('rollout: enabled (was off: a container will now deploy in this environment)');
+        summary.push('rollout: enabled (was off: a container will deploy in this environment with its next release)');
       }
       if (fieldsChanged(['ports'])) {
         summary.push(
@@ -1798,15 +1796,16 @@ export function ConfigEditor({
           <Switch checked={rolloutEnabled} onChange={e => setRolloutEnabled(e.target.checked)} />
           <Typography className={classes.switchLabel}>
             {shared
-              ? 'Deploy a Rollout (long-running container) in each environment that does not set its own'
-              : 'Deploy a Rollout (long-running container) in this environment'}
+              ? 'Run a service (Rollout) in each environment that does not set its own'
+              : 'Run a service (Rollout) in this environment'}
           </Typography>
         </div>
         <Typography className={classes.hint} style={{ marginTop: 8 }}>
           {rolloutEnabled
-            ? 'Scaling, resources, health checks, and canary steps below configure this Rollout. Turn this off if this environment should only run a Job/CronJob/other resource - see the advanced fields further down.'
-            : "This environment has rollout: null - no Rollout, Service, HPA, or PodDisruptionBudget is deployed here. That's a normal, deliberate state, not a placeholder waiting to be filled in - a good fit for an env that only runs a Job/CronJob or another XR. Turn this on to deploy a real container instead."}
+            ? 'Scaling, resources, health checks and canary steps below configure the Rollout. It runs once a release puts an image here. Turn this off if this environment should only run a Job, CronJob or other resource.'
+            : 'No Rollout, Service, HPA or PodDisruptionBudget here (rollout.enabled: false): a deliberate choice for an environment that only runs a Job, CronJob or another XR. Releases to it are refused. Turn this on to run a service; the settings below come back as they were.'}
         </Typography>
+        {!shared && workload?.view && <WorkloadStatus view={workload.view} live={workload.live} classes={classes} />}
       </Section>
       )}
 
@@ -1992,8 +1991,7 @@ export function ConfigEditor({
             {tab === 'workload'
               ? 'Scaling, resources, the service and health checks configure a Rollout.'
               : 'Canary steps configure a Rollout.'}{' '}
-            This environment has none yet (<code>rollout: null</code>), which is how a new environment starts so nothing broken deploys before
-            its first image exists. Turn on Deployment to configure it.
+            This environment runs no service (<code>rollout.enabled: false</code>). Turn on Deployment to configure one.
           </div>
           <div style={{ marginTop: 10 }}>
             <Button small onClick={() => setRolloutEnabled(true)}>
@@ -2600,5 +2598,29 @@ function Field({ label, classes, children }: { label: string; classes: Cls; chil
       <Typography className={classes.fieldLabel}>{label}</Typography>
       {children}
     </label>
+  );
+}
+
+/**
+ * What the release file asks for next to what is actually running (2026-10-10): the two can differ during a canary,
+ * after an abort, or before Argo CD syncs, so both are shown rather than one standing in for the other.
+ */
+function WorkloadStatus({ view, live, classes }: { view: WorkloadView; live?: LiveWorkload; classes: ReturnType<typeof useStyles> }) {
+  const status = workloadStatus(view);
+  const liveTag = live?.image ? live.image.slice(live.image.lastIndexOf(':') + 1) : undefined;
+  return (
+    <div data-testid="workload-status" style={{ marginTop: 10 }}>
+      <Typography className={classes.hint}>
+        <b>{status.text}</b>
+      </Typography>
+      {live && (status.kind === 'deployed' || live.deployed) && (
+        <Typography className={classes.hint}>
+          {live.deployed ? `Running: ${liveTag ?? 'an image'}${live.health ? ` (${live.health})` : ''}` : 'Running: nothing yet'}
+          {status.kind === 'deployed' && live.deployed && liveTag && liveTag !== view.release?.tag
+            ? ' - not the released image yet: a rollout may be in progress, or Argo CD has not synced.'
+            : ''}
+        </Typography>
+      )}
+    </div>
   );
 }

@@ -188,22 +188,54 @@ describe('values form source', () => {
   });
 });
 
-describe('values form PR summary wording', () => {
-  const empty = { values: {}, raw: '', path: 'kind-prod/base.yaml' };
-  const off = { values: { rollout: null }, raw: 'rollout: null\n', path: 'glidepath/envs/test.yaml' };
-  const summaryAfterTurningOn = (d: typeof empty | typeof off, shared: boolean) => {
-    render(<ConfigEditor owner="o" appName="app" source={source({ data: d as never })} title="TEST" layout="side" shared={shared} />);
-    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+describe('values form Deployment switch (rollout.enabled, 2026-10-10)', () => {
+  type D = { values: Record<string, unknown>; raw: string; path: string };
+  const empty: D = { values: {}, raw: '', path: 'kind-prod/base.yaml' };
+  const legacyOff: D = { values: { rollout: null }, raw: 'rollout: null\n', path: 'glidepath/envs/test.yaml' };
+  const off: D = { values: { rollout: { replicas: 2, enabled: false } }, raw: 'rollout:\n  replicas: 2\n  enabled: false\n', path: 'glidepath/envs/test.yaml' };
+  const on: D = { values: { rollout: { replicas: 2 } }, raw: 'rollout:\n  replicas: 2\n', path: 'glidepath/envs/test.yaml' };
+  const inheritsNone = { view: { shape: 'none' as const, shapeFrom: 'shared' as const, inherited: 'none' as const, legacyNull: false, release: null } };
+  const flip = (d: D, opts: { shared?: boolean; workload?: typeof inheritsNone } = {}) => {
+    render(<ConfigEditor owner="o" appName="app" source={source({ data: d as never })} title="TEST" layout="side" shared={opts.shared} workload={opts.workload} />);
+    const sw = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
+    const before = sw.checked;
+    fireEvent.click(sw);
     fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
-    return (submit.mock.calls[0] as unknown as [unknown, string[]])[1];
+    const [patch, summary] = submit.mock.calls[0] as unknown as [{ rollout: Record<string, unknown> }, string[]];
+    return { before, patch, summary };
   };
 
-  it('says "set in the shared values" for a shared file that had no rollout (2026-10-09: it said a container would now deploy)', () => {
-    const summary = summaryAfterTurningOn(empty, true);
-    expect(summary[0]).toBe('rollout: replicas/resources/probes/steps and/or pod-template settings set in the shared values');
+  it('starts on for a shared file that says nothing (the chart default), and turning it off writes enabled: false', () => {
+    const { before, patch, summary } = flip(empty, { shared: true });
+    expect(before).toBe(true);
+    expect(patch.rollout).toEqual({ enabled: false });
+    expect(summary[0]).toBe('rollout: disabled in the shared values (no container in an environment that does not set its own)');
   });
 
-  it('says a container will now deploy only when an environment had rollout turned off', () => {
-    expect(summaryAfterTurningOn(off, false)[0]).toBe('rollout: enabled (was off: a container will now deploy in this environment)');
+  it('turning off keeps the rest of the file\'s rollout, so turning it back on restores it', () => {
+    const { before, patch } = flip(on);
+    expect(before).toBe(true);
+    expect(patch.rollout).toEqual({ replicas: 2, enabled: false });
+  });
+
+  it('reads an older rollout: null as off; turning it on says a container deploys with the next release', () => {
+    const { before, patch, summary } = flip(legacyOff);
+    expect(before).toBe(false);
+    expect(patch.rollout).not.toBeNull();
+    expect(patch.rollout).not.toHaveProperty('enabled');
+    expect(summary[0]).toBe('rollout: enabled (was off: a container will deploy in this environment with its next release)');
+  });
+
+  it('reads enabled: false as off; turning it on drops the key', () => {
+    const { before, patch } = flip(off);
+    expect(before).toBe(false);
+    expect(patch.rollout.replicas).toBe(2);
+    expect(patch.rollout).not.toHaveProperty('enabled');
+  });
+
+  it('a file that says nothing inherits off from the shared values, and turning it on says enabled: true', () => {
+    const { before, patch } = flip({ ...empty, path: 'glidepath/envs/test.yaml' }, { workload: inheritsNone });
+    expect(before).toBe(false);
+    expect(patch.rollout.enabled).toBe(true);
   });
 });

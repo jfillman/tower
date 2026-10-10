@@ -43,6 +43,9 @@ let clusterTemplates: string[] | undefined;
 jest.mock('../values/useClusterAnalysisTemplates', () => ({ useClusterAnalysisTemplates: () => clusterTemplates }));
 const loadValuesMock = jest.fn();
 jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources'), useEnvValuesLoader: () => loadValuesMock }));
+// Stable, as the hook's own state is (the form re-reads the switch when the inherited shape changes).
+let workloadView: { data?: unknown } = { data: { shape: 'service', shapeFrom: 'default', inherited: 'service', legacyNull: false, release: null } };
+jest.mock('../values/workload', () => ({ ...jest.requireActual('../values/workload'), useWorkloadView: () => workloadView }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
 jest.mock('../useConfigData', () => ({
   
@@ -657,6 +660,18 @@ describe('EnvironmentsTab: the values of a Ground environment', () => {
     expect(tabs).toEqual(['Workload', 'Release', 'Networking', 'Config', 'Components', 'Access', 'Advanced']);
     expect(replicas().value).toBe('1');
     expect(screen.getByRole('region', { name: 'Pending changes to the values of TEST' })).toBeTruthy();
+  });
+
+  it('shows what the release file asks for beside the Deployment switch', () => {
+    k8sOld();
+    workloadView = { data: { shape: 'service', shapeFrom: 'default', inherited: 'service', legacyNull: false, release: { repository: 'r', tag: 'abc123' } } };
+    try {
+      renderTab();
+      fireEvent.click(openRow('test'));
+      expect(screen.getByTestId('workload-status').textContent).toContain('Released: abc123');
+    } finally {
+      workloadView = { data: { shape: 'service', shapeFrom: 'default', inherited: 'service', legacyNull: false, release: null } };
+    }
   });
 
   it('stages a field edit in the values panel, not in the page panel, and opens a PR for that file only', async () => {

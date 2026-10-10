@@ -11,6 +11,7 @@ import { useChartValues } from '../../values/annotatedValues';
 import { useComponentCatalog } from '../../values/componentCatalog';
 import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates';
 import { useEnvValuesLoader, useFlightValuesSource, useGroundValuesSource, type ValuesSource } from '../../values/sources';
+import { useWorkloadView, type LiveWorkload } from '../../values/workload';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle';
 import { EnvLifecycle } from './EnvLifecycle';
 import { useStyles as useValuesStyles } from '../../values/styles';
@@ -253,10 +254,16 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
       );
     }
     if (own) return gate(source) ?? <RawValuesEditor source={source as ValuesSource} chart={own} />;
-    return gate(source) ?? <GroundValues ctx={ctx} env={row.name} cluster={row.where} source={source as ValuesSource} />;
+    return gate(source) ?? <GroundValues ctx={ctx} env={row.name} cluster={row.where} source={source as ValuesSource} live={liveOf(row)} />;
   }
   if (own) return gate(source) ?? <RawValuesEditor source={source as ValuesSource} chart={own} />;
-  return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} />;
+  return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} live={liveOf(row)} />;
+}
+
+// What is actually running, from the live Kubernetes read the row already has: the status beside the Deployment
+// switch shows it next to what the release file asks for.
+function liveOf(row: DisplayRow): LiveWorkload {
+  return { deployed: row.deployed, image: row.image, health: row.health };
 }
 
 function useCopyFrom(ctx: RowDetailContext, env: string) {
@@ -271,8 +278,10 @@ function useCopyFrom(ctx: RowDetailContext, env: string) {
   };
 }
 
-function GroundValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource }) {
+function GroundValues({ ctx, env, cluster, source, live }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource; live: LiveWorkload }) {
   const copyFrom = useCopyFrom(ctx, env);
+  // Re-read when the values file is re-read (after a change merges), so the switch's inherited state and the status follow.
+  const view = useWorkloadView({ owner: ctx.owner as string, appName: ctx.appName as string, env, tier: 'ground' }, source.data);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
   const chart = useChartValues(ctx.owner);
@@ -288,12 +297,14 @@ function GroundValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
       clusterAnalysisTemplates={clusterTemplates}
       componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
+      workload={{ view: view.data, live }}
     />
   );
 }
 
-function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource }) {
+function FlightValues({ ctx, env, cluster, source, live }: { ctx: RowDetailContext; env: string; cluster: string; source: ValuesSource; live: LiveWorkload }) {
   const copyFrom = useCopyFrom(ctx, env);
+  const view = useWorkloadView({ owner: ctx.owner as string, appName: ctx.appName as string, env, tier: 'flight', cluster }, source.data);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
   const chart = useChartValues(ctx.owner);
@@ -310,6 +321,7 @@ function FlightValues({ ctx, env, cluster, source }: { ctx: RowDetailContext; en
       clusterAnalysisTemplates={clusterTemplates}
       componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
+      workload={{ view: view.data, live }}
     />
   );
 }
