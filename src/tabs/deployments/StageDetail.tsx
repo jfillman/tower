@@ -12,18 +12,21 @@ import { GateLedger, GitPrIcon, useSignalRailStyles } from '../../SignalRail';
 import { CanaryRampChart } from '../../CanaryRampChart';
 import { PodLogsView } from '../../PodLogsView';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag';
+import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary, PodSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
 import { Button, StatusChip, TextLink } from '../../ui';
 
-// Tier 2 rollout controls (Promote/Pause/Resume/...) - UI-ready but disabled
-// pending the authorization model HANDOFF-tower-write-actions.md scopes;
-// same roadmap-styled treatment as ArgoCommandPanel's Sync w/ Prune/Force
-// Sync buttons. Lives here (not DeploymentsTab) now that the canary chart
-// itself moved into the "Rollout starts" stage detail (2026-09-16: "I want
-// the canary panel to be part of the 'Rollout Starts' stage").
-const TIER2_ACTIONS = ['Promote', 'Promote full', 'Pause', 'Resume', 'Retry', 'Restart', 'Abort'];
+// Rollout controls (RolloutControls.tsx) sit in the "Rollout starts" and "Rollout completes" stage details, next
+// to the canary chart they act on (2026-09-16: "I want the canary panel to be part of the 'Rollout Starts'
+// stage"); restart and retry are meaningful once a rollout has finished or aborted, so both stages show them.
+function rolloutControlsFor(env: EnvironmentSummary) {
+  if (env.workload?.kind !== 'Rollout' || !env.argoAppName || !env.cluster || !env.namespace) return null;
+  return (
+    <RolloutControls cluster={env.cluster} argoAppName={env.argoAppName} namespace={env.namespace} rolloutName={env.workload.name} />
+  );
+}
 
 // Ground Control's stage-detail panel (2026-09-16 feedback round 3: "what I
 // actually want is a more graphical DAG with an attached details/activity
@@ -66,9 +69,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   resourceName: { color: ({ t }) => t.textHi, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   resourceStatus: { color: ({ t }) => t.textFaint, flexShrink: 0 },
   resourceTag: { color: ({ t }) => t.amberInk, fontWeight: 700, flexShrink: 0 },
-  rolloutActions: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, paddingBottom: 12, borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
-  btnRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  roadmapNote: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
 }));
 
 function guardrailsFallbackNote(delivery: CdDelivery): string {
@@ -455,20 +455,9 @@ export function StageDetail({
           </span>
           <Typography className={classes.title}>Rollout starts</Typography>
         </div>
+        {rolloutControlsFor(env)}
         {rolloutProgress ? (
           <>
-            <div className={classes.rolloutActions}>
-              <div className={classes.btnRow}>
-                {TIER2_ACTIONS.map(label => (
-                  <Button key={label} small disabled>
-                    {label}
-                  </Button>
-                ))}
-              </div>
-              <span className={classes.roadmapNote}>
-                Tier 2 — UI-ready, backend route not yet built (see HANDOFF-tower-write-actions.md)
-              </span>
-            </div>
             <CanaryRampChart
               cluster={env.cluster}
               namespace={env.namespace}
@@ -499,6 +488,7 @@ export function StageDetail({
         <Typography className={classes.title}>Rollout completes</Typography>
       </div>
       <Typography className={classes.note}>{healthyNote(step)}</Typography>
+      {rolloutControlsFor(env)}
       <div className={classes.resourceList}>
         <HookRow label="PostSync hook" job={postsyncJob} classes={classes} t={t} env={env} />
       </div>
