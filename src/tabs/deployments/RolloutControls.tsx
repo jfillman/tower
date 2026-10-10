@@ -4,6 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { Button, Chip, TierChip } from '../../ui';
+import { RollbackControl } from './RollbackControl';
 
 // Argo Rollouts controls (glidepath ADR-0021 phase 4; replaces the disabled "Tier 2" placeholder row). The
 // backend (backstage glidepathProvenance.ts /argo/rollout-actions) runs Argo CD's built-in Rollout actions as
@@ -27,6 +28,10 @@ interface RolloutActionsResponse {
   tier: 'ground' | 'flight';
   env?: string;
   actions: RolloutActionState[];
+  // For the rollback control (Flight only): the app, its GitHub owner, and whether this user may roll it back.
+  app?: string;
+  owner?: string;
+  rollbackAllowed?: boolean;
 }
 
 const ACTION_COPY: Record<RolloutActionName, { label: string; body: string; confirm?: boolean; danger?: boolean }> = {
@@ -260,6 +265,9 @@ export function RolloutControls({
         </span>
       )}
       {lastRun?.bypass && <Chip tone="bad">analysis skipped</Chip>}
+      {data?.tier === 'flight' && data.app && data.owner && data.env && (
+        <RollbackControl owner={data.owner} appName={data.app} env={data.env} cluster={cluster} allowed={Boolean(data.rollbackAllowed)} />
+      )}
     </div>
   );
 }
