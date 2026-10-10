@@ -59,12 +59,12 @@ export function PlatformFileEditor({
 
   useEffect(() => {
     if (!file.data) return;
-    // Brand-new env (nothing committed yet): seed the minimal bootstrap stub this platform documents as the safe
-    // starting point (glidepath/envs/dev.yaml: "rollout: null" renders the clean namespace-only stub; leaving the
-    // key out rendered a Rollout with two InvalidImageName pods). Not for pr-env.yaml, which must already have
-    // real content and has no envName of its own.
+    // Brand-new env (nothing committed yet): seed just its name. No rollout: key - the chart renders no workload until
+    // a release sets an image, and rollout: null would say "this environment runs no service" (2026-10-10), which
+    // Glidepath then refuses to deploy to. Not for pr-env.yaml, which must already have real content and has no
+    // envName of its own.
     if (Object.keys(file.data.values).length === 0 && selector.kind === 'env') {
-      setRaw(`envName: ${selector.env}\nrollout: null\n`);
+      setRaw(`envName: ${selector.env}\n`);
     } else {
       setRaw(safeYamlDump(file.data.values));
     }
