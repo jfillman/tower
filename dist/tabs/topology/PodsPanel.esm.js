@@ -8,6 +8,7 @@ import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.j
 import { PodLogsView } from '../../PodLogsView.esm.js';
 import { preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
+import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { StatusChip } from '../../ui/index.esm.js';
 
@@ -236,7 +237,8 @@ function PodDetail({
             copied === "kubectl-exec" ? "copied" : "copy kubectl exec"
           ]
         }
-      )
+      ),
+      /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, buttonClass: classes.actionBtn, noteClass: classes.cardSub, badClass: classes.conditionBad })
     ] }),
     panel === "logs" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers, live: true }) }),
     panel === "metrics" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames: [pod.name], title: "Pod performance" }) }),
