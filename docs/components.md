@@ -65,6 +65,15 @@ the stage detail below it. The Rollout starts/completes steps carry real timesta
 the Rollout's objects. Tier 1 write actions live here: Tekton **Re-run** and **Cancel**, ArgoCD Refresh and plain
 Sync (no prune, no force). Verified against real failed and running PipelineRuns on 2026-09-27.
 
+**Rollout controls** (glidepath ADR-0021 phase 4) sit in the "Rollout starts" and "Rollout completes" stage details:
+Resume, Promote (skip the current step), Promote full, Pause, Abort, Retry and Restart pods. They are Argo CD's
+built-in Rollout actions, run by the Backstage backend through Argo CD (`/argo/rollout-actions`,
+`/argo/rollout-action`), so Tower holds no Kubernetes RBAC for them. A button is enabled only when Argo CD's own
+discovery offers the action for the Rollout's current state and the signed-in user is in the app's owning team (or
+admins). On a Flight environment, Promote and Promote full skip canary analysis: they are marked ⚠, confirmed with
+that said, audited as critical and announced to everyone like a break-glass bypass. Abort, Promote, Promote full and
+Restart pods always ask first.
+
 ### Topology
 One environment at a time (the same tiered picker as Deployments): the Kubernetes objects an environment runs and
 how they relate.
