@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { TierChip, Button, Chip } from '../../ui/index.esm.js';
+import { RollbackControl } from './RollbackControl.esm.js';
 
 const ACTION_COPY = {
   resume: {
@@ -210,7 +211,8 @@ function RolloutControls({
       lastRun.action === "abort" && " Traffic is back on the stable version. Git still asks for the new one: release a fix or roll back, or Retry once the cause is gone.",
       lastRun.bypass && " Recorded as a bypass and announced."
     ] }),
-    lastRun?.bypass && /* @__PURE__ */ jsx(Chip, { tone: "bad", children: "analysis skipped" })
+    lastRun?.bypass && /* @__PURE__ */ jsx(Chip, { tone: "bad", children: "analysis skipped" }),
+    data?.tier === "flight" && data.app && data.owner && data.env && /* @__PURE__ */ jsx(RollbackControl, { owner: data.owner, appName: data.app, env: data.env, cluster, allowed: Boolean(data.rollbackAllowed) })
   ] });
 }
 
