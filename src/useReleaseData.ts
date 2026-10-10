@@ -374,6 +374,8 @@ export interface ArgoCapabilities {
   sync: boolean;
   force: boolean;
   terminate: boolean;
+  /** Restart one pod (Topology → a pod), owners; the backend refuses the last ready pod on Flight. */
+  podRestart?: boolean;
 }
 
 export function useArgoCapabilities(cluster: string | undefined, appName: string | undefined) {
