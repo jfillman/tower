@@ -22,6 +22,29 @@ function undeployedEnvironment(env, cluster) {
     resources: []
   };
 }
+function attachArgoApplication(e, appName, argoStatusRaw) {
+  const argoAppName = appName ? `${appName}-${e.env}` : void 0;
+  if (!argoAppName || !argoStatusRaw[argoAppName]) return e;
+  return { ...e, cluster: argoStatusRaw[argoAppName]?.instance || e.cluster, argoAppName, ...argoFields(argoAppName, argoStatusRaw) };
+}
+function argoFields(argoAppName, argoStatusRaw) {
+  const s = argoAppName ? argoStatusRaw[argoAppName] : void 0;
+  return {
+    argoHealthStatus: s?.healthStatus,
+    argoSyncStatus: s?.syncStatus,
+    argoOperationStartedAt: s?.operationStartedAt,
+    argoOperationFinishedAt: s?.operationFinishedAt,
+    argoHealthSince: s?.healthSince,
+    argoOperationPhase: s?.operationPhase,
+    argoSource: s?.source,
+    argoSyncPolicy: s?.syncPolicy,
+    argoRevision: s?.revision,
+    argoOperationMessage: s?.operationMessage,
+    argoReconciledAt: s?.reconciledAt,
+    argoResources: s?.resources,
+    argoConditions: s?.conditions
+  };
+}
 function useReleaseContext() {
   const { entity } = useEntity();
   const { environments: rawEnvironments, loading, error } = useTowerEnvironments();
@@ -55,8 +78,13 @@ function useReleaseContext() {
     [owner, appName]
   );
   const pipelineOrder = usePipelineOrder(pipelineOwnerRepo, refreshNonce);
+  const declaredArgoNames = useMemo(() => {
+    if (!appName) return [];
+    const live = new Set(rawEnvironments.map((e) => e.env.toLowerCase()));
+    return [...pipelineOrder.lower ?? [], ...pipelineOrder.upper ?? []].filter((name) => !live.has(name.toLowerCase())).map((name) => `${appName}-${name}`);
+  }, [appName, rawEnvironments, pipelineOrder.lower, pipelineOrder.upper]);
   const argoStatusRaw = useArgoStatusMap(
-    rawEnvironments.map((e) => e.argoAppName).filter((n) => Boolean(n)),
+    [...rawEnvironments.map((e) => e.argoAppName).filter((n) => Boolean(n)), ...declaredArgoNames],
     refreshNonce
   );
   const pipelineRuns = useTektonPipelineRuns(appName, refreshNonce);
@@ -85,34 +113,23 @@ function useReleaseContext() {
     const liveNames = new Set([...rawEnvironments, ...cloud.environments].map((e) => e.env.toLowerCase()));
     const fallbackCluster = rawEnvironments[0]?.cluster ?? "";
     const result = [];
+    const withArgo = (e) => attachArgoApplication(e, appName, argoStatusRaw);
     (pipelineOrder.lower ?? []).forEach((name) => {
       if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, fallbackCluster));
+      result.push(withArgo(undeployedEnvironment(name, fallbackCluster)));
     });
     (pipelineOrder.upper ?? []).forEach((name) => {
       if (liveNames.has(name.toLowerCase())) return;
-      result.push(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster));
+      result.push(withArgo(undeployedEnvironment(name, pipelineOrder.upperClusters?.[name] || fallbackCluster)));
     });
     return result;
-  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters]);
+  }, [rawEnvironments, cloud.environments, pipelineOrder.lower, pipelineOrder.upper, pipelineOrder.upperClusters, appName, argoStatusRaw]);
   const environments = useMemo(
     () => [
       ...rawEnvironments.map((e) => ({
         ...e,
         deployed: true,
-        argoHealthStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthStatus : void 0,
-        argoSyncStatus: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncStatus : void 0,
-        argoOperationStartedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationStartedAt : void 0,
-        argoOperationFinishedAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationFinishedAt : void 0,
-        argoHealthSince: e.argoAppName ? argoStatusRaw[e.argoAppName]?.healthSince : void 0,
-        argoOperationPhase: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationPhase : void 0,
-        argoSource: e.argoAppName ? argoStatusRaw[e.argoAppName]?.source : void 0,
-        argoSyncPolicy: e.argoAppName ? argoStatusRaw[e.argoAppName]?.syncPolicy : void 0,
-        argoRevision: e.argoAppName ? argoStatusRaw[e.argoAppName]?.revision : void 0,
-        argoOperationMessage: e.argoAppName ? argoStatusRaw[e.argoAppName]?.operationMessage : void 0,
-        argoReconciledAt: e.argoAppName ? argoStatusRaw[e.argoAppName]?.reconciledAt : void 0,
-        argoResources: e.argoAppName ? argoStatusRaw[e.argoAppName]?.resources : void 0,
-        argoConditions: e.argoAppName ? argoStatusRaw[e.argoAppName]?.conditions : void 0
+        ...argoFields(e.argoAppName, argoStatusRaw)
       })),
       ...declaredEnvironments,
       ...cloud.environments
@@ -319,5 +336,5 @@ function applyCloudPins(rows, pins) {
   });
 }
 
-export { MATRIX_ROW_CAP, applyCloudPins, buildReleases, gitopsPrForEnv, gitopsPrForEnvAndImage, lastDeployedAt, nicknameForImageTag, parseGitopsPrTitle, useReleaseContext };
+export { MATRIX_ROW_CAP, applyCloudPins, attachArgoApplication, buildReleases, gitopsPrForEnv, gitopsPrForEnvAndImage, lastDeployedAt, nicknameForImageTag, parseGitopsPrTitle, useReleaseContext };
 //# sourceMappingURL=useReleaseContext.esm.js.map
