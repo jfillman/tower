@@ -1,5 +1,4 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
-import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import SecurityIcon from '@material-ui/icons/Security';
@@ -10,7 +9,6 @@ import { formatDateTime, relativeTime } from '../../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm.js';
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
-import { PodLogsView } from '../../PodLogsView.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
 import { RolloutControls } from './RolloutControls.esm.js';
 import { StatusChip, TextLink, Button } from '../../ui/index.esm.js';
@@ -180,42 +178,6 @@ function healthyNote(step) {
   if (step?.status === "bad") return "ArgoCD reports this degraded - see the banner above for detail.";
   return "Not finished yet.";
 }
-function findHookJob(resources, namePart) {
-  return resources?.find((r) => r.kind === "Job" && r.name.includes(namePart));
-}
-function hookPod(jobName, pods) {
-  return pods.find((p) => p.name.startsWith(`${jobName}-`));
-}
-function HookRow({
-  label,
-  job,
-  classes,
-  t,
-  env
-}) {
-  const [showLog, setShowLog] = useState(false);
-  if (!job) {
-    return /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
-      label,
-      ": no hook run recorded since Tower's last ArgoCD read."
-    ] });
-  }
-  const ok = job.health === "Healthy" || job.syncStatus === "Synced";
-  const pod = hookPod(job.name, env.pods);
-  return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.resourceRow, children: [
-      /* @__PURE__ */ jsx("span", { className: classes.resourceDot, style: { backgroundColor: ok ? t.good : t.amber } }),
-      /* @__PURE__ */ jsx("span", { className: classes.resourceKind, children: label }),
-      /* @__PURE__ */ jsx("span", { className: classes.resourceName, children: job.name }),
-      /* @__PURE__ */ jsx("span", { className: classes.resourceStatus, children: job.health ?? job.syncStatus ?? "Unknown" })
-    ] }),
-    job.message && /* @__PURE__ */ jsx(Typography, { className: classes.cellMessage ?? classes.note, style: { padding: "2px 10px" }, children: job.message }),
-    pod && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx("div", { style: { margin: "4px 10px" }, children: /* @__PURE__ */ jsx(TextLink, { expanded: showLog, onClick: () => setShowLog((v) => !v), children: "Job log" }) }),
-      showLog && /* @__PURE__ */ jsx("div", { style: { margin: "0 10px 6px" }, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers }) })
-    ] })
-  ] });
-}
 function StageDetail({
   delivery,
   selectedKey,
@@ -264,7 +226,6 @@ function StageDetail({
     const rollout = resources.find((r) => r.kind === "Rollout");
     const outOfSync = resources.filter((r) => r.syncStatus && r.syncStatus !== "Synced");
     const rest = resources.filter((r) => r !== rollout && r.syncStatus && r.syncStatus !== "Synced");
-    const presyncJob = findHookJob(resources, "platform-outcome-presync");
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(SyncIcon, { fontSize: "small" }) }),
@@ -277,7 +238,6 @@ function StageDetail({
         targetImageTag
       ] }),
       argoOperationMessage && /* @__PURE__ */ jsx(Typography, { className: classes.body, children: argoOperationMessage }),
-      /* @__PURE__ */ jsx("div", { className: classes.resourceList, children: /* @__PURE__ */ jsx(HookRow, { label: "PreSync hook", job: presyncJob, classes, t, env }) }),
       resources.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No resource tree reported yet." }),
       resources.length > 0 && outOfSync.length === 0 && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
         "All ",
@@ -338,15 +298,13 @@ function StageDetail({
       ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart here." })
     ] });
   }
-  const postsyncJob = findHookJob(argoResources, "platform-outcome-postsync");
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(CheckCircleIcon, { fontSize: "small" }) }),
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout completes" })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.note, children: healthyNote(step) }),
-    rolloutControlsFor(env),
-    /* @__PURE__ */ jsx("div", { className: classes.resourceList, children: /* @__PURE__ */ jsx(HookRow, { label: "PostSync hook", job: postsyncJob, classes, t, env }) })
+    rolloutControlsFor(env)
   ] });
 }
 

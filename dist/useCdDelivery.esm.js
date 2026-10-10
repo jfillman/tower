@@ -6,7 +6,7 @@ const STEP_LABEL = {
   merged: "PR merged",
   // Renamed from "Sync triggered" (2026-09-16 feedback round 3) now that
   // this stage's own detail panel shows real ArgoCD sync activity (out-of-
-  // sync resources, the PreSync hook), not just a single "triggered" instant.
+  // sync resources), not just a single "triggered" instant.
   synced: "Application sync",
   progressing: "Rollout starts",
   healthy: "Rollout completes"
@@ -44,10 +44,7 @@ function buildStepsCore(keys, {
   const healthStatus = argo?.healthStatus;
   const healthy = !argoStale && !rolloutStillActive && healthStatus === "Healthy" && (!operationRunning || healthyThisOperation);
   const degraded = !argoStale && (rolloutFailed || !operationRunning && healthStatus === "Degraded");
-  const hookJobFailed = (argo?.resources ?? []).some(
-    (r) => r.kind === "Job" && r.name.includes("platform-outcome") && (r.health === "Degraded" || r.health === "Missing")
-  );
-  const syncOperationFailed = !argoStale && (argo?.operationPhase === "Error" || argo?.operationPhase === "Failed" || hookJobFailed || Boolean(rolloutFailed));
+  const syncOperationFailed = !argoStale && (argo?.operationPhase === "Error" || argo?.operationPhase === "Failed" || Boolean(rolloutFailed));
   const rolloutStarted = merged && !argoStale && (healthy || synced && !rolloutStillActive && healthStatus !== "Progressing");
   const guardrailsPassed = merged || guardrailsState === "success";
   const guardrailsFailing = !merged && guardrailsState === "failure";

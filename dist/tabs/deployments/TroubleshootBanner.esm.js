@@ -62,7 +62,7 @@ function diagnose(env, currentSteps, issues = [], warnings = [], now = Date.now(
       tone: "info",
       live: true,
       title: `Canary rollout in progress - ${stepText}${weight}% traffic`,
-      body: `The Rollout controller is mid-canary at ${weight}% traffic. ArgoCD reports Synced/Progressing${env.argoOperationPhase === "Running" ? " (and its sync operation stays open until the PostSync hook runs after the canary finishes)" : ""} because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`
+      body: `The Rollout controller is mid-canary at ${weight}% traffic. ArgoCD reports Synced/Progressing because of this, not because anything failed. No action needed unless this has sat here far longer than the step's own pause/analysis window.`
     };
   }
   if (env.argoOperationPhase === "Running" && stepByKey(currentSteps, "synced")?.status !== "good") {
@@ -92,17 +92,6 @@ function diagnose(env, currentSteps, issues = [], warnings = [], now = Date.now(
       tone: "info",
       title: "Couldn't reach ArgoCD for this environment",
       body: "Sync/health facts elsewhere on this page may be stale rather than wrong - try Refresh, and if this persists it may be an RBAC or connectivity issue rather than a release problem."
-    };
-  }
-  const failedHooks = (env.argoResources ?? []).filter(
-    (r) => r.kind === "Job" && r.name.includes("platform-outcome") && (r.health === "Degraded" || r.health === "Missing")
-  );
-  if (failedHooks.length > 0) {
-    const hook = failedHooks[0];
-    return {
-      tone: "bad",
-      title: `${hook.name} failed`,
-      body: hook.message ?? `ArgoCD reports this release-outcome hook as ${hook.health}. The Application's own aggregate sync/health can still read fine if a later sync has since succeeded - see its log in the Application sync (or Rollout completes) stage detail for what happened.`
     };
   }
   if (env.argoHealthStatus === "Healthy" && env.argoSyncStatus === "Synced") {
