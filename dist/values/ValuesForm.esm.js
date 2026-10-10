@@ -25,6 +25,7 @@ import { annotateValues, mergeValues } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
 import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
+import { workloadOn, workloadStatus } from './workload.esm.js';
 import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
 
 function asRecord(v) {
@@ -667,7 +668,7 @@ const ADVANCED_META = {
     field: "extraManifests"
   }
 };
-const ROLLOUT_STRATEGY_KEYS = ["strategy", "canaryAnalysis", "blueGreen"];
+const ROLLOUT_STRATEGY_KEYS = ["strategy", "canaryAnalysis", "blueGreen", "rollbackWindow"];
 const ROLLOUT_POD_KEYS = ["command", "args", "podSecurityContext", "containerSecurityContext", "extraContainers", "podSpec"];
 const ROLLOUT_RAW_KEYS = ["rolloutStrategy", "rolloutPod"];
 const DEFAULT_PORTS = [{ name: "http", containerPort: 8080, protocol: "" }];
@@ -875,7 +876,8 @@ function ConfigEditor({
   sloContext,
   componentCatalog,
   chart,
-  shared = false
+  shared = false,
+  workload
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -886,6 +888,7 @@ function ConfigEditor({
   const [tab, setTab] = useState("workload");
   const [form, setForm] = useState(void 0);
   const [originalForm, setOriginalForm] = useState(void 0);
+  const inheritedShape = workload?.view?.inherited ?? "service";
   const [rolloutEnabled, setRolloutEnabled] = useState(true);
   const [originalRolloutEnabled, setOriginalRolloutEnabled] = useState(true);
   const [advanced, setAdvanced] = useState(void 0);
@@ -905,7 +908,7 @@ function ConfigEditor({
       setOriginalForm(builtForm);
       setAdvanced(builtAdvanced);
       setOriginalAdvanced(builtAdvanced);
-      const rolloutIsSet = cfg.data.values.rollout !== void 0 && cfg.data.values.rollout !== null;
+      const rolloutIsSet = workloadOn(cfg.data.values.rollout, inheritedShape);
       setRolloutEnabled(rolloutIsSet);
       setOriginalRolloutEnabled(rolloutIsSet);
       const rollout = asRecord(cfg.data.values.rollout);
@@ -916,7 +919,7 @@ function ConfigEditor({
       setOriginalStepsRaw(dumpOrBlank(rollout.steps));
       submitCfg.reset();
     }
-  }, [cfg.data]);
+  }, [cfg.data, inheritedShape]);
   const [copyNote, setCopyNote] = useState();
   const applyValues = (incoming) => {
     const values = { ...incoming };
@@ -926,7 +929,7 @@ function ConfigEditor({
     }
     setForm(buildFormState(values));
     setAdvanced(buildAdvancedYaml(values));
-    setRolloutEnabled(values.rollout !== void 0 && values.rollout !== null);
+    setRolloutEnabled(workloadOn(values.rollout, inheritedShape));
     const rollout = asRecord(values.rollout);
     const simple = parseStepsSimple(rollout.steps);
     setStepsMode(simple ? "simple" : "raw");
@@ -1006,7 +1009,7 @@ function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
-    const rolloutIsSet = cfg.data.values.rollout !== void 0 && cfg.data.values.rollout !== null;
+    const rolloutIsSet = workloadOn(cfg.data.values.rollout, inheritedShape);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
     const rollout = asRecord(cfg.data.values.rollout);
@@ -1043,7 +1046,8 @@ function ConfigEditor({
     const patch = {};
     const summary = [];
     if (dirty.has("rollout") && !rolloutEnabled) {
-      patch.rollout = null;
+      const kept = cfg.data.values.rollout;
+      patch.rollout = { ...kept && typeof kept === "object" ? kept : {}, enabled: false };
       summary.push(
         shared ? "rollout: disabled in the shared values (no container in an environment that does not set its own)" : "rollout: disabled (no container deployed in this environment)"
       );
@@ -1080,17 +1084,19 @@ function ConfigEditor({
         ...Object.assign({}, ...METADATA_FIELDS.map((m) => annotationsPatchFor(asRecord(cfg.data.values.rollout), m.field, form.meta[m.field]))),
         ...omitIfEmptyAndAbsent(origRollout, "steps", stepsValue),
         ...omitIfEmptyAndAbsent(origRollout, "livenessProbe", buildProbeValue(form.liveness)),
-        ...omitIfEmptyAndAbsent(origRollout, "readinessProbe", buildProbeValue(form.readiness))
+        ...omitIfEmptyAndAbsent(origRollout, "readinessProbe", buildProbeValue(form.readiness)),
+        // Said explicitly only when the shared values turn it off and this file must turn it back on; otherwise left
+        // out (the chart default), which also drops an enabled: false this file had.
+        ...inheritedShape === "none" ? { enabled: true } : {}
       };
-      const wasNull = cfg.data.values.rollout === null;
-      if (originalRolloutEnabled || !wasNull) {
+      if (originalRolloutEnabled) {
         summary.push(
           `rollout: replicas/resources/probes/steps and/or pod-template settings ${originalRolloutEnabled ? "updated" : "set"}${shared ? " in the shared values" : ""}`
         );
       } else if (shared) {
         summary.push("rollout: enabled in the shared values (was off)");
       } else {
-        summary.push("rollout: enabled (was off: a container will now deploy in this environment)");
+        summary.push("rollout: enabled (was off: a container will deploy in this environment with its next release)");
       }
       if (fieldsChanged(["ports"])) {
         summary.push(
@@ -1293,9 +1299,10 @@ function ConfigEditor({
       tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Deployment", dirty: rolloutEnabled !== originalRolloutEnabled, classes, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
           /* @__PURE__ */ jsx(Switch, { checked: rolloutEnabled, onChange: (e) => setRolloutEnabled(e.target.checked) }),
-          /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: shared ? "Deploy a Rollout (long-running container) in each environment that does not set its own" : "Deploy a Rollout (long-running container) in this environment" })
+          /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: shared ? "Run a service (Rollout) in each environment that does not set its own" : "Run a service (Rollout) in this environment" })
         ] }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.hint, style: { marginTop: 8 }, children: rolloutEnabled ? "Scaling, resources, health checks, and canary steps below configure this Rollout. Turn this off if this environment should only run a Job/CronJob/other resource - see the advanced fields further down." : "This environment has rollout: null - no Rollout, Service, HPA, or PodDisruptionBudget is deployed here. That's a normal, deliberate state, not a placeholder waiting to be filled in - a good fit for an env that only runs a Job/CronJob or another XR. Turn this on to deploy a real container instead." })
+        /* @__PURE__ */ jsx(Typography, { className: classes.hint, style: { marginTop: 8 }, children: rolloutEnabled ? "Scaling, resources, health checks and canary steps below configure the Rollout. It runs once a release puts an image here. Turn this off if this environment should only run a Job, CronJob or other resource." : "No Rollout, Service, HPA or PodDisruptionBudget here (rollout.enabled: false): a deliberate choice for an environment that only runs a Job, CronJob or another XR. Releases to it are refused. Turn this on to run a service; the settings below come back as they were." }),
+        !shared && workload?.view && /* @__PURE__ */ jsx(WorkloadStatus, { view: workload.view, live: workload.live, classes })
       ] }),
       rolloutEnabled && /* @__PURE__ */ jsxs(Fragment, { children: [
         tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Scaling", dirty: dirty.has("rollout") || dirty.has("autoscaling"), classes, children: [
@@ -1424,9 +1431,9 @@ function ConfigEditor({
         /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
           tab === "workload" ? "Scaling, resources, the service and health checks configure a Rollout." : "Canary steps configure a Rollout.",
           " ",
-          "This environment has none yet (",
-          /* @__PURE__ */ jsx("code", { children: "rollout: null" }),
-          "), which is how a new environment starts so nothing broken deploys before its first image exists. Turn on Deployment to configure it."
+          "This environment runs no service (",
+          /* @__PURE__ */ jsx("code", { children: "rollout.enabled: false" }),
+          "). Turn on Deployment to configure one."
         ] }),
         /* @__PURE__ */ jsx("div", { style: { marginTop: 10 }, children: /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setRolloutEnabled(true), children: "Turn on Deployment" }) })
       ] }),
@@ -1930,6 +1937,17 @@ function Field({ label, classes, children }) {
   return /* @__PURE__ */ jsxs("label", { className: classes.field, children: [
     /* @__PURE__ */ jsx(Typography, { className: classes.fieldLabel, children: label }),
     children
+  ] });
+}
+function WorkloadStatus({ view, live, classes }) {
+  const status = workloadStatus(view);
+  const liveTag = live?.image ? live.image.slice(live.image.lastIndexOf(":") + 1) : void 0;
+  return /* @__PURE__ */ jsxs("div", { "data-testid": "workload-status", style: { marginTop: 10 }, children: [
+    /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: /* @__PURE__ */ jsx("b", { children: status.text }) }),
+    live && (status.kind === "deployed" || live.deployed) && /* @__PURE__ */ jsxs(Typography, { className: classes.hint, children: [
+      live.deployed ? `Running: ${liveTag ?? "an image"}${live.health ? ` (${live.health})` : ""}` : "Running: nothing yet",
+      status.kind === "deployed" && live.deployed && liveTag && liveTag !== view.release?.tag ? " - not the released image yet: a rollout may be in progress, or Argo CD has not synced." : ""
+    ] })
   ] });
 }
 

@@ -11,6 +11,7 @@ import { useChartValues } from '../../values/annotatedValues.esm.js';
 import { useComponentCatalog } from '../../values/componentCatalog.esm.js';
 import { useClusterAnalysisTemplates } from '../../values/useClusterAnalysisTemplates.esm.js';
 import { useFlightValuesSource, useGroundValuesSource, useEnvValuesLoader } from '../../values/sources.esm.js';
+import { useWorkloadView } from '../../values/workload.esm.js';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle.esm.js';
 import { EnvLifecycle } from './EnvLifecycle.esm.js';
 import { useStyles as useStyles$1 } from '../../values/styles.esm.js';
@@ -213,10 +214,13 @@ function Values({ row, ctx, source }) {
       ] });
     }
     if (own) return gate(source) ?? /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
-    return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, cluster: row.where, source });
+    return gate(source) ?? /* @__PURE__ */ jsx(GroundValues, { ctx, env: row.name, cluster: row.where, source, live: liveOf(row) });
   }
   if (own) return gate(source) ?? /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
-  return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source });
+  return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source, live: liveOf(row) });
+}
+function liveOf(row) {
+  return { deployed: row.deployed, image: row.image, health: row.health };
 }
 function useCopyFrom(ctx, env) {
   const load = useEnvValuesLoader();
@@ -229,8 +233,9 @@ function useCopyFrom(ctx, env) {
     }
   };
 }
-function GroundValues({ ctx, env, cluster, source }) {
+function GroundValues({ ctx, env, cluster, source, live }) {
   const copyFrom = useCopyFrom(ctx, env);
+  const view = useWorkloadView({ owner: ctx.owner, appName: ctx.appName, env, tier: "ground" }, source.data);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
   const chart = useChartValues(ctx.owner);
@@ -247,12 +252,14 @@ function GroundValues({ ctx, env, cluster, source }) {
       clusterAnalysisTemplates: clusterTemplates,
       componentCatalog,
       chart,
-      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
+      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
+      workload: { view: view.data, live }
     }
   );
 }
-function FlightValues({ ctx, env, cluster, source }) {
+function FlightValues({ ctx, env, cluster, source, live }) {
   const copyFrom = useCopyFrom(ctx, env);
+  const view = useWorkloadView({ owner: ctx.owner, appName: ctx.appName, env, tier: "flight", cluster }, source.data);
   const clusterTemplates = useClusterAnalysisTemplates(cluster);
   const componentCatalog = useComponentCatalog(ctx.owner);
   const chart = useChartValues(ctx.owner);
@@ -270,7 +277,8 @@ function FlightValues({ ctx, env, cluster, source }) {
       clusterAnalysisTemplates: clusterTemplates,
       componentCatalog,
       chart,
-      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName }
+      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
+      workload: { view: view.data, live }
     }
   );
 }
