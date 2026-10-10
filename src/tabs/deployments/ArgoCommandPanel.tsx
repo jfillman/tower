@@ -6,7 +6,7 @@ import { relativeTime, formatDateTime } from '../../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
-import type { useArgoActions } from '../../useReleaseData';
+import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
 import { Button, StatusChip, TextLink } from '../../ui';
 import { argoTone } from '../../argoTone';
 
@@ -168,32 +168,19 @@ const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
   },
   {
     name: 'Sync',
-    body: "Applies git's declared state to the cluster. Use when Sync status above reads OutOfSync and automated sync is off (or is enabled but hasn't caught up yet). Possible error: a sync can fail outright if a resource change conflicts with one made directly in the cluster (someone/something edited live state git doesn't know about).",
-  },
-  {
-    name: 'Sync with prune',
-    roadmap: true,
-    body: 'Also deletes any resource that exists live but is no longer declared in git. Use to clean up after removing something from git. Risk: can delete real resources unexpectedly if git state is wrong - not yet available (needs the authorization model from HANDOFF-tower-write-actions.md).',
+    body: "Applies git's declared state to the cluster, following the Application's own sync policy: environment Applications prune, so anything git no longer declares is deleted too, as the next automatic sync would (there is no separate Sync with prune). Use when Sync status above reads OutOfSync and you don't want to wait for automated sync. Possible error: a sync can fail if a resource change conflicts with one made directly in the cluster.",
   },
   {
     name: 'Force sync',
-    roadmap: true,
-    body: "Deletes and recreates a resource instead of patching it. Use to recover from a resource stuck by an immutable-field conflict that a normal Sync can't apply. Risk: causes brief downtime for whatever gets replaced - not yet available, same reason as Sync w/ Prune.",
+    body: "Deletes and recreates a resource instead of patching it (Argo CD's --force). Use to recover from a resource stuck by an immutable-field conflict that a normal Sync can't apply, such as a changed Service selector or Job template. Risk: whatever gets replaced is briefly down. Ground: the app's owners. Flight: admins only.",
   },
-  // ArgoCD's own Sync dialog "Advanced" section (2026-09-16: "consider
-  // adding additional argocd sync options, see screenshot" - Apply only/
-  // Force/Replace/Server-side apply; Force itself is already covered as
-  // "Force Sync" above). Guide-only, no button of their own - these are
-  // real sync-request modifiers, not standalone actions, the same way
-  // ArgoCD's own UI keeps them collapsed under "Advanced" rather than as
-  // primary buttons; adding 3 more always-visible disabled buttons here
-  // would clutter the action row for options this platform doesn't yet
-  // have an authorization model to actually offer.
   {
-    name: 'Apply only',
-    roadmap: true,
-    body: "Skips any PreSync/PostSync/SyncFail resource hooks the app declares and applies the plain manifests only. Use to get git's declared state onto the cluster when a hook itself is what's broken, not the application resources. (Glidepath's own release events don't use hooks: they come from the Rollout, so they still report.)",
+    name: 'Terminate',
+    body: 'Stops the sync operation that is running now, as Argo CD\'s own Terminate does. Use when a sync is stuck (a hook that never finishes, a resource that never gets healthy) and blocking the next one. What was already applied stays applied; run Sync again once the cause is fixed.',
   },
+  // ArgoCD's own Sync dialog "Advanced" section (2026-09-16: "consider adding additional argocd sync options").
+  // Guide-only, no buttons: real sync-request modifiers this platform does not offer. Apply only went 2026-10-10:
+  // it skips resource hooks, and Glidepath's environments have none since ADR-0021 phase 3.
   {
     name: 'Replace',
     roadmap: true,
@@ -205,6 +192,11 @@ const SYNC_GUIDE: Array<{ name: string; roadmap?: boolean; body: string }> = [
     body: "Uses the Kubernetes API server's own server-side apply instead of ArgoCD's client-side apply, for correct field-ownership tracking when another controller also legitimately writes to the same resource (e.g. an HPA managing replicas). Use when client-side apply keeps fighting that other controller. Possible error: a real field-manager conflict if two managers both claim the same field without one yielding.",
   },
 ];
+
+/** What a Force sync would replace: the resources Argo CD reports out of sync. */
+export function forceSyncTargets(resources: Array<{ kind: string; name: string; syncStatus?: string }>): string[] {
+  return resources.filter(r => r.syncStatus && r.syncStatus !== 'Synced').map(r => `${r.kind}/${r.name}`);
+}
 
 export function ArgoCommandPanel({
   env,
@@ -233,6 +225,8 @@ export function ArgoCommandPanel({
   const classes = useStyles({ t });
   const [detailOpen, setDetailOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [confirmForce, setConfirmForce] = useState(false);
+  const caps = useArgoCapabilities(env.argoAppName ? env.cluster : undefined, env.argoAppName);
 
   // Auto-clears a stale action error once ArgoCD's own live state has
   // genuinely moved on from it (2026-09-17 bug: a 503 from a transient
@@ -273,6 +267,14 @@ export function ArgoCommandPanel({
   const act = (fn: (cluster: string, appName: string) => void) => {
     if (canAct) fn(env.cluster, env.argoAppName!);
   };
+  // Until the capabilities answer, offer what was offered before (refresh, sync); the routes decide either way.
+  const may = (a: 'refresh' | 'sync' | 'force' | 'terminate') => (caps.data ? caps.data[a] : a === 'refresh' || a === 'sync');
+  const notAllowed = (a: 'sync' | 'force' | 'terminate') =>
+    caps.data?.tier === 'flight' && (a === 'sync' || a === 'force')
+      ? 'On a Flight environment only an admin may do this.'
+      : "Only the app's owning team (or an admin) may do this.";
+  const running = env.argoOperationPhase === 'Running';
+  const replaced = forceSyncTargets(resources);
 
   return (
     <div className={classes.panel}>
@@ -312,19 +314,32 @@ export function ArgoCommandPanel({
           <Button
             small
             variant="primary"
-            title={SYNC_GUIDE[2].body}
-            disabled={!canAct || Boolean(argoActions.pending)}
+            title={may('sync') ? SYNC_GUIDE[2].body : notAllowed('sync')}
+            disabled={!canAct || Boolean(argoActions.pending) || !may('sync')}
             onClick={() => act(argoActions.sync)}
           >
             {argoActions.pending === 'sync' ? 'Syncing…' : 'Sync'}
           </Button>
-          {/* Not built yet: shown disabled so the guide below can explain them. */}
-          <Button small title={SYNC_GUIDE[3].body} disabled>
-            Sync with prune
+          <Button
+            small
+            variant="danger"
+            title={may('force') ? SYNC_GUIDE[3].body : notAllowed('force')}
+            disabled={!canAct || Boolean(argoActions.pending) || !may('force')}
+            onClick={() => setConfirmForce(true)}
+          >
+            {argoActions.pending === 'force' ? 'Forcing…' : 'Force sync'}
           </Button>
-          <Button small variant="danger" title={SYNC_GUIDE[4].body} disabled>
-            Force sync
-          </Button>
+          {running && (
+            <Button
+              small
+              variant="danger"
+              title={may('terminate') ? SYNC_GUIDE[4].body : notAllowed('terminate')}
+              disabled={!canAct || Boolean(argoActions.pending) || !may('terminate')}
+              onClick={() => act(argoActions.terminate)}
+            >
+              {argoActions.pending === 'terminate' ? 'Terminating…' : 'Terminate sync'}
+            </Button>
+          )}
           <TextLink expanded={guideOpen} onClick={() => setGuideOpen(v => !v)}>
             Which one?
           </TextLink>
@@ -351,6 +366,35 @@ export function ArgoCommandPanel({
           <Typography className={classes.conditionText}>{c.message}</Typography>
         </div>
       ))}
+
+      {confirmForce && (
+        <div className={classes.condition} data-testid="force-sync-confirm">
+          <span className={classes.conditionType}>Force sync</span>
+          <div>
+            <Typography className={classes.conditionText}>
+              {replaced.length > 0
+                ? `Delete and recreate what is out of sync in ${env.argoAppName}: ${replaced.join(', ')}. Each is down until it is recreated.`
+                : `Nothing in ${env.argoAppName} is out of sync right now, so a force sync has nothing to replace.`}
+            </Typography>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <Button
+                small
+                variant="danger"
+                disabled={replaced.length === 0}
+                onClick={() => {
+                  setConfirmForce(false);
+                  act(argoActions.forceSync);
+                }}
+              >
+                Force sync
+              </Button>
+              <Button small onClick={() => setConfirmForce(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {argoActions.error && <Typography className={classes.argoErr}>{argoActions.error}</Typography>}
       {!reached && (
