@@ -236,6 +236,8 @@ export function TowerPage() {
   const clearApp = () => setSearchParams({});
   const selectTab = (id: TabId) => setSearchParams({ entity: entityRef ?? '', tab: id });
   const openDashboard = () => setSearchParams({ view: 'dashboard' });
+  // A break-glass queue row: the session's deep link (entity, topology, env, breakglass=<id>), see breakglassDeepLink.ts.
+  const openBreakglass = (_row: unknown, link: string) => setSearchParams(new URLSearchParams(link));
 
   let body: JSX.Element;
   if (isDashboardView) {
@@ -243,7 +245,7 @@ export function TowerPage() {
   } else if (!entityRef) {
     body = (
       <div style={{ padding: '48px 24px' }}>
-        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} />
+        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenBreakglass={openBreakglass} />
       </div>
     );
   } else if (loading) {

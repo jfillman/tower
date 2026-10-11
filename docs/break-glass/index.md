@@ -59,6 +59,17 @@ How Tower decides the tier (the request never says):
 
 You can hold **one** open request or session at a time, across all apps.
 
+## Where to find things
+
+- **A pod's Debug panel** (Topology, the environment, Pods, a pod, **Debug**): the form to open a session on that pod,
+  and the environment's sessions under it.
+- **The Break-glass card** under Pods in Topology: the environment's sessions without choosing a pod. A live session
+  restarts its pod and a copy is deleted at the end, so this is where a finished session (and its review) lives.
+  Approvals, reviews, play and download are here; a badge counts what needs you.
+- **The Break-glass strip** on the Tower home page and the Ops Wall: across every app, the requests you can decide,
+  your approved request waiting for its Start, and the reviews you can do. It is empty, and hidden, most of the time.
+- **Notifications** link straight to the session they are about.
+
 ## Guides
 
 | Read this | When you want to… |

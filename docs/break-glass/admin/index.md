@@ -23,7 +23,7 @@ cluster, how to operate it, and why it is built the way it is. If you only use b
 
 | Component | Where | What it does |
 |---|---|---|
-| **Tower UI** (`BreakglassPanel`, `RecordingPlayer`) | jfillman/tower, `src/tabs/topology/` | the Debug panel: form, approvals, terminal (xterm.js over a WebSocket), session list, reviews, player |
+| **Tower UI** (`BreakglassPanel`, `BreakglassEnvironmentView`, `RecordingPlayer`, `breakglass/BreakglassQueueStrip`) | jfillman/tower, `src/tabs/topology/` and `src/breakglass/` | the pod's Debug panel (the form and its terminal); the environment's Break-glass card (approvals, End, history, reviews, player; deep links); the home-page and Ops Wall queue strip |
 | **Break-glass backend** (`breakglass.ts`, `breakglassSpec.ts`, `breakglassStore.ts`) | jfillman/backstage, `packages/backend/src/`, mounted under the glidepath plugin at `/api/glidepath/breakglass` | the routes, the session state machine, the grant and debug-container objects, the terminal relay, the recording, the sweep |
 | **Permissions** | backstage `towerPermissions.ts`, `permissionPolicy.ts` | `tower.breakglass.request`, `.approve`, `.terminate` (grant-only), `.self` (grant-only) |
 | **Session store** | Backstage's database (glidepath plugin), table `breakglass_sessions` | one row per session: the audit record |

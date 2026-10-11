@@ -9,8 +9,8 @@ The app's **owners** and the **admins**. Every play and every download is audite
 
 ## Playing a recording
 
-In any pod's **Debug** panel of the environment, find the session in the list and press **play**. The recording opens
-under the list:
+In Topology, the environment's **Break-glass** card under Pods (or any pod's Debug panel) lists the sessions; find
+yours and press **play**. The recording opens under the list:
 
 ![The recording player: the SHA-256 check, Replay, the seek bar, the clock, speed, the start time and retention, and the replayed terminal](screenshots/player.png)
 

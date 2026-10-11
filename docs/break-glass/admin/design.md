@@ -153,8 +153,8 @@ as loud as possible:
 
 Tracked in the platform's break-glass gaps spec:
 
-- an environment-level break-glass view and a cross-app queue for approvals and reviews (today they hang off a pod's
-  Debug panel, and an admin's *End* on someone else's session is API-only);
+- ~~an environment-level break-glass view and a cross-app queue for approvals and reviews~~ (built 2026-10-11: the
+  Break-glass card under Pods, the home-page queue strip, deep links, and *End* for admins and approvers);
 - refusing to start when the recordings store is unreachable;
 - object-locked recordings with a transparency-log anchor;
 - restricted access to recordings of sessions that could read Secrets;

@@ -12,6 +12,7 @@ import { RefreshButton } from '../RefreshButton';
 import { EnvironmentTopology } from '../EnvironmentTopology';
 import { EnvPicker, type EnvPickerGroup } from '../EnvPicker';
 import { envStageRank, envTierOf, health, imageTag, type EnvTier } from '../types';
+import { breakglassDeepLink } from './topology/breakglassDeepLink';
 
 // Modernized 2026-09-17 to match the rest of Tower's post-"Ground Control"
 // look: the same tiered env picker the Deployments tab uses (item 1),
@@ -35,7 +36,7 @@ export function TopologyTab() {
   const pipelineRuns = useTektonPipelineRuns(appName);
 
   const [searchParams] = useSearchParams();
-  const linkedEnv = searchParams.get('env') ?? undefined;
+  const { env: linkedEnv, sessionId: linkedSessionId } = breakglassDeepLink(searchParams);
 
   const [selectedEnv, setSelectedEnv] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -124,7 +125,7 @@ export function TopologyTab() {
         showConnectors={false}
       />
 
-      <EnvironmentTopology env={selected} tier={selectedTier} />
+      <EnvironmentTopology env={selected} tier={selectedTier} linkedSessionId={selected.env === linkedEnv ? linkedSessionId : undefined} />
     </div>
   );
 }

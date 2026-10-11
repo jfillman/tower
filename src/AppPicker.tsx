@@ -15,6 +15,8 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { HangarMark } from './brand/HangarMark';
 import { useSearchParams } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
+import { BreakglassQueueStrip } from './breakglass/BreakglassQueueStrip';
+import type { BreakglassQueueRow } from './breakglass/useBreakglassQueue';
 import { ProvisioningView } from './provisioning/ProvisioningView';
 import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
@@ -320,9 +322,12 @@ export function ownerLabel(owner: unknown): string {
 export function AppPicker({
   onSelect,
   onOpenDashboard,
+  onOpenBreakglass,
 }: {
   onSelect: (entityRef: string) => void;
   onOpenDashboard: () => void;
+  /** A break-glass queue row was chosen: open its session (the link is Tower's own query string). */
+  onOpenBreakglass?: (row: BreakglassQueueRow, link: string) => void;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -618,6 +623,7 @@ export function AppPicker({
         />
       ) : (
         <>
+          <BreakglassQueueStrip onOpen={onOpenBreakglass ?? ((_row, link) => window.location.assign(`${window.location.pathname}${link}`))} />
           <ProvisioningStrip items={inFlight} onOpen={openProvisioning} />
           <FilterBar>
             <FilterChips

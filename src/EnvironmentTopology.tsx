@@ -61,20 +61,30 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
 }));
 
-export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; tier: EnvTier }) {
+export function EnvironmentTopology({
+  env,
+  tier,
+  linkedSessionId,
+}: {
+  env: EnvironmentSummary;
+  tier: EnvTier;
+  /** A break-glass session a deep link named: the Pods stage opens on it (gap G1). */
+  linkedSessionId?: string;
+}) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const h = health(env);
   const stages = buildTopoStages(env);
 
-  const [selectedStage, setSelectedStage] = useState<TopoStageKey>('workload');
+  const [selectedStage, setSelectedStage] = useState<TopoStageKey>(linkedSessionId ? 'pods' : 'workload');
   // Reset to the workload stage whenever the selected environment itself
   // changes (TopologyTab's own env-picker click) - keeping the previous
   // env's selected stage would silently show e.g. "Pods" detail for an env
-  // that was never clicked into.
+  // that was never clicked into. A deep link to a break-glass session lands
+  // on Pods instead, where the session is.
   useEffect(() => {
-    setSelectedStage('workload');
-  }, [env.key]);
+    setSelectedStage(linkedSessionId ? 'pods' : 'workload');
+  }, [env.key, linkedSessionId]);
 
   const [showResources, setShowResources] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
@@ -140,7 +150,7 @@ export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; ti
         </div>
         <hr className={classes.dagDivider} />
         <div className={classes.stageDetailInner}>
-          <TopologyStageDetail env={env} tier={tier} selectedKey={selectedStage} />
+          <TopologyStageDetail env={env} tier={tier} selectedKey={selectedStage} linkedSessionId={linkedSessionId} />
         </div>
       </div>
 

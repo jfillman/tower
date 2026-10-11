@@ -31,7 +31,9 @@ The app's owners (except you) and the admins get a **high**-severity notificatio
 
 ## The approver: decide
 
-1. Open the notification's link, or go to the environment in Topology and open any pod's **Debug** panel.
+1. Open the notification's link (it opens the request), or go to the environment in Topology: the **Break-glass**
+   card under Pods (and any pod's Debug panel) shows it. The **Break-glass** strip on the Tower home page lists every
+   request you can decide, across apps.
 2. Under **Requests awaiting a second person** you see each request: who, the mode and options, the pod, the
    duration, the reason, the ticket link, and the time left.
 3. Judge it the way you would judge a production change:
@@ -48,8 +50,9 @@ has expired cannot be approved.
 
 ## The requester: start
 
-The requester gets a notification (*approved* or *denied*, with the note). After an approval the panel shows who
-approved it and the **10 minutes** you have to start:
+The requester gets a notification (*approved* or *denied*, with the note; its link opens the session). After an
+approval the pod's Debug panel, the Break-glass card and the home page's strip show who approved it and the
+**10 minutes** you have to start:
 
 ![Approved: who approved, their note, the time left to start, Start recorded session and Withdraw](screenshots/flight-approved.png)
 
@@ -62,7 +65,8 @@ From here it is the same as Ground: the red banner, the countdown, **Extend +15 
 
 ## Ending on Flight
 
-- **Who can end it:** you, the approver, or an admin (an admin's end is recorded as *terminated by …*).
+- **Who can end it:** you (**End session**), the approver, or an admin: on the environment's **Break-glass** card
+  under Pods, **End** on your session, with a confirm naming you (recorded as *terminated by …*).
 - **Live mode:** the pod is restarted through Argo CD when you end, **unless it is the last ready pod** of its
   Deployment or Rollout. Then it keeps the debug container until the next rollout, and you are notified to restart it
   from Tower when that is safe.

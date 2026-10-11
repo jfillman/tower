@@ -29,6 +29,10 @@ jest.mock('@backstage/core-plugin-api', () => ({
 }));
 const mockProvisioning = { items: [] as any[], loading: false };
 jest.mock('./provisioning/useProvisioning', () => ({ useProvisioning: () => mockProvisioning }));
+jest.mock('./breakglass/useBreakglassQueue', () => ({
+  ...jest.requireActual('./breakglass/useBreakglassQueue'),
+  useBreakglassQueue: () => ({ data: { toApprove: [], toStart: [], toReview: [] }, failures: 0, loading: false, intervalMs: 30000 }),
+}));
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
 
 const pressed = (name: string) =>
