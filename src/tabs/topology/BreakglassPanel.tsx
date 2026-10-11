@@ -9,12 +9,17 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { formatDateTime, relativeTime } from '../../shared/format';
 import type { EnvironmentSummary, EnvTier } from '../../types';
 import { Button, Field, StatusChip } from '../../ui';
+import { RecordingPlayer } from './RecordingPlayer';
 
 // Break-glass debug, phase 2 (Ground only, no approval; backstage breakglass.ts). An owner opens a recorded,
 // time-boxed terminal on one pod: in a copy of the pod (copy mode, recommended: the live pod is untouched) or in a
 // debug container added to the live pod (live mode, which restarts the pod when the session ends, because the debug
 // container stays in the pod spec for the pod's life). The terminal never sees a Kubernetes credential: it is a
 // WebSocket to the Backstage backend, which attaches to the debug container and records every byte both ways.
+//
+// Flight (phase 3) needs a second person to approve. Phase 4: an admin may break the glass instead (no second person;
+// announced to everyone, audited critical) and the session is then review-due until an owner other than them, or an
+// admin, watches the recording and marks it reviewed. Recordings play here, checked against the stored SHA-256.
 
 export interface BreakglassSession {
   id: string;
@@ -50,8 +55,18 @@ export interface BreakglassSession {
   startedAt?: string;
   /** The session's one free extension (+15 minutes), if used. */
   extendedAt?: string;
+  /** Phase 4: opened by an admin with no second person; review-due until someone else reviews it. */
+  glassBroken?: boolean;
+  reviewState?: 'due' | 'done';
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  /** When the recordings bucket deletes the recording (its retention, counted from the end). */
+  recordingExpiresAt?: string;
   attached?: boolean;
 }
+
+const shortUser = (ref: string) => ref.replace(/^user:[^/]+\//, '');
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { display: 'flex', flexDirection: 'column', gap: 12 },
@@ -197,7 +212,17 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [sessions, setSessions] = useState<BreakglassSession[]>([]);
-  const [listInfo, setListInfo] = useState<{ user?: string; recordingsConfigured?: boolean; error?: string }>({});
+  const [listInfo, setListInfo] = useState<{
+    user?: string;
+    recordingsConfigured?: boolean;
+    recordingRetentionDays?: number;
+    canBreakGlass?: boolean;
+    canReview?: boolean;
+    error?: string;
+  }>({});
+  const [glassBroken, setGlassBroken] = useState(false);
+  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+  const [playing, setPlaying] = useState<BreakglassSession | undefined>();
   const [open, setOpen] = useState<BreakglassSession | undefined>();
   const [closedNote, setClosedNote] = useState<string | undefined>();
   const [attachKey, setAttachKey] = useState(0);
@@ -209,13 +234,22 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const load = useCallback(async () => {
     if (!appName) return;
     try {
-      const body = await api<{ sessions: BreakglassSession[]; user: string; recordingsConfigured: boolean }>(
-        discoveryApi,
-        fetchApi,
-        `/sessions?${new URLSearchParams({ app: appName, env: env.env })}`,
-      );
+      const body = await api<{
+        sessions: BreakglassSession[];
+        user: string;
+        recordingsConfigured: boolean;
+        recordingRetentionDays?: number;
+        canBreakGlass?: boolean;
+        canReview?: boolean;
+      }>(discoveryApi, fetchApi, `/sessions?${new URLSearchParams({ app: appName, env: env.env })}`);
       setSessions(body.sessions);
-      setListInfo({ user: body.user, recordingsConfigured: body.recordingsConfigured });
+      setListInfo({
+        user: body.user,
+        recordingsConfigured: body.recordingsConfigured,
+        recordingRetentionDays: body.recordingRetentionDays,
+        canBreakGlass: body.canBreakGlass,
+        canReview: body.canReview,
+      });
     } catch (e) {
       setListInfo({ error: e instanceof Error ? e.message : String(e) });
     }
@@ -243,6 +277,19 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const mine = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod === podName);
   const mineElsewhere = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod !== podName);
   const toDecide = sessions.filter(s => s.state === 'requested' && s.requester !== listInfo.user);
+  const breakingGlass = flight && glassBroken && !!listInfo.canBreakGlass;
+  const startLabel = () => {
+    const waits = flight && !breakingGlass;
+    if (busy) return waits ? 'Sending the request…' : 'Preparing the debug container…';
+    if (breakingGlass) return 'Break glass and start';
+    return waits ? 'Request approval' : 'Start recorded session';
+  };
+  const stateTone = (s: BreakglassSession) => {
+    if (s.state === 'active') return 'warn' as const;
+    return s.state === 'ended' ? ('neutral' as const) : ('info' as const);
+  };
+  const mayReview = (s: BreakglassSession) =>
+    !!listInfo.canReview && s.glassBroken && s.reviewState === 'due' && s.state === 'ended' && s.requester !== listInfo.user;
 
   const start = async () => {
     setBusy(true);
@@ -266,8 +313,10 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           durationMinutes: duration,
           reason,
           ...(ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {}),
+          ...(breakingGlass ? { glassBroken: true } : {}),
         }),
       });
+      setGlassBroken(false);
       if (body.session.state === 'active') {
         setOpen(body.session);
         setDetached(false);
@@ -343,6 +392,25 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     }
   };
 
+  const review = async (id: string) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await api(discoveryApi, fetchApi, `/sessions/${id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: reviewNote[id]?.trim() ?? '' }),
+      });
+      setReviewNote(n => ({ ...n, [id]: '' }));
+      setClosedNote('Marked reviewed.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
+
   const download = async (s: BreakglassSession) => {
     try {
       const base = await discoveryApi.getBaseUrl('glidepath');
@@ -365,6 +433,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
         <>
           <div className={classes.banner} role="status">
             <span>● Recorded break-glass session</span>
+            {open.glassBroken && <span>Glass broken: no second person, review due</span>}
             <span className={classes.bannerMeta}>
               {open.mode === 'live' ? `live: debug container in ${open.pod}` : `copy of ${open.pod}${open.copyPod ? ` (${open.copyPod})` : ''}`}
               {open.processAccess ? ', with process access' : ''}
@@ -441,7 +510,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           {mine?.state === 'approved' && (
             <div className={classes.actions} data-testid="breakglass-approved">
               <span className={classes.warn}>
-                Approved by {(mine.approver ?? '').replace(/^user:[^/]+\//, '')}
+                Approved by {shortUser(mine.approver ?? '')}
                 {mine.decisionNote ? ` (“${mine.decisionNote}”)` : ''}. Start within {remaining(mine.expiresAt, now)}; the
                 {` ${mine.durationMinutes ?? ''}`}-minute clock starts then.
               </span>
@@ -480,7 +549,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               {toDecide.map(r => (
                 <div key={r.id} className={classes.banner} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
                   <span className={classes.bannerMeta}>
-                    <b>{r.requester.replace(/^user:[^/]+\//, '')}</b> asks for a {r.durationMinutes ?? ''}-minute {r.mode} session on {r.pod}
+                    <b>{shortUser(r.requester)}</b> asks for a {r.durationMinutes ?? ''}-minute {r.mode} session on {r.pod}
                     {r.processAccess ? ', with process access' : ''}
                     {r.volumeAccess ? ', with volume access' : ''}. Expires in {remaining(r.expiresAt, now)}.
                   </span>
@@ -506,8 +575,10 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           {closedNote && <span className={classes.hint}>{closedNote}</span>}
           {ending && <span className={classes.hint}>Ending the session: removing the grant and the debug pod, saving the recording…</span>}
           <span className={classes.hint}>
-            A time-boxed shell in a hardened debug container (busybox, non-root, read-only, no capabilities). Everything typed and shown is
-            recorded and kept for a year; the session is audited.
+            A time-boxed shell in a hardened debug container (the signed Tower debug image: curl, dig, openssl, jq, ss, ps, nc, psql,
+            redis-cli; non-root, read-only, no capabilities). Everything typed and shown is recorded and kept for
+            {listInfo.recordingRetentionDays && listInfo.recordingRetentionDays !== 365 ? ` ${listInfo.recordingRetentionDays} days` : ' a year'}; the
+            session is audited.
             {flight && ' On Flight a second person approves first: an owner of this app other than you, or an admin.'}
           </span>
           {listInfo.recordingsConfigured === false && (
@@ -606,13 +677,26 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               </Field>
             </div>
           </div>
+          {flight && listInfo.canBreakGlass && (
+            <label className={classes.radio} data-testid="breakglass-glass-broken">
+              <input type="checkbox" checked={glassBroken} onChange={e => setGlassBroken(e.target.checked)} />
+              <span>
+                <b>Break glass: start now, with no second person</b> (admins)
+                <br />
+                <span className={classes.warn}>
+                  For when no one else can approve in time. Everyone is told at once, it is audited as critical, and the session is
+                  review-due until an owner of {appName} other than you, or another admin, watches the recording and signs it off.
+                </span>
+              </span>
+            </label>
+          )}
           <div className={classes.actions}>
             <Button
               variant="danger"
               disabled={busy || ending || !reason.trim() || !!mine || !!mineElsewhere || listInfo.recordingsConfigured === false}
               onClick={start}
             >
-              {busy ? (flight ? 'Sending the request…' : 'Preparing the debug container…') : flight ? 'Request approval' : 'Start recorded session'}
+{startLabel()}
             </Button>
             {busy && <span className={classes.hint}>This can take up to two minutes.</span>}
           </div>
@@ -626,7 +710,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
         {!listInfo.error && sessions.length === 0 && <span className={classes.hint}>None yet.</span>}
         {sessions.map(s => (
           <div key={s.id} className={classes.row}>
-            <StatusChip tone={s.state === 'active' ? 'warn' : s.state === 'ended' ? 'neutral' : 'info'}>{s.state}</StatusChip>
+            <StatusChip tone={stateTone(s)}>{s.state}</StatusChip>
             <span title={formatDateTime(s.createdAt)}>{relativeTime(s.createdAt)}</span>
             <span>
               {s.mode}
@@ -638,12 +722,19 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               )}
             </span>
             <span>{s.pod}</span>
-            <span className={classes.rowMeta}>{s.requester.replace(/^user:[^/]+\//, '')}</span>
+            <span className={classes.rowMeta}>{shortUser(s.requester)}</span>
             <span className={classes.rowMeta} title={s.reason}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
             {s.ticketUrl && (
               <a className={classes.link} href={s.ticketUrl} target="_blank" rel="noopener noreferrer">ticket</a>
             )}
-            {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {s.approver.replace(/^user:[^/]+\//, '')}</span>}
+            {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {shortUser(s.approver)}</span>}
+            {s.glassBroken && <StatusChip tone="bad" title="Opened by an admin with no second person">glass broken</StatusChip>}
+            {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
+            {s.reviewState === 'done' && (
+              <span className={classes.rowMeta} title={`${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ''}`}>
+                reviewed by {shortUser(s.reviewedBy ?? '')}
+              </span>
+            )}
             {s.endReason && (
               <span className={classes.rowMeta} title={s.endReason}>
                 {s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}…` : s.endReason}
@@ -654,13 +745,38 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             )}
             {s.cleanupNotes && <span className={classes.warn} title={s.cleanupNotes}>notes</span>}
             {s.recordingKey && (
-              <button type="button" className={classes.link} onClick={() => download(s)} title={`SHA-256 ${s.recordingSha256 ?? ''}`}>
-                recording
-              </button>
+              <>
+                <button type="button" className={classes.link} onClick={() => setPlaying(s)} title="Play the recording here">
+                  play
+                </button>
+                <button
+                  type="button"
+                  className={classes.link}
+                  onClick={() => download(s)}
+                  title={`SHA-256 ${s.recordingSha256 ?? ''}${s.recordingExpiresAt ? `\nKept until ${formatDateTime(s.recordingExpiresAt)}` : ''}`}
+                >
+                  download
+                </button>
+              </>
+            )}
+            {mayReview(s) && (
+              <div className={classes.actions} style={{ flexBasis: '100%' }} data-testid={`breakglass-review-${s.id}`}>
+                <input
+                  aria-label={`Review note for ${s.id}`}
+                  placeholder="What the recording shows, and whether breaking the glass was justified (required)"
+                  value={reviewNote[s.id] ?? ''}
+                  onChange={e => setReviewNote(n => ({ ...n, [s.id]: e.target.value }))}
+                  style={{ flex: 1, minWidth: 200 }}
+                />
+                <Button small disabled={busy || !reviewNote[s.id]?.trim()} onClick={() => review(s.id)}>
+                  Mark reviewed
+                </Button>
+              </div>
             )}
           </div>
         ))}
       </div>
+      {playing && <RecordingPlayer key={playing.id} session={playing} onClose={() => setPlaying(undefined)} />}
     </div>
   );
 }

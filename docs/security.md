@@ -44,6 +44,8 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | owners, **after a second person approves** | high (Flight request: medium) |
 | Approve or deny a Flight break-glass request | `tower.breakglass.approve` | n/a | owners other than the requester, admins | high |
 | End someone else's break-glass session | `tower.breakglass.terminate` | admins | admins, and the session's approver | high |
+| Break glass: a Flight session with no second person | `tower.breakglass.self` | n/a | admins | **critical**, announced to everyone |
+| Review a glass-broken session after it ends | `tower.breakglass.approve` | n/a | owners other than the requester, admins | high |
 
 - The `.flight` permissions are **grant-only**: ownership never satisfies them. Today only admins hold them.
 - An environment the server cannot place in either tier is treated as Flight, the stricter one.
@@ -144,7 +146,19 @@ requester). A request expires after 30 minutes; an approved one must be started 
 starts then. On Flight the last ready pod is never restarted for you. PR previews count as Ground (their namespace's
 `hangar.io/ephemeral-env` label, read from the cluster).
 
-- **Never exec.** The shell runs in a separate debug container (busybox, pinned by digest): non-root (65532:65532),
+**Glass broken.** When no one else can approve in time, an admin can tick *Break glass* and open a Flight session at
+once, with no second person (`tower.breakglass.self`, grant-only). That is the weakest link in the model, so it is
+loud and checked afterwards:
+- Everyone gets a notification the moment it opens, and it is audited `critical`, when it opens and when it ends.
+- The grant itself says so: Backstage marks the RoleBinding `hangar.io/breakglass-glass-broken: "true"` and names no
+  approver. kind-prod's policy accepts that in place of a distinct approver, never both.
+- The session is **review-due** from the moment it opens, so even one that fails to start or whose backend dies is
+  reviewed. When it ends, the app's owners and the admins (other than the requester) are asked to review it. Someone
+  who could have approved it, and is not the person who broke the glass, watches the recording and marks it reviewed
+  with a required note. The review is once, and it shows on the session's record.
+
+- **Never exec.** The shell runs in a separate debug container (the Tower debug image, `ghcr.io/jfillman/tower-debug`,
+  signed and pinned by digest; see [debug-image/README.md](../debug-image/README.md) for its tools): non-root (65532:65532),
   read-only root filesystem, every capability dropped, no privilege escalation. Two modes:
   - **Copy of the pod** (recommended): a new pod from the pod's spec, with no labels a Service selects, so it takes no
     traffic. The live pod is untouched; the copy is deleted at the end.
@@ -168,9 +182,14 @@ starts then. On Flight the last ready pod is never restarted for you. PR preview
   button in the session banner). It ends early after 10 idle minutes, or 2 minutes after the terminal is closed and not
   reopened. One open session or request per person. The cleanup TTL on the grant and on copy pods is the session
   length plus 15 minutes, so an extended session never outlives its backstop.
-- **Recorded**: every byte typed and shown, as an asciicast v2 file in MinIO (`tower-breakglass/<app>/<env>/<id>.cast`,
-  kept a year), with its SHA-256 on the session record. A session cannot start if recordings are not configured. Owners
-  and admins can download recordings from the pod's Debug panel.
+- **Recorded**: every byte typed and shown, as an asciicast v2 file in MinIO (`tower-breakglass/<app>/<env>/<id>.cast`),
+  with its SHA-256 on the session record. A session cannot start if recordings are not configured. Owners and admins
+  can **play** a recording in the pod's Debug panel (a replay in the same terminal, with play/pause, speed and a seek
+  bar; pauses over 2 seconds play as 2 seconds) or download it. The player hashes what it fetched and shows whether it
+  matches the SHA-256 on the record. Every play and download is audited.
+- **Retention**: the bucket's lifecycle rule deletes a recording 365 days after it was written (the session's end); the
+  session record shows the date (`glidepath.breakglass.recordings.retentionDays` must match the rule). Asking for a
+  deleted recording says it expired. The session rows themselves are the audit record and are kept.
 - **No standing rights.** Backstage's Kubernetes identity can only create and delete RoleBindings to the two debug
   roles. Both roles can delete pods while a session lasts (the copy, or the live pod's restart); Kyverno lets Backstage
   delete only a pod carrying a break-glass debug container or a copy pod. A session creates `tower-breakglass-<id>` in the app's namespace for its length, with a Kyverno cleanup TTL
@@ -182,7 +201,7 @@ starts then. On Flight the last ready pod is never restarted for you. PR preview
   server and so is never down on its own; there it also refuses `pods/exec` into app namespaces to everyone but
   operators, and lets Backstage attach only to a debug container.
 - **Audited** `high` when it opens and again when it ends (with the end reason, whether the pod was restarted, and the
-  recording's hash).
+  recording's hash); `critical` when the glass was broken.
 
 ## What Tower never does
 
@@ -208,6 +227,9 @@ Ground actions, and is refused Flight sync and force sync.
   for anyone with write access to the repository. The PR keeps its failed checks visible.
 - Merging a release PR from Tower is not offered; merge it on GitHub.
 - Break-glass: a backend restart mid-session ends the session; its recording is the last one-minute checkpoint.
-  Recordings live on kiac-dev's MinIO, the cluster Ground runs on.
+  Recordings live on kiac-dev's MinIO, the cluster Ground runs on. The bucket has no object lock, so someone with
+  MinIO admin rights could replace a recording; the SHA-256 on the session record (checked by the player) would show it.
+- A review-due session is found through its notification or the environment's Debug panel; there is no list of every
+  review due across apps yet.
 - Image pruning does not scan the cluster repositories. Platform deployments defined there, such as Backstage
   itself, are protected by the running-pod and ReplicaSet rules, not by their git history.

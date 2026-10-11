@@ -8,7 +8,9 @@ import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { formatDateTime, relativeTime } from '../../shared/format.esm.js';
 import { Button, Field, StatusChip } from '../../ui/index.esm.js';
+import { RecordingPlayer } from './RecordingPlayer.esm.js';
 
+const shortUser = (ref) => ref.replace(/^user:[^/]+\//, "");
 const useStyles = makeStyles(() => ({
   root: { display: "flex", flexDirection: "column", gap: 12 },
   form: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" },
@@ -146,6 +148,9 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   const [error, setError] = useState();
   const [sessions, setSessions] = useState([]);
   const [listInfo, setListInfo] = useState({});
+  const [glassBroken, setGlassBroken] = useState(false);
+  const [reviewNote, setReviewNote] = useState({});
+  const [playing, setPlaying] = useState();
   const [open, setOpen] = useState();
   const [closedNote, setClosedNote] = useState();
   const [attachKey, setAttachKey] = useState(0);
@@ -156,13 +161,15 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   const load = useCallback(async () => {
     if (!appName) return;
     try {
-      const body = await api(
-        discoveryApi,
-        fetchApi,
-        `/sessions?${new URLSearchParams({ app: appName, env: env.env })}`
-      );
+      const body = await api(discoveryApi, fetchApi, `/sessions?${new URLSearchParams({ app: appName, env: env.env })}`);
       setSessions(body.sessions);
-      setListInfo({ user: body.user, recordingsConfigured: body.recordingsConfigured });
+      setListInfo({
+        user: body.user,
+        recordingsConfigured: body.recordingsConfigured,
+        recordingRetentionDays: body.recordingRetentionDays,
+        canBreakGlass: body.canBreakGlass,
+        canReview: body.canReview
+      });
     } catch (e) {
       setListInfo({ error: e instanceof Error ? e.message : String(e) });
     }
@@ -185,6 +192,18 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   const mine = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod === podName);
   const mineElsewhere = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod !== podName);
   const toDecide = sessions.filter((s) => s.state === "requested" && s.requester !== listInfo.user);
+  const breakingGlass = flight && glassBroken && !!listInfo.canBreakGlass;
+  const startLabel = () => {
+    const waits = flight && !breakingGlass;
+    if (busy) return waits ? "Sending the request\u2026" : "Preparing the debug container\u2026";
+    if (breakingGlass) return "Break glass and start";
+    return waits ? "Request approval" : "Start recorded session";
+  };
+  const stateTone = (s) => {
+    if (s.state === "active") return "warn";
+    return s.state === "ended" ? "neutral" : "info";
+  };
+  const mayReview = (s) => !!listInfo.canReview && s.glassBroken && s.reviewState === "due" && s.state === "ended" && s.requester !== listInfo.user;
   const start = async () => {
     setBusy(true);
     setError(void 0);
@@ -206,9 +225,11 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           recycleLastPod: !flight && mode === "live" && recycleLastPod,
           durationMinutes: duration,
           reason,
-          ...ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {}
+          ...ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {},
+          ...breakingGlass ? { glassBroken: true } : {}
         })
       });
+      setGlassBroken(false);
       if (body.session.state === "active") {
         setOpen(body.session);
         setDetached(false);
@@ -279,6 +300,24 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       load();
     }
   };
+  const review = async (id) => {
+    setBusy(true);
+    setError(void 0);
+    try {
+      await api(discoveryApi, fetchApi, `/sessions/${id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: reviewNote[id]?.trim() ?? "" })
+      });
+      setReviewNote((n) => ({ ...n, [id]: "" }));
+      setClosedNote("Marked reviewed.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
   const download = async (s) => {
     try {
       const base = await discoveryApi.getBaseUrl("glidepath");
@@ -298,6 +337,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
     open ? /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.banner, role: "status", children: [
         /* @__PURE__ */ jsx("span", { children: "\u25CF Recorded break-glass session" }),
+        open.glassBroken && /* @__PURE__ */ jsx("span", { children: "Glass broken: no second person, review due" }),
         /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, children: [
           open.mode === "live" ? `live: debug container in ${open.pod}` : `copy of ${open.pod}${open.copyPod ? ` (${open.copyPod})` : ""}`,
           open.processAccess ? ", with process access" : "",
@@ -367,7 +407,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       mine?.state === "approved" && /* @__PURE__ */ jsxs("div", { className: classes.actions, "data-testid": "breakglass-approved", children: [
         /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
           "Approved by ",
-          (mine.approver ?? "").replace(/^user:[^/]+\//, ""),
+          shortUser(mine.approver ?? ""),
           mine.decisionNote ? ` (\u201C${mine.decisionNote}\u201D)` : "",
           ". Start within ",
           remaining(mine.expiresAt, now),
@@ -409,7 +449,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx("span", { className: classes.hint, style: { fontWeight: 700 }, children: "Requests awaiting a second person" }),
         toDecide.map((r) => /* @__PURE__ */ jsxs("div", { className: classes.banner, style: { flexDirection: "column", alignItems: "stretch", gap: 6 }, children: [
           /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, children: [
-            /* @__PURE__ */ jsx("b", { children: r.requester.replace(/^user:[^/]+\//, "") }),
+            /* @__PURE__ */ jsx("b", { children: shortUser(r.requester) }),
             " asks for a ",
             r.durationMinutes ?? "",
             "-minute ",
@@ -446,7 +486,9 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       closedNote && /* @__PURE__ */ jsx("span", { className: classes.hint, children: closedNote }),
       ending && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Ending the session: removing the grant and the debug pod, saving the recording\u2026" }),
       /* @__PURE__ */ jsxs("span", { className: classes.hint, children: [
-        "A time-boxed shell in a hardened debug container (busybox, non-root, read-only, no capabilities). Everything typed and shown is recorded and kept for a year; the session is audited.",
+        "A time-boxed shell in a hardened debug container (the signed Tower debug image: curl, dig, openssl, jq, ss, ps, nc, psql, redis-cli; non-root, read-only, no capabilities). Everything typed and shown is recorded and kept for",
+        listInfo.recordingRetentionDays && listInfo.recordingRetentionDays !== 365 ? ` ${listInfo.recordingRetentionDays} days` : " a year",
+        "; the session is audited.",
         flight && " On Flight a second person approves first: an owner of this app other than you, or an admin."
       ] }),
       listInfo.recordingsConfigured === false && /* @__PURE__ */ jsx("span", { className: classes.bad, children: "Recordings are not configured on the backend, so no session can start." }),
@@ -509,6 +551,19 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx("div", { className: classes.full, children: /* @__PURE__ */ jsx(Field, { id: "bg-reason", label: "Reason (required)", children: (p) => /* @__PURE__ */ jsx("textarea", { ...p, rows: 2, maxLength: 2e3, value: reason, onChange: (e) => setReason(e.target.value), placeholder: "What are you looking for?" }) }) }),
         /* @__PURE__ */ jsx("div", { className: classes.full, children: /* @__PURE__ */ jsx(Field, { id: "bg-ticket", label: "Incident or ticket link (optional)", children: (p) => /* @__PURE__ */ jsx("input", { ...p, type: "url", value: ticketUrl, onChange: (e) => setTicketUrl(e.target.value), placeholder: "https://" }) }) })
       ] }),
+      flight && listInfo.canBreakGlass && /* @__PURE__ */ jsxs("label", { className: classes.radio, "data-testid": "breakglass-glass-broken", children: [
+        /* @__PURE__ */ jsx("input", { type: "checkbox", checked: glassBroken, onChange: (e) => setGlassBroken(e.target.checked) }),
+        /* @__PURE__ */ jsxs("span", { children: [
+          /* @__PURE__ */ jsx("b", { children: "Break glass: start now, with no second person" }),
+          " (admins)",
+          /* @__PURE__ */ jsx("br", {}),
+          /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
+            "For when no one else can approve in time. Everyone is told at once, it is audited as critical, and the session is review-due until an owner of ",
+            appName,
+            " other than you, or another admin, watches the recording and signs it off."
+          ] })
+        ] })
+      ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
         /* @__PURE__ */ jsx(
           Button,
@@ -516,7 +571,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
             variant: "danger",
             disabled: busy || ending || !reason.trim() || !!mine || !!mineElsewhere || listInfo.recordingsConfigured === false,
             onClick: start,
-            children: busy ? flight ? "Sending the request\u2026" : "Preparing the debug container\u2026" : flight ? "Request approval" : "Start recorded session"
+            children: startLabel()
           }
         ),
         busy && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "This can take up to two minutes." })
@@ -531,7 +586,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       listInfo.error && /* @__PURE__ */ jsx("span", { className: classes.bad, children: listInfo.error }),
       !listInfo.error && sessions.length === 0 && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "None yet." }),
       sessions.map((s) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-        /* @__PURE__ */ jsx(StatusChip, { tone: s.state === "active" ? "warn" : s.state === "ended" ? "neutral" : "info", children: s.state }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: stateTone(s), children: s.state }),
         /* @__PURE__ */ jsx("span", { title: formatDateTime(s.createdAt), children: relativeTime(s.createdAt) }),
         /* @__PURE__ */ jsxs("span", { children: [
           s.mode,
@@ -539,7 +594,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           s.volumeAccess ? /* @__PURE__ */ jsx("span", { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: " + volume access" }) : ""
         ] }),
         /* @__PURE__ */ jsx("span", { children: s.pod }),
-        /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.requester.replace(/^user:[^/]+\//, "") }),
+        /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: shortUser(s.requester) }),
         /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: s.reason, children: [
           "\u201C",
           s.reason.length > 60 ? `${s.reason.slice(0, 60)}\u2026` : s.reason,
@@ -548,14 +603,47 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         s.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: s.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: "ticket" }),
         s.approver && !(s.endReason ?? "").startsWith("denied") && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
           "approved by ",
-          s.approver.replace(/^user:[^/]+\//, "")
+          shortUser(s.approver)
+        ] }),
+        s.glassBroken && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: "Opened by an admin with no second person", children: "glass broken" }),
+        s.reviewState === "due" && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "review due" }),
+        s.reviewState === "done" && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ""}`, children: [
+          "reviewed by ",
+          shortUser(s.reviewedBy ?? "")
         ] }),
         s.endReason && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, title: s.endReason, children: s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}\u2026` : s.endReason }),
         s.mode === "live" && s.state === "ended" && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.recycled ? "pod restarted" : "pod not restarted" }),
         s.cleanupNotes && /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.cleanupNotes, children: "notes" }),
-        s.recordingKey && /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => download(s), title: `SHA-256 ${s.recordingSha256 ?? ""}`, children: "recording" })
+        s.recordingKey && /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setPlaying(s), title: "Play the recording here", children: "play" }),
+          /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              className: classes.link,
+              onClick: () => download(s),
+              title: `SHA-256 ${s.recordingSha256 ?? ""}${s.recordingExpiresAt ? `
+Kept until ${formatDateTime(s.recordingExpiresAt)}` : ""}`,
+              children: "download"
+            }
+          )
+        ] }),
+        mayReview(s) && /* @__PURE__ */ jsxs("div", { className: classes.actions, style: { flexBasis: "100%" }, "data-testid": `breakglass-review-${s.id}`, children: [
+          /* @__PURE__ */ jsx(
+            "input",
+            {
+              "aria-label": `Review note for ${s.id}`,
+              placeholder: "What the recording shows, and whether breaking the glass was justified (required)",
+              value: reviewNote[s.id] ?? "",
+              onChange: (e) => setReviewNote((n) => ({ ...n, [s.id]: e.target.value })),
+              style: { flex: 1, minWidth: 200 }
+            }
+          ),
+          /* @__PURE__ */ jsx(Button, { small: true, disabled: busy || !reviewNote[s.id]?.trim(), onClick: () => review(s.id), children: "Mark reviewed" })
+        ] })
       ] }, s.id))
-    ] })
+    ] }),
+    playing && /* @__PURE__ */ jsx(RecordingPlayer, { session: playing, onClose: () => setPlaying(void 0) }, playing.id)
   ] });
 }
 
