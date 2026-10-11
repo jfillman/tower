@@ -1,4 +1,5 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
+import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import SecurityIcon from '@material-ui/icons/Security';
@@ -11,6 +12,7 @@ import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
 import { RolloutControls } from './RolloutControls.esm.js';
+import { imageTag } from '../../types.esm.js';
 import { StatusChip, TextLink, Button } from '../../ui/index.esm.js';
 
 function rolloutControlsFor(env) {
@@ -173,6 +175,40 @@ function MergedBody({
   }
   return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Not merged yet." });
 }
+function notStartedFor(delivery, stage, releaseTag, runningTag) {
+  const idx = delivery.steps.findIndex((s) => s.key === stage);
+  const step = delivery.steps[idx];
+  if (!step || step.status !== "pending") return void 0;
+  if (!releaseTag || releaseTag === runningTag) return void 0;
+  const blocking = delivery.steps.slice(0, idx).find((s) => s.status !== "good");
+  return { waitingFor: blocking?.label ?? "the earlier steps" };
+}
+function NotStarted({
+  releaseTag,
+  runningTag,
+  waitingFor,
+  classes,
+  children
+}) {
+  const [open, setOpen] = useState(false);
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsxs(Typography, { className: classes.note, "data-testid": "stage-not-started", children: [
+      "Not started for ",
+      /* @__PURE__ */ jsx("span", { style: { fontFamily: fontMono }, children: releaseTag }),
+      " yet: waiting for ",
+      waitingFor,
+      ".",
+      runningTag ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        " ",
+        "What is shown below is the release running now, ",
+        /* @__PURE__ */ jsx("span", { style: { fontFamily: fontMono }, children: runningTag }),
+        "."
+      ] }) : null
+    ] }),
+    /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: open, onClick: () => setOpen((v) => !v), children: runningTag ? `Show what is running now (${runningTag})` : "Show the current Rollout" }) }),
+    open && children
+  ] });
+}
 function healthyNote(step) {
   if (step?.status === "good") return `Healthy since ${timeText(step.at)}.`;
   if (step?.status === "bad") return "ArgoCD reports this degraded - see the banner above for detail.";
@@ -282,20 +318,35 @@ function StageDetail({
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(TrendingUpIcon, { fontSize: "small" }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout starts" })
       ] }),
-      rolloutControlsFor(env),
-      rolloutProgress ? /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx(
-          CanaryRampChart,
-          {
-            cluster: env.cluster,
-            namespace: env.namespace,
-            rolloutName: env.workload.name,
-            podHash: env.workload.currentPodHash,
-            progress: rolloutProgress
-          }
-        ),
-        /* @__PURE__ */ jsx(RolloutTopologyDag, { cluster: env.cluster, namespace: env.namespace, rolloutName: env.workload.name, stepWeight: rolloutProgress.currentWeight })
-      ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart here." })
+      (() => {
+        const runningTag = env.image ? imageTag(env.image) : void 0;
+        const waiting = notStartedFor(delivery, "progressing", targetImageTag, runningTag);
+        const live = /* @__PURE__ */ jsxs(Fragment, { children: [
+          rolloutControlsFor(env),
+          rolloutProgress ? /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsx(
+              CanaryRampChart,
+              {
+                cluster: env.cluster,
+                namespace: env.namespace,
+                rolloutName: env.workload.name,
+                podHash: env.workload.currentPodHash,
+                progress: rolloutProgress
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              RolloutTopologyDag,
+              {
+                cluster: env.cluster,
+                namespace: env.namespace,
+                rolloutName: env.workload.name,
+                stepWeight: rolloutProgress.currentWeight
+              }
+            )
+          ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart here." })
+        ] });
+        return waiting && targetImageTag ? /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, classes, children: live }) : live;
+      })()
     ] });
   }
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -303,10 +354,19 @@ function StageDetail({
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(CheckCircleIcon, { fontSize: "small" }) }),
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout completes" })
     ] }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.note, children: healthyNote(step) }),
-    rolloutControlsFor(env)
+    (() => {
+      const runningTag = env.image ? imageTag(env.image) : void 0;
+      const waiting = notStartedFor(delivery, "healthy", targetImageTag, runningTag);
+      if (waiting && targetImageTag) {
+        return /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, classes, children: rolloutControlsFor(env) });
+      }
+      return /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx(Typography, { className: classes.note, children: healthyNote(step) }),
+        rolloutControlsFor(env)
+      ] });
+    })()
   ] });
 }
 
-export { StageDetail };
+export { StageDetail, notStartedFor };
 //# sourceMappingURL=StageDetail.esm.js.map
