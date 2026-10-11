@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -12,7 +13,7 @@ import { CanaryRampChart } from '../../CanaryRampChart';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag';
 import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
-import type { ArgoResourceNode, CanaryProgress, EnvironmentSummary } from '../../types';
+import { imageTag, type ArgoResourceNode, type CanaryProgress, type EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
 import { Button, StatusChip, TextLink } from '../../ui';
 
@@ -217,6 +218,61 @@ function MergedBody({
   return <Typography className={classes.note}>Not merged yet.</Typography>;
 }
 
+/**
+ * When a release has not reached this stage yet: the earlier step it is waiting on, and the tag it is waiting to
+ * replace. Undefined when the stage is reached, or when what runs now is already this release (2026-10-11: "Rollout
+ * starts" showed the previous release's Rollout, unlabelled, while a new release waited for its merge or sync).
+ */
+export function notStartedFor(
+  delivery: CdDelivery,
+  stage: 'progressing' | 'healthy',
+  releaseTag: string | undefined,
+  runningTag: string | undefined,
+): { waitingFor: string } | undefined {
+  const idx = delivery.steps.findIndex(s => s.key === stage);
+  const step = delivery.steps[idx];
+  if (!step || step.status !== 'pending') return undefined;
+  if (!releaseTag || releaseTag === runningTag) return undefined;
+  const blocking = delivery.steps.slice(0, idx).find(s => s.status !== 'good');
+  return { waitingFor: blocking?.label ?? 'the earlier steps' };
+}
+
+/** What runs now, folded away under a label naming it, when the selected release has not reached this stage. */
+function NotStarted({
+  releaseTag,
+  runningTag,
+  waitingFor,
+  classes,
+  children,
+}: {
+  releaseTag: string;
+  runningTag: string | undefined;
+  waitingFor: string;
+  classes: ReturnType<typeof useStyles>;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Typography className={classes.note} data-testid="stage-not-started">
+        Not started for <span style={{ fontFamily: fontMono }}>{releaseTag}</span> yet: waiting for {waitingFor}.
+        {runningTag ? (
+          <>
+            {' '}
+            What is shown below is the release running now, <span style={{ fontFamily: fontMono }}>{runningTag}</span>.
+          </>
+        ) : null}
+      </Typography>
+      <div>
+        <TextLink expanded={open} onClick={() => setOpen(v => !v)}>
+          {runningTag ? `Show what is running now (${runningTag})` : 'Show the current Rollout'}
+        </TextLink>
+      </div>
+      {open && children}
+    </>
+  );
+}
+
 function healthyNote(step: CdDelivery['steps'][number] | undefined): string {
   if (step?.status === 'good') return `Healthy since ${timeText(step.at)}.`;
   if (step?.status === 'bad') return 'ArgoCD reports this degraded - see the banner above for detail.';
@@ -371,24 +427,44 @@ export function StageDetail({
           </span>
           <Typography className={classes.title}>Rollout starts</Typography>
         </div>
-        {rolloutControlsFor(env)}
-        {rolloutProgress ? (
-          <>
-            <CanaryRampChart
-              cluster={env.cluster}
-              namespace={env.namespace}
-              rolloutName={env.workload!.name}
-              podHash={env.workload!.currentPodHash}
-              progress={rolloutProgress}
-            />
-            <RolloutTopologyDag cluster={env.cluster} namespace={env.namespace} rolloutName={env.workload!.name} stepWeight={rolloutProgress.currentWeight} />
-          </>
-        ) : (
-          <Typography className={classes.note}>
-            This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart
-            here.
-          </Typography>
-        )}
+        {(() => {
+          const runningTag = env.image ? imageTag(env.image) : undefined;
+          const waiting = notStartedFor(delivery, 'progressing', targetImageTag, runningTag);
+          const live = (
+            <>
+              {rolloutControlsFor(env)}
+              {rolloutProgress ? (
+                <>
+                  <CanaryRampChart
+                    cluster={env.cluster}
+                    namespace={env.namespace}
+                    rolloutName={env.workload!.name}
+                    podHash={env.workload!.currentPodHash}
+                    progress={rolloutProgress}
+                  />
+                  <RolloutTopologyDag
+                    cluster={env.cluster}
+                    namespace={env.namespace}
+                    rolloutName={env.workload!.name}
+                    stepWeight={rolloutProgress.currentWeight}
+                  />
+                </>
+              ) : (
+                <Typography className={classes.note}>
+                  This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to
+                  chart here.
+                </Typography>
+              )}
+            </>
+          );
+          return waiting && targetImageTag ? (
+            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor} classes={classes}>
+              {live}
+            </NotStarted>
+          ) : (
+            live
+          );
+        })()}
       </>
     );
   }
@@ -402,8 +478,23 @@ export function StageDetail({
         </span>
         <Typography className={classes.title}>Rollout completes</Typography>
       </div>
-      <Typography className={classes.note}>{healthyNote(step)}</Typography>
-      {rolloutControlsFor(env)}
+      {(() => {
+        const runningTag = env.image ? imageTag(env.image) : undefined;
+        const waiting = notStartedFor(delivery, 'healthy', targetImageTag, runningTag);
+        if (waiting && targetImageTag) {
+          return (
+            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor} classes={classes}>
+              {rolloutControlsFor(env)}
+            </NotStarted>
+          );
+        }
+        return (
+          <>
+            <Typography className={classes.note}>{healthyNote(step)}</Typography>
+            {rolloutControlsFor(env)}
+          </>
+        );
+      })()}
     </>
   );
 }
