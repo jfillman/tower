@@ -1,23 +1,11 @@
 import { useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { k8sProxyPatch } from '../k8sProxy';
+import { pipelineRunAction } from './pipelineRunAction';
 import type { PipelineRunSummary } from './types';
 
-// Tower's Tekton "Cancel" action (HANDOFF-tower-write-actions.md Tier 1,
-// 2026-09-15) - backed by the `patch` verb added to the same
-// `backstage-tekton-rerun` ClusterRole "Re-run" already uses (see
-// useRerunPipelineRun.ts and gitops-cluster-dev's backstage-ingestor-rbac/
-// rbac.yaml for the RBAC/credential reasoning).
-const TEKTON_CLUSTER = 'kind-dev';
-
-// CancelledRunFinally, not the bare "Cancelled" Tekton also accepts:
-// Cancelled skips the pipeline's `finally` block entirely, which on this
-// platform's own pipelines is where notify-backstage.yaml/notify-slack.yaml
-// live - a cancel that skipped finally would cancel silently, with no
-// notification at all telling anyone it happened. CancelledRunFinally still
-// tears down running TaskRuns/Pods immediately (no retries executed), it
-// just lets `finally` run afterward, same as a real failure would.
-const CANCEL_STATUS = 'CancelledRunFinally';
+// Tower's Tekton "Cancel" action: the backend (pipelineRunAction.ts) checks that this user owns the app, then sets
+// the run's spec.status to CancelledRunFinally - not bare Cancelled, which would skip the pipeline's `finally`
+// (notify-backstage, notify-slack), so a cancel is announced like a failure.
 
 export interface UseCancelPipelineRunResult {
   cancel: (run: PipelineRunSummary) => Promise<void>;
@@ -37,13 +25,7 @@ export function useCancelPipelineRun(onDone?: () => void): UseCancelPipelineRunR
     setPending(run.name);
     setError(undefined);
     try {
-      await k8sProxyPatch(
-        discoveryApi,
-        fetchApi,
-        TEKTON_CLUSTER,
-        `/apis/tekton.dev/v1/namespaces/${run.namespace}/pipelineruns/${run.name}`,
-        { spec: { status: CANCEL_STATUS } },
-      );
+      await pipelineRunAction(discoveryApi, fetchApi, 'cancel', run);
       onDone?.();
     } catch (e) {
       setError(String(e));

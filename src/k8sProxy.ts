@@ -28,65 +28,8 @@ export async function k8sProxyGet<T>(
   return res.json() as Promise<T>;
 }
 
-// Write counterpart to k8sProxyGet - same generic Kubernetes-proxy route (a
-// raw passthrough to whichever cluster's API server the caller names), just
-// a POST with a JSON body instead of a GET. Added for Tower's Tekton
-// "Re-run" action (useRerunPipelineRun.ts): unlike every other consumer of
-// this proxy so far, that one needs to actually create an object, not just
-// read one, which only works because the target cluster's RBAC for this
-// identity has a scoped `create` grant on the one resource kind involved
-// (gitops-cluster-dev's backstage-ingestor-rbac/rbac.yaml,
-// `backstage-tekton-rerun` ClusterRole) - see that file's own comment for
-// why this stayed a single-verb addition to the existing read-only identity
-// rather than a second ServiceAccount/token.
-export async function k8sProxyPost<T>(
-  discoveryApi: { getBaseUrl(id: string): Promise<string> },
-  fetchApi: { fetch: typeof fetch },
-  clusterName: string,
-  path: string,
-  body: unknown,
-): Promise<T> {
-  const baseUrl = await discoveryApi.getBaseUrl('kubernetes');
-  const res = await fetchApi.fetch(`${baseUrl}/proxy${path}`, {
-    method: 'POST',
-    headers: { 'Backstage-Kubernetes-Cluster': clusterName, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const responseBody = await res.json().catch(() => undefined);
-    throw new Error(responseBody?.error?.message ?? responseBody?.message ?? `request failed with ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-// Second write counterpart, for Tower's Tekton "Cancel" action
-// (useCancelPipelineRun.ts) - a merge-patch instead of a POST, since
-// cancelling means changing one field (spec.status) on the EXISTING
-// PipelineRun rather than creating a new object. Content-Type
-// application/merge-patch+json is what tells the API server to interpret
-// the body as a merge patch rather than a full replace; the same
-// `backstage-tekton-rerun` ClusterRole's `patch` verb (added alongside
-// `create` - see that role's own comment on why this stayed a single
-// identity) is what authorizes this.
-export async function k8sProxyPatch<T>(
-  discoveryApi: { getBaseUrl(id: string): Promise<string> },
-  fetchApi: { fetch: typeof fetch },
-  clusterName: string,
-  path: string,
-  body: unknown,
-): Promise<T> {
-  const baseUrl = await discoveryApi.getBaseUrl('kubernetes');
-  const res = await fetchApi.fetch(`${baseUrl}/proxy${path}`, {
-    method: 'PATCH',
-    headers: { 'Backstage-Kubernetes-Cluster': clusterName, 'Content-Type': 'application/merge-patch+json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const responseBody = await res.json().catch(() => undefined);
-    throw new Error(responseBody?.error?.message ?? responseBody?.message ?? `request failed with ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// Reads only: the backend refuses anything but GET on /api/kubernetes/proxy (2026-10-11, backstage
+// kubernetesProxyGuard.ts). Writes go through Tower's owner-gated backend routes, e.g. tekton/pipelineRunAction.ts.
 
 // Same proxy route, for the one endpoint that doesn't return JSON - a pod's
 // raw log text. `kubernetesProxyApiRef.getPodLogs` (the typed wrapper the

@@ -63,7 +63,8 @@ The CI/CD view of one environment: an env picker grouped Ground and Flight, an a
 panel (sync and health, Refresh and Sync), a notification banner, and the pipeline DAG. Clicking a DAG node drives
 the stage detail below it. The Rollout starts/completes steps carry real timestamps, and a rollout topology DAG shows
 the Rollout's objects. Tier 1 write actions live here: Tekton **Re-run** and **Cancel**, ArgoCD Refresh and plain
-Sync (no prune, no force). Verified against real failed and running PipelineRuns on 2026-09-27.
+Sync (no prune, no force). Verified against real failed and running PipelineRuns on 2026-09-27. Re-run and Cancel
+go through the backend's `/tekton/rerun` and `/tekton/cancel`, which need the app's owning team (or admins).
 
 **Rollout controls** (glidepath ADR-0021 phase 4) sit in the "Rollout starts" and "Rollout completes" stage details:
 Resume, Promote (skip the current step), Promote full, Pause, Abort, Retry and Restart pods. They are Argo CD's
