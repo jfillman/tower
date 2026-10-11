@@ -140,7 +140,7 @@ export function EnvironmentTopology({ env, tier }: { env: EnvironmentSummary; ti
         </div>
         <hr className={classes.dagDivider} />
         <div className={classes.stageDetailInner}>
-          <TopologyStageDetail env={env} selectedKey={selectedStage} />
+          <TopologyStageDetail env={env} tier={tier} selectedKey={selectedStage} />
         </div>
       </div>
 

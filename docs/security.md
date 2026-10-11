@@ -41,6 +41,8 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
 | Edit a release record's human context | `tower.release-record.edit` | owners | owners | medium |
 | Delete old images (Images tab → Clean up old images) | `tower.images.prune` | owners | owners | high |
+| Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | **refused** (approval not built yet) | high |
+| End someone else's break-glass session | `tower.breakglass.terminate` | admins | admins | high |
 
 - The `.flight` permissions are **grant-only**: ownership never satisfies them. Today only admins hold them.
 - An environment the server cannot place in either tier is treated as Flight, the stricter one.
@@ -132,10 +134,37 @@ app's own packages (`<app>`, `<app>-pr`, `<app>/cache`). Platform images (`glide
   and Prune is disabled.
 - At most 300 versions per run, paced. The run is audited `high` and announced to everyone.
 
+## Break-glass debug sessions
+
+A recorded, time-boxed shell on one pod, for when logs, metrics and the resource tree cannot answer the question.
+**Ground environments only** so far; Flight needs a second person's approval, which is not built yet, and the backend
+refuses it.
+
+- **Never exec.** The shell runs in a separate debug container (busybox, pinned by digest): non-root (65532:65532),
+  read-only root filesystem, every capability dropped, no privilege escalation. Two modes:
+  - **Copy of the pod** (recommended): a new pod from the pod's spec, with no labels a Service selects, so it takes no
+    traffic. The live pod is untouched; the copy is deleted at the end.
+  - **The live pod**: an ephemeral container added to the running pod. *Process access* (optional, shown on the record)
+    shares the app container's process namespace, which also exposes its files and environment under `/proc`. An
+    ephemeral container stays in the pod spec for the pod's life, so the pod is restarted (through Argo CD) when the
+    session ends; a last ready pod is left alone unless the requester ticked "restart even if it is the only ready one".
+- **Time-boxed**: 15, 30 or 60 minutes, and it ends early after 10 idle minutes, or 2 minutes after the terminal is
+  closed and not reopened. One active session per person.
+- **Recorded**: every byte typed and shown, as an asciicast v2 file in MinIO (`tower-breakglass/<app>/<env>/<id>.cast`,
+  kept a year), with its SHA-256 on the session record. A session cannot start if recordings are not configured. Owners
+  and admins can download recordings from the pod's Debug panel.
+- **No standing rights.** Backstage's Kubernetes identity can only create and delete RoleBindings to the two debug
+  roles. A session creates `tower-breakglass-<id>` in the app's namespace for its length, with a Kyverno cleanup TTL
+  as the backstop, and deletes it at the end. The browser never holds a Kubernetes credential: the terminal is a
+  WebSocket to the backend, authenticated with the user's Backstage token.
+- **Enforced in the cluster** by Kyverno (fail closed): the RoleBinding's shape, the debug image and its
+  securityContext, and the copy pod's TTL. If Kyverno is down, break-glass is unavailable; nothing else is affected.
+- **Audited** `high` when it opens and again when it ends (with the end reason, whether the pod was restarted, and the
+  recording's hash).
+
 ## What Tower never does
 
-- **No pod exec or shell.** Not on any environment today. A break-glass design (time-boxed, two-person approval,
-  recorded, debug containers rather than exec, enforced by admission policy) is proposed, not built.
+- **No exec into an app container**, on any environment. Break-glass (above) uses a separate debug container.
 - **No direct Kubernetes writes**: no scale, patch or delete of workloads from Tower. Restarting goes through Argo
   CD: *Restart pods* on the Rollout (rolling), or *Restart pod* for one pod. A pod delete skips the
   PodDisruptionBudget, so the backend counts the pod's ready siblings first: the last ready pod is refused on Flight
@@ -156,5 +185,7 @@ Ground actions, and is refused Flight sync and force sync.
 - Release PRs to gitops repositories are on a plan without branch protection, so a break-glass merge is possible
   for anyone with write access to the repository. The PR keeps its failed checks visible.
 - Merging a release PR from Tower is not offered; merge it on GitHub.
+- Break-glass: a backend restart mid-session ends the session; its recording is the last one-minute checkpoint.
+  Recordings live on kiac-dev's MinIO, the cluster Ground runs on.
 - Image pruning does not scan the cluster repositories. Platform deployments defined there, such as Backstage
   itself, are protected by the running-pod and ReplicaSet rules, not by their git history.

@@ -46,6 +46,10 @@ behind a calmer "in progress" reading. Each rule is there because a real inciden
 The details under the banner (pod problems, grouped warnings, the namespace's events) appear only when something is
 wrong. A calm "Synced and healthy" shows nothing extra.
 
+When logs, metrics and events are not enough, **Topology → the pod → Debug** opens a recorded, time-boxed shell in a
+debug container, on a copy of the pod or on the live pod (Ground environments only for now). See
+[Security: break-glass debug sessions](security.md#break-glass-debug-sessions).
+
 ## The delivery path
 
 Each environment shows its release as six steps, each with a detail panel:

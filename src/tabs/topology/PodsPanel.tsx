@@ -10,7 +10,8 @@ import { keepAnchored, preventFocusScroll } from '../../preventFocusScroll';
 import { MetricsPanel } from './MetricsPanel';
 import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
-import type { EnvironmentSummary, K8sResourceRef, PodSummary } from '../../types';
+import type { EnvironmentSummary, EnvTier, K8sResourceRef, PodSummary } from '../../types';
+import { BreakglassPanel } from './BreakglassPanel';
 import { StatusChip } from '../../ui';
 
 // Items 6 & 7 of the Topology-tab modernization ("pod logs should be
@@ -159,7 +160,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   none: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
 }));
 
-type OpenPanel = 'logs' | 'yaml' | 'metrics' | null;
+type OpenPanel = 'logs' | 'yaml' | 'metrics' | 'debug' | null;
 
 function PodSummaryCard({
   pod,
@@ -195,11 +196,13 @@ function PodDetail({
   pod,
   raw,
   env,
+  tier,
   classes,
 }: {
   pod: PodSummary;
   raw: RawPod | undefined;
   env: EnvironmentSummary;
+  tier: EnvTier;
   classes: ReturnType<typeof useStyles>;
 }) {
   const [panel, setPanel] = useState<OpenPanel>(null);
@@ -325,6 +328,15 @@ function PodDetail({
           {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
         </button>
         <PodRestartControl env={env} podName={pod.name} buttonClass={classes.actionBtn} noteClass={classes.cardSub} badClass={classes.conditionBad} />
+        <button
+          type="button"
+          className={`${classes.actionBtn} ${panel === 'debug' ? classes.actionBtnActive : ''}`}
+          title={tier === 'lower' ? 'Open a recorded, time-boxed debug shell on this pod (break-glass).' : 'Ground environments only for now: Flight needs approval, not built yet.'}
+          onMouseDown={preventFocusScroll}
+          onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}
+        >
+          Debug
+        </button>
       </div>
 
       {panel === 'logs' && (
@@ -337,6 +349,11 @@ function PodDetail({
           <MetricsPanel cluster={env.cluster} namespace={env.namespace} podNames={[pod.name]} title="Pod performance" />
         </div>
       )}
+      {panel === 'debug' && (
+        <div className={classes.panelBody}>
+          <BreakglassPanel env={env} podName={pod.name} containers={(raw?.spec?.containers ?? []).map(c => c.name)} tier={tier} />
+        </div>
+      )}
       {panel === 'yaml' && resource && (
         <div className={classes.panelBody}>
           <YamlView resource={resource} />
@@ -346,7 +363,7 @@ function PodDetail({
   );
 }
 
-export function PodsPanel({ env }: { env: EnvironmentSummary }) {
+export function PodsPanel({ env, tier }: { env: EnvironmentSummary; tier: EnvTier }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState<string | undefined>(env.pods[0]?.name);
@@ -382,7 +399,7 @@ export function PodsPanel({ env }: { env: EnvironmentSummary }) {
           );
         })}
       </div>
-      {selectedPod && <PodDetail pod={selectedPod} raw={selectedRaw} env={env} classes={classes} />}
+      {selectedPod && <PodDetail pod={selectedPod} raw={selectedRaw} env={env} tier={tier} classes={classes} />}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import { YamlView } from './YamlView';
 import { MetricsPanel } from './MetricsPanel';
 import { PodsPanel } from './PodsPanel';
 import type { TopoStageKey } from './TopoDag';
-import type { EnvironmentSummary, K8sResourceRef } from '../../types';
+import type { EnvironmentSummary, EnvTier, K8sResourceRef } from '../../types';
 import { TextLink } from '../../ui';
 
 // The per-stage detail panel the DAG drives (item 3: "each stage in the DAG
@@ -325,24 +325,24 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
   );
 }
 
-function PodsDetail({ env, classes }: { env: EnvironmentSummary; classes: ReturnType<typeof useStyles> }) {
+function PodsDetail({ env, tier, classes }: { env: EnvironmentSummary; tier: EnvTier; classes: ReturnType<typeof useStyles> }) {
   return (
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><AppsIcon fontSize="small" /></span>
         <Typography className={classes.title}>Pods</Typography>
       </div>
-      <PodsPanel env={env} />
+      <PodsPanel env={env} tier={tier} />
     </div>
   );
 }
 
-export function TopologyStageDetail({ env, selectedKey }: { env: EnvironmentSummary; selectedKey: TopoStageKey }) {
+export function TopologyStageDetail({ env, tier, selectedKey }: { env: EnvironmentSummary; tier: EnvTier; selectedKey: TopoStageKey }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
 
   if (selectedKey === 'route') return <RouteDetail env={env} classes={classes} t={t} />;
   if (selectedKey === 'service') return <ServiceDetail env={env} classes={classes} />;
   if (selectedKey === 'workload') return <WorkloadDetail env={env} classes={classes} />;
-  return <PodsDetail env={env} classes={classes} />;
+  return <PodsDetail env={env} tier={tier} classes={classes} />;
 }

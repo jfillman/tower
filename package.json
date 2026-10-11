@@ -42,6 +42,8 @@
     "@kubernetes/client-node": "^1.4.0",
     "@material-ui/core": "^4.12.2",
     "@material-ui/icons": "^4.9.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
     "js-yaml": "^4.3.0"
   },
   "peerDependencies": {
