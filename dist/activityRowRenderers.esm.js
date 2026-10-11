@@ -78,6 +78,13 @@ function PillChain({
     })
   ] });
 }
+function stageOutcome(title) {
+  const s = title.toLowerCase();
+  if (s.includes("failed")) return "failed";
+  if (s.includes("cancelled") || s.includes("canceled")) return "cancelled";
+  if (s.includes("succeeded") || s.includes("completed") || s.includes("triggered")) return "succeeded";
+  return "unknown";
+}
 function renderBuildRow(n, ctx) {
   const desc = n.payload.description;
   const repoMatch = extractLine(desc, "Repo")?.match(/^(\S+) @ (\S+)$/);
@@ -86,7 +93,13 @@ function renderBuildRow(n, ctx) {
   const imageRef = extractLine(desc, "Image");
   const runName = extractLine(desc, "Run");
   const tag = imageRef ? imageTag(imageRef) : void 0;
-  const failed = n.payload.title.toLowerCase().includes("failed");
+  const outcome = stageOutcome(n.payload.title);
+  const headline = {
+    succeeded: "Build completed, image pushed to registry",
+    failed: "Build failed",
+    cancelled: "Build cancelled",
+    unknown: n.payload.title
+  }[outcome];
   const items = [];
   if (repoShort && sha) {
     items.push({
@@ -106,7 +119,7 @@ function renderBuildRow(n, ctx) {
       title: runName
     });
   }
-  if (tag) {
+  if (tag && outcome === "succeeded") {
     items.push({
       key: "published",
       icon: ImageIcon,
@@ -127,7 +140,7 @@ function renderBuildRow(n, ctx) {
     }
   }
   return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx(Typography, { className: ctx.classes.rowTitle, children: failed ? "Build failed" : "Build completed, image pushed to registry" }),
+    /* @__PURE__ */ jsx(Typography, { className: ctx.classes.rowTitle, children: headline }),
     /* @__PURE__ */ jsx(PillChain, { items, n, ctx })
   ] });
 }
@@ -301,7 +314,7 @@ function renderReleaseRow(n, ctx) {
   const tag = imageRef ? imageTag(imageRef) : void 0;
   const prUrl = extractLine(desc, "PR");
   const prNumber = prUrl ? prNumberFromUrl(prUrl) : void 0;
-  const failed = n.payload.title.toLowerCase().includes("failed");
+  const releaseOutcome = stageOutcome(n.payload.title);
   const items = [];
   if (repoShort && sha) {
     items.push({
@@ -338,7 +351,11 @@ function renderReleaseRow(n, ctx) {
     });
   }
   return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx(Typography, { className: ctx.classes.rowTitle, children: failed ? `Release trigger failed for ${env ?? "\u2014"}` : `Release triggered for ${env ?? "\u2014"}` }),
+    /* @__PURE__ */ jsxs(Typography, { className: ctx.classes.rowTitle, children: [
+      releaseOutcome === "failed" && `Release trigger failed for ${env ?? "\u2014"}`,
+      releaseOutcome === "cancelled" && `Release trigger cancelled for ${env ?? "\u2014"}`,
+      (releaseOutcome === "succeeded" || releaseOutcome === "unknown") && `Release triggered for ${env ?? "\u2014"}`
+    ] }),
     /* @__PURE__ */ jsx(PillChain, { items, n, ctx })
   ] });
 }
@@ -433,5 +450,5 @@ const CUSTOM_ROW_RENDERERS = {
   "release-outcome": renderReleaseOutcomeRow
 };
 
-export { CUSTOM_ROW_RENDERERS, renderBuildRow, renderConfigRow, renderDeployRow, renderDeployingRow, renderEnvRow, renderPreviewEnvRow, renderReleaseOutcomeRow, renderReleaseRow };
+export { CUSTOM_ROW_RENDERERS, renderBuildRow, renderConfigRow, renderDeployRow, renderDeployingRow, renderEnvRow, renderPreviewEnvRow, renderReleaseOutcomeRow, renderReleaseRow, stageOutcome };
 //# sourceMappingURL=activityRowRenderers.esm.js.map

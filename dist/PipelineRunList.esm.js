@@ -51,8 +51,14 @@ const useStyles = makeStyles(() => ({
   sha: { color: ({ t }) => t.sky, textDecoration: "none" },
   shaLink: { "&:hover": { textDecoration: "underline" } },
   thumb: { flex: 1, minWidth: 0 },
+  // Fixed-width slots (2026-10-11: "the mini pipeline diagrams are never vertically aligned... the cancel button
+  // always pushes the diagram"). `thumb` takes whatever the row leaves, so a side that sized to its content (a
+  // Re-run or Cancel button on some rows, chips of different lengths) gave each row's diagram a different box. The
+  // action slot is reserved even when empty, and the chip slot is one width, so every diagram gets the same box.
   side: { display: "flex", alignItems: "center", gap: 14, flexShrink: 0 },
-  when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "right", minWidth: 70 },
+  actionSlot: { width: 104, display: "flex", justifyContent: "flex-end", flexShrink: 0, whiteSpace: "nowrap" },
+  chipSlot: { width: 96, display: "flex", justifyContent: "center", flexShrink: 0 },
+  when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "right", width: 70, flexShrink: 0, whiteSpace: "nowrap" },
   empty: { padding: "22px 18px", textAlign: "center", fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
     fontFamily: fontMono,
@@ -336,32 +342,34 @@ function PipelineRunList({
               /* @__PURE__ */ jsx(RunDescriptor, { run, classes }),
               /* @__PURE__ */ jsx("div", { className: classes.thumb, children: /* @__PURE__ */ jsx(MiniDag, { run, maxCols, maxRows }) }),
               /* @__PURE__ */ jsxs("div", { className: classes.side, children: [
-                run.phase === "failed" && onRerun && !run.archive && /* @__PURE__ */ jsx(
-                  Button,
-                  {
-                    small: true,
-                    disabled: rerunPending === run.name,
-                    onClick: (ev) => {
-                      ev.stopPropagation();
-                      onRerun(run);
-                    },
-                    children: rerunPending === run.name ? "Re-running\u2026" : "Re-run"
-                  }
-                ),
-                (run.phase === "running" || run.phase === "pending") && onCancel && /* @__PURE__ */ jsx(
-                  Button,
-                  {
-                    small: true,
-                    variant: "danger",
-                    disabled: cancelPending === run.name || cancelling,
-                    onClick: (ev) => {
-                      ev.stopPropagation();
-                      onCancel(run);
-                    },
-                    children: cancelling ? "Canceling\u2026" : "Cancel"
-                  }
-                ),
-                /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, children: tone.label }),
+                /* @__PURE__ */ jsxs("div", { className: classes.actionSlot, children: [
+                  run.phase === "failed" && onRerun && !run.archive && /* @__PURE__ */ jsx(
+                    Button,
+                    {
+                      small: true,
+                      disabled: rerunPending === run.name,
+                      onClick: (ev) => {
+                        ev.stopPropagation();
+                        onRerun(run);
+                      },
+                      children: rerunPending === run.name ? "Re-running\u2026" : "Re-run"
+                    }
+                  ),
+                  (run.phase === "running" || run.phase === "pending") && onCancel && /* @__PURE__ */ jsx(
+                    Button,
+                    {
+                      small: true,
+                      variant: "danger",
+                      disabled: cancelPending === run.name || cancelling,
+                      onClick: (ev) => {
+                        ev.stopPropagation();
+                        onCancel(run);
+                      },
+                      children: cancelling ? "Canceling\u2026" : "Cancel"
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: classes.chipSlot, children: /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, children: tone.label }) }),
                 /* @__PURE__ */ jsx("span", { className: classes.when, children: durationLabel }),
                 /* @__PURE__ */ jsx("span", { className: classes.when, title: run.startTime ? formatDateTime(run.startTime) : void 0, children: run.startTime ? relativeTime(run.startTime) : "\u2014" })
               ] })
