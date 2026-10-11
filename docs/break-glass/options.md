@@ -33,10 +33,13 @@ see its processes, their command lines and their resource use with `ps` and `top
 
 Everything deeper (its open files under `/proc/<pid>/fd`, its filesystem under `/proc/<pid>/root`, its environment under
 `/proc/<pid>/environ`) is readable **only if the app runs as the same non-root user as the debug container, UID
-65532**. The kernel refuses another user, and the debug container is never root. So an app running as root, or as any
-other UID, keeps its files and its environment (including secrets in environment variables) to itself. Apps on the
-platform's chart run as non-root by default, but not necessarily as 65532: run `ps -o pid,user,args` first to see
-which case you are in.
+65532**. The kernel refuses another user, and the debug container is never root.
+
+**On this platform that is the default.** Airframe runs every Rollout as 65532 (since v0.3.141), so for those apps
+process access **does** show the app's files and its environment, including secrets passed as environment variables.
+Ask for it only when the reason needs it, and expect the approver to ask why. An app that opts out
+(`rollout.podSecurityContext: null`) runs as its image's user and keeps its files and environment to itself, as does
+any app running as root. Run `ps -o pid,user,args` first to see which case you are in.
 
 ## Volume access (either mode)
 

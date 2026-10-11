@@ -47,7 +47,8 @@ only, so a policy problem can never affect anything else in the cluster.
 Knowing the limits is part of using it safely.
 
 - **You can read what the app can read.** With volume access you see every key of every Secret the container mounts;
-  with process access you may read the app's environment (see [Options](options.md#process-access-live-pod-only)). The
+  with process access you read the app's environment, which on this platform is the default case, since airframe runs
+  apps as the debug container's user (see [Options](options.md#process-access-live-pod-only)). The
   recording then contains whatever you displayed, for a year, readable by the app's owners.
 - **What you type is recorded.** Don't paste credentials into the terminal.
 - **A copy pod runs the app.** Background work (queue consumers, schedulers) runs in the copy too.

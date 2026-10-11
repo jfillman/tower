@@ -147,6 +147,10 @@ cannot answer the question. It has its own guide: [Break-glass debugging](break-
 
 - **Never exec.** A separate debug container (the signed, digest-pinned Tower debug image), non-root, read-only, every
   capability dropped. On Flight the cluster refuses `kubectl exec` into app namespaces to everyone but operators.
+- **Process access reaches the app's environment by default.** It shows the app's files and environment only when the
+  app runs as the debug container's user, 65532, and airframe runs every Rollout as 65532 by default (v0.3.141). An app
+  that opts out (`rollout.podSecurityContext: null`) runs as its image's user. See
+  [Options](break-glass/options.md#process-access-live-pod-only).
 - **Two people on Flight.** An owner other than the requester, or an admin, approves; the cluster refuses a grant whose
   approver is the requester. An admin may [break the glass](break-glass/glass-broken.md) instead: announced to
   everyone, audited `critical`, and reviewed afterwards by someone else.
