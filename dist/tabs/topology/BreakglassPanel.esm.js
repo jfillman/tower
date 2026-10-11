@@ -151,6 +151,8 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   const [attachKey, setAttachKey] = useState(0);
   const [detached, setDetached] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [decisionNote, setDecisionNote] = useState({});
+  const flight = tier === "upper";
   const load = useCallback(async () => {
     if (!appName) return;
     try {
@@ -168,16 +170,24 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   useEffect(() => {
     load();
   }, [load]);
+  const waiting = sessions.some((s) => s.state === "requested" || s.state === "approved");
   useEffect(() => {
-    if (!open) return void 0;
+    if (!waiting || open) return void 0;
+    const timer = setInterval(() => load(), 1e4);
+    return () => clearInterval(timer);
+  }, [waiting, open, load]);
+  useEffect(() => {
+    if (!open && !waiting) return void 0;
     const timer = setInterval(() => setNow(Date.now()), 1e3);
     return () => clearInterval(timer);
-  }, [open]);
+  }, [open, waiting]);
   if (!appName) return /* @__PURE__ */ jsx("span", { className: classes.hint, children: "No app is known for this environment." });
-  if (tier !== "lower") {
-    return /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Break-glass debug is available on Ground environments only. Flight needs a second person's approval, which is not built yet." });
+  if (tier === "preview") {
+    return /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Break-glass debug is not offered on preview environments." });
   }
-  const mine = sessions.find((s) => s.state === "active" && s.requester === listInfo.user && s.pod === podName);
+  const mine = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod === podName);
+  const mineElsewhere = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod !== podName);
+  const toDecide = sessions.filter((s) => s.state === "requested" && s.requester !== listInfo.user);
   const start = async () => {
     setBusy(true);
     setError(void 0);
@@ -196,16 +206,53 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           mode,
           processAccess: mode === "live" && processAccess,
           volumeAccess,
-          recycleLastPod: mode === "live" && recycleLastPod,
+          recycleLastPod: !flight && mode === "live" && recycleLastPod,
           durationMinutes: duration,
           reason,
           ...ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {}
         })
       });
-      setOpen(body.session);
-      setDetached(false);
+      if (body.session.state === "active") {
+        setOpen(body.session);
+        setDetached(false);
+      } else {
+        setClosedNote("Request sent. An owner of this app other than you, or an admin, must approve it within 30 minutes.");
+      }
       setReason("");
       setTicketUrl("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
+  const startApproved = async (id) => {
+    setBusy(true);
+    setError(void 0);
+    setClosedNote(void 0);
+    try {
+      const body = await api(discoveryApi, fetchApi, `/sessions/${id}/start`, { method: "POST" });
+      setOpen(body.session);
+      setDetached(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
+  const decide = async (id, decision) => {
+    setBusy(true);
+    setError(void 0);
+    try {
+      const note = decisionNote[id]?.trim();
+      await api(discoveryApi, fetchApi, `/sessions/${id}/${decision}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(note ? { note } : {})
+      });
+      setClosedNote(decision === "approve" ? "Approved. The requester has 10 minutes to start the session." : "Denied.");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -299,7 +346,31 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         )
       ] })
     ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-      mine && /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
+      mine?.state === "requested" && /* @__PURE__ */ jsxs("div", { className: classes.actions, "data-testid": "breakglass-awaiting", children: [
+        /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
+          "Waiting for approval: an owner of ",
+          appName,
+          " other than you, or an admin. The request expires in ",
+          remaining(mine.expiresAt, now),
+          "."
+        ] }),
+        /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, onClick: () => end(mine.id), children: ending ? "Withdrawing\u2026" : "Withdraw" })
+      ] }),
+      mine?.state === "approved" && /* @__PURE__ */ jsxs("div", { className: classes.actions, "data-testid": "breakglass-approved", children: [
+        /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
+          "Approved by ",
+          (mine.approver ?? "").replace(/^user:[^/]+\//, ""),
+          mine.decisionNote ? ` (\u201C${mine.decisionNote}\u201D)` : "",
+          ". Start within ",
+          remaining(mine.expiresAt, now),
+          "; the",
+          ` ${mine.durationMinutes ?? ""}`,
+          "-minute clock starts then."
+        ] }),
+        /* @__PURE__ */ jsx(Button, { variant: "danger", disabled: busy, onClick: () => startApproved(mine.id), children: busy ? "Preparing the debug container\u2026" : "Start recorded session" }),
+        /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, onClick: () => end(mine.id), children: "Withdraw" })
+      ] }),
+      mine?.state === "active" && /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
         /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
           "You have an active session on this pod (ends ",
           relativeTime(mine.expiresAt),
@@ -319,9 +390,57 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         ),
         /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: ending, onClick: () => end(mine.id), children: ending ? "Ending\u2026" : "End it" })
       ] }),
+      mineElsewhere && !mine && /* @__PURE__ */ jsxs("span", { className: classes.warn, children: [
+        "You have a break-glass ",
+        mineElsewhere.state === "active" ? "session" : "request",
+        " open on ",
+        mineElsewhere.pod,
+        "; one at a time."
+      ] }),
+      toDecide.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.history, "data-testid": "breakglass-to-decide", children: [
+        /* @__PURE__ */ jsx("span", { className: classes.hint, style: { fontWeight: 700 }, children: "Requests awaiting a second person" }),
+        toDecide.map((r) => /* @__PURE__ */ jsxs("div", { className: classes.banner, style: { flexDirection: "column", alignItems: "stretch", gap: 6 }, children: [
+          /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, children: [
+            /* @__PURE__ */ jsx("b", { children: r.requester.replace(/^user:[^/]+\//, "") }),
+            " asks for a ",
+            r.durationMinutes ?? "",
+            "-minute ",
+            r.mode,
+            " session on ",
+            r.pod,
+            r.processAccess ? ", with process access" : "",
+            r.volumeAccess ? ", with volume access" : "",
+            ". Expires in ",
+            remaining(r.expiresAt, now),
+            "."
+          ] }),
+          /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, children: [
+            "Reason: ",
+            r.reason
+          ] }),
+          r.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: r.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: r.ticketUrl }),
+          /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                "aria-label": `Note for ${r.id}`,
+                placeholder: "Note (optional)",
+                value: decisionNote[r.id] ?? "",
+                onChange: (e) => setDecisionNote((n) => ({ ...n, [r.id]: e.target.value })),
+                style: { flex: 1, minWidth: 160 }
+              }
+            ),
+            /* @__PURE__ */ jsx(Button, { variant: "danger", small: true, disabled: busy, onClick: () => decide(r.id, "approve"), children: "Approve" }),
+            /* @__PURE__ */ jsx(Button, { small: true, disabled: busy, onClick: () => decide(r.id, "deny"), children: "Deny" })
+          ] })
+        ] }, r.id))
+      ] }),
       closedNote && /* @__PURE__ */ jsx("span", { className: classes.hint, children: closedNote }),
       ending && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Ending the session: removing the grant and the debug pod, saving the recording\u2026" }),
-      /* @__PURE__ */ jsx("span", { className: classes.hint, children: "A time-boxed shell in a hardened debug container (busybox, non-root, read-only, no capabilities). Everything typed and shown is recorded and kept for a year; the session is audited." }),
+      /* @__PURE__ */ jsxs("span", { className: classes.hint, children: [
+        "A time-boxed shell in a hardened debug container (busybox, non-root, read-only, no capabilities). Everything typed and shown is recorded and kept for a year; the session is audited.",
+        flight && " On Flight a second person approves first: an owner of this app other than you, or an admin."
+      ] }),
       listInfo.recordingsConfigured === false && /* @__PURE__ */ jsx("span", { className: classes.bad, children: "Recordings are not configured on the backend, so no session can start." }),
       /* @__PURE__ */ jsxs("div", { className: classes.form, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.radios, children: [
@@ -363,7 +482,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
                 /* @__PURE__ */ jsx("span", { className: classes.warn, children: "Shares the container's process namespace: you see its processes. Its files and environment (secrets) under /proc are readable only when the app runs as the same non-root user as the debug container (65532); an app running as root keeps them. Shown on the session record." })
               ] })
             ] }),
-            /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
+            flight ? /* @__PURE__ */ jsx("span", { className: classes.hint, children: "On Flight the last ready pod is never restarted for you: it keeps the debug container until the next rollout." }) : /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
               /* @__PURE__ */ jsx("input", { type: "checkbox", checked: recycleLastPod, onChange: (e) => setRecycleLastPod(e.target.checked) }),
               /* @__PURE__ */ jsxs("span", { children: [
                 "Restart the pod at the end even if it is the only ready one",
@@ -383,7 +502,15 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx("div", { className: classes.full, children: /* @__PURE__ */ jsx(Field, { id: "bg-ticket", label: "Incident or ticket link (optional)", children: (p) => /* @__PURE__ */ jsx("input", { ...p, type: "url", value: ticketUrl, onChange: (e) => setTicketUrl(e.target.value), placeholder: "https://" }) }) })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
-        /* @__PURE__ */ jsx(Button, { variant: "danger", disabled: busy || ending || !reason.trim() || !!mine || listInfo.recordingsConfigured === false, onClick: start, children: busy ? "Preparing the debug container\u2026" : "Start recorded session" }),
+        /* @__PURE__ */ jsx(
+          Button,
+          {
+            variant: "danger",
+            disabled: busy || ending || !reason.trim() || !!mine || !!mineElsewhere || listInfo.recordingsConfigured === false,
+            onClick: start,
+            children: busy ? flight ? "Sending the request\u2026" : "Preparing the debug container\u2026" : flight ? "Request approval" : "Start recorded session"
+          }
+        ),
         busy && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "This can take up to two minutes." })
       ] })
     ] }),
@@ -396,7 +523,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       listInfo.error && /* @__PURE__ */ jsx("span", { className: classes.bad, children: listInfo.error }),
       !listInfo.error && sessions.length === 0 && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "None yet." }),
       sessions.map((s) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-        /* @__PURE__ */ jsx(StatusChip, { tone: s.state === "active" ? "warn" : "neutral", children: s.state }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: s.state === "active" ? "warn" : s.state === "ended" ? "neutral" : "info", children: s.state }),
         /* @__PURE__ */ jsx("span", { title: formatDateTime(s.createdAt), children: relativeTime(s.createdAt) }),
         /* @__PURE__ */ jsxs("span", { children: [
           s.mode,
@@ -411,6 +538,10 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           "\u201D"
         ] }),
         s.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: s.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: "ticket" }),
+        s.approver && !(s.endReason ?? "").startsWith("denied") && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
+          "approved by ",
+          s.approver.replace(/^user:[^/]+\//, "")
+        ] }),
         s.endReason && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, title: s.endReason, children: s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}\u2026` : s.endReason }),
         s.mode === "live" && s.state === "ended" && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.recycled ? "pod restarted" : "pod not restarted" }),
         s.cleanupNotes && /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.cleanupNotes, children: "notes" }),
