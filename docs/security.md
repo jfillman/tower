@@ -145,9 +145,19 @@ refuses it.
   - **Copy of the pod** (recommended): a new pod from the pod's spec, with no labels a Service selects, so it takes no
     traffic. The live pod is untouched; the copy is deleted at the end.
   - **The live pod**: an ephemeral container added to the running pod. *Process access* (optional, shown on the record)
-    shares the app container's process namespace, which also exposes its files and environment under `/proc`. An
+    shares the app container's process namespace, so you see its processes. Its files and environment (secrets) under
+    `/proc/<pid>/` are readable only when the app runs as the same non-root user as the debug container (65532): the
+    kernel refuses another user, and the debug container is never root, so an app running as root keeps them. An
     ephemeral container stays in the pod spec for the pod's life, so the pod is restarted (through Argo CD) when the
     session ends; a last ready pod is left alone unless the requester ticked "restart even if it is the only ready one".
+- **Volume access** (optional, either mode, shown on the record with the list of volumes): the volumes the app
+  container mounts (ConfigMaps, Secrets, emptyDirs, claims) mounted read-only under `/pod-volumes/<volume>`, each whole
+  (an ephemeral container cannot use `subPath`, so a single file the app mounts shows as its whole ConfigMap or Secret).
+  In copy mode the emptyDirs are the copy's own, so they start empty. Never the service account token, never a
+  `hostPath`; Kyverno refuses a debug container with any read-write mount.
+- **No service account token in the shell.** Kubernetes mounts the app's token into every container of a new pod, so
+  the copy pod's debug container gets an empty read-only volume at the token path instead. An ephemeral container
+  (live mode) is never given one.
 - **Time-boxed**: 15, 30 or 60 minutes, and it ends early after 10 idle minutes, or 2 minutes after the terminal is
   closed and not reopened. One active session per person.
 - **Recorded**: every byte typed and shown, as an asciicast v2 file in MinIO (`tower-breakglass/<app>/<env>/<id>.cast`,

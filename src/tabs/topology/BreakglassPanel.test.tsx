@@ -95,6 +95,7 @@ describe('BreakglassPanel', () => {
       podName: 'sky-marshall-abc',
       mode: 'copy',
       processAccess: false,
+      volumeAccess: false,
       recycleLastPod: false,
       durationMinutes: 15,
       reason: 'DNS lookups time out',
@@ -111,6 +112,36 @@ describe('BreakglassPanel', () => {
     fireEvent.click(screen.getByRole('radio', { name: /^The live pod/ }));
     expect(screen.getByText(/Process access to/)).toBeTruthy();
     expect(screen.getByText(/even if it is the only ready one/)).toBeTruthy();
+  });
+
+  it('offers volume access in both modes, sends it, and lists the mounted volumes on the session', async () => {
+    const expiresAt = new Date(Date.now() + 900_000).toISOString();
+    postResponse = {
+      status: 200,
+      body: {
+        id: 'v1',
+        expiresAt,
+        session: {
+          id: 'v1', mode: 'copy', pod: 'sky-marshall-abc', container: 'sky-marshall', expiresAt, state: 'active', requester: 'u', processAccess: false,
+          volumeAccess: true,
+          volumes: [{ volume: 'config', kind: 'configMap', path: '/pod-volumes/config', appPaths: ['/etc/app'] }],
+        },
+      },
+    };
+    await renderIt();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Volume access/ }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'what config did it get' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /Start recorded session/ })));
+    expect(JSON.parse(String(calls.find(c => c.init?.method === 'POST')!.init!.body))).toMatchObject({ mode: 'copy', volumeAccess: true });
+    expect(screen.getByText(/with volume access/)).toBeTruthy();
+    expect(screen.getByTestId('breakglass-volumes').textContent).toContain('/pod-volumes/config');
+    expect(screen.getByTestId('breakglass-volumes').textContent).toContain('in the app: /etc/app');
+  });
+
+  it('says file access through process access needs the same non-root user', async () => {
+    await renderIt();
+    fireEvent.click(screen.getByRole('radio', { name: /^The live pod/ }));
+    expect(screen.getByText(/readable only when the app runs as the same non-root user/)).toBeTruthy();
   });
 
   it('says so when recordings are not configured, and does not allow a start', async () => {

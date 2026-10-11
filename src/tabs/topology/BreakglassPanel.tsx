@@ -24,6 +24,8 @@ export interface BreakglassSession {
   container: string;
   mode: 'copy' | 'live';
   processAccess: boolean;
+  volumeAccess?: boolean;
+  volumes?: Array<{ volume: string; kind: string; path: string; appPaths: string[] }>;
   reason: string;
   ticketUrl?: string;
   requester: string;
@@ -176,6 +178,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
 
   const [mode, setMode] = useState<'copy' | 'live'>('copy');
   const [processAccess, setProcessAccess] = useState(false);
+  const [volumeAccess, setVolumeAccess] = useState(false);
   const [recycleLastPod, setRecycleLastPod] = useState(false);
   const [duration, setDuration] = useState<15 | 30 | 60>(15);
   const [reason, setReason] = useState('');
@@ -245,6 +248,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           container,
           mode,
           processAccess: mode === 'live' && processAccess,
+          volumeAccess,
           recycleLastPod: mode === 'live' && recycleLastPod,
           durationMinutes: duration,
           reason,
@@ -302,6 +306,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             <span className={classes.bannerMeta}>
               {open.mode === 'live' ? `live: debug container in ${open.pod}` : `copy of ${open.pod}${open.copyPod ? ` (${open.copyPod})` : ''}`}
               {open.processAccess ? ', with process access' : ''}
+              {open.volumeAccess ? ', with volume access' : ''}
             </span>
             <span className={`${classes.bannerMeta} ${classes.countdown}`} title={`Ends at ${formatDateTime(open.expiresAt)}`}>
               {remaining(open.expiresAt, now)} left
@@ -312,6 +317,22 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             </Button>
           </div>
           {open.mode === 'live' && <span className={classes.warn}>This pod will be restarted when you end the session.</span>}
+          {open.volumeAccess && (
+            <div className={classes.history} data-testid="breakglass-volumes">
+              {(open.volumes ?? []).length === 0 ? (
+                <span className={classes.hint}>Volume access: {open.container} mounts no volumes besides its service account token.</span>
+              ) : (
+                (open.volumes ?? []).map(v => (
+                  <span key={v.volume} className={classes.row}>
+                    <span>{v.path}</span>
+                    <span className={classes.rowMeta}>
+                      {v.kind}, read-only · in the app: {v.appPaths.join(', ')}
+                    </span>
+                  </span>
+                ))
+              )}
+            </div>
+          )}
           <BreakglassTerminal
             key={attachKey}
             session={open}
@@ -389,6 +410,17 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               </label>
             </div>
             <div className={classes.radios}>
+              <label className={classes.radio}>
+                <input type="checkbox" checked={volumeAccess} onChange={e => setVolumeAccess(e.target.checked)} />
+                <span>
+                  Volume access to <code>{container}</code>
+                  <br />
+                  <span className={classes.warn}>
+                    Mounts the volumes the container mounts (ConfigMaps, Secrets, emptyDirs, claims), read-only, under /pod-volumes/&lt;volume&gt;.
+                    Secrets included; the service account token never. Shown on the session record.
+                  </span>
+                </span>
+              </label>
               {mode === 'live' && (
                 <>
                   <label className={classes.radio}>
@@ -397,8 +429,9 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
                       Process access to <code>{container}</code>
                       <br />
                       <span className={classes.warn}>
-                        Shares the container's process namespace: you see its processes and, as the same user, its files and environment
-                        (secrets) under /proc. Shown on the session record.
+                        Shares the container's process namespace: you see its processes. Its files and environment (secrets) under
+                        /proc are readable only when the app runs as the same non-root user as the debug container (65532); an app
+                        running as root keeps them. Shown on the session record.
                       </span>
                     </span>
                   </label>
@@ -462,7 +495,15 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           <div key={s.id} className={classes.row}>
             <StatusChip tone={s.state === 'active' ? 'warn' : 'neutral'}>{s.state}</StatusChip>
             <span title={formatDateTime(s.createdAt)}>{relativeTime(s.createdAt)}</span>
-            <span>{s.mode}{s.processAccess ? ' + process access' : ''}</span>
+            <span>
+              {s.mode}
+              {s.processAccess ? ' + process access' : ''}
+              {s.volumeAccess ? (
+                <span title={(s.volumes ?? []).map(v => v.path).join('\n') || 'no volumes'}> + volume access</span>
+              ) : (
+                ''
+              )}
+            </span>
             <span>{s.pod}</span>
             <span className={classes.rowMeta}>{s.requester.replace(/^user:[^/]+\//, '')}</span>
             <span className={classes.rowMeta} title={s.reason}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
