@@ -81,8 +81,14 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   sha: { color: ({ t }) => t.sky, textDecoration: 'none' },
   shaLink: { '&:hover': { textDecoration: 'underline' } },
   thumb: { flex: 1, minWidth: 0 },
+  // Fixed-width slots (2026-10-11: "the mini pipeline diagrams are never vertically aligned... the cancel button
+  // always pushes the diagram"). `thumb` takes whatever the row leaves, so a side that sized to its content (a
+  // Re-run or Cancel button on some rows, chips of different lengths) gave each row's diagram a different box. The
+  // action slot is reserved even when empty, and the chip slot is one width, so every diagram gets the same box.
   side: { display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 },
-  when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', minWidth: 70 },
+  actionSlot: { width: 104, display: 'flex', justifyContent: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap' },
+  chipSlot: { width: 96, display: 'flex', justifyContent: 'center', flexShrink: 0 },
+  when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', width: 70, flexShrink: 0, whiteSpace: 'nowrap' },
   empty: { padding: '22px 18px', textAlign: 'center', fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
     fontFamily: fontMono,
@@ -475,32 +481,36 @@ export function PipelineRunList({
                 <MiniDag run={run} maxCols={maxCols} maxRows={maxRows} />
               </div>
               <div className={classes.side}>
-                {run.phase === 'failed' && onRerun && !run.archive && (
-                  <Button
-                    small
-                    disabled={rerunPending === run.name}
-                    onClick={ev => {
-                      ev.stopPropagation();
-                      onRerun(run);
-                    }}
-                  >
-                    {rerunPending === run.name ? 'Re-running…' : 'Re-run'}
-                  </Button>
-                )}
-                {(run.phase === 'running' || run.phase === 'pending') && onCancel && (
-                  <Button
-                    small
-                    variant="danger"
-                    disabled={cancelPending === run.name || cancelling}
-                    onClick={ev => {
-                      ev.stopPropagation();
-                      onCancel(run);
-                    }}
-                  >
-                    {cancelling ? 'Canceling…' : 'Cancel'}
-                  </Button>
-                )}
-                <StatusChip tone={tone.status}>{tone.label}</StatusChip>
+                <div className={classes.actionSlot}>
+                  {run.phase === 'failed' && onRerun && !run.archive && (
+                    <Button
+                      small
+                      disabled={rerunPending === run.name}
+                      onClick={ev => {
+                        ev.stopPropagation();
+                        onRerun(run);
+                      }}
+                    >
+                      {rerunPending === run.name ? 'Re-running…' : 'Re-run'}
+                    </Button>
+                  )}
+                  {(run.phase === 'running' || run.phase === 'pending') && onCancel && (
+                    <Button
+                      small
+                      variant="danger"
+                      disabled={cancelPending === run.name || cancelling}
+                      onClick={ev => {
+                        ev.stopPropagation();
+                        onCancel(run);
+                      }}
+                    >
+                      {cancelling ? 'Canceling…' : 'Cancel'}
+                    </Button>
+                  )}
+                </div>
+                <div className={classes.chipSlot}>
+                  <StatusChip tone={tone.status}>{tone.label}</StatusChip>
+                </div>
                 <span className={classes.when}>{durationLabel}</span>
                 <span className={classes.when} title={run.startTime ? formatDateTime(run.startTime) : undefined}>
                   {run.startTime ? relativeTime(run.startTime) : '—'}
