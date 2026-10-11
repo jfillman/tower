@@ -48,6 +48,8 @@ or another admin. **Never the person who broke it.**
 4. Write the review note (required): what the recording shows and whether it was justified. Then press
    **Mark reviewed**.
 
+![A glass-broken session awaiting review: the glass broken and review due chips, play and download, the review note and Mark reviewed](screenshots/review-due.png)
+
 The review happens once. The record then shows **reviewed by <you>**, with your note and the time (hover it), and the
 person who broke the glass is notified with your note. Reviewing is audited (*high*).
 
