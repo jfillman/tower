@@ -33,6 +33,14 @@ export interface BreakglassSession {
   recordingKey?: string;
   recordingSha256?: string;
   recordingBytes?: number;
+  /** Phase B: the object-locked bucket and the version the hash names; older rows have neither. */
+  recordingBucket?: string;
+  recordingVersion?: string;
+  /** Phase B: the Rekor entry anchoring the recording's SHA-256, or why the last attempt failed. */
+  recordingRekorIndex?: number;
+  recordingRekorUuid?: string;
+  anchorAttemptedAt?: string;
+  anchorError?: string;
   recycled?: boolean;
   cleanupNotes?: string;
   /** Ground: active -> ended. Flight: requested -> approved -> active -> ended (a deny or expiry ends it early). */

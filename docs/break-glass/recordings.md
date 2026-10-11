@@ -40,6 +40,23 @@ recording, hashes it in your browser, and compares:
 | **SHA-256 does not match the session record** | the file differs from what the session stored: treat it as tampered with, and tell an admin |
 | **integrity not checked** | your browser could not hash it (Tower is not on `https` or `localhost`), or the session has no stored hash |
 
+## Is the store itself trustworthy?
+
+Two things make a recording hard to rewrite after the fact, on top of the SHA-256 check:
+
+- **The bucket is object-locked.** Every recording (and every checkpoint while the session runs) is a new *version*
+  in a versioned bucket with a 365-day retention in governance mode: a version cannot be deleted or replaced for a
+  year, not even by the store's root user without a special bypass right nobody holds day to day. The session record
+  names the exact version the SHA-256 is about.
+- **The hash is anchored in the platform's transparency log.** When the session ends, Backstage signs the recording's
+  SHA-256 with its anchor key and submits it to Rekor; the session record keeps the log index, and the player shows
+  **anchored in Rekor #N**. Anyone can check it without Backstage: `rekor-cli get --log-index N` returns the hash to
+  compare with the file. If Rekor was unreachable when the session ended, the record says **not anchored** and the
+  backend keeps trying for a day.
+
+Neither depends on the other: the lock stops a replacement, the log proves what the recording was even if both the
+bucket and the database were later altered by someone with bypass rights.
+
 ## Downloading
 
 **download** saves the recording as `breakglass-<app>-<env>-<id>.cast`. A `.cast` file is a plain-text
@@ -50,7 +67,8 @@ recording, hashes it in your browser, and compares:
 - every other line is one event: `[seconds, "o" | "i" | "r", data]` (output, input, resize).
 
 To play it outside Tower, use [asciinema](https://asciinema.org/) (`asciinema play breakglass-….cast`). To check it
-against the record, compare `shasum -a 256 breakglass-….cast` with the SHA-256 shown when you hover **download**.
+against the record, compare `shasum -a 256 breakglass-….cast` with the SHA-256 shown when you hover **download**, and
+against the transparency log with `rekor-cli get --log-index <N>` (the number next to **anchored**).
 
 ## How long recordings are kept
 

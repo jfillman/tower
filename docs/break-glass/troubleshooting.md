@@ -10,6 +10,7 @@ name.
 | *<you> is not allowed tower.breakglass.request on component:default/<app>* | You are not an owner of this app. | Ask an owner, or get added to the owning team. |
 | *you already have a break-glass request or session open; end or withdraw it first* | One open request or session per person, across all apps. | The panel says where it is. End it, or withdraw the request. |
 | *break-glass recordings are not configured (TOWER_BREAKGLASS_MINIO_\*), so no session can start* | The backend has no recordings store. A session that cannot be recorded never starts. | Tell an admin ([admin setup](admin/setup.md#4-the-recordings-store)). |
+| *recordings are unavailable (…), so no session can start* | The store is configured but could not be written to (down, unreachable, or the key lacks access to the bucket). Nothing reached the cluster. | Try again later, or tell an admin: the message carries the store's error. |
 | *namespace <ns> is not <app>'s <env> environment* | The namespace's own labels (`hangar.io/app`, `hangar.io/env`) do not name this app and environment. | Usually a Tower display problem with an unusual service. Report it with the namespace's labels. |
 | *pod <pod> is Pending* (or another phase) | Only a running pod can be debugged. | Pick a running pod, or wait. |
 | *pod <pod> has no container <c>* | The container you picked is gone (the pod was replaced). | Reload the pod list. |
@@ -66,6 +67,7 @@ name.
 | *the recording was deleted on <date>, after the 365-day retention* | The recording is past its retention. The record remains. |
 | *the recording is missing from the bucket* | The recording should exist but does not. Tell an admin. |
 | *this session has no recording* | It never opened a terminal, or the upload failed (see the session's notes). |
+| **not anchored** (on a session or in the player) | The recording is stored but its hash is not in Rekor yet: Rekor was unreachable or the backend has no anchor key. The backend retries for a day; hover for the reason. |
 
 ## Questions
 

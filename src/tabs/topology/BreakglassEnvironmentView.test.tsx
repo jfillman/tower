@@ -176,6 +176,20 @@ describe('BreakglassEnvironmentCard', () => {
     expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
   });
 
+  it('shows whether a recording is anchored in Rekor, and why not when it is not (phase B)', async () => {
+    listBody = {
+      sessions: [row({ recordingRekorIndex: 4242, recordingRekorUuid: 'u1' }), row({ id: 'bbbbbbbbbbbb', anchorError: 'Rekor: 503 down' })],
+      user: 'user:default/riley-roooo', recordingsConfigured: true,
+    };
+    await renderCard();
+    expect(screen.getByTestId('breakglass-session-k3j9m2p7q1r5').textContent).toContain('anchored #4242');
+    const not = screen.getByTestId('breakglass-session-bbbbbbbbbbbb');
+    expect(not.textContent).toContain('not anchored');
+    expect(screen.getByTitle('Rekor: 503 down')).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'play' })[0]));
+    expect(screen.getByTestId('breakglass-player').textContent).toContain('anchored in Rekor #4242');
+  });
+
   it('fetches a deep-linked session past the list window, lists it and highlights it', async () => {
     listBody = { sessions: [row({ id: 'aaaaaaaaaaaa' })], user: 'user:default/riley-roooo', recordingsConfigured: true };
     byId = { k3j9m2p7q1r5: row({}) };

@@ -134,10 +134,25 @@ kubectl --context kiac-dev delete validatingpolicies.policies.kyverno.io <policy
 ## Fetch and verify a recording by hand
 
 ```bash
-# the key is <app>/<env>/<id>.cast; the expected hash is the row's recording_sha256
-mc cp <alias>/tower-breakglass/sky-marshall/staging/<id>.cast .
+# the key is <app>/<env>/<id>.cast in the row's recording_bucket, version recording_version;
+# the expected hash is the row's recording_sha256
+mc cp --version-id <recording_version> <alias>/tower-breakglass-v2/sky-marshall/staging/<id>.cast .
 shasum -a 256 <id>.cast
+# and against the transparency log, with nothing from Backstage (recording_rekor_index):
+rekor-cli --rekor_server http://rekor.dev.kiac.local:8080 get --log-index <N> --format json \
+  | jq -r '.Body.HashedRekordObj.data.hash.value'
 ```
+
+The three must agree: the file's hash, the row's, and the log's. A row that says *not anchored* (`anchor_error`) is
+retried by the sweep every 5 minutes for 24 hours after the end; after that, anchor it by hand with `rekor-cli upload
+--type hashedrekord --artifact-hash <sha256> --signature <sig> --pki-format x509 --public-key <pem>` (sign with the
+anchor key: `openssl dgst -sha256 -sign key.pem <id>.cast > sig`) and set the row's `recording_rekor_index`.
+
+## A version in the locked bucket must go
+
+It cannot, for a year: governance retention refuses every delete and overwrite, root included. Only a principal with
+`s3:BypassGovernanceRetention` can (`mc rm --version-id … --bypass`), and nobody holds that day to day. Shortening the
+retention would be a deliberate, logged act in the MinIO console.
 
 ## Audit
 

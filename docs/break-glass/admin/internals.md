@@ -102,10 +102,19 @@ nothing behind.
 
 `CastRecorder` writes asciicast v2: a header (`width`, `height`, `timestamp`, `title`, `env`) and one
 `[seconds, kind, data]` line per event, `o` output (UTF-8 decoded across chunk boundaries), `i` input, `r` resize
-(`COLSxROWS`). The sweep saves a checkpoint every 60 s when there are new events; `end()` saves the final version and
-stores the key, SHA-256 and size on the row. The object key is `<app>/<env>/<id>.cast`, content type
-`application/x-asciicast`, with the SHA-256 also in the object's metadata. A session that ends after a backend restart
-takes the last checkpoint, hashing it on the way.
+(`COLSxROWS`). `activate()` writes the recording's header to the store **before** the RoleBinding: if that fails, the
+session is refused with 503 (*recordings are unavailable*) and nothing reaches the cluster. The sweep saves a checkpoint
+every 10 s when there are new events; `end()` saves the final version and stores the key, bucket, S3 version, SHA-256
+and size on the row. The object key is `<app>/<env>/<id>.cast`, content type `application/x-asciicast`, with the
+SHA-256 also in the object's metadata; in the object-locked bucket each checkpoint is a new version. A session that
+ends after a backend restart takes the last checkpoint, hashing it on the way.
+
+**The anchor** (`breakglassAnchor.ts`): after the final upload, `anchor()` signs the recording's bytes with the anchor
+key (ECDSA-SHA256, DER) and submits a Rekor `hashedrekord` (hash, signature, public key); the row keeps
+`recording_rekor_index` and `_uuid`. A failure (or no key) is noted in `anchor_error` with `anchor_attempted_at`; the
+sweep's `anchorAction(row, now)` (pure) retries every 5 minutes for 24 hours after the end, reading the object back by
+bucket and version and checking its hash against the row's before signing. Rekor's 409 (entry exists) is read back
+from its `Location`.
 
 ## The sweep
 
@@ -119,6 +128,8 @@ Every 15 s, for every unfinished row, `sweepAction(session, runtime, now)` (pure
 | `active`, no runtime in this process | end: *backend restarted during the session* |
 | `active`, no terminal for > 2 min | end: *terminal closed and not reopened within 2 minutes* |
 | `active`, no input or output for > 10 min | end: *idle for 10 minutes* |
+
+Then, for ended rows with a recording and no anchor (ended < 24 h ago): `anchorAction` → re-read and anchor.
 | `active`, new events, last save > 60 s ago | checkpoint |
 
 Each active session also has its own timer for its deadline, so the hard stop does not wait for the sweep.
@@ -162,6 +173,8 @@ Table `breakglass_sessions` in the glidepath plugin's database, created on first
 | `end_reason`, `ended_by` | how it ended |
 | `role_binding`, `copy_pod`, `debug_container` | the cluster objects' names |
 | `recording_key`, `recording_sha256`, `recording_bytes` | the recording |
+| `recording_bucket`, `recording_version` | where it is and which version the hash names (phase B; older rows have neither and read from `legacyBucket`) |
+| `recording_rekor_index`, `recording_rekor_uuid`, `anchor_attempted_at`, `anchor_error` | the Rekor anchor, or why the last attempt failed |
 | `cleanup_notes` | what could not be cleaned up, or why something was skipped |
 | `state` | `requested` / `approved` / `active` / `ended` (indexed, as is `app, env`) |
 

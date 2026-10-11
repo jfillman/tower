@@ -155,9 +155,9 @@ Tracked in the platform's break-glass gaps spec:
 
 - ~~an environment-level break-glass view and a cross-app queue for approvals and reviews~~ (built 2026-10-11: the
   Break-glass card under Pods, the home-page queue strip, deep links, and *End* for admins and approvers);
-- refusing to start when the recordings store is unreachable;
-- object-locked recordings with a transparency-log anchor;
+- ~~refusing to start when the recordings store is unreachable~~ (phase B, 2026-10-11);
+- ~~object-locked recordings with a transparency-log anchor~~ (phase B, 2026-10-11: `tower-breakglass-v2`, Rekor);
 - restricted access to recordings of sessions that could read Secrets;
 - review reminders and escalation;
-- shorter checkpoints;
+- ~~shorter checkpoints~~ (phase B: 10 s);
 - the Flight TTL backstop and image-signature admission (slim Kyverno on kind-prod).

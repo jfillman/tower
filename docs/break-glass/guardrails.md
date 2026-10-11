@@ -16,7 +16,7 @@ stops.
 | 4 | **Just-in-time permission** | Kubernetes RBAC | Backstage holds **no debug rights at rest**. For each session it creates a RoleBinding granting itself one of two debug roles in that one namespace, and deletes it at the end. Its only standing right is to create those bindings, for those two roles. |
 | 5 | **Admission policies** | the Kubernetes API server, failing closed | the grant's shape (name, role, subject, namespace, expiry; on Flight a named approver who is not the requester, or the glass-broken mark); the debug container's image digest and every security setting; which pods Backstage may delete; on Flight, no exec for anyone but operators, and attach only to a debug container. |
 | 6 | **Expiry** | Backstage's timers, and the cluster | the session's hard stop, the 10-minute idle limit, the 2-minute disconnect limit; and an expiry label on the grant and the copy pod that the cluster acts on even if Backstage is gone (Ground today; Flight is being added). |
-| 7 | **Record and review** | the audit log, the recording store | every request, decision, start, extension, end, play and download is audited; every byte is recorded with a SHA-256; a glass-broken session must be reviewed by someone else. |
+| 7 | **Record and review** | the audit log, the recording store, the transparency log | every request, decision, start, extension, end, play and download is audited; every byte is recorded with a SHA-256 into an object-locked bucket and the hash is anchored in Rekor; a session that cannot be recorded never starts; a glass-broken session must be reviewed by someone else. |
 
 ## What each layer stops
 
@@ -33,7 +33,8 @@ stops.
 | uses `kubectl exec` on Flight instead | layer 5: exec into app namespaces is refused to everyone but platform operators |
 | leaves a session running | layer 6: hard stop, idle limit, disconnect limit, and the expiry label |
 | breaks the glass to skip the second person | it works, by design, and layer 7 makes it loud: everyone is told, it is audited critical, and it must be reviewed |
-| replaces a recording afterwards | layer 7: the player shows the SHA-256 no longer matches the record |
+| replaces a recording afterwards | layer 7: the bucket's object lock refuses the replacement for a year; the player shows the SHA-256 no longer matches the record; the Rekor entry still names the original hash |
+| makes the recordings store unreachable, hoping for an unrecorded session | layer 7: the session refuses to start (*recordings are unavailable*) |
 
 ## Failing closed
 
@@ -52,8 +53,8 @@ Knowing the limits is part of using it safely.
   recording then contains whatever you displayed, for a year, readable by the app's owners.
 - **What you type is recorded.** Don't paste credentials into the terminal.
 - **A copy pod runs the app.** Background work (queue consumers, schedulers) runs in the copy too.
-- **A recording is only as safe as its store.** The SHA-256 check detects a replaced recording; the store itself does
-  not yet prevent replacement (planned: a locked bucket and a transparency-log anchor).
+- **A recording's protection has a lifetime.** The object lock and the lifecycle both run 365 days; after that the
+  recording is gone by design, and only the Rekor entry (the hash) remains.
 - **Breaking the glass relies on the review.** It is the weakest link by design, so it is the most visible one.
 
 For the full permission table across all of Tower, see the [Security model](../security.md). For how the policies are

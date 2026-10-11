@@ -228,18 +228,21 @@ def d06():
     b += path([(248, 172), (328, 172)]) + hlab(248, 328, 172, 'own SA')
     b += path([(176, 136), (176, 116), (636, 116), (636, 136)], 'link') + hlab(176, 636, 116, 'own SA, per cluster', LINK)
     b += path([(224, 208), (224, 392), (856, 392), (856, 328)], 'link') + hlab(224, 856, 392, 'recordings · put, get', LINK)
+    b += path([(200, 208), (200, 420), (632, 420), (632, 328)], 'link') + hlab(200, 632, 420, 'anchor · hash + signature', LINK)
     b += node(48, 136, 200, 72, 'Backstage', 'backstage/backstage-ingestor', 'focal', tag='pod')
     b += node(48, 264, 152, 64, 'Postgres', 'breakglass_sessions', 'store')
     b += node(328, 136, 144, 72, 'API server', '4 VAPs · exec deny', 'security', tag='flight')
     b += node(536, 136, 200, 72, 'API server', '3 VAPs + Kyverno TTL cleanup', 'security', tag='ground')
-    b += node(760, 264, 192, 64, 'MinIO', 'tower-breakglass · 365 days', 'store')
+    b += node(760, 264, 192, 64, 'MinIO', 'tower-breakglass-v2 · locked', 'store')
+    b += node(536, 264, 192, 64, 'Rekor', 'hashedrekord per recording', 'store')
     b += callout(24, 484, 'Recordings live off the Flight cluster they record.')
     b += legend(528, [('focal', 'Backstage'), ('security', 'Admission policies'), ('store', 'Storage'),
                       ('link', 'Crosses clusters'), ('muted', 'In-cluster')])
     write('06-deployment', 'Break-glass · 06 · Deployment', 'Where break-glass runs',
           'Backstage runs on kind-prod with its session table in Postgres and reaches the kind-prod API server, which holds '
           'four Flight admission policies, and the kiac-dev API server, which holds three Ground policies and Kyverno\'s TTL '
-          'cleanup, each as its own ServiceAccount; recordings go to MinIO on kiac-dev.',
+          'cleanup, each as its own ServiceAccount; recordings go to an object-locked bucket in MinIO on kiac-dev and each '
+          'recording\'s hash is anchored in Rekor there.',
           b, 560, 'One backend, two clusters, each enforcing its own policies; recordings kept off the cluster they record.', y0=56)
 
 
