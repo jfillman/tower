@@ -210,3 +210,14 @@ export function SloIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Break-glass (phase C, G12): an open padlock, the shackle lifted. */
+export function BreakglassIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 18 18" width="15" height="15" {...props}>
+      <rect x="3.5" y="8" width="11" height="7.5" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 8V5.5a3 3 0 0 1 6 0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M9 11v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

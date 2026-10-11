@@ -21,6 +21,19 @@ export interface BreakglassSession {
   processAccess: boolean;
   volumeAccess?: boolean;
   volumes?: Array<{ volume: string; kind: string; path: string; appPaths: string[] }>;
+  /** Phase C: could read Secrets (volume or process access), so the recording is restricted. */
+  sensitive?: boolean;
+  /** Phase C: copy mode with the app's containers held (no work runs). */
+  holdApp?: boolean;
+  /** Phase C: what the target pod ran when the session was requested, for the approver. */
+  podImage?: string;
+  podImageId?: string;
+  /** Phase C: the approver kept the pod after a live session, with their reason. */
+  recycleWaivedReason?: string;
+  /** Phase C: a review-due session nobody but the requester could review (owners, admins and the fallback group). */
+  noReviewer?: boolean;
+  reviewRemindedAt?: string;
+  reviewEscalatedAt?: string;
   reason: string;
   ticketUrl?: string;
   requester: string;

@@ -55,7 +55,8 @@ How Tower decides the tier (the request never says):
 - **Ended**: by you, by the clock, after 10 idle minutes, 2 minutes after you close the terminal without reopening it,
   when the shell exits, or by an admin or the approver. Tower removes the grant and the debug container, restarts the
   pod if needed, and stores the recording.
-- **Review due** (glass broken only): until someone who could have approved it watches the recording and signs it off.
+- **Review due** (glass broken only): until someone who could have approved it, or a fallback reviewer, watches the
+  recording and signs it off. Reviewers are reminded after a day and the admins alerted after three.
 
 You can hold **one** open request or session at a time, across all apps.
 

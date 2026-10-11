@@ -13,6 +13,7 @@ Everything break-glass reads, sets or names, in one place. Source of truth: back
 | `glidepath.breakglass.recordings.legacyBucket` | `tower-breakglass` when `bucket` is another | Where rows without a `recording_bucket` (written before phase B) are read from. |
 | `glidepath.breakglass.anchor.rekorUrl` | `http://rekor.dev.kiac.local:8080` | The Rekor the recording hashes are anchored in. |
 | `glidepath.breakglass.anchor.privateKey` | none | The anchor key (ECDSA, PEM). Prefer the environment variable below. |
+| `glidepath.breakglass.reviewers` | `[group:default/admins]` | Groups whose members may **review** a glass-broken session on any app (never approve or start one), besides the app's owners and the admins. This platform: `[group:default/breakglass-reviewers]` (examples/org.yaml). |
 | `glidepath.breakglass.recordings.region` | `us-east-1` | S3 region (MinIO ignores it; the SDK needs one). |
 | `glidepath.breakglass.recordings.accessKeyId` / `.secretAccessKey` | none | The store's key. Prefer the environment variables below. |
 | `glidepath.breakglass.recordings.retentionDays` | `365` | How long the bucket keeps a recording. Shown to users, and used to tell an expired recording from a missing one. **Must match the bucket's lifecycle rule**; the backend deletes nothing itself. |
@@ -95,7 +96,8 @@ All are resource permissions on the app's catalog entity (`towerPermissions.ts`)
 | Permission | Who | Used for |
 |---|---|---|
 | `tower.breakglass.request` | owners, admins | request or open a session; start, extend and end your own; list the environment's sessions; play and download recordings |
-| `tower.breakglass.approve` | owners, admins (never your own request) | approve or deny; review a glass-broken session (never your own) |
+| `tower.breakglass.approve` | owners, admins (never your own request) | approve or deny (with the keep-the-pod waiver on a live Flight request); review a glass-broken session (never your own) |
+| (membership of `glidepath.breakglass.reviewers`) | the fallback reviewers | review a glass-broken session only; audited as `tower.breakglass.review` with `fallbackReviewer: true` |
 | `tower.breakglass.terminate` | admins (grant-only) | end someone else's session (the approver may also end the one they approved) |
 | `tower.breakglass.self` | admins (grant-only) | break the glass: a Flight session with no second person |
 

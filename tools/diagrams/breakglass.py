@@ -100,7 +100,7 @@ def d02():
     b += path([(648, 284), (776, 284)]) + hlab(648, 776, 284, 'end · expiry · idle')
     b += path([(344, 96), (344, 64), (904, 64), (904, 256)]) + hlab(344, 904, 64, 'deny · withdraw · 30 min')
     b += path([(648, 124), (840, 124), (840, 256)]) + hlab(648, 840, 124, 'withdraw · 10 min')
-    b += path([(856, 312), (856, 400)]) + vlab(856, 312, 400, 'review')
+    b += path([(856, 312), (856, 400)]) + vlab(856, 312, 400, 'review · reminded 24 h · escalated 72 h')
     b += node(40, 96, 176, 56, 'Flight request', 'an owner asks', 'input')
     b += node(264, 96, 160, 56, 'requested', 'waits up to 30 min')
     b += node(488, 96, 160, 56, 'approved', 'start within 10 min')
@@ -115,7 +115,8 @@ def d02():
     write('02-lifecycle', 'Break-glass · 02 · State machine', 'The life of a session',
           'Session states. A Flight request becomes requested, then approved, then active once started; it can be denied, '
           'withdrawn or expire into ended. Ground and preview sessions open directly as active. An admin breaking the glass '
-          'also opens directly as active. Every active session ends; a glass-broken one is then reviewed.',
+          'also opens directly as active. Every active session ends; a glass-broken one is then reviewed, with a reminder '
+          'at a day and an escalation at three.',
           b, 572, 'Three ways in, one way out. Only an active session has anything in the cluster.', y0=32)
 
 

@@ -157,7 +157,10 @@ Tracked in the platform's break-glass gaps spec:
   Break-glass card under Pods, the home-page queue strip, deep links, and *End* for admins and approvers);
 - ~~refusing to start when the recordings store is unreachable~~ (phase B, 2026-10-11);
 - ~~object-locked recordings with a transparency-log anchor~~ (phase B, 2026-10-11: `tower-breakglass-v2`, Rekor);
-- restricted access to recordings of sessions that could read Secrets;
-- review reminders and escalation;
+- ~~restricted access to recordings of sessions that could read Secrets~~ (phase C, 2026-10-11; the requester keeps
+  access, user decision);
+- ~~review reminders and escalation~~ (phase C: 24 h / 72 h, a fallback reviewers group, "no one else can review");
+- ~~hold the app in a Flight copy; the approver's view of the pod's image and the recycle waiver; sessions on the
+  release record and the activity feed~~ (phase C);
 - ~~shorter checkpoints~~ (phase B: 10 s);
 - the Flight TTL backstop and image-signature admission (slim Kyverno on kind-prod).

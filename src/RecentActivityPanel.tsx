@@ -16,6 +16,7 @@ import {
 } from './brand/tokens';
 import { renderNotificationDescription } from './notificationFormatting';
 import {
+  BreakglassIcon,
   ConfigIcon,
   EnvIcon,
   ImageIcon,
@@ -173,6 +174,8 @@ const TOPIC_META: Record<string, TopicMeta> = {
   images: { label: 'Cleanup', icon: ImageIcon },
   'rolled-back': { label: 'Rollback', icon: ReleaseIcon },
   rollout: { label: 'Rollout', icon: SyncIcon },
+  // Break-glass debug sessions (phase C, G12): requests, approvals, opens, ends, glass broken, reviews.
+  breakglass: { label: 'Break-glass', icon: BreakglassIcon },
 };
 
 /** A topic's label and icon; one this panel has no entry for shows its own name with the pipeline icon. */

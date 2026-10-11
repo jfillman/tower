@@ -66,6 +66,8 @@ export function BreakglassEnvironmentView({
   const [error, setError] = useState<string | undefined>();
   const [note, setNote] = useState<string | undefined>();
   const [decisionNote, setDecisionNote] = useState<Record<string, string>>({});
+  // Phase C (G13): the approver may keep the pod after a live Flight session (it is the evidence), with a reason.
+  const [keepPod, setKeepPod] = useState<Record<string, { on: boolean; reason: string }>>({});
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
   const [playing, setPlaying] = useState<BreakglassSession | undefined>();
   const [open, setOpen] = useState<BreakglassSession | undefined>();
@@ -106,7 +108,12 @@ export function BreakglassEnvironmentView({
 
   const decide = async (id: string, decision: 'approve' | 'deny') => {
     const n = decisionNote[id]?.trim();
-    await call(`/sessions/${id}/${decision}`, n ? { note: n } : {}, decision === 'approve' ? 'Approved. The requester has 10 minutes to start the session.' : 'Denied.');
+    const k = keepPod[id];
+    const body = {
+      ...(n ? { note: n } : {}),
+      ...(decision === 'approve' && k?.on ? { keepPod: true, keepPodReason: k.reason.trim() } : {}),
+    };
+    await call(`/sessions/${id}/${decision}`, body, decision === 'approve' ? 'Approved. The requester has 10 minutes to start the session.' : 'Denied.');
   };
 
   const review = async (id: string) => {
@@ -227,6 +234,47 @@ export function BreakglassEnvironmentView({
               {r.ticketUrl && (
                 <a className={classes.link} href={r.ticketUrl} target="_blank" rel="noopener noreferrer">{r.ticketUrl}</a>
               )}
+              {(r.podImage || r.podImageId) && (
+                <span className={classes.bannerMeta} data-testid={`breakglass-request-image-${r.id}`} title={r.podImageId ?? ''}>
+                  The pod runs {r.podImage ?? 'an unknown image'}
+                  {r.podImageId?.includes('@sha256:') ? ` (${r.podImageId.slice(r.podImageId.indexOf('@sha256:') + 8, r.podImageId.indexOf('@sha256:') + 20)}…)` : ''}
+                  {r.podImage?.includes(':') ? `; release ${r.podImage.slice(r.podImage.lastIndexOf(':') + 1)} in the Releases tab` : ''}
+                </span>
+              )}
+              {r.mode === 'copy' && (
+                <span className={r.holdApp ? classes.bannerMeta : classes.warn}>
+                  {r.holdApp ? 'The copy holds the app: no work runs in it.' : 'The copy runs the app: it consumes queues, schedules work and takes leases like a real replica.'}
+                </span>
+              )}
+              {r.sensitive && (
+                <span className={classes.warn}>
+                  This session can read Secrets (volume or process access); its recording will be restricted to admins, you, the reviewer and
+                  the requester.
+                </span>
+              )}
+              {r.mode === 'live' && r.tier === 'flight' && (
+                <label className={classes.radio} data-testid={`breakglass-keep-pod-${r.id}`}>
+                  <input
+                    type="checkbox"
+                    checked={keepPod[r.id]?.on ?? false}
+                    onChange={e => setKeepPod(k => ({ ...k, [r.id]: { on: e.target.checked, reason: k[r.id]?.reason ?? '' } }))}
+                  />
+                  <span>
+                    Keep the pod after the session (it is the evidence)
+                    <br />
+                    <span className={classes.hint}>Normally the pod is restarted at the end because the debug container stays in it. A reason is required and goes on the record.</span>
+                    {keepPod[r.id]?.on && (
+                      <input
+                        aria-label={`Reason to keep the pod for ${r.id}`}
+                        placeholder="Why the pod must stay (required)"
+                        value={keepPod[r.id]?.reason ?? ''}
+                        onChange={e => setKeepPod(k => ({ ...k, [r.id]: { on: true, reason: e.target.value } }))}
+                        style={{ display: 'block', width: '100%', marginTop: 4 }}
+                      />
+                    )}
+                  </span>
+                </label>
+              )}
               <div className={classes.actions}>
                 <input
                   aria-label={`Note for ${r.id}`}
@@ -235,7 +283,7 @@ export function BreakglassEnvironmentView({
                   onChange={e => setDecisionNote(n => ({ ...n, [r.id]: e.target.value }))}
                   style={{ flex: 1, minWidth: 160 }}
                 />
-                <Button variant="danger" small disabled={busy} onClick={() => decide(r.id, 'approve')}>Approve</Button>
+                <Button variant="danger" small disabled={busy || (!!keepPod[r.id]?.on && !keepPod[r.id]?.reason.trim())} onClick={() => decide(r.id, 'approve')}>Approve</Button>
                 <Button small disabled={busy} onClick={() => decide(r.id, 'deny')}>Deny</Button>
               </div>
             </div>
@@ -301,8 +349,15 @@ export function BreakglassEnvironmentView({
               ) : (
                 ''
               )}
+              {s.mode === 'copy' && s.holdApp ? <span title="The copy ran a sleep instead of the app"> · app held</span> : ''}
             </span>
             <span>{s.pod}</span>
+            {s.sensitive && (
+              <StatusChip tone="warn" title="Could read Secrets: the recording is for admins, the approver, the reviewer and the requester">sensitive</StatusChip>
+            )}
+            {s.recycleWaivedReason && (
+              <span className={classes.rowMeta} title={s.recycleWaivedReason}>pod kept by the approver</span>
+            )}
             <span className={classes.rowMeta}>{shortUser(s.requester)}</span>
             <span className={classes.rowMeta} title={s.reason}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
             {s.ticketUrl && (
@@ -311,6 +366,12 @@ export function BreakglassEnvironmentView({
             {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {shortUser(s.approver)}</span>}
             {s.glassBroken && <StatusChip tone="bad" title="Opened by an admin with no second person">glass broken</StatusChip>}
             {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
+            {s.reviewState === 'due' && s.noReviewer && (
+              <span className={classes.bad} title="Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)">
+                no one else can review this
+              </span>
+            )}
+            {s.reviewState === 'due' && s.reviewEscalatedAt && <StatusChip tone="bad" title={`Escalated ${formatDateTime(s.reviewEscalatedAt)}`}>overdue</StatusChip>}
             {s.reviewState === 'done' && (
               <span className={classes.rowMeta} title={`${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ''}`}>
                 reviewed by {shortUser(s.reviewedBy ?? '')}

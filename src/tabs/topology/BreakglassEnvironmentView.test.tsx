@@ -190,6 +190,43 @@ describe('BreakglassEnvironmentCard', () => {
     expect(screen.getByTestId('breakglass-player').textContent).toContain('anchored in Rekor #4242');
   });
 
+  it('phase C: the request card shows the image, the held or running app and the Secrets warning; the approver can keep a live Flight pod with a reason', async () => {
+    listBody = {
+      sessions: [row({ state: 'requested', endedAt: undefined, tier: 'flight', mode: 'live', processAccess: true, sensitive: true, podImage: 'ghcr.io/jfillman/sky-marshall:1.4.0-abc1234', podImageId: 'ghcr.io/jfillman/sky-marshall@sha256:0123456789abcdef0123' })],
+      user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true,
+    };
+    await renderCard();
+    const card = screen.getByTestId('breakglass-to-decide');
+    expect(screen.getByTestId('breakglass-request-image-k3j9m2p7q1r5').textContent).toContain('1.4.0-abc1234');
+    expect(card.textContent).toContain('can read Secrets');
+    const keep = screen.getByTestId('breakglass-keep-pod-k3j9m2p7q1r5');
+    fireEvent.click(keep.querySelector('input[type=checkbox]')!);
+    const approve = screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Reason to keep the pod for k3j9m2p7q1r5'), { target: { value: 'the pod is the evidence for INC-9' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Approve' })));
+    const post = calls.find(c => c.init?.method === 'POST')!;
+    expect(post.url).toBe('http://be/api/glidepath/breakglass/sessions/k3j9m2p7q1r5/approve');
+    expect(JSON.parse(String(post.init!.body))).toEqual({ keepPod: true, keepPodReason: 'the pod is the evidence for INC-9' });
+  });
+
+  it('phase C: a copy request says whether the copy holds or runs the app; rows carry sensitive, app held, pod kept and no-reviewer', async () => {
+    listBody = {
+      sessions: [
+        row({ id: 'aaaaaaaaaaaa', state: 'requested', endedAt: undefined, mode: 'copy', holdApp: false }),
+        row({ sensitive: true, holdApp: true, mode: 'copy', recycleWaivedReason: 'evidence', glassBroken: true, reviewState: 'due', noReviewer: true, requester: 'user:default/riley-roooo' }),
+      ],
+      user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true,
+    };
+    await renderCard();
+    expect(screen.getByTestId('breakglass-to-decide').textContent).toContain('The copy runs the app');
+    const r = screen.getByTestId('breakglass-session-k3j9m2p7q1r5');
+    expect(r.textContent).toContain('sensitive');
+    expect(r.textContent).toContain('app held');
+    expect(r.textContent).toContain('pod kept by the approver');
+    expect(r.textContent).toContain('no one else can review this');
+  });
+
   it('fetches a deep-linked session past the list window, lists it and highlights it', async () => {
     listBody = { sessions: [row({ id: 'aaaaaaaaaaaa' })], user: 'user:default/riley-roooo', recordingsConfigured: true };
     byId = { k3j9m2p7q1r5: row({}) };
