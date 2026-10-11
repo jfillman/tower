@@ -6,6 +6,19 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { Button, TextLink } from '../../ui/index.esm.js';
 
+const POLL_MS = 1500;
+function planCounts(plan) {
+  return {
+    releases: plan.packages.reduce((n, p) => n + p.decisions.filter((d) => !d.keep).length, 0),
+    cacheLayers: plan.packages.filter((p) => p.kind === "cache").reduce((n, p) => n + p.deleteIds.length, 0),
+    versions: plan.deleteCount
+  };
+}
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+function whatGoes(releases, cacheLayers) {
+  const parts = [releases ? plural(releases, "release") : "", cacheLayers ? plural(cacheLayers, "cache layer") : ""].filter(Boolean);
+  return parts.join(" and ") || "nothing";
+}
 const useStyles = makeStyles(() => ({
   card: {
     border: ({ t }) => `1px solid ${t.line}`,
@@ -38,6 +51,8 @@ const useStyles = makeStyles(() => ({
     fontSize: 12
   },
   bad: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.bad },
+  bar: { height: 6, borderRadius: 3, backgroundColor: ({ t }) => t.lineSoft, overflow: "hidden", maxWidth: 360 },
+  barFill: { height: "100%", backgroundColor: ({ t }) => t.amber, transition: "width 0.4s" },
   ok: { fontSize: 12, color: ({ t }) => t.good }
 }));
 function pruneBlocker(plan) {
@@ -57,12 +72,12 @@ function ImageCleanup({ owner, appName }) {
   const [note, setNote] = useState();
   const [confirming, setConfirming] = useState(false);
   const [showKept, setShowKept] = useState(false);
-  const [result, setResult] = useState();
+  const [progress, setProgress] = useState();
   const loadPlan = async (refresh = false) => {
     setBusy("plan");
     setError(void 0);
     setNote(void 0);
-    setResult(void 0);
+    setProgress(void 0);
     try {
       const base = await discoveryApi.getBaseUrl("glidepath");
       const q = new URLSearchParams({ owner, appName, ...refresh ? { refresh: "true" } : {} });
@@ -92,10 +107,28 @@ function ImageCleanup({ owner, appName }) {
       if (res.status === 409 && body?.plan) {
         setPlan({ ...body.plan, allowed: plan.allowed });
         setNote(body.error);
+        setBusy(void 0);
         return;
       }
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
-      setResult(body);
+      const counts = planCounts(plan);
+      setProgress({
+        state: "running",
+        releases: { done: 0, total: counts.releases },
+        cacheLayers: { done: 0, total: counts.cacheLayers },
+        deletedReleases: [],
+        deletedVersions: 0,
+        failed: [],
+        remaining: { releases: 0, cacheLayers: 0 }
+      });
+      for (; ; ) {
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        const pr = await fetchApi.fetch(`${base}/images/prune/jobs/${encodeURIComponent(body.jobId)}`);
+        const p = await pr.json().catch(() => void 0);
+        if (!pr.ok || !p) throw new Error(p?.error ?? `progress request failed with ${pr.status}`);
+        setProgress(p);
+        if (p.state !== "running") break;
+      }
       setPlan(void 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -113,7 +146,7 @@ function ImageCleanup({ owner, appName }) {
       /* @__PURE__ */ jsx("span", { className: c.title, children: "Clean up old images" }),
       /* @__PURE__ */ jsx(Button, { small: true, disabled: !!busy, onClick: () => loadPlan(!!plan), children: planLabel })
     ] }),
-    !plan && !result && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+    !plan && !progress && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
       "Deletes this app's old images from the registry (",
       appName,
       ", ",
@@ -136,15 +169,16 @@ function ImageCleanup({ owner, appName }) {
         return /* @__PURE__ */ jsxs("div", { children: [
           /* @__PURE__ */ jsxs("span", { className: c.pkg, children: [
             p.name,
-            ": ",
-            p.decisions.length,
-            " releases (",
-            p.totalVersions,
-            " versions), delete ",
+            ": delete ",
             del.length,
-            " (",
+            " of ",
+            plural(p.decisions.length, "release")
+          ] }),
+          del.length > 0 && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+            " ",
+            "(",
             p.deleteIds.length,
-            " versions)"
+            " registry versions: each release's image, its amd64 and arm64 images, signature and attestation)"
           ] }),
           del.map((d) => /* @__PURE__ */ jsxs("div", { className: c.row, children: [
             /* @__PURE__ */ jsx("span", { className: c.del, children: "DELETE" }),
@@ -176,16 +210,18 @@ function ImageCleanup({ owner, appName }) {
       ] }, p.name)),
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: showKept, onClick: () => setShowKept((v) => !v), children: "Why each kept release is kept" }) }),
       /* @__PURE__ */ jsxs("div", { className: c.head, children: [
-        /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: !!busy || !!blocker, title: blocker, onClick: () => setConfirming(true), children: busy === "prune" ? "Deleting\u2026" : `Delete ${plan.deleteCount} versions` }),
+        /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: !!busy || !!blocker, title: blocker, onClick: () => setConfirming(true), children: busy === "prune" ? "Deleting\u2026" : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}` }),
         blocker && /* @__PURE__ */ jsx("span", { className: c.note, children: blocker })
       ] }),
       confirming && /* @__PURE__ */ jsxs("div", { className: c.confirm, "data-testid": "prune-confirm", children: [
         /* @__PURE__ */ jsxs("span", { children: [
           "Delete ",
-          plan.deleteCount,
-          " package versions from ghcr.io/",
+          whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers),
+          " from ghcr.io/",
           owner,
-          "? This cannot be undone; a release deleted here can only come back by building it again."
+          "? Each release goes with all its parts (",
+          plan.deleteCount,
+          " registry versions in all). This cannot be undone: a deleted release only comes back by building it again."
         ] }),
         /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", onClick: prune, children: "Delete" }),
         /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setConfirming(false), children: "Cancel" })
@@ -193,16 +229,46 @@ function ImageCleanup({ owner, appName }) {
     ] }),
     note && /* @__PURE__ */ jsx("span", { className: c.bad, children: note }),
     error && /* @__PURE__ */ jsx("span", { className: c.bad, children: error }),
-    result && /* @__PURE__ */ jsxs("span", { className: result.failed.length ? c.bad : c.ok, children: [
+    progress && /* @__PURE__ */ jsx(PruneProgressView, { progress, c })
+  ] });
+}
+function PruneProgressView({ progress, c }) {
+  const { releases, cacheLayers } = progress;
+  const done = releases.done + cacheLayers.done;
+  const total = releases.total + cacheLayers.total;
+  const pct = total ? Math.round(done / total * 100) : 100;
+  if (progress.state === "running") {
+    return /* @__PURE__ */ jsxs("div", { "data-testid": "prune-progress", style: { display: "flex", flexDirection: "column", gap: 4 }, children: [
+      /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+        "Deleting: releases ",
+        releases.done,
+        " of ",
+        releases.total,
+        cacheLayers.total ? `, cache layers ${cacheLayers.done} of ${cacheLayers.total}` : "",
+        progress.current ? ` (now ${progress.current})` : ""
+      ] }),
+      /* @__PURE__ */ jsx("div", { className: c.bar, children: /* @__PURE__ */ jsx("div", { className: c.barFill, style: { width: `${pct}%` } }) })
+    ] });
+  }
+  if (progress.state === "failed") return /* @__PURE__ */ jsxs("span", { className: c.bad, children: [
+    "The cleanup stopped: ",
+    progress.error
+  ] });
+  const left = progress.remaining.releases + progress.remaining.cacheLayers;
+  return /* @__PURE__ */ jsxs("div", { "data-testid": "prune-progress", style: { display: "flex", flexDirection: "column", gap: 4 }, children: [
+    /* @__PURE__ */ jsxs("span", { className: progress.failed.length ? c.bad : c.ok, children: [
       "Deleted ",
-      result.deleted,
-      " versions",
-      result.failed.length ? `; ${result.failed.length} failed (${result.failed[0].error})` : "",
-      result.remaining ? `; ${result.remaining} more remain, plan again to continue` : "",
-      "."
+      whatGoes(progress.deletedReleases.length, cacheLayers.done),
+      progress.failed.length ? `; ${plural(progress.failed.length, "item")} could not be deleted (${progress.failed[0].item}: ${progress.failed[0].error})` : "",
+      ".",
+      left ? ` ${whatGoes(progress.remaining.releases, progress.remaining.cacheLayers)} remain for another run: plan again.` : ""
+    ] }),
+    progress.deletedReleases.length > 0 && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+      "Releases deleted: ",
+      progress.deletedReleases.map((r) => r.split(":").slice(1).join(":")).join(", ")
     ] })
   ] });
 }
 
-export { ImageCleanup, pruneBlocker };
+export { ImageCleanup, planCounts, pruneBlocker, whatGoes };
 //# sourceMappingURL=ImageCleanup.esm.js.map
