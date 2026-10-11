@@ -287,8 +287,8 @@ function rolloutStrategyLabel(rollout, hasDeployment) {
   if (rollout.spec.strategy.blueGreen) return "Blue/Green";
   return "RollingUpdate";
 }
-function envLabelOf(rollout, namespace) {
-  return rollout?.metadata?.labels?.["hangar.io/env"] ?? namespace;
+function envLabelOf(rollout, namespace, deployment) {
+  return rollout?.metadata?.labels?.["hangar.io/env"] ?? deployment?.metadata?.labels?.["hangar.io/env"] ?? namespace;
 }
 function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster) {
   const envs = [];
@@ -313,7 +313,7 @@ function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewa
       const desiredReplicas = rollout?.spec?.replicas ?? deployment?.spec?.replicas;
       const availableReplicas = rollout?.status?.availableReplicas ?? deployment?.status?.availableReplicas ?? (desiredReplicas === void 0 ? podList.filter((p) => p.status?.phase === "Running").length : void 0);
       const startTimes = podList.map((p) => p.status?.startTime).filter((t) => Boolean(t)).map((t) => new Date(t).getTime());
-      const envLabel = envLabelOf(rollout, namespace);
+      const envLabel = envLabelOf(rollout, namespace, deployment);
       const appName = rollout?.metadata?.name ?? deployment?.metadata?.name;
       const httpRoute = httpRoutes.find((r) => r.metadata?.namespace === namespace);
       const routeHost = httpRoute?.spec?.hostnames?.[0];
@@ -487,5 +487,5 @@ function useTowerEnvironments() {
   return value;
 }
 
-export { TowerEnvironmentsProvider, customResourcesByClusterAndKind, useTowerEnvironments, useTowerEnvironmentsLive };
+export { TowerEnvironmentsProvider, customResourcesByClusterAndKind, envLabelOf, useTowerEnvironments, useTowerEnvironmentsLive };
 //# sourceMappingURL=useTowerEnvironments.esm.js.map

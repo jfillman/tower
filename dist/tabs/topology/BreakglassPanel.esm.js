@@ -182,9 +182,6 @@ function BreakglassPanel({ env, podName, containers, tier }) {
     return () => clearInterval(timer);
   }, [open, waiting]);
   if (!appName) return /* @__PURE__ */ jsx("span", { className: classes.hint, children: "No app is known for this environment." });
-  if (tier === "preview") {
-    return /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Break-glass debug is not offered on preview environments." });
-  }
   const mine = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod === podName);
   const mineElsewhere = sessions.find((s) => s.state !== "ended" && s.requester === listInfo.user && s.pod !== podName);
   const toDecide = sessions.filter((s) => s.state === "requested" && s.requester !== listInfo.user);
@@ -260,6 +257,15 @@ function BreakglassPanel({ env, podName, containers, tier }) {
       load();
     }
   };
+  const extend = async (id) => {
+    setError(void 0);
+    try {
+      const body = await api(discoveryApi, fetchApi, `/sessions/${id}/extend`, { method: "POST" });
+      setOpen((o) => o && o.id === id ? { ...o, expiresAt: body.session.expiresAt, extendedAt: body.session.extendedAt } : o);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
   const end = async (id) => {
     setEnding(true);
     try {
@@ -299,9 +305,11 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         ] }),
         /* @__PURE__ */ jsxs("span", { className: `${classes.bannerMeta} ${classes.countdown}`, title: `Ends at ${formatDateTime(open.expiresAt)}`, children: [
           remaining(open.expiresAt, now),
-          " left"
+          " left",
+          open.extendedAt ? " (extended)" : ""
         ] }),
         /* @__PURE__ */ jsx("span", { style: { flex: 1 } }),
+        !open.extendedAt && /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, title: "Your one free extension: 15 more minutes, no approval.", onClick: () => extend(open.id), children: "Extend +15 min" }),
         /* @__PURE__ */ jsx(Button, { variant: "danger", small: true, disabled: ending, onClick: () => end(open.id), children: ending ? "Ending\u2026" : "End session" })
       ] }),
       open.mode === "live" && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This pod will be restarted when you end the session." }),
