@@ -10,6 +10,7 @@ import { preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.j
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
+import { BreakglassPanel } from './BreakglassPanel.esm.js';
 import { StatusChip } from '../../ui/index.esm.js';
 
 function findPodResource(resources, name) {
@@ -134,6 +135,7 @@ function PodDetail({
   pod,
   raw,
   env,
+  tier,
   classes
 }) {
   const [panel, setPanel] = useState(null);
@@ -238,14 +240,26 @@ function PodDetail({
           ]
         }
       ),
-      /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, buttonClass: classes.actionBtn, noteClass: classes.cardSub, badClass: classes.conditionBad })
+      /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, buttonClass: classes.actionBtn, noteClass: classes.cardSub, badClass: classes.conditionBad }),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: `${classes.actionBtn} ${panel === "debug" ? classes.actionBtnActive : ""}`,
+          title: tier === "lower" ? "Open a recorded, time-boxed debug shell on this pod (break-glass)." : "Ground environments only for now: Flight needs approval, not built yet.",
+          onMouseDown: preventFocusScroll,
+          onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "debug" ? null : "debug")),
+          children: "Debug"
+        }
+      )
     ] }),
     panel === "logs" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers, live: true }) }),
     panel === "metrics" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames: [pod.name], title: "Pod performance" }) }),
+    panel === "debug" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(BreakglassPanel, { env, podName: pod.name, containers: (raw?.spec?.containers ?? []).map((c) => c.name), tier }) }),
     panel === "yaml" && resource && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(YamlView, { resource }) })
   ] });
 }
-function PodsPanel({ env }) {
+function PodsPanel({ env, tier }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState(env.pods[0]?.name);
@@ -278,7 +292,7 @@ function PodsPanel({ env }) {
         pod.name
       );
     }) }),
-    selectedPod && /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, classes })
+    selectedPod && /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, tier, classes })
   ] });
 }
 

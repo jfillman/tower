@@ -99,7 +99,7 @@ function EnvironmentTopology({ env, tier }) {
     /* @__PURE__ */ jsxs("div", { className: classes.dagCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.dagInner, children: /* @__PURE__ */ jsx(TopoDag, { stages, selectedKey: selectedStage, onSelectKey: setSelectedStage, t }) }),
       /* @__PURE__ */ jsx("hr", { className: classes.dagDivider }),
-      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, selectedKey: selectedStage }) })
+      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, tier, selectedKey: selectedStage }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsxs(FilterGroup, { label: "Show", children: [
