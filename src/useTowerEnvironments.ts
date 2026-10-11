@@ -601,8 +601,17 @@ function rolloutStrategyLabel(
   return 'RollingUpdate';
 }
 
-function envLabelOf(rollout: RolloutResource | undefined, namespace: string): string {
-  return rollout?.metadata?.labels?.['hangar.io/env'] ?? namespace;
+/**
+ * The environment's name: the workload's hangar.io/env label, from the Rollout or, for an app that runs a plain
+ * Deployment (skyport-auth, 2026-10-11), the Deployment. Only then the namespace, which is never an environment name:
+ * using it made break-glass send env=app-skyport-auth-dev and the Argo CD Application name come out wrong.
+ */
+export function envLabelOf(
+  rollout: RolloutResource | undefined,
+  namespace: string,
+  deployment?: { metadata?: { labels?: Record<string, string> } },
+): string {
+  return rollout?.metadata?.labels?.['hangar.io/env'] ?? deployment?.metadata?.labels?.['hangar.io/env'] ?? namespace;
 }
 
 function buildEnvironments(
@@ -659,7 +668,7 @@ function buildEnvironments(
         .map(p => p.status?.startTime)
         .filter((t): t is Date => Boolean(t))
         .map(t => new Date(t).getTime());
-      const envLabel = envLabelOf(rollout, namespace);
+      const envLabel = envLabelOf(rollout, namespace, deployment);
       const appName = rollout?.metadata?.name ?? deployment?.metadata?.name;
       const httpRoute = httpRoutes.find(r => r.metadata?.namespace === namespace);
       const routeHost = httpRoute?.spec?.hostnames?.[0];
