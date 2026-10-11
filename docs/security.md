@@ -151,7 +151,9 @@ starts then. On Flight the last ready pod is never restarted for you. PR preview
   - **The live pod**: an ephemeral container added to the running pod. *Process access* (optional, shown on the record)
     shares the app container's process namespace, so you see its processes. Its files and environment (secrets) under
     `/proc/<pid>/` are readable only when the app runs as the same non-root user as the debug container (65532): the
-    kernel refuses another user, and the debug container is never root, so an app running as root keeps them. An
+    kernel refuses another user, and the debug container is never root, so an app running as root keeps them. Airframe
+    runs every Rollout as 65532 by default (airframe v0.3.141), so for those apps process access does show the app's
+    files and environment; an app that opts out (`rollout.podSecurityContext: null`) runs as its image's user. An
     ephemeral container stays in the pod spec for the pod's life, so the pod is restarted when the session ends: through
     Argo CD, or, for a pod Argo CD does not manage (an attached component such as Redis), deleted directly under the
     session's grant, which Kyverno limits to pods carrying a debug container. A last ready pod is left alone unless the
