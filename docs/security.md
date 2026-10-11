@@ -10,9 +10,12 @@ it, and the guardrails behind each one, in Tower, in Backstage's backend, in Arg
    change what an environment runs.
 2. **Delegated, not direct.** Tower and its backend hold **no standing Kubernetes write permissions on any cluster**.
    Sync, force sync, terminate and Rollout actions run through Argo CD, as one narrowly scoped Argo CD account. Argo CD
-   checks that the resource belongs to the Application and records the operation. The one exception is
-   [break-glass](break-glass/index.md): its only standing right is to bind one of two debug roles to itself, for one
-   session, in one namespace, under admission policies.
+   checks that the resource belongs to the Application and records the operation. There are two exceptions, both
+   held to their exact shape by admission policies in the cluster:
+   - Tekton Re-run and Cancel: `create` and `patch` on PipelineRuns. `tower-pipelinerun-shape` allows only
+     Glidepath's own run shape in an app's `-cicd` namespace, and on an existing run only a cancel.
+   - [Break-glass](break-glass/index.md): the only standing right is to bind one of two debug roles to itself, for one
+     session, in one namespace.
 3. **The server decides, not the request.** Whether an environment is Ground or Flight comes from the app's
    `cicd.yaml`, read on the server. Whether a sync prunes comes from the Application's own policy in Argo CD. Which
    releases a rollback may target comes from the release records. A crafted request cannot widen any of these.
@@ -21,6 +24,9 @@ it, and the guardrails behind each one, in Tower, in Backstage's backend, in Arg
 5. **Every write is audited**, including a refusal. The riskiest are also announced to everyone.
 6. **Refuse rather than half-succeed.** A release to an environment that runs no workload is refused before any PR
    exists, and the chart refuses to render a release that would report nothing.
+7. **The Kubernetes proxy is read-only.** Tower reads clusters through Backstage's `/api/kubernetes/proxy`, which runs
+   as Backstage's own identity and does no ownership check, so the backend refuses anything but GET (and any WebSocket
+   upgrade) on it. Every write goes through an owner-gated route.
 
 ## Who may do what
 
@@ -41,6 +47,8 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Roll back (opens a rollback release PR) | `tower.release.rollback` | n/a | owners | high |
 | Cloud release pin (promote or roll back) | `tower.release.pin` | owners | owners | medium |
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
+| Tekton Re-run a PipelineRun | `tower.pipeline.rerun` | owners | owners | medium |
+| Tekton Cancel a running PipelineRun | `tower.pipeline.cancel` | owners | owners | medium |
 | Edit a release record's human context | `tower.release-record.edit` | owners | owners | medium |
 | Delete old images (Images tab → Clean up old images) | `tower.images.prune` | owners | owners | high |
 | Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | owners, **after a second person approves** | high (Flight request: medium) |
