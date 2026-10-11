@@ -48,6 +48,8 @@ export interface BreakglassSession {
   approvedAt?: string;
   decisionNote?: string;
   startedAt?: string;
+  /** The session's one free extension (+15 minutes), if used. */
+  extendedAt?: string;
   attached?: boolean;
 }
 
@@ -238,10 +240,6 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   }, [open, waiting]);
 
   if (!appName) return <span className={classes.hint}>No app is known for this environment.</span>;
-  if (tier === 'preview') {
-    return <span className={classes.hint}>Break-glass debug is not offered on preview environments.</span>;
-  }
-
   const mine = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod === podName);
   const mineElsewhere = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod !== podName);
   const toDecide = sessions.filter(s => s.state === 'requested' && s.requester !== listInfo.user);
@@ -321,6 +319,16 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     }
   };
 
+  const extend = async (id: string) => {
+    setError(undefined);
+    try {
+      const body = await api<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/extend`, { method: 'POST' });
+      setOpen(o => (o && o.id === id ? { ...o, expiresAt: body.session.expiresAt, extendedAt: body.session.extendedAt } : o));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const end = async (id: string) => {
     setEnding(true);
     try {
@@ -363,9 +371,14 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               {open.volumeAccess ? ', with volume access' : ''}
             </span>
             <span className={`${classes.bannerMeta} ${classes.countdown}`} title={`Ends at ${formatDateTime(open.expiresAt)}`}>
-              {remaining(open.expiresAt, now)} left
+              {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
             </span>
             <span style={{ flex: 1 }} />
+            {!open.extendedAt && (
+              <Button small disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => extend(open.id)}>
+                Extend +15 min
+              </Button>
+            )}
             <Button variant="danger" small disabled={ending} onClick={() => end(open.id)}>
               {ending ? 'Ending…' : 'End session'}
             </Button>

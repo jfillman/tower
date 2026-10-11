@@ -141,7 +141,8 @@ A recorded, time-boxed shell on one pod, for when logs, metrics and the resource
 On Ground it opens at once. **On Flight a second person approves first**: an owner of the app other than the requester,
 or an admin (never the requester; the backend refuses it, and the cluster refuses a RoleBinding whose approver is the
 requester). A request expires after 30 minutes; an approved one must be started within 10, and the session's own clock
-starts then. On Flight the last ready pod is never restarted for you. Not offered on preview environments.
+starts then. On Flight the last ready pod is never restarted for you. PR previews count as Ground (their namespace's
+`hangar.io/ephemeral-env` label, read from the cluster).
 
 - **Never exec.** The shell runs in a separate debug container (busybox, pinned by digest): non-root (65532:65532),
   read-only root filesystem, every capability dropped, no privilege escalation. Two modes:
@@ -163,8 +164,10 @@ starts then. On Flight the last ready pod is never restarted for you. Not offere
 - **No service account token in the shell.** Kubernetes mounts the app's token into every container of a new pod, so
   the copy pod's debug container gets an empty read-only volume at the token path instead. An ephemeral container
   (live mode) is never given one.
-- **Time-boxed**: 15, 30 or 60 minutes, and it ends early after 10 idle minutes, or 2 minutes after the terminal is
-  closed and not reopened. One active session per person.
+- **Time-boxed**: 15, 30 or 60 minutes, plus **one free extension** of 15 minutes (no approval; the requester's
+  button in the session banner). It ends early after 10 idle minutes, or 2 minutes after the terminal is closed and not
+  reopened. One open session or request per person. The cleanup TTL on the grant and on copy pods is the session
+  length plus 15 minutes, so an extended session never outlives its backstop.
 - **Recorded**: every byte typed and shown, as an asciicast v2 file in MinIO (`tower-breakglass/<app>/<env>/<id>.cast`,
   kept a year), with its SHA-256 on the session record. A session cannot start if recordings are not configured. Owners
   and admins can download recordings from the pod's Debug panel.

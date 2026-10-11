@@ -75,10 +75,10 @@ const flightRow = (over: Record<string, unknown>) => ({
 });
 
 describe('BreakglassPanel', () => {
-  it('refuses preview environments', async () => {
+  it('treats a preview environment like Ground: opens at once, no approval', async () => {
     await renderIt('preview');
-    expect(screen.getByText(/not offered on preview environments/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Start recorded session|Request approval/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start recorded session' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Request approval' })).toBeNull();
   });
 
   it('needs a reason, then opens a copy-mode session and attaches with the user token as the subprotocol', async () => {
@@ -214,5 +214,20 @@ describe('BreakglassPanel on Flight (phase 3)', () => {
     const post = calls.find(c => c.init?.method === 'POST')!;
     expect(post.url).toBe('http://be/api/glidepath/breakglass/sessions/f1/approve');
     expect(JSON.parse(String(post.init!.body))).toEqual({ note: 'ok, INC-42' });
+  });
+});
+
+describe('the one free extension', () => {
+  it('offers Extend +15 min once, and shows the session as extended', async () => {
+    const start = { id: 'e1', mode: 'copy', pod: 'sky-marshall-abc', expiresAt: at(5), state: 'active', requester: 'u', processAccess: false };
+    postResponse = { status: 200, body: { id: 'e1', session: start } };
+    await renderIt();
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'x' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /Start recorded session/ })));
+    postResponse = { status: 200, body: { session: { ...start, expiresAt: at(20), extendedAt: at(0) } } };
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Extend +15 min' })));
+    expect(calls.filter(c => c.init?.method === 'POST').at(-1)!.url).toBe('http://be/api/glidepath/breakglass/sessions/e1/extend');
+    expect(screen.getByText(/\(extended\)/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Extend +15 min' })).toBeNull();
   });
 });

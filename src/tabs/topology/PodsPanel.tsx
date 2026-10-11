@@ -332,11 +332,9 @@ function PodDetail({
           type="button"
           className={`${classes.actionBtn} ${panel === 'debug' ? classes.actionBtnActive : ''}`}
           title={
-            tier === 'lower'
-              ? 'Open a recorded, time-boxed debug shell on this pod (break-glass).'
-              : tier === 'upper'
-                ? 'Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves.'
-                : 'Not offered on preview environments.'
+            tier === 'upper'
+              ? 'Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves.'
+              : 'Open a recorded, time-boxed debug shell on this pod (break-glass).'
           }
           onMouseDown={preventFocusScroll}
           onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}
