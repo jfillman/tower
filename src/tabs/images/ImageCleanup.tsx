@@ -38,10 +38,36 @@ export interface PrunePlan {
   rules: { minAgeDays: number; keepNewest: number; keepNewestCache: number };
 }
 
-interface PruneResult {
-  deleted: number;
-  failed: Array<{ pkg: string; id: number; error: string }>;
-  remaining: number;
+/** A running or finished delete, polled from the backend (it is paced: a minute or two). */
+export interface PruneProgress {
+  state: 'running' | 'done' | 'failed';
+  releases: { done: number; total: number };
+  cacheLayers: { done: number; total: number };
+  current?: string;
+  deletedReleases: string[];
+  deletedVersions: number;
+  failed: Array<{ pkg: string; item: string; error: string }>;
+  remaining: { releases: number; cacheLayers: number };
+  error?: string;
+}
+
+const POLL_MS = 1500;
+
+/** What a plan deletes in the units people think in: whole releases (with all their parts) and cache layers. */
+export function planCounts(plan: PrunePlan): { releases: number; cacheLayers: number; versions: number } {
+  return {
+    releases: plan.packages.reduce((n, p) => n + p.decisions.filter(d => !d.keep).length, 0),
+    cacheLayers: plan.packages.filter(p => p.kind === 'cache').reduce((n, p) => n + p.deleteIds.length, 0),
+    versions: plan.deleteCount,
+  };
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** "9 releases and 264 cache layers", leaving out a zero. */
+export function whatGoes(releases: number, cacheLayers: number): string {
+  const parts = [releases ? plural(releases, 'release') : '', cacheLayers ? plural(cacheLayers, 'cache layer') : ''].filter(Boolean);
+  return parts.join(' and ') || 'nothing';
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -76,6 +102,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 12,
   },
   bad: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.bad },
+  bar: { height: 6, borderRadius: 3, backgroundColor: ({ t }) => t.lineSoft, overflow: 'hidden', maxWidth: 360 },
+  barFill: { height: '100%', backgroundColor: ({ t }) => t.amber, transition: 'width 0.4s' },
   ok: { fontSize: 12, color: ({ t }) => t.good },
 }));
 
@@ -98,13 +126,13 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
   const [note, setNote] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
   const [showKept, setShowKept] = useState(false);
-  const [result, setResult] = useState<PruneResult | undefined>();
+  const [progress, setProgress] = useState<PruneProgress | undefined>();
 
   const loadPlan = async (refresh = false) => {
     setBusy('plan');
     setError(undefined);
     setNote(undefined);
-    setResult(undefined);
+    setProgress(undefined);
     try {
       const base = await discoveryApi.getBaseUrl('glidepath');
       const q = new URLSearchParams({ owner, appName, ...(refresh ? { refresh: 'true' } : {}) });
@@ -135,10 +163,29 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
       if (res.status === 409 && body?.plan) {
         setPlan({ ...(body.plan as PrunePlan), allowed: plan.allowed });
         setNote(body.error);
+        setBusy(undefined);
         return;
       }
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
-      setResult(body as PruneResult);
+      const counts = planCounts(plan);
+      setProgress({
+        state: 'running',
+        releases: { done: 0, total: counts.releases },
+        cacheLayers: { done: 0, total: counts.cacheLayers },
+        deletedReleases: [],
+        deletedVersions: 0,
+        failed: [],
+        remaining: { releases: 0, cacheLayers: 0 },
+      });
+      // Poll the job until it finishes; the delete keeps running on the server even if this tab closes.
+      for (;;) {
+        await new Promise(r => setTimeout(r, POLL_MS));
+        const pr = await fetchApi.fetch(`${base}/images/prune/jobs/${encodeURIComponent(body.jobId)}`);
+        const p = (await pr.json().catch(() => undefined)) as PruneProgress | undefined;
+        if (!pr.ok || !p) throw new Error((p as { error?: string } | undefined)?.error ?? `progress request failed with ${pr.status}`);
+        setProgress(p);
+        if (p.state !== 'running') break;
+      }
       setPlan(undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -161,7 +208,7 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
           {planLabel}
         </Button>
       </div>
-      {!plan && !result && (
+      {!plan && !progress && (
         <span className={c.note}>
           Deletes this app's old images from the registry ({appName}, {appName}-pr and the build cache), never one that is
           running, that an old ReplicaSet could scale back to, that git or an open PR names, or that is in an environment's
@@ -180,9 +227,15 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
             return (
               <div key={p.name}>
                 <span className={c.pkg}>
-                  {p.name}: {p.decisions.length} releases ({p.totalVersions} versions), delete {del.length} (
-                  {p.deleteIds.length} versions)
+                  {p.name}: delete {del.length} of {plural(p.decisions.length, 'release')}
                 </span>
+                {del.length > 0 && (
+                  <span className={c.note}>
+                    {' '}
+                    ({p.deleteIds.length} registry versions: each release's image, its amd64 and arm64 images, signature and
+                    attestation)
+                  </span>
+                )}
                 {del.map(d => (
                   <div key={d.key} className={c.row}>
                     <span className={c.del}>DELETE</span>
@@ -216,15 +269,16 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
           </div>
           <div className={c.head}>
             <Button small variant="danger" disabled={!!busy || !!blocker} title={blocker} onClick={() => setConfirming(true)}>
-              {busy === 'prune' ? 'Deleting…' : `Delete ${plan.deleteCount} versions`}
+              {busy === 'prune' ? 'Deleting…' : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}`}
             </Button>
             {blocker && <span className={c.note}>{blocker}</span>}
           </div>
           {confirming && (
             <div className={c.confirm} data-testid="prune-confirm">
               <span>
-                Delete {plan.deleteCount} package versions from ghcr.io/{owner}? This cannot be undone; a release deleted here
-                can only come back by building it again.
+                Delete {whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)} from ghcr.io/{owner}? Each release
+                goes with all its parts ({plan.deleteCount} registry versions in all). This cannot be undone: a deleted release
+                only comes back by building it again.
               </span>
               <Button small variant="danger" onClick={prune}>
                 Delete
@@ -238,12 +292,41 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
       )}
       {note && <span className={c.bad}>{note}</span>}
       {error && <span className={c.bad}>{error}</span>}
-      {result && (
-        <span className={result.failed.length ? c.bad : c.ok}>
-          Deleted {result.deleted} versions
-          {result.failed.length ? `; ${result.failed.length} failed (${result.failed[0].error})` : ''}
-          {result.remaining ? `; ${result.remaining} more remain, plan again to continue` : ''}.
+      {progress && <PruneProgressView progress={progress} c={c} />}
+    </div>
+  );
+}
+
+function PruneProgressView({ progress, c }: { progress: PruneProgress; c: ReturnType<typeof useStyles> }) {
+  const { releases, cacheLayers } = progress;
+  const done = releases.done + cacheLayers.done;
+  const total = releases.total + cacheLayers.total;
+  const pct = total ? Math.round((done / total) * 100) : 100;
+  if (progress.state === 'running') {
+    return (
+      <div data-testid="prune-progress" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span className={c.note}>
+          Deleting: releases {releases.done} of {releases.total}
+          {cacheLayers.total ? `, cache layers ${cacheLayers.done} of ${cacheLayers.total}` : ''}
+          {progress.current ? ` (now ${progress.current})` : ''}
         </span>
+        <div className={c.bar}>
+          <div className={c.barFill} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    );
+  }
+  if (progress.state === 'failed') return <span className={c.bad}>The cleanup stopped: {progress.error}</span>;
+  const left = progress.remaining.releases + progress.remaining.cacheLayers;
+  return (
+    <div data-testid="prune-progress" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span className={progress.failed.length ? c.bad : c.ok}>
+        Deleted {whatGoes(progress.deletedReleases.length, cacheLayers.done)}
+        {progress.failed.length ? `; ${plural(progress.failed.length, 'item')} could not be deleted (${progress.failed[0].item}: ${progress.failed[0].error})` : ''}.
+        {left ? ` ${whatGoes(progress.remaining.releases, progress.remaining.cacheLayers)} remain for another run: plan again.` : ''}
+      </span>
+      {progress.deletedReleases.length > 0 && (
+        <span className={c.note}>Releases deleted: {progress.deletedReleases.map(r => r.split(':').slice(1).join(':')).join(', ')}</span>
       )}
     </div>
   );
