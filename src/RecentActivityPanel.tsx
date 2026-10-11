@@ -19,6 +19,7 @@ import {
   ConfigIcon,
   EnvIcon,
   ImageIcon,
+  PipelineIcon,
   PreviewIcon,
   ReleaseIcon,
   SloIcon,
@@ -60,7 +61,8 @@ type Category =
   | 'slos';
 
 const CATEGORY_TOPICS: Record<Exclude<Category, 'all'>, string[]> = {
-  images: ['build'],
+  // 'test' (the pipeline's test stage) and 'images' (Images -> Clean up old images) joined 2026-10-11.
+  images: ['build', 'test', 'images'],
   // 'deploying'/'release-outcome' (2026-09-14 release-flow redesign) join
   // 'release' here rather than getting their own category - all three are
   // the same release's lifecycle, just at different stages (see
@@ -68,17 +70,18 @@ const CATEGORY_TOPICS: Record<Exclude<Category, 'all'>, string[]> = {
   // renderReleaseOutcomeRow). 'release-outcome' was previously missing from
   // every category entirely - a real, pre-existing gap: the one notification
   // that reflects a confirmed deploy outcome was invisible in this panel
-  // before this fix, silently filtered out by KNOWN_TOPICS below.
-  releases: ['deploy', 'release', 'deploying', 'release-outcome'],
+  // before this fix, silently filtered out by the old known-topics list.
+  // 'rolled-back' (a rollback release went healthy, ADR-0021 phase 4) and 'rollout' (Rollout actions, a skipped
+  // canary analysis, pod restarts) joined 2026-10-11: they were sent but never shown here.
+  releases: ['deploy', 'release', 'deploying', 'release-outcome', 'rolled-back', 'rollout'],
   environments: ['env', 'preview-env'],
   config: ['config'],
   slos: ['slo'],
 };
 
-// Every topic this panel knows how to render - anything else (e.g. 'test')
-// is pipeline noise for this particular panel and is filtered out below,
-// not shown as an "unknown" fallback row.
-const KNOWN_TOPICS = new Set(Object.values(CATEGORY_TOPICS).flat());
+// Every notification gets a row under All (2026-10-11). A topic no category lists still shows, with a generic label
+// (see topicMeta), rather than disappearing: three kinds of notification (a skipped canary analysis, a rollback, an
+// image cleanup) were sent for days without ever reaching this panel, which used to keep only listed topics.
 
 interface CategoryMeta {
   label: string;
@@ -166,7 +169,18 @@ const TOPIC_META: Record<string, TopicMeta> = {
   'preview-env': { label: 'Preview env', icon: PreviewIcon, dashed: true },
   config: { label: 'Config', icon: ConfigIcon },
   slo: { label: 'SLO', icon: SloIcon },
+  test: { label: 'Test', icon: PipelineIcon },
+  images: { label: 'Cleanup', icon: ImageIcon },
+  'rolled-back': { label: 'Rollback', icon: ReleaseIcon },
+  rollout: { label: 'Rollout', icon: SyncIcon },
 };
+
+/** A topic's label and icon; one this panel has no entry for shows its own name with the pipeline icon. */
+export function topicMeta(topic: string | undefined): TopicMeta {
+  if (topic && TOPIC_META[topic]) return TOPIC_META[topic];
+  const label = topic ? topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, ' ') : 'Notice';
+  return { label, icon: PipelineIcon };
+}
 
 // 2026-09-14 feedback ("everything looks monochrome... I like the different
 // colors for each type"): color is keyed off TOPIC first, same fixed
@@ -193,6 +207,12 @@ const TOPIC_COLOR: Record<
   deploying: { fg: 'sky', bg: 'skySoft' },
   'release-outcome': { fg: 'good', bg: 'goodSoft' },
   config: { fg: 'amber', bg: 'amberSoft' },
+  test: { fg: 'sky', bg: 'skySoft' },
+  images: { fg: 'sky', bg: 'skySoft' },
+  // A rollback is the fix for a bad release, not routine: amber, like other things worth a second look.
+  'rolled-back': { fg: 'amber', bg: 'amberSoft' },
+  // Routine operator actions; an abort or an analysis bypass arrives with severity high and goes bad below.
+  rollout: { fg: 'sky', bg: 'skySoft' },
   // env/preview-env aren't here - both use the local 'environments' accent
   // (see LOCAL_ACCENT above), handled as their own branch in rowColor below
   // since it's a raw hex pair, not a HangarTokens key.
@@ -550,11 +570,10 @@ export function RecentActivityPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const filtered = useMemo(() => {
     return notifications
-      .filter(n => n.payload.topic && KNOWN_TOPICS.has(n.payload.topic))
       .filter(
         n =>
           category === 'all' ||
-          CATEGORY_TOPICS[category].includes(n.payload.topic!),
+          CATEGORY_TOPICS[category].includes(n.payload.topic ?? ''),
       )
       .slice(0, MAX_ROWS);
   }, [notifications, category]);
@@ -628,8 +647,8 @@ export function RecentActivityPanel({
           <div key={`${group.day}-${gi}`}>
             <div className={classes.day}>{group.day}</div>
             {group.items.map((n, i) => {
-              const topic = n.payload.topic!;
-              const meta = TOPIC_META[topic];
+              const topic = n.payload.topic ?? '';
+              const meta = topicMeta(n.payload.topic);
               const Icon = meta.icon;
               const { fg, bg } = rowColor(topic, n.payload.severity, t, isDark);
               const isLast =
