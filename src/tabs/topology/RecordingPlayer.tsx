@@ -30,6 +30,10 @@ export interface PlayableSession {
   env: string;
   recordingSha256?: string;
   recordingExpiresAt?: string;
+  /** Phase B: the Rekor entry holding this SHA-256 (verify with `rekor-cli get --log-index N`), or why there is none yet. */
+  recordingRekorIndex?: number;
+  recordingRekorUuid?: string;
+  anchorError?: string;
 }
 
 type Integrity = 'match' | 'mismatch' | 'unchecked';
@@ -165,6 +169,16 @@ export function RecordingPlayer({ session, onClose }: { session: PlayableSession
         )}
         {integrity === 'mismatch' && (
           <StatusChip tone="bad" title={`The record says ${session.recordingSha256}`}>SHA-256 does not match the session record</StatusChip>
+        )}
+        {session.recordingRekorIndex !== undefined && (
+          <StatusChip tone="ok" title={`rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ''})`}>
+            anchored in Rekor #{session.recordingRekorIndex}
+          </StatusChip>
+        )}
+        {session.recordingRekorIndex === undefined && session.recordingSha256 && (
+          <StatusChip tone="warn" title={session.anchorError ?? 'The backend retries for a day after the session ends'}>
+            not anchored in Rekor
+          </StatusChip>
         )}
         {integrity === 'unchecked' && (
           <StatusChip tone="neutral" title="The browser can hash only on https or localhost, and only a session with a stored hash">

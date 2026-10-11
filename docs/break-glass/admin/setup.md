@@ -99,8 +99,12 @@ kubectl auth can-i delete pods -n $NS --as=$SA                      # no
 Once, on kiac-dev's MinIO (the store is off the Flight cluster on purpose: recordings should not live only on the
 cluster they record).
 
-1. **Bucket.** gitops-cluster-dev `40-observability/minio/create-breakglass-bucket-job.yaml` creates
-   `tower-breakglass` and a lifecycle rule expiring objects after **365 days**. (It uses the MinIO *server* image's
+1. **Bucket.** gitops-cluster-dev `40-observability/minio/create-breakglass-locked-bucket-job.yaml` creates
+   `tower-breakglass-v2` **with object lock** (versioned), a default retention of **365 days in governance mode**, and a
+   lifecycle rule expiring current and noncurrent versions after 365 days. Check it: `mc retention info
+   <alias>/tower-breakglass-v2`, then try `mc rm --version-id <v> …` as root: *WORM protected*. (The first bucket,
+   `tower-breakglass`, from `create-breakglass-bucket-job.yaml`, is unlocked and keeps the recordings written before
+   phase B until they expire; the backend reads those rows from it as `recordings.legacyBucket`.) Both Jobs use the MinIO *server* image's
    `mc`: `quay.io/minio/mc` no longer pulls.)
 2. **Access key**, by hand in the MinIO console, with exactly this policy (put and get, nothing else: Backstage can
    write a recording and read it back, never list or delete):
@@ -111,6 +115,13 @@ cluster they record).
    ```
 3. **Infisical.** Plant the key and secret as `tower-breakglass-minio-access-key` and
    `tower-breakglass-minio-secret-key` (kind-prod, `platform-cicd-kind-prod`, shared). Never paste them anywhere else.
+4. **The anchor key** (phase B). Generate an ECDSA P-256 private key and plant it as `tower-breakglass-anchor-key`
+   (same project): `openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt`. The ExternalSecret
+   `backstage-breakglass-anchor` mounts it as `TOWER_BREAKGLASS_ANCHOR_KEY`. The public half travels in every Rekor
+   entry, so rotating the key invalidates nothing. Without it, recordings are stored but not anchored (the record says
+   so), and the sweep anchors them once the key appears, for a day after each session's end.
+5. **Rekor route.** gitops-cluster-dev `60-gateway-routes/rekor-httproute.yaml` exposes `rekor.dev.kiac.local`; the
+   kind-prod Backstage Deployment's `hostAliases` maps it like `minio.dev.kiac.local`.
 4. **Into Backstage.** gitops-cluster-kind-prod `60-backstage/backstage/breakglass-minio-external-secret.yaml` syncs them
    into Secret `backstage-breakglass-minio`; the Deployment maps them to `TOWER_BREAKGLASS_MINIO_ACCESS_KEY` and
    `TOWER_BREAKGLASS_MINIO_SECRET_KEY`.
@@ -134,9 +145,12 @@ glidepath:
     groundClusters: [kind-dev]          # clusters whose undeclared environments are Ground; all others are Flight
     recordings:
       endpoint: http://minio.dev.kiac.local:8080
-      bucket: tower-breakglass
+      bucket: tower-breakglass-v2          # the object-locked bucket; rows written before it read from legacyBucket
+      legacyBucket: tower-breakglass       # default when bucket is not the first one
       region: us-east-1
       retentionDays: 365                # must match the bucket's lifecycle rule; shown to users
+    anchor:
+      rekorUrl: http://rekor.dev.kiac.local:8080   # the default; the key comes from TOWER_BREAKGLASS_ANCHOR_KEY
 ```
 
 **A new Ground cluster** must be added to `groundClusters`, or infra services on it are treated as Flight (apps with a

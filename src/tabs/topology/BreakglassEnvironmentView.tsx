@@ -327,6 +327,15 @@ export function BreakglassEnvironmentView({
             {s.cleanupNotes && <span className={classes.warn} title={s.cleanupNotes}>notes</span>}
             {s.recordingKey && (
               <>
+                {s.recordingRekorIndex !== undefined ? (
+                  <span className={classes.rowMeta} title={`Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ''}) holds this recording's SHA-256, signed by the platform`}>
+                    anchored #{s.recordingRekorIndex}
+                  </span>
+                ) : (
+                  <span className={classes.warn} title={s.anchorError ?? 'Not yet anchored in the transparency log'}>
+                    not anchored
+                  </span>
+                )}
                 <button type="button" className={classes.link} onClick={() => setPlaying(s)} title="Play the recording here">
                   play
                 </button>
