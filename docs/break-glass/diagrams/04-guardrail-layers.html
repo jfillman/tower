@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardrails, layer by layer</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#f2efe9;--paper-2:#e8e3da;--ink:#1b1f24;--muted:#5b6570;--soft:#838b93;--accent:#b9791f;--link:#2e7ba6;--rule:rgba(27,31,36,0.12);
+--card:#fff;--font-sans:'Geist',system-ui,sans-serif;--font-serif:'Instrument Serif',serif;--font-mono:'Geist Mono',ui-monospace,monospace}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);padding:2.5rem 2rem 2rem}
+.frame{max-width:1120px;margin:0 auto}
+.eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+h1{font-family:var(--font-serif);font-size:clamp(1.5rem,2.4vw + .75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:.5rem}
+.lede{color:var(--muted);font-size:.9rem;line-height:1.5;max-width:70ch;margin-bottom:1.25rem}
+.fig{overflow-x:auto}
+svg{width:100%;min-width:900px;display:block}
+.cards{display:grid;grid-template-columns:1.15fr 1fr 1.05fr;gap:.75rem;margin-top:1.25rem}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem}
+.card .eyebrow{margin-bottom:.35rem}
+.card p,.card li{font-size:.8rem;line-height:1.5;color:var(--ink)}
+.card ul{padding-left:1rem}
+.card .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;background:var(--muted)}
+.card .dot.accent{background:var(--accent)} .card .dot.link{background:var(--link)}
+.foot{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--soft);border-top:1px solid var(--rule);margin-top:1.25rem;padding-top:.6rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot a{color:var(--link);text-decoration:none}
+@media (max-width:900px){.cards{grid-template-columns:1fr}}
+@media print{@page{size:landscape;margin:10mm}body{padding:0}.cards{margin-top:.75rem}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root:not([data-theme=light]) svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root:not([data-theme=light]) svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root:not([data-theme=light]) svg [fill="#5b6570"]{fill:#a1aab3}
+:root:not([data-theme=light]) svg [fill="#838b93"]{fill:#7f8891}
+:root:not([data-theme=light]) svg [fill="#b9791f"]{fill:#e8a33d}
+:root:not([data-theme=light]) svg [fill="#f2efe9"]{fill:#131619}
+:root:not([data-theme=light]) svg [fill="#ffffff"]{fill:#1c2127}
+:root:not([data-theme=light]) svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root:not([data-theme=light]) svg [fill="rgba(27,31,36,0.02)"]{fill:rgba(232,228,220,0.02)}
+:root:not([data-theme=light]) svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root:not([data-theme=light]) svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root:not([data-theme=light]) svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root:not([data-theme=light]) svg [stroke="#838b93"]{stroke:#7f8891}
+:root:not([data-theme=light]) svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.20)"]{stroke:rgba(232,228,220,0.2)}}
+:root[data-theme=dark]{--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root[data-theme=dark] svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root[data-theme=dark] svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root[data-theme=dark] svg [fill="#5b6570"]{fill:#a1aab3}
+:root[data-theme=dark] svg [fill="#838b93"]{fill:#7f8891}
+:root[data-theme=dark] svg [fill="#b9791f"]{fill:#e8a33d}
+:root[data-theme=dark] svg [fill="#f2efe9"]{fill:#131619}
+:root[data-theme=dark] svg [fill="#ffffff"]{fill:#1c2127}
+:root[data-theme=dark] svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root[data-theme=dark] svg [fill="rgba(27,31,36,0.02)"]{fill:rgba(232,228,220,0.02)}
+:root[data-theme=dark] svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root[data-theme=dark] svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root[data-theme=dark] svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root[data-theme=dark] svg [stroke="#838b93"]{stroke:#7f8891}
+:root[data-theme=dark] svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.20)"]{stroke:rgba(232,228,220,0.2)}
+</style>
+</head>
+<body>
+<div class="frame">
+<p class="eyebrow">Break-glass · 04 · Compensating layers</p>
+<h1>Guardrails, layer by layer</h1>
+<p class="lede">No layer is trusted alone. Each one narrows what the one above lets through, and the last one makes what is left visible.</p>
+<div class="fig">
+<svg viewBox="0 16 1000 716" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="04-guardrail-layers-title 04-guardrail-layers-desc">
+<title id="04-guardrail-layers-title">Guardrails, layer by layer</title>
+<desc id="04-guardrail-layers-desc">Five defensive layers between the risk that a debug shell reaches more than it should and what remains: who may ask, a just-in-time grant, fail-closed admission policies, time limits, and recording, audit and review. Beside each gap, what still gets past it; what remains at the end is an authorized person reading what the app can read, briefly, on the record.</desc>
+<defs><marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#5b6570" stroke-width="1.2"/></marker><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6570"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b9791f"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e7ba6"/></marker></defs>
+<rect width="100%" height="100%" fill="#f2efe9"/>
+<path d="M400,80 L400,120" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M400,176 L400,216" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M400,272 L400,312" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M400,368 L400,408" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M400,464 L400,504" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M400,560 L400,600" fill="none" stroke="#b9791f" stroke-width="1.2" marker-end="url(#arrow-accent)"/><rect x="120" y="32" width="560" height="48" rx="6" fill="#f2efe9"/><rect x="120" y="32" width="560" height="48" rx="6" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="400.0" y="60.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Risk: a debug shell reaches more than it should</text><rect x="120" y="120" width="560" height="56" rx="4" fill="#f2efe9"/><rect x="120" y="120" width="560" height="56" rx="4" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="136" y="144" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">01</text><text x="168" y="144" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Who may ask</text><text x="168" y="160" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">owners only · a second person on Flight · tier decided by the server</text><rect x="120" y="216" width="560" height="56" rx="4" fill="#f2efe9"/><rect x="120" y="216" width="560" height="56" rx="4" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="136" y="240" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">02</text><text x="168" y="240" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Just-in-time grant</text><text x="168" y="256" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">no debug rights at rest · one namespace · two debug roles only</text><rect x="120" y="312" width="560" height="56" rx="4" fill="#f2efe9"/><rect x="120" y="312" width="560" height="56" rx="4" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="136" y="336" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">03</text><text x="168" y="336" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Admission policies, failing closed</text><text x="168" y="352" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">pinned image · non-root, read-only, no capabilities · own pods · no exec</text><rect x="120" y="408" width="560" height="56" rx="4" fill="#f2efe9"/><rect x="120" y="408" width="560" height="56" rx="4" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="136" y="432" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">04</text><text x="168" y="432" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Time limits</text><text x="168" y="448" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">15 to 60 minutes, +15 once · idle 10 min · expiry label on grant and copy</text><rect x="120" y="504" width="560" height="56" rx="4" fill="#f2efe9"/><rect x="120" y="504" width="560" height="56" rx="4" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="136" y="528" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">05</text><text x="168" y="528" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Record, audit, review</text><text x="168" y="544" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">every byte recorded with SHA-256 · every step audited · glass broken reviewed</text><rect x="712" y="178" width="264" height="36" rx="4" fill="#f2efe9"/><rect x="712" y="178" width="264" height="36" rx="4" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="4,3"/><text x="724" y="192" fill="#838b93" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">STILL POSSIBLE</text><text x="724" y="206" fill="#1b1f24" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">an owner's own app, approved</text><rect x="712" y="274" width="264" height="36" rx="4" fill="#f2efe9"/><rect x="712" y="274" width="264" height="36" rx="4" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="4,3"/><text x="724" y="288" fill="#838b93" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">STILL POSSIBLE</text><text x="724" y="302" fill="#1b1f24" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">what the debug role allows there</text><rect x="712" y="370" width="264" height="36" rx="4" fill="#f2efe9"/><rect x="712" y="370" width="264" height="36" rx="4" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="4,3"/><text x="724" y="384" fill="#838b93" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">STILL POSSIBLE</text><text x="724" y="398" fill="#1b1f24" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">reading what the app can read</text><rect x="712" y="466" width="264" height="36" rx="4" fill="#f2efe9"/><rect x="712" y="466" width="264" height="36" rx="4" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="4,3"/><text x="724" y="480" fill="#838b93" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">STILL POSSIBLE</text><text x="724" y="494" fill="#1b1f24" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">for at most 75 minutes</text><rect x="120" y="600" width="560" height="56" rx="6" fill="#f2efe9"/><rect x="120" y="600" width="560" height="56" rx="6" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="400.0" y="626.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">What remains</text><text x="400.0" y="642.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">an authorized person reads what the app can read, briefly, on the record</text><line x1="24" y1="688" x2="976" y2="688" stroke="rgba(27,31,36,0.12)" stroke-width="0.8"/><text x="24" y="708" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">LEGEND</text><rect x="96" y="700" width="16" height="12" rx="3" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="120" y="709" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Risk</text><rect x="160" y="700" width="16" height="12" rx="3" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="184" y="709" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Layer</text><rect x="229" y="700" width="16" height="12" rx="3" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="4,3"/><text x="253" y="709" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Gets past the layer above</text><rect x="398" y="700" width="16" height="12" rx="3" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="422" y="709" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Residual risk</text>
+</svg>
+</div>
+<div class="cards"></div>
+<div class="foot"><span>Tower · Break-glass</span><span></span></div>
+</div>
+</body>
+</html>

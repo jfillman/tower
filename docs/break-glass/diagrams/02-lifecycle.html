@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The life of a session</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#f2efe9;--paper-2:#e8e3da;--ink:#1b1f24;--muted:#5b6570;--soft:#838b93;--accent:#b9791f;--link:#2e7ba6;--rule:rgba(27,31,36,0.12);
+--card:#fff;--font-sans:'Geist',system-ui,sans-serif;--font-serif:'Instrument Serif',serif;--font-mono:'Geist Mono',ui-monospace,monospace}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);padding:2.5rem 2rem 2rem}
+.frame{max-width:1120px;margin:0 auto}
+.eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+h1{font-family:var(--font-serif);font-size:clamp(1.5rem,2.4vw + .75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:.5rem}
+.lede{color:var(--muted);font-size:.9rem;line-height:1.5;max-width:70ch;margin-bottom:1.25rem}
+.fig{overflow-x:auto}
+svg{width:100%;min-width:900px;display:block}
+.cards{display:grid;grid-template-columns:1.15fr 1fr 1.05fr;gap:.75rem;margin-top:1.25rem}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem}
+.card .eyebrow{margin-bottom:.35rem}
+.card p,.card li{font-size:.8rem;line-height:1.5;color:var(--ink)}
+.card ul{padding-left:1rem}
+.card .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;background:var(--muted)}
+.card .dot.accent{background:var(--accent)} .card .dot.link{background:var(--link)}
+.foot{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--soft);border-top:1px solid var(--rule);margin-top:1.25rem;padding-top:.6rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot a{color:var(--link);text-decoration:none}
+@media (max-width:900px){.cards{grid-template-columns:1fr}}
+@media print{@page{size:landscape;margin:10mm}body{padding:0}.cards{margin-top:.75rem}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root:not([data-theme=light]) svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root:not([data-theme=light]) svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root:not([data-theme=light]) svg [fill="#5b6570"]{fill:#a1aab3}
+:root:not([data-theme=light]) svg [fill="#838b93"]{fill:#7f8891}
+:root:not([data-theme=light]) svg [fill="#b9791f"]{fill:#e8a33d}
+:root:not([data-theme=light]) svg [fill="#f2efe9"]{fill:#131619}
+:root:not([data-theme=light]) svg [fill="#ffffff"]{fill:#1c2127}
+:root:not([data-theme=light]) svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root:not([data-theme=light]) svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root:not([data-theme=light]) svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root:not([data-theme=light]) svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root:not([data-theme=light]) svg [stroke="#838b93"]{stroke:#7f8891}
+:root:not([data-theme=light]) svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}}
+:root[data-theme=dark]{--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root[data-theme=dark] svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root[data-theme=dark] svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root[data-theme=dark] svg [fill="#5b6570"]{fill:#a1aab3}
+:root[data-theme=dark] svg [fill="#838b93"]{fill:#7f8891}
+:root[data-theme=dark] svg [fill="#b9791f"]{fill:#e8a33d}
+:root[data-theme=dark] svg [fill="#f2efe9"]{fill:#131619}
+:root[data-theme=dark] svg [fill="#ffffff"]{fill:#1c2127}
+:root[data-theme=dark] svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root[data-theme=dark] svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root[data-theme=dark] svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root[data-theme=dark] svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root[data-theme=dark] svg [stroke="#838b93"]{stroke:#7f8891}
+:root[data-theme=dark] svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+</style>
+</head>
+<body>
+<div class="frame">
+<p class="eyebrow">Break-glass · 02 · State machine</p>
+<h1>The life of a session</h1>
+<p class="lede">Three ways in, one way out. Only an active session has anything in the cluster.</p>
+<div class="fig">
+<svg viewBox="0 32 1000 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="02-lifecycle-title 02-lifecycle-desc">
+<title id="02-lifecycle-title">The life of a session</title>
+<desc id="02-lifecycle-desc">Session states. A Flight request becomes requested, then approved, then active once started; it can be denied, withdrawn or expire into ended. Ground and preview sessions open directly as active. An admin breaking the glass also opens directly as active. Every active session ends; a glass-broken one is then reviewed.</desc>
+<defs><marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#5b6570" stroke-width="1.2"/></marker><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6570"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b9791f"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e7ba6"/></marker></defs>
+<rect width="100%" height="100%" fill="#f2efe9"/>
+<path d="M216,124 L264,124" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M424,124 L488,124" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="432" y="106" width="48" height="12" rx="2" fill="#f2efe9"/><text x="456.0" y="115" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">APPROVE</text><path d="M568,152 L568,256" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="576" y="198.0" width="36" height="12" rx="2" fill="#f2efe9"/><text x="594.0" y="207.0" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">START</text><path d="M216,284 L488,284" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="310" y="266" width="84" height="12" rx="2" fill="#f2efe9"/><text x="352.0" y="275" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">OPENS AT ONCE</text><path d="M216,404 L560,404 Q568,404 568,396 L568,312" fill="none" stroke="#b9791f" stroke-width="1.2" marker-end="url(#arrow-accent)"/><rect x="356" y="386" width="72" height="12" rx="2" fill="#f2efe9"/><text x="392.0" y="395" fill="#b9791f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO APPROVAL</text><path d="M648,284 L776,284" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="654" y="266" width="116" height="12" rx="2" fill="#f2efe9"/><text x="712.0" y="275" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">END · EXPIRY · IDLE</text><path d="M344,96 L344,72 Q344,64 352,64 L896,64 Q904,64 904,72 L904,256" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="552" y="46" width="144" height="12" rx="2" fill="#f2efe9"/><text x="624.0" y="55" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENY · WITHDRAW · 30 MIN</text><path d="M648,124 L832,124 Q840,124 840,132 L840,256" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="692" y="106" width="104" height="12" rx="2" fill="#f2efe9"/><text x="744.0" y="115" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">WITHDRAW · 10 MIN</text><path d="M856,312 L856,400" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="864" y="350.0" width="44" height="12" rx="2" fill="#f2efe9"/><text x="886.0" y="359.0" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">REVIEW</text><rect x="40" y="96" width="176" height="56" rx="6" fill="#f2efe9"/><rect x="40" y="96" width="176" height="56" rx="6" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="128.0" y="122.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Flight request</text><text x="128.0" y="138.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">an owner asks</text><rect x="264" y="96" width="160" height="56" rx="6" fill="#f2efe9"/><rect x="264" y="96" width="160" height="56" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="344.0" y="122.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">requested</text><text x="344.0" y="138.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">waits up to 30 min</text><rect x="488" y="96" width="160" height="56" rx="6" fill="#f2efe9"/><rect x="488" y="96" width="160" height="56" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="568.0" y="122.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">approved</text><text x="568.0" y="138.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">start within 10 min</text><rect x="40" y="256" width="176" height="56" rx="6" fill="#f2efe9"/><rect x="40" y="256" width="176" height="56" rx="6" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="128.0" y="282.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Ground or preview</text><text x="128.0" y="298.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">an owner opens it</text><rect x="488" y="256" width="160" height="56" rx="6" fill="#f2efe9"/><rect x="488" y="256" width="160" height="56" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="568.0" y="282.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">active</text><text x="568.0" y="298.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">15-60 min, +15 once</text><rect x="40" y="376" width="176" height="56" rx="6" fill="#f2efe9"/><rect x="40" y="376" width="176" height="56" rx="6" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="128.0" y="402.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Glass broken</text><text x="128.0" y="418.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">an admin, no 2nd person</text><rect x="776" y="256" width="160" height="56" rx="6" fill="#f2efe9"/><rect x="776" y="256" width="160" height="56" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="856.0" y="282.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">ended</text><text x="856.0" y="298.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">cleaned up, recorded</text><rect x="776" y="400" width="160" height="56" rx="6" fill="#f2efe9"/><rect x="776" y="400" width="160" height="56" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="856.0" y="426.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">reviewed</text><text x="856.0" y="442.0" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">glass broken only</text><text x="40" y="500" fill="#5b6570" font-size="16" font-family="'Instrument Serif', serif" font-style="italic">Nothing touches the cluster until a session is active.</text><line x1="24" y1="528" x2="976" y2="528" stroke="rgba(27,31,36,0.12)" stroke-width="0.8"/><text x="24" y="548" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">LEGEND</text><rect x="96" y="540" width="16" height="12" rx="3" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="120" y="549" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Entry</text><rect x="165" y="540" width="16" height="12" rx="3" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="189" y="549" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">State</text><rect x="234" y="540" width="16" height="12" rx="3" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="258" y="549" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Glass broken</text><line x1="338" y1="546" x2="358" y2="546" stroke="#5b6570" stroke-width="1.2"/><text x="366" y="549" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Transition</text><line x1="436" y1="546" x2="456" y2="546" stroke="#b9791f" stroke-width="1.2"/><text x="464" y="549" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Skips approval</text>
+</svg>
+</div>
+<div class="cards"></div>
+<div class="foot"><span>Tower · Break-glass</span><span></span></div>
+</div>
+</body>
+</html>

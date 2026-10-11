@@ -20,10 +20,15 @@ Part of the [Hangar](https://github.com/jfillman/hangar) Internal Developer Plat
 - **Every action explains itself.** A "Which one?" guide for the Argo CD actions, a one-line explanation on every
   Rollout action, confirmations that name what will happen (Force sync lists what it will recreate), and buttons
   you may not use say why.
-- **Safe by design.** Tower holds no Kubernetes write permissions. Changes are pull requests; Argo CD and Rollout
+- **Safe by design.** Tower holds no standing Kubernetes write permissions (break-glass grants itself a narrow,
+  per-session role and removes it). Changes are pull requests; Argo CD and Rollout
   actions are delegated through one narrowly scoped Argo CD account; owners act on their own apps and Flight
   (upper) environments need an admin for anything that bypasses review; every write is audited. See
   [Security model](security.md).
+- **Look inside a pod without exec.** When logs and metrics are not enough, **Debug** opens a recorded, time-boxed
+  shell in a hardened debug container: a copy of the pod or the live pod. Ground opens at once; Flight needs a second
+  person, or an admin breaking the glass and a review afterwards. Every byte is recorded and plays back in Tower. See
+  [Break-glass debugging](break-glass/index.md).
 - **Roll back without guesswork.** Abort a bad canary, then roll back to one of the environment's last five healthy
   releases as an ordinary, gated release PR.
 
@@ -45,6 +50,7 @@ fleet-wide dashboard.
 
 - [Deployments](deployments.md) — the troubleshooting banner, the delivery path, and every control explained
 - [Security model](security.md) — who may do what, and the guardrails behind each action
+- [Break-glass debugging](break-glass/index.md) — recorded debug sessions: user guide, walkthroughs, guardrails; and the [admin guide](break-glass/admin/index.md)
 - [Installation Guide](installation.md) — Getting Tower running in your Backstage instance
 - [Architecture](architecture.md) — How Tower is structured and designed
 - [Components Reference](components.md) — Details on each major component
