@@ -57,6 +57,16 @@ person who broke the glass is notified with your note. Reviewing is audited (*hi
 If the review finds a problem, the note is the start, not the end: raise it the way your team raises any production
 incident.
 
+**Reminders and escalation.** A day after the session ends with no review, the eligible reviewers are reminded. At
+three days it is escalated: a *critical* notification to the admins and the reviewers group, and the queue on the Tower
+home page marks it **overdue**. Each happens once.
+
+**When no one else can review.** Reviewing is for the app's owners other than the person who broke the glass, the
+admins, and the members of a **fallback reviewers group** (`glidepath.breakglass.reviewers`, by default the admins;
+this platform names `breakglass-reviewers`). Fallback reviewers may review, never approve or start. If all of those
+hold nobody but the requester, the session says **no one else can review this**: an admin names a group with a second
+person in it.
+
 ## What breaking the glass does not change
 
 - The session is still recorded, time-boxed, idle-limited and cleaned up.

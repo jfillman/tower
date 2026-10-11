@@ -55,6 +55,9 @@ export function BreakglassPanel({
   const [processAccess, setProcessAccess] = useState(false);
   const [volumeAccess, setVolumeAccess] = useState(false);
   const [recycleLastPod, setRecycleLastPod] = useState(false);
+  // Phase C (G11): hold the app's containers in a copy. Default on for Flight (a copy there would do production work:
+  // a queue consumer, a scheduler, a lease), off for Ground (poking the app with its real config is a dev workflow).
+  const [holdApp, setHoldApp] = useState<boolean | undefined>(undefined);
   const [duration, setDuration] = useState<15 | 30 | 60>(15);
   const [reason, setReason] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
@@ -66,6 +69,8 @@ export function BreakglassPanel({
   const [open, setOpen] = useState<BreakglassSession | undefined>();
   const [closedNote, setClosedNote] = useState<string | undefined>();
   const flight = tier === 'upper';
+  const holdAppOn = holdApp ?? flight;
+  const sensitive = volumeAccess || (mode === 'live' && processAccess);
 
   const data = useBreakglassSessions(appName, env.env, linkedSessionId);
   const { sessions, info: listInfo, load } = data;
@@ -102,6 +107,7 @@ export function BreakglassPanel({
           processAccess: mode === 'live' && processAccess,
           volumeAccess,
           recycleLastPod: !flight && mode === 'live' && recycleLastPod,
+          holdApp: mode === 'copy' && holdAppOn,
           durationMinutes: duration,
           reason,
           ...(ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {}),
@@ -255,6 +261,21 @@ export function BreakglassPanel({
               </label>
             </div>
             <div className={classes.radios}>
+              {mode === 'copy' && (
+                <label className={classes.radio} data-testid="breakglass-hold-app">
+                  <input type="checkbox" checked={holdAppOn} onChange={e => setHoldApp(e.target.checked)} />
+                  <span>
+                    Hold the app in the copy
+                    <br />
+                    <span className={classes.hint}>
+                      The app's containers keep their image, config, credentials and network, but run a sleep instead of the app: nothing
+                      consumes queues, schedules work or takes leases from the copy. Untick to run the app in the copy (its own endpoints
+                      answer on localhost; on Flight that is production work).
+                      {flight ? ' On by default on Flight.' : ''}
+                    </span>
+                  </span>
+                </label>
+              )}
               <label className={classes.radio}>
                 <input type="checkbox" checked={volumeAccess} onChange={e => setVolumeAccess(e.target.checked)} />
                 <span>
@@ -328,6 +349,12 @@ export function BreakglassPanel({
               </Field>
             </div>
           </div>
+          {sensitive && (
+            <span className={classes.warn} data-testid="breakglass-sensitive-note">
+              This session can read Secrets, so its recording will be restricted: admins, the approver, the reviewer and you. Other
+              owners see the record, not the recording.
+            </span>
+          )}
           {flight && listInfo.canBreakGlass && (
             <label className={classes.radio} data-testid="breakglass-glass-broken">
               <input type="checkbox" checked={glassBroken} onChange={e => setGlassBroken(e.target.checked)} />

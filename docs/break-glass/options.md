@@ -18,9 +18,13 @@ approver, and kept in the audit log. Choose the least you need.
 
 Things to know about the copy:
 
-- **It runs the app too.** The copy is the whole pod: the app's containers start in it as well, they just get no
-  traffic. If the app does background work on its own (consumes a queue, runs a scheduler), the copy does that work
-  for as long as it lives. Prefer a short duration for such apps, or the live pod.
+- **Hold the app, or run it.** The copy is the whole pod, so the app's containers would start in it too, with no
+  traffic but with everything else: a queue consumer takes real messages, a scheduler runs, the app's ServiceAccount
+  can take a lease. **Hold the app in the copy** keeps each app container's image, config, credentials, mounts and
+  network but runs a sleep instead of the app, so no work runs. It is on by default on Flight and off on Ground; the
+  request, the approver's card and the record say which you chose. Untick it to run the app in the copy (its own
+  endpoints answer on `localhost`): a dev workflow, and on Flight a deliberate choice the approver sees. A distroless
+  app image has no `sleep` to run; that container then fails to start and the session's notes say so.
 - **It is not the same pod to the network.** It has its own IP and only the `hangar.io/app` and `hangar.io/env` labels.
   The platform's own NetworkPolicy selects every pod in the namespace, so the copy gets the same ingress rules as the
   app; a custom policy that selects the app's other labels would not cover it.
@@ -61,6 +65,11 @@ mounted volume, its kind, where it is in the debug container and where the app s
 
 That list is stored on the session record. Because Secrets are mounted whole, a volume-access session can read every
 key of every Secret the container mounts: say so in your reason when that is the point.
+
+**Sensitive sessions.** Volume access, and process access (the app's environment under `/proc` when it runs as the
+debug user), can read Secrets, so such a session is marked **sensitive** and its recording is for fewer people than
+the record: admins, the approver, the reviewer and you. Other owners see the record, not the recording (see
+[Recordings](recordings.md#who-can-see-a-recording)).
 
 ## Duration and the extension
 

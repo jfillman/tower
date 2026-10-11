@@ -177,6 +177,32 @@ describe('BreakglassPanel', () => {
   });
 });
 
+describe('phase C options in the form', () => {
+  it('offers holding the app for a copy, on by default on Flight and off on Ground, and sends it', async () => {
+    await renderIt('upper');
+    const hold = screen.getByTestId('breakglass-hold-app').querySelector('input') as HTMLInputElement;
+    expect(hold.checked).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'x' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Request approval' })));
+    expect(JSON.parse(String(calls.find(c => c.init?.method === 'POST')!.init!.body)).holdApp).toBe(true);
+    fireEvent.click(screen.getByRole('radio', { name: /^The live pod/ }));
+    expect(screen.queryByTestId('breakglass-hold-app')).toBeNull();
+  });
+
+  it('on Ground the copy runs the app unless asked otherwise', async () => {
+    await renderIt('lower');
+    const hold = screen.getByTestId('breakglass-hold-app').querySelector('input') as HTMLInputElement;
+    expect(hold.checked).toBe(false);
+  });
+
+  it('warns that volume or process access makes the recording restricted', async () => {
+    await renderIt('lower');
+    expect(screen.queryByTestId('breakglass-sensitive-note')).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Volume access/ }));
+    expect(screen.getByTestId('breakglass-sensitive-note').textContent).toContain('can read Secrets');
+  });
+});
+
 describe('BreakglassPanel on Flight (phase 3)', () => {
   it('asks for approval instead of opening, and never offers the last-pod restart', async () => {
     postResponse = { status: 200, body: { id: 'f1', state: 'requested', session: flightRow({}) } };

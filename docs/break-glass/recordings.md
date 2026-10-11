@@ -7,6 +7,12 @@ timestamps. A session cannot start if recordings are not configured.
 
 The app's **owners** and the **admins**. Every play and every download is audited, with who and which session.
 
+A **sensitive** session (volume or process access: it could read Secrets) narrows that to **admins, the approver, the
+reviewer** (while a glass-broken review is due, anyone who could review it) **and the requester**. Other owners see
+the session record, not the recording, with a message saying why; a play of a sensitive recording is audited *high*.
+The recording is not redacted: the backend never reads the Secrets (it has no `get secrets`), so it cannot know what to
+mask, and pattern-masking would give false comfort.
+
 ## Playing a recording
 
 In Topology, the environment's **Break-glass** card under Pods (or any pod's Debug panel) lists the sessions; find

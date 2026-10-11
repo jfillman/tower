@@ -35,13 +35,18 @@ The app's owners (except you) and the admins get a **high**-severity notificatio
    card under Pods (and any pod's Debug panel) shows it. The **Break-glass** strip on the Tower home page lists every
    request you can decide, across apps.
 2. Under **Requests awaiting a second person** you see each request: who, the mode and options, the pod, the
-   duration, the reason, the ticket link, and the time left.
+   duration, the reason, the ticket link, the time left, **what the pod runs** (image and digest, with the release
+   to look up in the Releases tab), whether a copy **holds or runs the app**, and whether the session is **sensitive**
+   (it can read Secrets; its recording will be restricted).
 3. Judge it the way you would judge a production change:
    - Is the reason specific? Could a log line, a metric or the Topology tab answer it instead?
    - Is the mode the least intrusive that works? A copy before the live pod; process or volume access only if the
-     reason needs it.
+     reason needs it; a copy that runs the app only when the reason needs the app running.
    - Is the duration sensible?
-4. Optionally write a **note** (it goes on the record and to the requester), then **Approve** or **Deny**.
+4. Optionally write a **note** (it goes on the record and to the requester). For a **live** session you may tick
+   **Keep the pod after the session (it is the evidence)** with a required reason: the pod is then not restarted at
+   the end and keeps its debug container until the next rollout; the reason goes on the record and to the requester.
+   Then **Approve** or **Deny**.
 
 ![A request awaiting a second person: the request's details, a note field, Approve and Deny](screenshots/flight-approver.png)
 

@@ -16,6 +16,7 @@ import { downloadReleaseRecordHtml, printReleaseRecordPdf } from './ReleaseRecor
 import { confidenceColor } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
+import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 import { ActionSelect, Button, StatusChip, TextLink } from './ui';
 
@@ -655,6 +656,21 @@ export function ReleaseRecordDetail({
             </div>
           </div>
         </div>
+
+      {/* Break-glass sessions while this release ran (gaps phase C, G12): part of the release's history, read live. */}
+      <div className={classes.col} data-testid="release-breakglass">
+        <div className={classes.colHead}>
+          <span className={classes.colTitle}>Break-glass sessions during this release</span>
+        </div>
+        <div className={classes.colBody}>
+          <BreakglassReleaseSessions
+            appName={appName}
+            record={record}
+            others={otherRecords}
+            onOpen={s => window.open(`${window.location.pathname}?${new URLSearchParams({ entity: new URLSearchParams(window.location.search).get('entity') ?? '', tab: 'topology', env: s.env, breakglass: s.id })}`, '_blank')}
+          />
+        </div>
+      </div>
 
       <div className={classes.human}>
         <div className={classes.humanHead}>

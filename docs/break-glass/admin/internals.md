@@ -32,12 +32,12 @@ the app's catalog entity.
 | `GET /sessions?app=&env=` | `request` | the environment's newest 50 sessions, plus `user`, `recordingsConfigured`, `recordingRetentionDays`, `canBreakGlass`, `canReview`, `canTerminate` |
 | `GET /sessions/:id` | `request` | one session (a deep link past the list's window), with the same `user` and capabilities |
 | `GET /queue` | signed in | what the caller can act on across every app: `toApprove` (someone else's `requested`, on an app they may `approve`), `toStart` (their own `approved`), `toReview` (someone else's ended glass-broken `due`, same check; `overdue` after 72 h). One batched permission check for all apps |
-| `POST /sessions/:id/approve` · `/deny` | `approve` | not the requester; must be `requested` and unexpired; optional `note` |
+| `POST /sessions/:id/approve` · `/deny` | `approve` | not the requester; must be `requested` and unexpired; optional `note`; approve may carry `keepPod` + `keepPodReason` (live Flight only, `waiverRefusal`) |
 | `POST /sessions/:id/start` | `request` | requester only; must be `approved` within its window → activate |
 | `POST /sessions/:id/extend` | `request` | requester only; `active`; once |
 | `POST /sessions/:id/end` | own session, its approver, or `terminate` | `requested`/`approved` → withdrawn/cancelled; `active` → ended by user / terminated |
-| `POST /sessions/:id/review` | `approve` | glass broken, `ended`, `due`, not the requester; `note` required |
-| `GET /sessions/:id/recording[?purpose=play]` | `request` | streams the `.cast` from the store; audited; 410 past retention |
+| `POST /sessions/:id/review` | `approve`, or membership of `glidepath.breakglass.reviewers` | glass broken, `ended`, `due`, not the requester; `note` required |
+| `GET /sessions/:id/recording[?purpose=play]` | `request`, narrowed for a sensitive session (`sensitiveRecordingRefusal`: admins, approver, reviewer, requester) | streams the `.cast` from the store; audited (`high` when sensitive); 410 past retention |
 | WebSocket `…/sessions/:id/attach` | the session's requester | the terminal (below) |
 
 Notifications link to the session: `/tower?entity=<ref>&tab=topology&env=<env>&breakglass=<id>`; Tower opens the
@@ -129,7 +129,10 @@ Every 15 s, for every unfinished row, `sweepAction(session, runtime, now)` (pure
 | `active`, no terminal for > 2 min | end: *terminal closed and not reopened within 2 minutes* |
 | `active`, no input or output for > 10 min | end: *idle for 10 minutes* |
 
-Then, for ended rows with a recording and no anchor (ended < 24 h ago): `anchorAction` → re-read and anchor.
+Then, for ended rows with a recording and no anchor (ended < 24 h ago): `anchorAction` → re-read and anchor. And for
+ended glass-broken rows still `due`: `reviewReminderAction(row, now)` (pure) → *remind* at 24 h (owners other than
+the requester, admins, the fallback groups; `review_reminded_at`), *escalate* at 72 h (critical; `review_escalated_at`),
+each once.
 | `active`, new events, last save > 60 s ago | checkpoint |
 
 Each active session also has its own timer for its deadline, so the hard stop does not wait for the sweep.
@@ -174,6 +177,8 @@ Table `breakglass_sessions` in the glidepath plugin's database, created on first
 | `role_binding`, `copy_pod`, `debug_container` | the cluster objects' names |
 | `recording_key`, `recording_sha256`, `recording_bytes` | the recording |
 | `recording_bucket`, `recording_version` | where it is and which version the hash names (phase B; older rows have neither and read from `legacyBucket`) |
+| `sensitive`, `hold_app`, `pod_image`, `pod_image_id` | phase C: could read Secrets; the copy held the app; what the target ran at request time |
+| `recycle_waived_reason`, `review_reminded_at`, `review_escalated_at` | phase C: the approver kept the pod (why); the reminder and the escalation |
 | `recording_rekor_index`, `recording_rekor_uuid`, `anchor_attempted_at`, `anchor_error` | the Rekor anchor, or why the last attempt failed |
 | `cleanup_notes` | what could not be cleaned up, or why something was skipped |
 | `state` | `requested` / `approved` / `active` / `ended` (indexed, as is `app, env`) |

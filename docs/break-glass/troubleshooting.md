@@ -68,6 +68,9 @@ name.
 | *the recording is missing from the bucket* | The recording should exist but does not. Tell an admin. |
 | *this session has no recording* | It never opened a terminal, or the upload failed (see the session's notes). |
 | **not anchored** (on a session or in the player) | The recording is stored but its hash is not in Rekor yet: Rekor was unreachable or the backend has no anchor key. The backend retries for a day; hover for the reason. |
+| *this session could read Secrets (volume or process access), so its recording is for admins, its approver, its reviewer and the requester; … is none of these* | A sensitive recording. The record is yours to see; the recording is not. | Ask the approver or an admin if you need what is in it. |
+| **no one else can review this** | The app's owners, the admins and the fallback reviewers hold nobody but the person who broke the glass. | An admin names a group with a second person in `glidepath.breakglass.reviewers`. |
+| *holding the app is only for copy mode* / *keeping the pod is a Flight decision* / *only a live session restarts its pod* | A request or approval option that does not apply to this mode or tier. | Tower never offers these where they do not apply; a hand-made request did. |
 
 ## Questions
 
