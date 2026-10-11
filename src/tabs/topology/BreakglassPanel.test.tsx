@@ -2,12 +2,15 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { BreakglassPanel } from './BreakglassPanel';
 import type { EnvironmentSummary } from '../../types';
 
+const mockWrite = jest.fn();
 jest.mock('@xterm/xterm', () => ({
   Terminal: jest.fn().mockImplementation(() => ({
     loadAddon: jest.fn(),
     open: jest.fn(),
     focus: jest.fn(),
-    write: jest.fn(),
+    write: mockWrite,
+    reset: jest.fn(),
+    resize: jest.fn(),
     dispose: jest.fn(),
     onData: () => ({ dispose: jest.fn() }),
     onResize: () => ({ dispose: jest.fn() }),
@@ -21,8 +24,13 @@ jest.mock('@xterm/xterm/css/xterm.css', () => ({}), { virtual: true });
 const calls: Array<{ url: string; init?: RequestInit }> = [];
 let listBody: unknown = { sessions: [], user: 'user:development/skyport-dev', recordingsConfigured: true };
 let postResponse: { status: number; body: unknown } = { status: 200, body: {} };
+let recording = '';
 const mockFetch = jest.fn(async (url: string, init?: RequestInit) => {
   calls.push({ url, init });
+  if (url.includes('/recording')) {
+    const bytes = Buffer.from(recording);
+    return { ok: true, status: 200, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+  }
   const r = init?.method === 'POST' ? postResponse : { status: 200, body: listBody };
   return { ok: r.status < 300, status: r.status, json: async () => r.body };
 });
@@ -63,6 +71,7 @@ const renderIt = async (tier: 'lower' | 'upper' | 'preview' = 'lower') => {
 beforeEach(() => {
   calls.length = 0;
   sockets.length = 0;
+  mockWrite.mockClear();
   listBody = { sessions: [], user: 'user:development/skyport-dev', recordingsConfigured: true };
   postResponse = { status: 200, body: {} };
 });
@@ -229,5 +238,91 @@ describe('the one free extension', () => {
     expect(calls.filter(c => c.init?.method === 'POST').at(-1)!.url).toBe('http://be/api/glidepath/breakglass/sessions/e1/extend');
     expect(screen.getByText(/\(extended\)/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Extend +15 min' })).toBeNull();
+  });
+});
+
+describe('glass broken and its review (phase 4)', () => {
+  const ended = flightRow({
+    id: 'g1', state: 'ended', requester: 'user:default/jfillman', glassBroken: true, reviewState: 'due', endedAt: at(-1),
+    recordingKey: 'sky-marshall/dev/g1.cast', recordingSha256: 'abc', recordingExpiresAt: at(60 * 24 * 365),
+  });
+
+  it('offers breaking the glass on Flight only to someone who may, and sends it', async () => {
+    listBody = { sessions: [], user: 'user:default/jfillman', recordingsConfigured: true, canBreakGlass: true, canReview: true };
+    postResponse = { status: 200, body: { id: 'g2', session: { id: 'g2', mode: 'copy', pod: 'sky-marshall-abc', expiresAt: at(15), state: 'active', requester: 'u', processAccess: false, glassBroken: true } } };
+    await renderIt('upper');
+    expect(screen.getByRole('button', { name: 'Request approval' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Break glass/ }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'prod down, nobody reachable' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Break glass and start' })));
+    expect(JSON.parse(String(calls.find(c => c.init?.method === 'POST')!.init!.body))).toMatchObject({ glassBroken: true });
+    expect(screen.getByRole('status').textContent).toContain('Glass broken: no second person, review due');
+  });
+
+  it('does not offer it to an owner without the grant', async () => {
+    listBody = { sessions: [], user: 'user:default/riley-roooo', recordingsConfigured: true, canBreakGlass: false, canReview: true };
+    await renderIt('upper');
+    expect(screen.queryByTestId('breakglass-glass-broken')).toBeNull();
+  });
+
+  it('never on Ground, where there is no second person to skip', async () => {
+    listBody = { sessions: [], user: 'user:default/jfillman', recordingsConfigured: true, canBreakGlass: true };
+    await renderIt('lower');
+    expect(screen.queryByTestId('breakglass-glass-broken')).toBeNull();
+  });
+
+  it('asks someone else to review an ended glass-broken session, with a required note', async () => {
+    listBody = { sessions: [ended], user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true };
+    await renderIt('upper');
+    expect(screen.getByText('glass broken')).toBeTruthy();
+    expect(screen.getByText('review due')).toBeTruthy();
+    const mark = screen.getByRole('button', { name: 'Mark reviewed' }) as HTMLButtonElement;
+    expect(mark.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Review note for g1'), { target: { value: 'watched it; justified, INC-7' } });
+    await act(async () => fireEvent.click(mark));
+    const post = calls.find(c => c.init?.method === 'POST')!;
+    expect(post.url).toBe('http://be/api/glidepath/breakglass/sessions/g1/review');
+    expect(JSON.parse(String(post.init!.body))).toEqual({ note: 'watched it; justified, INC-7' });
+  });
+
+  it('never asks the person who broke the glass to review it', async () => {
+    listBody = { sessions: [ended], user: 'user:default/jfillman', recordingsConfigured: true, canReview: true };
+    await renderIt('upper');
+    expect(screen.getByText('review due')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+  });
+
+  it('shows who reviewed it', async () => {
+    listBody = {
+      sessions: [{ ...ended, reviewState: 'done', reviewedBy: 'user:default/riley-roooo', reviewNote: 'ok' }],
+      user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true,
+    };
+    await renderIt('upper');
+    expect(screen.getByText('reviewed by riley-roooo')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+  });
+});
+
+describe('the recording player', () => {
+  it('loads the recording as a play (audited), and replays the output to the end on a seek', async () => {
+    recording = [
+      JSON.stringify({ version: 2, width: 80, height: 24, timestamp: 1760000000 }),
+      JSON.stringify([0.2, 'o', '$ ']),
+      JSON.stringify([0.5, 'i', 'id\r']),
+      JSON.stringify([0.6, 'o', 'uid=65532\r\n']),
+    ].join('\n');
+    listBody = {
+      sessions: [flightRow({ id: 'r1', state: 'ended', recordingKey: 'k', recordingSha256: 'whatever', endedAt: at(-1) })],
+      user: 'user:default/riley-roooo', recordingsConfigured: true,
+    };
+    await renderIt('upper');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'play' })));
+    expect(calls.some(c => c.url === 'http://be/api/glidepath/breakglass/sessions/r1/recording?purpose=play')).toBe(true);
+    const player = screen.getByTestId('breakglass-player');
+    expect(player.textContent).toContain('1 keystroke events');
+    // jsdom cannot hash (no crypto.subtle), and says so rather than claiming a match.
+    expect(player.textContent).toContain('integrity not checked');
+    await act(async () => fireEvent.change(screen.getByLabelText('Seek'), { target: { value: '99' } }));
+    expect(mockWrite).toHaveBeenLastCalledWith('$ uid=65532\r\n');
   });
 });

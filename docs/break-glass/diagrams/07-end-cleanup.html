@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>When a session ends</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#f2efe9;--paper-2:#e8e3da;--ink:#1b1f24;--muted:#5b6570;--soft:#838b93;--accent:#b9791f;--link:#2e7ba6;--rule:rgba(27,31,36,0.12);
+--card:#fff;--font-sans:'Geist',system-ui,sans-serif;--font-serif:'Instrument Serif',serif;--font-mono:'Geist Mono',ui-monospace,monospace}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);padding:2.5rem 2rem 2rem}
+.frame{max-width:1120px;margin:0 auto}
+.eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+h1{font-family:var(--font-serif);font-size:clamp(1.5rem,2.4vw + .75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:.5rem}
+.lede{color:var(--muted);font-size:.9rem;line-height:1.5;max-width:70ch;margin-bottom:1.25rem}
+.fig{overflow-x:auto}
+svg{width:100%;min-width:900px;display:block}
+.cards{display:grid;grid-template-columns:1.15fr 1fr 1.05fr;gap:.75rem;margin-top:1.25rem}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem}
+.card .eyebrow{margin-bottom:.35rem}
+.card p,.card li{font-size:.8rem;line-height:1.5;color:var(--ink)}
+.card ul{padding-left:1rem}
+.card .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;background:var(--muted)}
+.card .dot.accent{background:var(--accent)} .card .dot.link{background:var(--link)}
+.foot{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--soft);border-top:1px solid var(--rule);margin-top:1.25rem;padding-top:.6rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot a{color:var(--link);text-decoration:none}
+@media (max-width:900px){.cards{grid-template-columns:1fr}}
+@media print{@page{size:landscape;margin:10mm}body{padding:0}.cards{margin-top:.75rem}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root:not([data-theme=light]) svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root:not([data-theme=light]) svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root:not([data-theme=light]) svg [fill="#5b6570"]{fill:#a1aab3}
+:root:not([data-theme=light]) svg [fill="#838b93"]{fill:#7f8891}
+:root:not([data-theme=light]) svg [fill="#b9791f"]{fill:#e8a33d}
+:root:not([data-theme=light]) svg [fill="#f2efe9"]{fill:#131619}
+:root:not([data-theme=light]) svg [fill="#ffffff"]{fill:#1c2127}
+:root:not([data-theme=light]) svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root:not([data-theme=light]) svg [fill="rgba(27,31,36,0.02)"]{fill:rgba(232,228,220,0.02)}
+:root:not([data-theme=light]) svg [fill="rgba(27,31,36,0.05)"]{fill:rgba(232,228,220,0.05)}
+:root:not([data-theme=light]) svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root:not([data-theme=light]) svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root:not([data-theme=light]) svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.16)"]{stroke:rgba(232,228,220,0.16)}}
+:root[data-theme=dark]{--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root[data-theme=dark] svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root[data-theme=dark] svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root[data-theme=dark] svg [fill="#5b6570"]{fill:#a1aab3}
+:root[data-theme=dark] svg [fill="#838b93"]{fill:#7f8891}
+:root[data-theme=dark] svg [fill="#b9791f"]{fill:#e8a33d}
+:root[data-theme=dark] svg [fill="#f2efe9"]{fill:#131619}
+:root[data-theme=dark] svg [fill="#ffffff"]{fill:#1c2127}
+:root[data-theme=dark] svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root[data-theme=dark] svg [fill="rgba(27,31,36,0.02)"]{fill:rgba(232,228,220,0.02)}
+:root[data-theme=dark] svg [fill="rgba(27,31,36,0.05)"]{fill:rgba(232,228,220,0.05)}
+:root[data-theme=dark] svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root[data-theme=dark] svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root[data-theme=dark] svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.16)"]{stroke:rgba(232,228,220,0.16)}
+</style>
+</head>
+<body>
+<div class="frame">
+<p class="eyebrow">Break-glass · 07 · Process</p>
+<h1>When a session ends</h1>
+<p class="lede">The same cleanup for every end reason: you, the clock, idle, a closed tab, a crash.</p>
+<div class="fig">
+<svg viewBox="0 48 1000 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="07-end-cleanup-title 07-end-cleanup-desc">
+<title id="07-end-cleanup-title">When a session ends</title>
+<desc id="07-end-cleanup-desc">The end of a session, in order: delete the copy pod in copy mode or restart the live pod in live mode, both while the grant still allows it; then remove the grant; then store the recording with its SHA-256; then audit the outcome with any notes.</desc>
+<defs><marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#5b6570" stroke-width="1.2"/></marker><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6570"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b9791f"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e7ba6"/></marker></defs>
+<rect width="100%" height="100%" fill="#f2efe9"/>
+<rect x="24" y="64" width="232" height="264" rx="8" fill="rgba(27,31,36,0.02)" stroke="rgba(27,31,36,0.16)" stroke-width="0.8"/><rect x="36" y="68" width="156" height="12" rx="2" fill="#f2efe9"/><text x="114.0" y="77" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">UNDER THE SESSION'S GRANT</text><path d="M240,132 L272,132 Q280,132 280,140 L280,184 Q280,192 288,192 L320,192" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M240,268 L272,268 Q280,268 280,260 L280,216 Q280,208 288,208 L320,208" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><path d="M504,200 L552,200" fill="none" stroke="#b9791f" stroke-width="1.2" marker-end="url(#arrow-accent)"/><path d="M736,200 L784,200" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="40" y="96" width="200" height="72" rx="6" fill="#f2efe9"/><rect x="40" y="96" width="200" height="72" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><rect x="48" y="102" width="84" height="12" rx="2" fill="transparent" stroke="#1b1f24" stroke-opacity="0.5" stroke-width="0.8"/><text x="90.0" y="111" fill="#1b1f24" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">1 · COPY MODE</text><text x="140.0" y="134" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Delete the copy</text><text x="140.0" y="150" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">grace period 0</text><rect x="40" y="232" width="200" height="72" rx="6" fill="#f2efe9"/><rect x="40" y="232" width="200" height="72" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><rect x="48" y="238" width="84" height="12" rx="2" fill="transparent" stroke="#1b1f24" stroke-opacity="0.5" stroke-width="0.8"/><text x="90.0" y="247" fill="#1b1f24" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">2 · LIVE MODE</text><text x="140.0" y="270" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Restart the pod</text><text x="140.0" y="286" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo CD, else direct</text><rect x="320" y="164" width="184" height="72" rx="6" fill="#f2efe9"/><rect x="320" y="164" width="184" height="72" rx="6" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><rect x="328" y="170" width="16" height="12" rx="2" fill="transparent" stroke="#b9791f" stroke-opacity="0.5" stroke-width="0.8"/><text x="336.0" y="179" fill="#b9791f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">3</text><text x="412.0" y="202" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Remove the grant</text><text x="412.0" y="218" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">RoleBinding deleted</text><rect x="552" y="164" width="184" height="72" rx="6" fill="#f2efe9"/><rect x="552" y="164" width="184" height="72" rx="6" fill="rgba(27,31,36,0.05)" stroke="#5b6570" stroke-width="1"/><rect x="560" y="170" width="16" height="12" rx="2" fill="transparent" stroke="#5b6570" stroke-opacity="0.5" stroke-width="0.8"/><text x="568.0" y="179" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">4</text><text x="644.0" y="202" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Store the recording</text><text x="644.0" y="218" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">SHA-256 on the record</text><rect x="784" y="164" width="184" height="72" rx="6" fill="#f2efe9"/><rect x="784" y="164" width="184" height="72" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><rect x="792" y="170" width="16" height="12" rx="2" fill="transparent" stroke="#1b1f24" stroke-opacity="0.5" stroke-width="0.8"/><text x="800.0" y="179" fill="#1b1f24" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">5</text><text x="876.0" y="202" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Audit</text><text x="876.0" y="218" fill="#5b6570" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">end reason and notes</text><text x="40" y="320" fill="#838b93" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">never a last ready pod on Flight</text><text x="40" y="396" fill="#5b6570" font-size="16" font-family="'Instrument Serif', serif" font-style="italic">What cannot be cleaned up becomes a note on the record; the expiry label is the backstop.</text><line x1="24" y1="424" x2="976" y2="424" stroke="rgba(27,31,36,0.12)" stroke-width="0.8"/><text x="24" y="444" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">LEGEND</text><rect x="96" y="436" width="16" height="12" rx="3" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="120" y="445" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Step</text><rect x="160" y="436" width="16" height="12" rx="3" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="184" y="445" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Access revoked</text><rect x="274" y="436" width="16" height="12" rx="3" fill="rgba(27,31,36,0.05)" stroke="#5b6570" stroke-width="1"/><text x="298" y="445" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Kept for a year</text><line x1="393" y1="442" x2="413" y2="442" stroke="#b9791f" stroke-width="1.2"/><text x="421" y="445" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">From here, no access</text>
+</svg>
+</div>
+<div class="cards"></div>
+<div class="foot"><span>Tower · Break-glass</span><span></span></div>
+</div>
+</body>
+</html>

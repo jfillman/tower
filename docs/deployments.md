@@ -47,8 +47,9 @@ The details under the banner (pod problems, grouped warnings, the namespace's ev
 wrong. A calm "Synced and healthy" shows nothing extra.
 
 When logs, metrics and events are not enough, **Topology → the pod → Debug** opens a recorded, time-boxed shell in a
-debug container, on a copy of the pod or on the live pod (Ground environments only for now). See
-[Security: break-glass debug sessions](security.md#break-glass-debug-sessions).
+debug container, on a copy of the pod or on the live pod. Ground opens at once; Flight needs a second person to
+approve, or an admin breaking the glass (reviewed afterwards). Past sessions' recordings play in the same panel. See
+[Break-glass debugging](break-glass/index.md).
 
 ## The delivery path
 
