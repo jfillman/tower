@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { k8sProxyPatch } from '../k8sProxy.esm.js';
+import { pipelineRunAction } from './pipelineRunAction.esm.js';
 
-const TEKTON_CLUSTER = "kind-dev";
-const CANCEL_STATUS = "CancelledRunFinally";
 function useCancelPipelineRun(onDone) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -13,13 +11,7 @@ function useCancelPipelineRun(onDone) {
     setPending(run.name);
     setError(void 0);
     try {
-      await k8sProxyPatch(
-        discoveryApi,
-        fetchApi,
-        TEKTON_CLUSTER,
-        `/apis/tekton.dev/v1/namespaces/${run.namespace}/pipelineruns/${run.name}`,
-        { spec: { status: CANCEL_STATUS } }
-      );
+      await pipelineRunAction(discoveryApi, fetchApi, "cancel", run);
       onDone?.();
     } catch (e) {
       setError(String(e));
