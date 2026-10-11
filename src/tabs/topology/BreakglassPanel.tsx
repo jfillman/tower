@@ -1,15 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { discoveryApiRef, fetchApiRef, identityApiRef, useApi } from '@backstage/core-plugin-api';
-import { makeStyles } from '@material-ui/core/styles';
-import type { Theme } from '@material-ui/core/styles';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
-import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { formatDateTime, relativeTime } from '../../shared/format';
+import { useState } from 'react';
+import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
+import { useHangarTokens } from '../../brand/tokens';
+import { relativeTime } from '../../shared/format';
 import type { EnvironmentSummary, EnvTier } from '../../types';
-import { Button, Field, StatusChip } from '../../ui';
-import { RecordingPlayer } from './RecordingPlayer';
+import { Button, Field } from '../../ui';
+import { BreakglassEnvironmentView } from './BreakglassEnvironmentView';
+import {
+  OpenSession,
+  breakglassApi,
+  remaining,
+  shortUser,
+  useBreakglassSessions,
+  useBreakglassStyles,
+  useNow,
+  type BreakglassSession,
+} from './breakglassShared';
+
+export type { BreakglassSession } from './breakglassShared';
 
 // Break-glass debug, phase 2 (Ground only, no approval; backstage breakglass.ts). An owner opens a recorded,
 // time-boxed terminal on one pod: in a copy of the pod (copy mode, recommended: the live pod is untouched) or in a
@@ -20,182 +27,26 @@ import { RecordingPlayer } from './RecordingPlayer';
 // Flight (phase 3) needs a second person to approve. Phase 4: an admin may break the glass instead (no second person;
 // announced to everyone, audited critical) and the session is then review-due until an owner other than them, or an
 // admin, watches the recording and marks it reviewed. Recordings play here, checked against the stored SHA-256.
+//
+// This is the per-pod form (what to open on this pod, and the terminal it opens). Everything about the environment's
+// sessions that needs no pod, from approvals to reviews and the player, is BreakglassEnvironmentView, shown below the
+// form here and as its own card under Pods in Topology (gap G1).
 
-export interface BreakglassSession {
-  id: string;
-  app: string;
-  env: string;
-  pod: string;
-  container: string;
-  mode: 'copy' | 'live';
-  processAccess: boolean;
-  volumeAccess?: boolean;
-  volumes?: Array<{ volume: string; kind: string; path: string; appPaths: string[] }>;
-  reason: string;
-  ticketUrl?: string;
-  requester: string;
-  createdAt: string;
-  expiresAt: string;
-  endedAt?: string;
-  endReason?: string;
-  endedBy?: string;
-  copyPod?: string;
-  recordingKey?: string;
-  recordingSha256?: string;
-  recordingBytes?: number;
-  recycled?: boolean;
-  cleanupNotes?: string;
-  /** Ground: active -> ended. Flight: requested -> approved -> active -> ended (a deny or expiry ends it early). */
-  state: 'requested' | 'approved' | 'active' | 'ended';
-  tier?: 'ground' | 'flight';
-  durationMinutes?: number;
-  approver?: string;
-  approvedAt?: string;
-  decisionNote?: string;
-  startedAt?: string;
-  /** The session's one free extension (+15 minutes), if used. */
-  extendedAt?: string;
-  /** Phase 4: opened by an admin with no second person; review-due until someone else reviews it. */
-  glassBroken?: boolean;
-  reviewState?: 'due' | 'done';
-  reviewedBy?: string;
-  reviewedAt?: string;
-  reviewNote?: string;
-  /** When the recordings bucket deletes the recording (its retention, counted from the end). */
-  recordingExpiresAt?: string;
-  attached?: boolean;
-}
-
-const shortUser = (ref: string) => ref.replace(/^user:[^/]+\//, '');
-
-const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  root: { display: 'flex', flexDirection: 'column', gap: 12 },
-  form: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px 16px' },
-  full: { gridColumn: '1 / -1' },
-  radios: { display: 'flex', flexDirection: 'column', gap: 6 },
-  radio: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: ({ t }) => t.textHi, cursor: 'pointer' },
-  hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
-  warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
-  actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-  banner: {
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    padding: '8px 12px',
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.badSoft,
-    border: ({ t }) => `1px solid ${t.bad}`,
-    color: ({ t }) => t.bad,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    fontWeight: 700,
-  },
-  bannerMeta: { fontWeight: 400, color: ({ t }) => t.textHi },
-  countdown: { fontVariantNumeric: 'tabular-nums' },
-  terminal: { height: 380, borderRadius: 6, overflow: 'hidden', backgroundColor: '#0b0f14', padding: 6 },
-  history: { display: 'flex', flexDirection: 'column', gap: 4 },
-  row: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
-  rowMeta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
-}));
-
-async function api<T>(discoveryApi: { getBaseUrl(id: string): Promise<string> }, fetchApi: { fetch: typeof fetch }, path: string, init?: RequestInit): Promise<T> {
-  const base = await discoveryApi.getBaseUrl('glidepath');
-  const res = await fetchApi.fetch(`${base}/breakglass${path}`, init);
-  const body = await res.json().catch(() => undefined);
-  if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
-  return body as T;
-}
-
-function remaining(expiresAt: string, now: number): string {
-  const s = Math.max(0, Math.floor((Date.parse(expiresAt) - now) / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-/** The live terminal: xterm.js over the backend's attach WebSocket (the user's Backstage token as the subprotocol). */
-function BreakglassTerminal({ session, onClosed }: { session: BreakglassSession; onClosed: (reason: string, ended: boolean) => void }) {
-  const discoveryApi = useApi(discoveryApiRef);
-  const identityApi = useApi(identityApiRef);
-  const ref = useRef<HTMLDivElement>(null);
-  const closedRef = useRef(onClosed);
-  closedRef.current = onClosed;
-
-  useEffect(() => {
-    if (!ref.current) return undefined;
-    const term = new Terminal({ cursorBlink: true, fontFamily: fontMono, fontSize: 12, convertEol: false, scrollback: 5000 });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(ref.current);
-    fit.fit();
-    let ws: WebSocket | undefined;
-    let done = false;
-    const finish = (reason: string, ended: boolean) => {
-      if (done) return;
-      done = true;
-      closedRef.current(reason, ended);
-    };
-    const send = (msg: Record<string, unknown>) => {
-      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
-    };
-    (async () => {
-      const base = await discoveryApi.getBaseUrl('glidepath');
-      const { token } = await identityApi.getCredentials();
-      if (!token) {
-        finish('You need to be signed in to open a terminal.', false);
-        return;
-      }
-      ws = new WebSocket(`${base.replace(/^http/, 'ws')}/breakglass/sessions/${session.id}/attach`, token);
-      ws.binaryType = 'arraybuffer';
-      ws.onopen = () => {
-        send({ type: 'resize', cols: term.cols, rows: term.rows });
-        term.focus();
-      };
-      ws.onmessage = ev => {
-        if (typeof ev.data !== 'string') {
-          term.write(new Uint8Array(ev.data as ArrayBuffer));
-          return;
-        }
-        try {
-          const msg = JSON.parse(ev.data) as { type: string; reason?: string; message?: string };
-          if (msg.type === 'ended') finish(`Session ended: ${msg.reason ?? ''}`, true);
-          else if (msg.type === 'detached') finish(msg.reason ?? 'Disconnected.', false);
-          else if (msg.type === 'error') term.write(`\r\n\x1b[31m${msg.message ?? 'error'}\x1b[0m\r\n`);
-        } catch {
-          // not a control message
-        }
-      };
-      ws.onclose = ev => finish(ev.code === 1000 ? 'Session ended.' : 'Disconnected from the session. Reopen it within 2 minutes or it ends.', ev.code === 1000);
-    })().catch(e => finish(e instanceof Error ? e.message : String(e), false));
-    const input = term.onData(data => send({ type: 'input', data }));
-    const resize = term.onResize(({ cols, rows }) => send({ type: 'resize', cols, rows }));
-    const observer = new ResizeObserver(() => {
-      try {
-        fit.fit();
-      } catch {
-        // detached element
-      }
-    });
-    observer.observe(ref.current);
-    return () => {
-      done = true;
-      observer.disconnect();
-      input.dispose();
-      resize.dispose();
-      ws?.close();
-      term.dispose();
-    };
-  }, [discoveryApi, identityApi, session.id]);
-
+export function BreakglassPanel({
+  env,
+  podName,
+  containers,
+  tier,
+  linkedSessionId,
+}: {
+  env: EnvironmentSummary;
+  podName: string;
+  containers: string[];
+  tier: EnvTier;
+  linkedSessionId?: string;
+}) {
   const t = useHangarTokens();
-  const classes = useStyles({ t });
-  return <div ref={ref} className={classes.terminal} data-testid="breakglass-terminal" />;
-}
-
-export function BreakglassPanel({ env, podName, containers, tier }: { env: EnvironmentSummary; podName: string; containers: string[]; tier: EnvTier }) {
-  const t = useHangarTokens();
-  const classes = useStyles({ t });
+  const classes = useBreakglassStyles({ t });
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const appName = env.appName;
@@ -211,72 +62,19 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const [sessions, setSessions] = useState<BreakglassSession[]>([]);
-  const [listInfo, setListInfo] = useState<{
-    user?: string;
-    recordingsConfigured?: boolean;
-    recordingRetentionDays?: number;
-    canBreakGlass?: boolean;
-    canReview?: boolean;
-    error?: string;
-  }>({});
   const [glassBroken, setGlassBroken] = useState(false);
-  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
-  const [playing, setPlaying] = useState<BreakglassSession | undefined>();
   const [open, setOpen] = useState<BreakglassSession | undefined>();
   const [closedNote, setClosedNote] = useState<string | undefined>();
-  const [attachKey, setAttachKey] = useState(0);
-  const [detached, setDetached] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const [decisionNote, setDecisionNote] = useState<Record<string, string>>({});
   const flight = tier === 'upper';
 
-  const load = useCallback(async () => {
-    if (!appName) return;
-    try {
-      const body = await api<{
-        sessions: BreakglassSession[];
-        user: string;
-        recordingsConfigured: boolean;
-        recordingRetentionDays?: number;
-        canBreakGlass?: boolean;
-        canReview?: boolean;
-      }>(discoveryApi, fetchApi, `/sessions?${new URLSearchParams({ app: appName, env: env.env })}`);
-      setSessions(body.sessions);
-      setListInfo({
-        user: body.user,
-        recordingsConfigured: body.recordingsConfigured,
-        recordingRetentionDays: body.recordingRetentionDays,
-        canBreakGlass: body.canBreakGlass,
-        canReview: body.canReview,
-      });
-    } catch (e) {
-      setListInfo({ error: e instanceof Error ? e.message : String(e) });
-    }
-  }, [discoveryApi, fetchApi, appName, env.env]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // A request waiting on someone (or an approval waiting on the requester) changes elsewhere: look again every 10 s.
+  const data = useBreakglassSessions(appName, env.env, linkedSessionId);
+  const { sessions, info: listInfo, load } = data;
   const waiting = sessions.some(s => s.state === 'requested' || s.state === 'approved');
-  useEffect(() => {
-    if (!waiting || open) return undefined;
-    const timer = setInterval(() => load(), 10_000);
-    return () => clearInterval(timer);
-  }, [waiting, open, load]);
-
-  useEffect(() => {
-    if (!open && !waiting) return undefined;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [open, waiting]);
+  const now = useNow(!!open || waiting);
 
   if (!appName) return <span className={classes.hint}>No app is known for this environment.</span>;
   const mine = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod === podName);
   const mineElsewhere = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod !== podName);
-  const toDecide = sessions.filter(s => s.state === 'requested' && s.requester !== listInfo.user);
   const breakingGlass = flight && glassBroken && !!listInfo.canBreakGlass;
   const startLabel = () => {
     const waits = flight && !breakingGlass;
@@ -284,19 +82,13 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     if (breakingGlass) return 'Break glass and start';
     return waits ? 'Request approval' : 'Start recorded session';
   };
-  const stateTone = (s: BreakglassSession) => {
-    if (s.state === 'active') return 'warn' as const;
-    return s.state === 'ended' ? ('neutral' as const) : ('info' as const);
-  };
-  const mayReview = (s: BreakglassSession) =>
-    !!listInfo.canReview && s.glassBroken && s.reviewState === 'due' && s.state === 'ended' && s.requester !== listInfo.user;
 
   const start = async () => {
     setBusy(true);
     setError(undefined);
     setClosedNote(undefined);
     try {
-      const body = await api<{ session: BreakglassSession }>(discoveryApi, fetchApi, '/sessions', {
+      const body = await breakglassApi<{ session: BreakglassSession }>(discoveryApi, fetchApi, '/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -319,7 +111,6 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
       setGlassBroken(false);
       if (body.session.state === 'active') {
         setOpen(body.session);
-        setDetached(false);
       } else {
         setClosedNote('Request sent. An owner of this app other than you, or an admin, must approve it within 30 minutes.');
       }
@@ -338,28 +129,8 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     setError(undefined);
     setClosedNote(undefined);
     try {
-      const body = await api<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/start`, { method: 'POST' });
+      const body = await breakglassApi<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/start`, { method: 'POST' });
       setOpen(body.session);
-      setDetached(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-      load();
-    }
-  };
-
-  const decide = async (id: string, decision: 'approve' | 'deny') => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      const note = decisionNote[id]?.trim();
-      await api(discoveryApi, fetchApi, `/sessions/${id}/${decision}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(note ? { note } : {}),
-      });
-      setClosedNote(decision === 'approve' ? 'Approved. The requester has 10 minutes to start the session.' : 'Denied.');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -371,7 +142,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const extend = async (id: string) => {
     setError(undefined);
     try {
-      const body = await api<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/extend`, { method: 'POST' });
+      const body = await breakglassApi<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/extend`, { method: 'POST' });
       setOpen(o => (o && o.id === id ? { ...o, expiresAt: body.session.expiresAt, extendedAt: body.session.extendedAt } : o));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -381,7 +152,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const end = async (id: string) => {
     setEnding(true);
     try {
-      await api(discoveryApi, fetchApi, `/sessions/${id}/end`, { method: 'POST' });
+      await breakglassApi(discoveryApi, fetchApi, `/sessions/${id}/end`, { method: 'POST' });
       setOpen(undefined);
       setClosedNote('Session ended.');
     } catch (e) {
@@ -392,111 +163,21 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     }
   };
 
-  const review = async (id: string) => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await api(discoveryApi, fetchApi, `/sessions/${id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: reviewNote[id]?.trim() ?? '' }),
-      });
-      setReviewNote(n => ({ ...n, [id]: '' }));
-      setClosedNote('Marked reviewed.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-      load();
-    }
-  };
-
-  const download = async (s: BreakglassSession) => {
-    try {
-      const base = await discoveryApi.getBaseUrl('glidepath');
-      const res = await fetchApi.fetch(`${base}/breakglass/sessions/${s.id}/recording`);
-      if (!res.ok) throw new Error((await res.json().catch(() => undefined))?.error ?? `download failed with ${res.status}`);
-      const url = URL.createObjectURL(await res.blob());
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `breakglass-${s.app}-${s.env}-${s.id}.cast`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
   return (
     <div className={classes.root} data-testid="breakglass-panel">
       {open ? (
-        <>
-          <div className={classes.banner} role="status">
-            <span>● Recorded break-glass session</span>
-            {open.glassBroken && <span>Glass broken: no second person, review due</span>}
-            <span className={classes.bannerMeta}>
-              {open.mode === 'live' ? `live: debug container in ${open.pod}` : `copy of ${open.pod}${open.copyPod ? ` (${open.copyPod})` : ''}`}
-              {open.processAccess ? ', with process access' : ''}
-              {open.volumeAccess ? ', with volume access' : ''}
-            </span>
-            <span className={`${classes.bannerMeta} ${classes.countdown}`} title={`Ends at ${formatDateTime(open.expiresAt)}`}>
-              {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
-            </span>
-            <span style={{ flex: 1 }} />
-            {!open.extendedAt && (
-              <Button small disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => extend(open.id)}>
-                Extend +15 min
-              </Button>
-            )}
-            <Button variant="danger" small disabled={ending} onClick={() => end(open.id)}>
-              {ending ? 'Ending…' : 'End session'}
-            </Button>
-          </div>
-          {open.mode === 'live' && <span className={classes.warn}>This pod will be restarted when you end the session.</span>}
-          {open.volumeAccess && (
-            <div className={classes.history} data-testid="breakglass-volumes">
-              {(open.volumes ?? []).length === 0 ? (
-                <span className={classes.hint}>Volume access: {open.container} mounts no volumes besides its service account token.</span>
-              ) : (
-                (open.volumes ?? []).map(v => (
-                  <span key={v.volume} className={classes.row}>
-                    <span>{v.path}</span>
-                    <span className={classes.rowMeta}>
-                      {v.kind}, read-only · in the app: {v.appPaths.join(', ')}
-                    </span>
-                  </span>
-                ))
-              )}
-            </div>
-          )}
-          <BreakglassTerminal
-            key={attachKey}
-            session={open}
-            onClosed={(note, ended) => {
-              setClosedNote(note);
-              if (ended) setOpen(undefined);
-              else setDetached(true);
-              load();
-            }}
-          />
-          {closedNote && (
-            <div className={classes.actions}>
-              <span className={classes.hint}>{closedNote}</span>
-              {detached && (
-                <Button
-                  small
-                  onClick={() => {
-                    setDetached(false);
-                    setClosedNote(undefined);
-                    setAttachKey(k => k + 1);
-                  }}
-                >
-                  Reconnect
-                </Button>
-              )}
-            </div>
-          )}
-        </>
+        <OpenSession
+          open={open}
+          now={now}
+          ending={ending}
+          onExtend={extend}
+          onEnd={end}
+          onClosed={(note, ended) => {
+            setClosedNote(note);
+            if (ended) setOpen(undefined);
+            load();
+          }}
+        />
       ) : (
         <>
           {mine?.state === 'requested' && (
@@ -529,7 +210,6 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
                 small
                 onClick={() => {
                   setClosedNote(undefined);
-                  setDetached(false);
                   setOpen(mine);
                 }}
               >
@@ -542,35 +222,6 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             <span className={classes.warn}>
               You have a break-glass {mineElsewhere.state === 'active' ? 'session' : 'request'} open on {mineElsewhere.pod}; one at a time.
             </span>
-          )}
-          {toDecide.length > 0 && (
-            <div className={classes.history} data-testid="breakglass-to-decide">
-              <span className={classes.hint} style={{ fontWeight: 700 }}>Requests awaiting a second person</span>
-              {toDecide.map(r => (
-                <div key={r.id} className={classes.banner} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-                  <span className={classes.bannerMeta}>
-                    <b>{shortUser(r.requester)}</b> asks for a {r.durationMinutes ?? ''}-minute {r.mode} session on {r.pod}
-                    {r.processAccess ? ', with process access' : ''}
-                    {r.volumeAccess ? ', with volume access' : ''}. Expires in {remaining(r.expiresAt, now)}.
-                  </span>
-                  <span className={classes.bannerMeta}>Reason: {r.reason}</span>
-                  {r.ticketUrl && (
-                    <a className={classes.link} href={r.ticketUrl} target="_blank" rel="noopener noreferrer">{r.ticketUrl}</a>
-                  )}
-                  <div className={classes.actions}>
-                    <input
-                      aria-label={`Note for ${r.id}`}
-                      placeholder="Note (optional)"
-                      value={decisionNote[r.id] ?? ''}
-                      onChange={e => setDecisionNote(n => ({ ...n, [r.id]: e.target.value }))}
-                      style={{ flex: 1, minWidth: 160 }}
-                    />
-                    <Button variant="danger" small disabled={busy} onClick={() => decide(r.id, 'approve')}>Approve</Button>
-                    <Button small disabled={busy} onClick={() => decide(r.id, 'deny')}>Deny</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
           {closedNote && <span className={classes.hint}>{closedNote}</span>}
           {ending && <span className={classes.hint}>Ending the session: removing the grant and the debug pod, saving the recording…</span>}
@@ -696,7 +347,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               disabled={busy || ending || !reason.trim() || !!mine || !!mineElsewhere || listInfo.recordingsConfigured === false}
               onClick={start}
             >
-{startLabel()}
+              {startLabel()}
             </Button>
             {busy && <span className={classes.hint}>This can take up to two minutes.</span>}
           </div>
@@ -704,79 +355,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
       )}
       {error && <span className={classes.bad}>{error}</span>}
 
-      <div className={classes.history}>
-        <span className={classes.hint} style={{ fontWeight: 700 }}>Break-glass sessions in {env.env}</span>
-        {listInfo.error && <span className={classes.bad}>{listInfo.error}</span>}
-        {!listInfo.error && sessions.length === 0 && <span className={classes.hint}>None yet.</span>}
-        {sessions.map(s => (
-          <div key={s.id} className={classes.row}>
-            <StatusChip tone={stateTone(s)}>{s.state}</StatusChip>
-            <span title={formatDateTime(s.createdAt)}>{relativeTime(s.createdAt)}</span>
-            <span>
-              {s.mode}
-              {s.processAccess ? ' + process access' : ''}
-              {s.volumeAccess ? (
-                <span title={(s.volumes ?? []).map(v => v.path).join('\n') || 'no volumes'}> + volume access</span>
-              ) : (
-                ''
-              )}
-            </span>
-            <span>{s.pod}</span>
-            <span className={classes.rowMeta}>{shortUser(s.requester)}</span>
-            <span className={classes.rowMeta} title={s.reason}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
-            {s.ticketUrl && (
-              <a className={classes.link} href={s.ticketUrl} target="_blank" rel="noopener noreferrer">ticket</a>
-            )}
-            {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {shortUser(s.approver)}</span>}
-            {s.glassBroken && <StatusChip tone="bad" title="Opened by an admin with no second person">glass broken</StatusChip>}
-            {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
-            {s.reviewState === 'done' && (
-              <span className={classes.rowMeta} title={`${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ''}`}>
-                reviewed by {shortUser(s.reviewedBy ?? '')}
-              </span>
-            )}
-            {s.endReason && (
-              <span className={classes.rowMeta} title={s.endReason}>
-                {s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}…` : s.endReason}
-              </span>
-            )}
-            {s.mode === 'live' && s.state === 'ended' && (
-              <span className={classes.rowMeta}>{s.recycled ? 'pod restarted' : 'pod not restarted'}</span>
-            )}
-            {s.cleanupNotes && <span className={classes.warn} title={s.cleanupNotes}>notes</span>}
-            {s.recordingKey && (
-              <>
-                <button type="button" className={classes.link} onClick={() => setPlaying(s)} title="Play the recording here">
-                  play
-                </button>
-                <button
-                  type="button"
-                  className={classes.link}
-                  onClick={() => download(s)}
-                  title={`SHA-256 ${s.recordingSha256 ?? ''}${s.recordingExpiresAt ? `\nKept until ${formatDateTime(s.recordingExpiresAt)}` : ''}`}
-                >
-                  download
-                </button>
-              </>
-            )}
-            {mayReview(s) && (
-              <div className={classes.actions} style={{ flexBasis: '100%' }} data-testid={`breakglass-review-${s.id}`}>
-                <input
-                  aria-label={`Review note for ${s.id}`}
-                  placeholder="What the recording shows, and whether breaking the glass was justified (required)"
-                  value={reviewNote[s.id] ?? ''}
-                  onChange={e => setReviewNote(n => ({ ...n, [s.id]: e.target.value }))}
-                  style={{ flex: 1, minWidth: 200 }}
-                />
-                <Button small disabled={busy || !reviewNote[s.id]?.trim()} onClick={() => review(s.id)}>
-                  Mark reviewed
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      {playing && <RecordingPlayer key={playing.id} session={playing} onClose={() => setPlaying(undefined)} />}
+      <BreakglassEnvironmentView env={env} tier={tier} data={data} linkedSessionId={linkedSessionId} hostTerminal={false} />
     </div>
   );
 }

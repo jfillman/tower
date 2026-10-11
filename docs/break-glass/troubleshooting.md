@@ -34,7 +34,7 @@ name.
 
 | Message | Meaning | What to do |
 |---|---|---|
-| *Disconnected from the session. Reopen it within 2 minutes or it ends.* | The terminal's connection dropped. | **Reconnect**, or **Reopen terminal** on the pod's Debug panel. |
+| *Disconnected from the session. Reopen it within 2 minutes or it ends.* | The terminal's connection dropped. | **Reconnect**, or **Reopen terminal** on the pod's Debug panel or the environment's Break-glass card. |
 | *the stream to the pod closed; reconnect to continue* | The connection to the pod dropped, but the shell is still running. | **Reconnect**. |
 | *opened in another tab* | You opened the same session elsewhere; the terminal moved there. | Use the other tab. |
 | *Session ended: shell exited* | You typed `exit` (or the shell died). A debug container cannot restart, so the session is over. | Start a new one if you need more time. |

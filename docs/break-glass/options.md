@@ -79,7 +79,9 @@ you.
 
 ## Why never `kubectl exec`?
 
-Tower never offers exec, and on Flight the cluster refuses it to everyone but platform operators.
+Tower never offers exec, and on Flight the cluster refuses it to everyone but platform operators. The pod's action row
+has *copy kubectl exec* on Ground only, for operators with their own cluster access; on Flight it says *exec is refused
+on Flight; use Debug*.
 
 | | `kubectl exec` into the app container | A break-glass debug container |
 |---|---|---|

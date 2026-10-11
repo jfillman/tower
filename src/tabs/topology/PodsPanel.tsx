@@ -198,12 +198,14 @@ function PodDetail({
   env,
   tier,
   classes,
+  linkedSessionId,
 }: {
   pod: PodSummary;
   raw: RawPod | undefined;
   env: EnvironmentSummary;
   tier: EnvTier;
   classes: ReturnType<typeof useStyles>;
+  linkedSessionId?: string;
 }) {
   const [panel, setPanel] = useState<OpenPanel>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -318,15 +320,24 @@ function PodDetail({
           <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
           {copied === 'kubectl-logs' ? 'copied' : 'copy kubectl logs'}
         </button>
-        <button
-          type="button"
-          className={classes.actionBtn}
-          onMouseDown={preventFocusScroll}
-          onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}
-        >
-          <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
-          {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
-        </button>
+        {tier === 'upper' ? (
+          // The cluster refuses exec into app namespaces on Flight (tower-breakglass-no-exec) for everyone but
+          // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
+          <span className={classes.cardSub} title="On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.">
+            exec is refused on Flight; use Debug
+          </span>
+        ) : (
+          <button
+            type="button"
+            className={classes.actionBtn}
+            title="For operators with their own cluster access. Debug records the session; exec does not."
+            onMouseDown={preventFocusScroll}
+            onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}
+          >
+            <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
+            {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
+          </button>
+        )}
         <PodRestartControl env={env} podName={pod.name} buttonClass={classes.actionBtn} noteClass={classes.cardSub} badClass={classes.conditionBad} />
         <button
           type="button"
@@ -355,7 +366,7 @@ function PodDetail({
       )}
       {panel === 'debug' && (
         <div className={classes.panelBody}>
-          <BreakglassPanel env={env} podName={pod.name} containers={(raw?.spec?.containers ?? []).map(c => c.name)} tier={tier} />
+          <BreakglassPanel env={env} podName={pod.name} containers={(raw?.spec?.containers ?? []).map(c => c.name)} tier={tier} linkedSessionId={linkedSessionId} />
         </div>
       )}
       {panel === 'yaml' && resource && (
@@ -367,7 +378,7 @@ function PodDetail({
   );
 }
 
-export function PodsPanel({ env, tier }: { env: EnvironmentSummary; tier: EnvTier }) {
+export function PodsPanel({ env, tier, linkedSessionId }: { env: EnvironmentSummary; tier: EnvTier; linkedSessionId?: string }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState<string | undefined>(env.pods[0]?.name);
@@ -403,7 +414,7 @@ export function PodsPanel({ env, tier }: { env: EnvironmentSummary; tier: EnvTie
           );
         })}
       </div>
-      {selectedPod && <PodDetail pod={selectedPod} raw={selectedRaw} env={env} tier={tier} classes={classes} />}
+      {selectedPod && <PodDetail pod={selectedPod} raw={selectedRaw} env={env} tier={tier} classes={classes} linkedSessionId={linkedSessionId} />}
     </div>
   );
 }

@@ -5,7 +5,10 @@ and `kind-prod` (Flight).
 
 ## See what is open
 
-**In Tower:** any pod's Debug panel lists the environment's sessions, newest first.
+**In Tower:** the environment's **Break-glass** card under Pods in Topology (and any pod's Debug panel) lists its
+sessions, newest first. The **Break-glass** strip on the Tower home page and the Ops Wall shows what the signed-in
+person can act on across every app (`GET /api/glidepath/breakglass/queue`: requests to decide, approvals to start,
+reviews due).
 
 **Across everything**, in Backstage's database (`backstage_plugin_glidepath` on kind-prod's Postgres):
 
@@ -32,9 +35,10 @@ recycle that failed). Restart them from Tower (*Restart pods* on the Rollout) wh
 
 ## End someone else's session
 
-Admins (`tower.breakglass.terminate`) and the session's approver may end it. The Debug panel offers *End* only to the
-session's own user, so use the API with your Backstage token (from the browser's developer tools, any request's
-`Authorization` header):
+Admins (`tower.breakglass.terminate`) and the session's approver may end it: on the environment's **Break-glass**
+card (under Pods in Topology), every active session shows **End** to them, with a confirm naming the session's user.
+The API does the same, with your Backstage token (from the browser's developer tools, any request's `Authorization`
+header):
 
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" https://backstage.<domain>/api/glidepath/breakglass/sessions/<id>/end
@@ -151,5 +155,6 @@ attempt, including refusals.
 
 ## Reviews due
 
-Until there is a queue in Tower, list them from the database (the first query above shows `review_state = 'due'`).
+The **Break-glass** strip on the Tower home page lists the reviews the signed-in person can do, across apps, and marks
+one **overdue** after 72 hours. For everyone's, the database (the first query above shows `review_state = 'due'`).
 Each is owed a review by an owner of the app other than the requester, or an admin.

@@ -16,6 +16,7 @@ import { formatCategories, parseCategories, type PipelineCategory } from '../../
 import { useFleetReleaseEvents, useFleetReleaseRecords } from '../../fleet/useFleetReleases';
 import { isStale, usePolled, type Polled } from '../../fleet/usePolled';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip';
+import { BreakglassQueueStrip } from '../../breakglass/BreakglassQueueStrip';
 import { toItems, useNow } from '../../provisioning/shared';
 import { useProvisioning } from '../../provisioning/useProvisioning';
 import { useFleetEnvironments } from '../../useFleetEnvironments';
@@ -510,6 +511,7 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
         ))}
       </div>
 
+      <BreakglassQueueStrip onOpen={(_row, link) => window.open(`${location.pathname}${link}`, '_blank')} />
       <ProvisioningStrip
         items={provInFlight}
         onOpen={name =>

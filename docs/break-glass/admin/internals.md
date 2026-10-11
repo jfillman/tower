@@ -29,7 +29,9 @@ the app's catalog entity.
 | Route | Permission | Does |
 |---|---|---|
 | `POST /sessions` | `request` (`self` when `glassBroken` on Flight) | validates; derives the tier; checks the target; Ground and glass broken → activate; Flight → store `requested`, notify approvers |
-| `GET /sessions?app=&env=` | `request` | the environment's newest 50 sessions, plus `user`, `recordingsConfigured`, `recordingRetentionDays`, `canBreakGlass`, `canReview` |
+| `GET /sessions?app=&env=` | `request` | the environment's newest 50 sessions, plus `user`, `recordingsConfigured`, `recordingRetentionDays`, `canBreakGlass`, `canReview`, `canTerminate` |
+| `GET /sessions/:id` | `request` | one session (a deep link past the list's window), with the same `user` and capabilities |
+| `GET /queue` | signed in | what the caller can act on across every app: `toApprove` (someone else's `requested`, on an app they may `approve`), `toStart` (their own `approved`), `toReview` (someone else's ended glass-broken `due`, same check; `overdue` after 72 h). One batched permission check for all apps |
 | `POST /sessions/:id/approve` · `/deny` | `approve` | not the requester; must be `requested` and unexpired; optional `note` |
 | `POST /sessions/:id/start` | `request` | requester only; must be `approved` within its window → activate |
 | `POST /sessions/:id/extend` | `request` | requester only; `active`; once |
@@ -37,6 +39,9 @@ the app's catalog entity.
 | `POST /sessions/:id/review` | `approve` | glass broken, `ended`, `due`, not the requester; `note` required |
 | `GET /sessions/:id/recording[?purpose=play]` | `request` | streams the `.cast` from the store; audited; 410 past retention |
 | WebSocket `…/sessions/:id/attach` | the session's requester | the terminal (below) |
+
+Notifications link to the session: `/tower?entity=<ref>&tab=topology&env=<env>&breakglass=<id>`; Tower opens the
+environment's Pods stage on it (`breakglassDeepLink.ts`).
 
 Request validation (`parseSessionRequest`): names are plain (`[A-Za-z0-9._-]`), `mode` is `copy` or `live`,
 `durationMinutes` is 15/30/60, `reason` is non-empty and ≤ 2000 characters, `ticketUrl` is `http(s)` and ≤ 500, process

@@ -15,7 +15,8 @@ no approval, but the same recording, time limit and cleanup as everywhere else.
 ![The pod's action row in Topology, with the Debug button](screenshots/open-debug.png)
 
 The Debug panel opens under the pod. Its form is the same on Ground and Flight. At the bottom is the list of
-break-glass sessions in this environment, yours and everyone else's.
+break-glass sessions in this environment, yours and everyone else's (the same list is the **Break-glass** card under
+Pods, which is where you find a session once its pod is gone).
 
 ## 2. Fill in the form
 
@@ -65,7 +66,7 @@ LISTEN    0         511                      *:8080                   *:*
 `localhost:8080` answers because the copy runs the app's own container beside the debug container.
 
 If the terminal disconnects (a network blip, closing the tab), you have **2 minutes** to come back: **Reconnect** in the
-panel, or **Reopen terminal** on the pod's Debug panel. After that, the session ends.
+panel, or **Reopen terminal** on the pod's Debug panel or the Break-glass card. After that, the session ends.
 
 ## 4. End the session
 

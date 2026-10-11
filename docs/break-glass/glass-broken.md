@@ -40,8 +40,9 @@ or another admin. **Never the person who broke it.**
 
 **When:** after the session has ended. Reviewing a live session is refused.
 
-1. Open the notification's link, or the environment's Debug panel. The session shows **glass broken** and
-   **review due**.
+1. Open the notification's link (it opens the session), or the environment's **Break-glass** card under Pods in
+   Topology. The **Break-glass** strip on the Tower home page lists every review you can do, across apps, and marks one
+   **overdue** after 72 hours. The session shows **glass broken** and **review due**.
 2. Press **play** and watch the recording (see [Recordings](recordings.md)). Check that the player says
    *SHA-256 matches the session record*.
 3. Decide: was breaking the glass justified, and did the session stay within its reason?

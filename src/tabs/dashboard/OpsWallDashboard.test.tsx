@@ -27,6 +27,10 @@ jest.mock('@backstage/core-plugin-api', () => ({
   }),
 }));
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
+jest.mock('../../breakglass/useBreakglassQueue', () => ({
+  ...jest.requireActual('../../breakglass/useBreakglassQueue'),
+  useBreakglassQueue: () => ({ data: { toApprove: [], toStart: [], toReview: [] }, failures: 0, loading: false, intervalMs: 30000 }),
+}));
 jest.mock('../../useFleetRoster', () => ({
   useFleetRoster: () => ({ entities: [entity('gate-api'), entity('checkin-api')], loading: false }),
 }));

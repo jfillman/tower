@@ -13,6 +13,7 @@ import { CanaryRampChart } from '../../CanaryRampChart';
 import { YamlView } from './YamlView';
 import { MetricsPanel } from './MetricsPanel';
 import { PodsPanel } from './PodsPanel';
+import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView';
 import type { TopoStageKey } from './TopoDag';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef } from '../../types';
 import { TextLink } from '../../ui';
@@ -325,24 +326,48 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
   );
 }
 
-function PodsDetail({ env, tier, classes }: { env: EnvironmentSummary; tier: EnvTier; classes: ReturnType<typeof useStyles> }) {
+function PodsDetail({
+  env,
+  tier,
+  classes,
+  linkedSessionId,
+}: {
+  env: EnvironmentSummary;
+  tier: EnvTier;
+  classes: ReturnType<typeof useStyles>;
+  linkedSessionId?: string;
+}) {
   return (
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><AppsIcon fontSize="small" /></span>
         <Typography className={classes.title}>Pods</Typography>
       </div>
-      <PodsPanel env={env} tier={tier} />
+      <PodsPanel env={env} tier={tier} linkedSessionId={linkedSessionId} />
+      {/* The environment's break-glass sessions outlive their pods (a live session recycles its pod; a copy is
+          deleted), so they live here, under Pods, not only inside one pod's Debug panel (gap G1). */}
+      <BreakglassEnvironmentCard env={env} tier={tier} linkedSessionId={linkedSessionId} />
     </div>
   );
 }
 
-export function TopologyStageDetail({ env, tier, selectedKey }: { env: EnvironmentSummary; tier: EnvTier; selectedKey: TopoStageKey }) {
+export function TopologyStageDetail({
+  env,
+  tier,
+  selectedKey,
+  linkedSessionId,
+}: {
+  env: EnvironmentSummary;
+  tier: EnvTier;
+  selectedKey: TopoStageKey;
+  /** A break-glass session a deep link named (?breakglass=<id>): opened and highlighted under Pods. */
+  linkedSessionId?: string;
+}) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
 
   if (selectedKey === 'route') return <RouteDetail env={env} classes={classes} t={t} />;
   if (selectedKey === 'service') return <ServiceDetail env={env} classes={classes} />;
   if (selectedKey === 'workload') return <WorkloadDetail env={env} classes={classes} />;
-  return <PodsDetail env={env} tier={tier} classes={classes} />;
+  return <PodsDetail env={env} tier={tier} classes={classes} linkedSessionId={linkedSessionId} />;
 }
