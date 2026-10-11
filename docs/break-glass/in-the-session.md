@@ -98,6 +98,6 @@ Whatever the reason, the cleanup is the same:
 5. **Audited**, with the end reason, what was cleaned up, and the recording's hash.
 
 Anything that could not be cleaned up is listed as **notes** on the record. The grant and the copy pod also carry an
-expiry label (the session's length plus 15 minutes): on Ground the cluster deletes them at that time even if Backstage
-never does. On Flight that cluster-side backstop is being added; until then, a Backstage that restarts ends and cleans
-up every session the old process left behind within 15 seconds.
+expiry label (the session's length plus 15 minutes): on both clusters Kyverno's cleanup controller deletes them at
+that time even if Backstage never does, and a Backstage that restarts ends and cleans up every session the old process
+left behind within 15 seconds.

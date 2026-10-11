@@ -56,6 +56,12 @@ Every debug container (an ephemeral container, or a `debug-*` container in a cop
 Copy pods additionally must carry a `cleanup.kyverno.io/ttl` label of `15m` to `75m` (this rule applies to admins too,
 so even an admin's copy expires). On Flight a copy pod also may not use `hostNetwork`, `hostPID` or `hostIPC`.
 
+**Process access (G14).** An ephemeral container this update *adds* with `targetContainerName` is admitted only if the
+pod carries `hangar.io/breakglass-process-access: <session id>` and the container is named `debug-<that id>`. The
+backend writes that annotation, under `tower-breakglass-pod-annotate` below, only for an approved request that had
+process access; so a backend bug (or a hand-made request) cannot add process access the approver never saw. Containers
+already in the pod are not re-judged.
+
 Ground exempts `system:masters` from the container rules (an operator's own `kubectl debug`) and applies them only in
 `hangar.io/app` namespaces. **Flight applies them to everyone, in every namespace**: an operator's own
 `kubectl debug` on kind-prod must also use the Tower debug image, hardened. `--profile=restricted` alone does not set a
@@ -78,6 +84,35 @@ Both debug roles include `delete pods` for the length of a session (copy mode de
 Argo CD does not manage). Without this policy, a session's grant would reach every pod in the namespace. The rule: the
 pod being deleted (`oldObject`) is a copy pod (`hangar.io/breakglass-copy: "true"`) or carries an ephemeral container
 named `debug-*`.
+
+## tower-breakglass-pod-annotate
+
+**Matches** `UPDATE` of pods (the main resource, not a subresource) by Backstage only.
+
+Backstage's live role includes `patch pods` for the length of a session, used for one thing: the process-access
+annotation above. This policy makes sure that is all the patch can do: `object.spec == oldObject.spec`, the labels are
+unchanged, and the annotations differ in no key other than `hangar.io/breakglass-process-access` (added, changed or
+removed). Tested in isolation on kiac-dev: the annotation admitted; a label, an image or another annotation refused.
+
+## tower-breakglass-debug-image
+
+**Matches** the same requests as `tower-breakglass-debug-container` (an ephemeral-container update, or a copy pod), and
+only looks at images under `ghcr.io/jfillman/tower-debug`.
+
+An `ImageValidatingPolicy`: the image must carry the cosign **keyless** signature of tower's `debug-image.yml` workflow
+on `main` (issuer `https://token.actions.githubusercontent.com`, the public Fulcio and Rekor). The digest pin in
+`tower-breakglass-debug-container` says *which* build; this says the build came from that workflow. Image verification
+needs Kyverno's admission controller, so this is the one break-glass policy that runs as a webhook, and it fails
+closed; it is therefore scoped twice, `webhookConfiguration.matchConditions` and `matchConditions`, so the webhook
+(validating and mutating: `ivpol.*.kyverno.svc-fail-finegrained-tower-breakglass-debug-image`) sees nothing but those
+two kinds of request. Verified on kiac-dev: a plain pod create is untouched; a copy pod with the signed digest is
+admitted; a tag under the debug repository that does not exist is refused.
+
+On Flight this is why kind-prod runs a **slim Kyverno** (`30-policy/kyverno`: admission and cleanup controllers only,
+no background or reports controller): this policy, and the cleanup controller's TTL backstop
+(`30-policy/kyverno-policies/tower-breakglass-rbac.yaml` gives it delete on RoleBindings and pods). Validation stays in
+the hand-written VAPs; if Kyverno is down on kind-prod, a session can still be refused by it, never admitted
+unchecked.
 
 ## tower-breakglass-no-exec (Flight)
 
