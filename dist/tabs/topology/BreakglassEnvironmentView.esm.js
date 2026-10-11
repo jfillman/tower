@@ -283,6 +283,10 @@ function BreakglassEnvironmentView({
             s.mode === "live" && s.state === "ended" && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.recycled ? "pod restarted" : "pod not restarted" }),
             s.cleanupNotes && /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.cleanupNotes, children: "notes" }),
             s.recordingKey && /* @__PURE__ */ jsxs(Fragment, { children: [
+              s.recordingRekorIndex !== void 0 ? /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ""}) holds this recording's SHA-256, signed by the platform`, children: [
+                "anchored #",
+                s.recordingRekorIndex
+              ] }) : /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.anchorError ?? "Not yet anchored in the transparency log", children: "not anchored" }),
               /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setPlaying(s), title: "Play the recording here", children: "play" }),
               /* @__PURE__ */ jsx(
                 "button",

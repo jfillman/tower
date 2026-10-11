@@ -135,6 +135,11 @@ function RecordingPlayer({ session, onClose }) {
       /* @__PURE__ */ jsx("span", { className: classes.meta, children: session.id }),
       integrity === "match" && /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `SHA-256 ${session.recordingSha256}`, children: "SHA-256 matches the session record" }),
       integrity === "mismatch" && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `The record says ${session.recordingSha256}`, children: "SHA-256 does not match the session record" }),
+      session.recordingRekorIndex !== void 0 && /* @__PURE__ */ jsxs(StatusChip, { tone: "ok", title: `rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ""})`, children: [
+        "anchored in Rekor #",
+        session.recordingRekorIndex
+      ] }),
+      session.recordingRekorIndex === void 0 && session.recordingSha256 && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", title: session.anchorError ?? "The backend retries for a day after the session ends", children: "not anchored in Rekor" }),
       integrity === "unchecked" && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", title: "The browser can hash only on https or localhost, and only a session with a stored hash", children: "integrity not checked" }),
       /* @__PURE__ */ jsx("span", { style: { flex: 1 } }),
       /* @__PURE__ */ jsx(Button, { small: true, onClick: onClose, children: "Close" })
