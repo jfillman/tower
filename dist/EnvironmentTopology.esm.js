@@ -49,15 +49,19 @@ const useStyles = makeStyles(() => ({
   panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 },
   panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi }
 }));
-function EnvironmentTopology({ env, tier }) {
+function EnvironmentTopology({
+  env,
+  tier,
+  linkedSessionId
+}) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const h = health(env);
   const stages = buildTopoStages(env);
-  const [selectedStage, setSelectedStage] = useState("workload");
+  const [selectedStage, setSelectedStage] = useState(linkedSessionId ? "pods" : "workload");
   useEffect(() => {
-    setSelectedStage("workload");
-  }, [env.key]);
+    setSelectedStage(linkedSessionId ? "pods" : "workload");
+  }, [env.key, linkedSessionId]);
   const [showResources, setShowResources] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const namespaceResource = useNamespaceResource(env.cluster, env.namespace);
@@ -99,7 +103,7 @@ function EnvironmentTopology({ env, tier }) {
     /* @__PURE__ */ jsxs("div", { className: classes.dagCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.dagInner, children: /* @__PURE__ */ jsx(TopoDag, { stages, selectedKey: selectedStage, onSelectKey: setSelectedStage, t }) }),
       /* @__PURE__ */ jsx("hr", { className: classes.dagDivider }),
-      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, tier, selectedKey: selectedStage }) })
+      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, tier, selectedKey: selectedStage, linkedSessionId }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsxs(FilterGroup, { label: "Show", children: [

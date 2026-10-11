@@ -12,6 +12,7 @@ import { RefreshButton } from '../RefreshButton.esm.js';
 import { EnvironmentTopology } from '../EnvironmentTopology.esm.js';
 import { EnvPicker } from '../EnvPicker.esm.js';
 import { envStageRank, envTierOf, imageTag, health } from '../types.esm.js';
+import { breakglassDeepLink } from './topology/breakglassDeepLink.esm.js';
 
 const TIER_DISPLAY_ORDER = ["lower", "upper", "preview"];
 const useStyles = makeStyles(() => ({
@@ -24,7 +25,7 @@ function TopologyTab() {
   const { environments, loading, error, appName, pipelineOrder, refresh } = useReleaseContext();
   const pipelineRuns = useTektonPipelineRuns(appName);
   const [searchParams] = useSearchParams();
-  const linkedEnv = searchParams.get("env") ?? void 0;
+  const { env: linkedEnv, sessionId: linkedSessionId } = breakglassDeepLink(searchParams);
   const [selectedEnv, setSelectedEnv] = useState(void 0);
   useEffect(() => {
     if (selectedEnv && environments.some((e) => e.env === selectedEnv)) return;
@@ -106,7 +107,7 @@ function TopologyTab() {
         showConnectors: false
       }
     ),
-    /* @__PURE__ */ jsx(EnvironmentTopology, { env: selected, tier: selectedTier })
+    /* @__PURE__ */ jsx(EnvironmentTopology, { env: selected, tier: selectedTier, linkedSessionId: selected.env === linkedEnv ? linkedSessionId : void 0 })
   ] });
 }
 

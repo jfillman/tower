@@ -17,6 +17,7 @@ import { parseCategories, formatCategories } from '../../fleet/pipelineHistory.e
 import { useFleetReleaseRecords, useFleetReleaseEvents } from '../../fleet/useFleetReleases.esm.js';
 import { usePolled, isStale } from '../../fleet/usePolled.esm.js';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip.esm.js';
+import { BreakglassQueueStrip } from '../../breakglass/BreakglassQueueStrip.esm.js';
 import { useNow, toItems } from '../../provisioning/shared.esm.js';
 import { useProvisioning } from '../../provisioning/useProvisioning.esm.js';
 import { useFleetEnvironments } from '../../useFleetEnvironments.esm.js';
@@ -440,6 +441,7 @@ function OpsWallDashboard({ fit = false }) {
         ]
       }
     ) }, kpi.label)) }),
+    /* @__PURE__ */ jsx(BreakglassQueueStrip, { onOpen: (_row, link) => window.open(`${location.pathname}${link}`, "_blank") }),
     /* @__PURE__ */ jsx(
       ProvisioningStrip,
       {

@@ -185,11 +185,12 @@ function TowerPage() {
   const clearApp = () => setSearchParams({});
   const selectTab = (id) => setSearchParams({ entity: entityRef ?? "", tab: id });
   const openDashboard = () => setSearchParams({ view: "dashboard" });
+  const openBreakglass = (_row, link) => setSearchParams(new URLSearchParams(link));
   let body;
   if (isDashboardView) {
     body = /* @__PURE__ */ jsx(TowerDashboardPage, { onBack: clearApp });
   } else if (!entityRef) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenBreakglass: openBreakglass }) });
   } else if (loading) {
     body = /* @__PURE__ */ jsx(Progress, {});
   } else if (error) {

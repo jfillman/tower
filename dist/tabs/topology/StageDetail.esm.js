@@ -13,6 +13,7 @@ import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodsPanel } from './PodsPanel.esm.js';
+import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView.esm.js';
 import { TextLink } from '../../ui/index.esm.js';
 
 function findResource(resources, kind, name) {
@@ -275,22 +276,33 @@ function WorkloadDetail({ env, classes }) {
     ] })
   ] });
 }
-function PodsDetail({ env, tier, classes }) {
+function PodsDetail({
+  env,
+  tier,
+  classes,
+  linkedSessionId
+}) {
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(AppsIcon, { fontSize: "small" }) }),
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Pods" })
     ] }),
-    /* @__PURE__ */ jsx(PodsPanel, { env, tier })
+    /* @__PURE__ */ jsx(PodsPanel, { env, tier, linkedSessionId }),
+    /* @__PURE__ */ jsx(BreakglassEnvironmentCard, { env, tier, linkedSessionId })
   ] });
 }
-function TopologyStageDetail({ env, tier, selectedKey }) {
+function TopologyStageDetail({
+  env,
+  tier,
+  selectedKey,
+  linkedSessionId
+}) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   if (selectedKey === "route") return /* @__PURE__ */ jsx(RouteDetail, { env, classes, t });
   if (selectedKey === "service") return /* @__PURE__ */ jsx(ServiceDetail, { env, classes });
   if (selectedKey === "workload") return /* @__PURE__ */ jsx(WorkloadDetail, { env, classes });
-  return /* @__PURE__ */ jsx(PodsDetail, { env, tier, classes });
+  return /* @__PURE__ */ jsx(PodsDetail, { env, tier, classes, linkedSessionId });
 }
 
 export { TopologyStageDetail };

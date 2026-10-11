@@ -14,6 +14,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { useSearchParams } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
+import { BreakglassQueueStrip } from './breakglass/BreakglassQueueStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioningHistory, typicalFor } from './provisioning/provisioningHistory.esm.js';
@@ -287,7 +288,8 @@ function ownerLabel(owner) {
 }
 function AppPicker({
   onSelect,
-  onOpenDashboard
+  onOpenDashboard,
+  onOpenBreakglass
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -511,6 +513,7 @@ function AppPicker({
         typicalMeasured
       }
     ) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx(BreakglassQueueStrip, { onOpen: onOpenBreakglass ?? ((_row, link) => window.location.assign(`${window.location.pathname}${link}`)) }),
       /* @__PURE__ */ jsx(ProvisioningStrip, { items: inFlight, onOpen: openProvisioning }),
       /* @__PURE__ */ jsxs(FilterBar, { children: [
         /* @__PURE__ */ jsx(

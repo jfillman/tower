@@ -136,7 +136,8 @@ function PodDetail({
   raw,
   env,
   tier,
-  classes
+  classes,
+  linkedSessionId
 }) {
   const [panel, setPanel] = useState(null);
   const [copied, setCopied] = useState(null);
@@ -227,11 +228,16 @@ function PodDetail({
           ]
         }
       ),
-      /* @__PURE__ */ jsxs(
+      tier === "upper" ? (
+        // The cluster refuses exec into app namespaces on Flight (tower-breakglass-no-exec) for everyone but
+        // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
+        /* @__PURE__ */ jsx("span", { className: classes.cardSub, title: "On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.", children: "exec is refused on Flight; use Debug" })
+      ) : /* @__PURE__ */ jsxs(
         "button",
         {
           type: "button",
           className: classes.actionBtn,
+          title: "For operators with their own cluster access. Debug records the session; exec does not.",
           onMouseDown: preventFocusScroll,
           onClick: () => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, "kubectl-exec"),
           children: [
@@ -255,11 +261,11 @@ function PodDetail({
     ] }),
     panel === "logs" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers, live: true }) }),
     panel === "metrics" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames: [pod.name], title: "Pod performance" }) }),
-    panel === "debug" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(BreakglassPanel, { env, podName: pod.name, containers: (raw?.spec?.containers ?? []).map((c) => c.name), tier }) }),
+    panel === "debug" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(BreakglassPanel, { env, podName: pod.name, containers: (raw?.spec?.containers ?? []).map((c) => c.name), tier, linkedSessionId }) }),
     panel === "yaml" && resource && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(YamlView, { resource }) })
   ] });
 }
-function PodsPanel({ env, tier }) {
+function PodsPanel({ env, tier, linkedSessionId }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState(env.pods[0]?.name);
@@ -292,7 +298,7 @@ function PodsPanel({ env, tier }) {
         pod.name
       );
     }) }),
-    selectedPod && /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, tier, classes })
+    selectedPod && /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, tier, classes, linkedSessionId })
   ] });
 }
 
