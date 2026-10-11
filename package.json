@@ -1,6 +1,6 @@
 {
   "name": "@jfillman/tower",
-  "version": "0.52.0",
+  "version": "0.53.0",
   "description": "Release orchestration and operational intelligence for Backstage, part of the Hangar platform.",
   "license": "UNLICENSED",
   "packageManager": "yarn@4.13.0",

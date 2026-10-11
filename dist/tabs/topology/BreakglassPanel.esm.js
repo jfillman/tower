@@ -135,6 +135,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
   const appName = env.appName;
   const [mode, setMode] = useState("copy");
   const [processAccess, setProcessAccess] = useState(false);
+  const [volumeAccess, setVolumeAccess] = useState(false);
   const [recycleLastPod, setRecycleLastPod] = useState(false);
   const [duration, setDuration] = useState(15);
   const [reason, setReason] = useState("");
@@ -194,6 +195,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           container,
           mode,
           processAccess: mode === "live" && processAccess,
+          volumeAccess,
           recycleLastPod: mode === "live" && recycleLastPod,
           durationMinutes: duration,
           reason,
@@ -245,7 +247,8 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx("span", { children: "\u25CF Recorded break-glass session" }),
         /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, children: [
           open.mode === "live" ? `live: debug container in ${open.pod}` : `copy of ${open.pod}${open.copyPod ? ` (${open.copyPod})` : ""}`,
-          open.processAccess ? ", with process access" : ""
+          open.processAccess ? ", with process access" : "",
+          open.volumeAccess ? ", with volume access" : ""
         ] }),
         /* @__PURE__ */ jsxs("span", { className: `${classes.bannerMeta} ${classes.countdown}`, title: `Ends at ${formatDateTime(open.expiresAt)}`, children: [
           remaining(open.expiresAt, now),
@@ -255,6 +258,18 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx(Button, { variant: "danger", small: true, disabled: ending, onClick: () => end(open.id), children: ending ? "Ending\u2026" : "End session" })
       ] }),
       open.mode === "live" && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This pod will be restarted when you end the session." }),
+      open.volumeAccess && /* @__PURE__ */ jsx("div", { className: classes.history, "data-testid": "breakglass-volumes", children: (open.volumes ?? []).length === 0 ? /* @__PURE__ */ jsxs("span", { className: classes.hint, children: [
+        "Volume access: ",
+        open.container,
+        " mounts no volumes besides its service account token."
+      ] }) : (open.volumes ?? []).map((v) => /* @__PURE__ */ jsxs("span", { className: classes.row, children: [
+        /* @__PURE__ */ jsx("span", { children: v.path }),
+        /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
+          v.kind,
+          ", read-only \xB7 in the app: ",
+          v.appPaths.join(", ")
+        ] })
+      ] }, v.volume)) }),
       /* @__PURE__ */ jsx(
         BreakglassTerminal,
         {
@@ -329,6 +344,15 @@ function BreakglassPanel({ env, podName, containers, tier }) {
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.radios, children: [
+          /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
+            /* @__PURE__ */ jsx("input", { type: "checkbox", checked: volumeAccess, onChange: (e) => setVolumeAccess(e.target.checked) }),
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Volume access to ",
+              /* @__PURE__ */ jsx("code", { children: container }),
+              /* @__PURE__ */ jsx("br", {}),
+              /* @__PURE__ */ jsx("span", { className: classes.warn, children: "Mounts the volumes the container mounts (ConfigMaps, Secrets, emptyDirs, claims), read-only, under /pod-volumes/<volume>. Secrets included; the service account token never. Shown on the session record." })
+            ] })
+          ] }),
           mode === "live" && /* @__PURE__ */ jsxs(Fragment, { children: [
             /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
               /* @__PURE__ */ jsx("input", { type: "checkbox", checked: processAccess, onChange: (e) => setProcessAccess(e.target.checked) }),
@@ -336,7 +360,7 @@ function BreakglassPanel({ env, podName, containers, tier }) {
                 "Process access to ",
                 /* @__PURE__ */ jsx("code", { children: container }),
                 /* @__PURE__ */ jsx("br", {}),
-                /* @__PURE__ */ jsx("span", { className: classes.warn, children: "Shares the container's process namespace: you see its processes and, as the same user, its files and environment (secrets) under /proc. Shown on the session record." })
+                /* @__PURE__ */ jsx("span", { className: classes.warn, children: "Shares the container's process namespace: you see its processes. Its files and environment (secrets) under /proc are readable only when the app runs as the same non-root user as the debug container (65532); an app running as root keeps them. Shown on the session record." })
               ] })
             ] }),
             /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
@@ -376,7 +400,8 @@ function BreakglassPanel({ env, podName, containers, tier }) {
         /* @__PURE__ */ jsx("span", { title: formatDateTime(s.createdAt), children: relativeTime(s.createdAt) }),
         /* @__PURE__ */ jsxs("span", { children: [
           s.mode,
-          s.processAccess ? " + process access" : ""
+          s.processAccess ? " + process access" : "",
+          s.volumeAccess ? /* @__PURE__ */ jsx("span", { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: " + volume access" }) : ""
         ] }),
         /* @__PURE__ */ jsx("span", { children: s.pod }),
         /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.requester.replace(/^user:[^/]+\//, "") }),
