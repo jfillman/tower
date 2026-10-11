@@ -6,12 +6,13 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { renderNotificationDescription } from './notificationFormatting.esm.js';
-import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, PreviewIcon, SyncIcon } from './activityIcons.esm.js';
+import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, SyncIcon, PipelineIcon, PreviewIcon } from './activityIcons.esm.js';
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers.esm.js';
 import { TextLink, FilterGroup, FilterChip } from './ui/index.esm.js';
 
 const CATEGORY_TOPICS = {
-  images: ["build"],
+  // 'test' (the pipeline's test stage) and 'images' (Images -> Clean up old images) joined 2026-10-11.
+  images: ["build", "test", "images"],
   // 'deploying'/'release-outcome' (2026-09-14 release-flow redesign) join
   // 'release' here rather than getting their own category - all three are
   // the same release's lifecycle, just at different stages (see
@@ -19,13 +20,14 @@ const CATEGORY_TOPICS = {
   // renderReleaseOutcomeRow). 'release-outcome' was previously missing from
   // every category entirely - a real, pre-existing gap: the one notification
   // that reflects a confirmed deploy outcome was invisible in this panel
-  // before this fix, silently filtered out by KNOWN_TOPICS below.
-  releases: ["deploy", "release", "deploying", "release-outcome"],
+  // before this fix, silently filtered out by the old known-topics list.
+  // 'rolled-back' (a rollback release went healthy, ADR-0021 phase 4) and 'rollout' (Rollout actions, a skipped
+  // canary analysis, pod restarts) joined 2026-10-11: they were sent but never shown here.
+  releases: ["deploy", "release", "deploying", "release-outcome", "rolled-back", "rollout"],
   environments: ["env", "preview-env"],
   config: ["config"],
   slos: ["slo"]
 };
-const KNOWN_TOPICS = new Set(Object.values(CATEGORY_TOPICS).flat());
 const CATEGORY_META = {
   all: { label: "All" },
   images: { label: "Images", icon: ImageIcon },
@@ -72,8 +74,17 @@ const TOPIC_META = {
   env: { label: "Environment", icon: EnvIcon },
   "preview-env": { label: "Preview env", icon: PreviewIcon, dashed: true },
   config: { label: "Config", icon: ConfigIcon },
-  slo: { label: "SLO", icon: SloIcon }
+  slo: { label: "SLO", icon: SloIcon },
+  test: { label: "Test", icon: PipelineIcon },
+  images: { label: "Cleanup", icon: ImageIcon },
+  "rolled-back": { label: "Rollback", icon: ReleaseIcon },
+  rollout: { label: "Rollout", icon: SyncIcon }
 };
+function topicMeta(topic) {
+  if (topic && TOPIC_META[topic]) return TOPIC_META[topic];
+  const label = topic ? topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, " ") : "Notice";
+  return { label, icon: PipelineIcon };
+}
 const TOPIC_COLOR = {
   build: { fg: "sky", bg: "skySoft" },
   deploy: { fg: "good", bg: "goodSoft" },
@@ -83,7 +94,13 @@ const TOPIC_COLOR = {
   // to bad automatically via isAttentionSeverity below if this ever changes.
   deploying: { fg: "sky", bg: "skySoft" },
   "release-outcome": { fg: "good", bg: "goodSoft" },
-  config: { fg: "amber", bg: "amberSoft" }
+  config: { fg: "amber", bg: "amberSoft" },
+  test: { fg: "sky", bg: "skySoft" },
+  images: { fg: "sky", bg: "skySoft" },
+  // A rollback is the fix for a bad release, not routine: amber, like other things worth a second look.
+  "rolled-back": { fg: "amber", bg: "amberSoft" },
+  // Routine operator actions; an abort or an analysis bypass arrives with severity high and goes bad below.
+  rollout: { fg: "sky", bg: "skySoft" }
   // env/preview-env aren't here - both use the local 'environments' accent
   // (see LOCAL_ACCENT above), handled as their own branch in rowColor below
   // since it's a raw hex pair, not a HangarTokens key.
@@ -406,8 +423,8 @@ function RecentActivityPanel({
   const [category, setCategory] = useState("all");
   const panelRef = useRef(null);
   const filtered = useMemo(() => {
-    return notifications.filter((n) => n.payload.topic && KNOWN_TOPICS.has(n.payload.topic)).filter(
-      (n) => category === "all" || CATEGORY_TOPICS[category].includes(n.payload.topic)
+    return notifications.filter(
+      (n) => category === "all" || CATEGORY_TOPICS[category].includes(n.payload.topic ?? "")
     ).slice(0, MAX_ROWS);
   }, [notifications, category]);
   const groups = useMemo(() => {
@@ -453,8 +470,8 @@ function RecentActivityPanel({
     /* @__PURE__ */ jsx("div", { className: classes.scrollArea, children: groups.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: emptyText }) : groups.map((group, gi) => /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx("div", { className: classes.day, children: group.day }),
       group.items.map((n, i) => {
-        const topic = n.payload.topic;
-        const meta = TOPIC_META[topic];
+        const topic = n.payload.topic ?? "";
+        const meta = topicMeta(n.payload.topic);
         const Icon = meta.icon;
         const { fg, bg } = rowColor(topic, n.payload.severity, t, isDark);
         const isLast = gi === groups.length - 1 && i === group.items.length - 1;
@@ -563,5 +580,5 @@ function RecentActivityPanel({
   ] });
 }
 
-export { RecentActivityPanel };
+export { RecentActivityPanel, topicMeta };
 //# sourceMappingURL=RecentActivityPanel.esm.js.map
