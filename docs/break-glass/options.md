@@ -21,8 +21,9 @@ Things to know about the copy:
 - **It runs the app too.** The copy is the whole pod: the app's containers start in it as well, they just get no
   traffic. If the app does background work on its own (consumes a queue, runs a scheduler), the copy does that work
   for as long as it lives. Prefer a short duration for such apps, or the live pod.
-- **It is not the same pod to the network.** It has its own IP and only the `hangar.io/app` and `hangar.io/env` labels,
-  so a NetworkPolicy that selects the app's other labels may treat it differently from the real pods.
+- **It is not the same pod to the network.** It has its own IP and only the `hangar.io/app` and `hangar.io/env` labels.
+  The platform's own NetworkPolicy selects every pod in the namespace, so the copy gets the same ingress rules as the
+  app; a custom policy that selects the app's other labels would not cover it.
 - It holds the app's ServiceAccount, but **the debug container does not get its token**: Tower mounts an empty volume
   over the token path in the debug container.
 
