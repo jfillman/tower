@@ -223,6 +223,13 @@ function SloIcon(props) {
     }
   ) });
 }
+function BreakglassIcon(props) {
+  return /* @__PURE__ */ jsxs("svg", { viewBox: "0 0 18 18", width: "15", height: "15", ...props, children: [
+    /* @__PURE__ */ jsx("rect", { x: "3.5", y: "8", width: "11", height: "7.5", rx: "1.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+    /* @__PURE__ */ jsx("path", { d: "M6 8V5.5a3 3 0 0 1 6 0", fill: "none", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round" }),
+    /* @__PURE__ */ jsx("path", { d: "M9 11v2", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round" })
+  ] });
+}
 
-export { CommitIcon, ConfigIcon, EnvIcon, ImageIcon, PipelineIcon, PreviewIcon, ReleaseIcon, SloIcon, SyncIcon };
+export { BreakglassIcon, CommitIcon, ConfigIcon, EnvIcon, ImageIcon, PipelineIcon, PreviewIcon, ReleaseIcon, SloIcon, SyncIcon };
 //# sourceMappingURL=activityIcons.esm.js.map

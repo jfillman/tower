@@ -33,6 +33,7 @@ function BreakglassEnvironmentView({
   const [error, setError] = useState();
   const [note, setNote] = useState();
   const [decisionNote, setDecisionNote] = useState({});
+  const [keepPod, setKeepPod] = useState({});
   const [reviewNote, setReviewNote] = useState({});
   const [playing, setPlaying] = useState();
   const [open, setOpen] = useState();
@@ -66,7 +67,12 @@ function BreakglassEnvironmentView({
   };
   const decide = async (id, decision) => {
     const n = decisionNote[id]?.trim();
-    await call(`/sessions/${id}/${decision}`, n ? { note: n } : {}, decision === "approve" ? "Approved. The requester has 10 minutes to start the session." : "Denied.");
+    const k = keepPod[id];
+    const body = {
+      ...n ? { note: n } : {},
+      ...decision === "approve" && k?.on ? { keepPod: true, keepPodReason: k.reason.trim() } : {}
+    };
+    await call(`/sessions/${id}/${decision}`, body, decision === "approve" ? "Approved. The requester has 10 minutes to start the session." : "Denied.");
   };
   const review = async (id) => {
     await call(`/sessions/${id}/review`, { note: reviewNote[id]?.trim() ?? "" }, "Marked reviewed.");
@@ -179,6 +185,39 @@ function BreakglassEnvironmentView({
           r.reason
         ] }),
         r.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: r.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: r.ticketUrl }),
+        (r.podImage || r.podImageId) && /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, "data-testid": `breakglass-request-image-${r.id}`, title: r.podImageId ?? "", children: [
+          "The pod runs ",
+          r.podImage ?? "an unknown image",
+          r.podImageId?.includes("@sha256:") ? ` (${r.podImageId.slice(r.podImageId.indexOf("@sha256:") + 8, r.podImageId.indexOf("@sha256:") + 20)}\u2026)` : "",
+          r.podImage?.includes(":") ? `; release ${r.podImage.slice(r.podImage.lastIndexOf(":") + 1)} in the Releases tab` : ""
+        ] }),
+        r.mode === "copy" && /* @__PURE__ */ jsx("span", { className: r.holdApp ? classes.bannerMeta : classes.warn, children: r.holdApp ? "The copy holds the app: no work runs in it." : "The copy runs the app: it consumes queues, schedules work and takes leases like a real replica." }),
+        r.sensitive && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This session can read Secrets (volume or process access); its recording will be restricted to admins, you, the reviewer and the requester." }),
+        r.mode === "live" && r.tier === "flight" && /* @__PURE__ */ jsxs("label", { className: classes.radio, "data-testid": `breakglass-keep-pod-${r.id}`, children: [
+          /* @__PURE__ */ jsx(
+            "input",
+            {
+              type: "checkbox",
+              checked: keepPod[r.id]?.on ?? false,
+              onChange: (e) => setKeepPod((k) => ({ ...k, [r.id]: { on: e.target.checked, reason: k[r.id]?.reason ?? "" } }))
+            }
+          ),
+          /* @__PURE__ */ jsxs("span", { children: [
+            "Keep the pod after the session (it is the evidence)",
+            /* @__PURE__ */ jsx("br", {}),
+            /* @__PURE__ */ jsx("span", { className: classes.hint, children: "Normally the pod is restarted at the end because the debug container stays in it. A reason is required and goes on the record." }),
+            keepPod[r.id]?.on && /* @__PURE__ */ jsx(
+              "input",
+              {
+                "aria-label": `Reason to keep the pod for ${r.id}`,
+                placeholder: "Why the pod must stay (required)",
+                value: keepPod[r.id]?.reason ?? "",
+                onChange: (e) => setKeepPod((k) => ({ ...k, [r.id]: { on: true, reason: e.target.value } })),
+                style: { display: "block", width: "100%", marginTop: 4 }
+              }
+            )
+          ] })
+        ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
           /* @__PURE__ */ jsx(
             "input",
@@ -190,7 +229,7 @@ function BreakglassEnvironmentView({
               style: { flex: 1, minWidth: 160 }
             }
           ),
-          /* @__PURE__ */ jsx(Button, { variant: "danger", small: true, disabled: busy, onClick: () => decide(r.id, "approve"), children: "Approve" }),
+          /* @__PURE__ */ jsx(Button, { variant: "danger", small: true, disabled: busy || !!keepPod[r.id]?.on && !keepPod[r.id]?.reason.trim(), onClick: () => decide(r.id, "approve"), children: "Approve" }),
           /* @__PURE__ */ jsx(Button, { small: true, disabled: busy, onClick: () => decide(r.id, "deny"), children: "Deny" })
         ] })
       ] }, r.id))
@@ -259,9 +298,12 @@ function BreakglassEnvironmentView({
             /* @__PURE__ */ jsxs("span", { children: [
               s.mode,
               s.processAccess ? " + process access" : "",
-              s.volumeAccess ? /* @__PURE__ */ jsx("span", { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: " + volume access" }) : ""
+              s.volumeAccess ? /* @__PURE__ */ jsx("span", { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: " + volume access" }) : "",
+              s.mode === "copy" && s.holdApp ? /* @__PURE__ */ jsx("span", { title: "The copy ran a sleep instead of the app", children: " \xB7 app held" }) : ""
             ] }),
             /* @__PURE__ */ jsx("span", { children: s.pod }),
+            s.sensitive && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", title: "Could read Secrets: the recording is for admins, the approver, the reviewer and the requester", children: "sensitive" }),
+            s.recycleWaivedReason && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, title: s.recycleWaivedReason, children: "pod kept by the approver" }),
             /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: shortUser(s.requester) }),
             /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: s.reason, children: [
               "\u201C",
@@ -275,6 +317,8 @@ function BreakglassEnvironmentView({
             ] }),
             s.glassBroken && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: "Opened by an admin with no second person", children: "glass broken" }),
             s.reviewState === "due" && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "review due" }),
+            s.reviewState === "due" && s.noReviewer && /* @__PURE__ */ jsx("span", { className: classes.bad, title: "Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)", children: "no one else can review this" }),
+            s.reviewState === "due" && s.reviewEscalatedAt && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `Escalated ${formatDateTime(s.reviewEscalatedAt)}`, children: "overdue" }),
             s.reviewState === "done" && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ""}`, children: [
               "reviewed by ",
               shortUser(s.reviewedBy ?? "")

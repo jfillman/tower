@@ -23,6 +23,7 @@ function BreakglassPanel({
   const [processAccess, setProcessAccess] = useState(false);
   const [volumeAccess, setVolumeAccess] = useState(false);
   const [recycleLastPod, setRecycleLastPod] = useState(false);
+  const [holdApp, setHoldApp] = useState(void 0);
   const [duration, setDuration] = useState(15);
   const [reason, setReason] = useState("");
   const [ticketUrl, setTicketUrl] = useState("");
@@ -34,6 +35,8 @@ function BreakglassPanel({
   const [open, setOpen] = useState();
   const [closedNote, setClosedNote] = useState();
   const flight = tier === "upper";
+  const holdAppOn = holdApp ?? flight;
+  const sensitive = volumeAccess || mode === "live" && processAccess;
   const data = useBreakglassSessions(appName, env.env, linkedSessionId);
   const { sessions, info: listInfo, load } = data;
   const waiting = sessions.some((s) => s.state === "requested" || s.state === "approved");
@@ -67,6 +70,7 @@ function BreakglassPanel({
           processAccess: mode === "live" && processAccess,
           volumeAccess,
           recycleLastPod: !flight && mode === "live" && recycleLastPod,
+          holdApp: mode === "copy" && holdAppOn,
           durationMinutes: duration,
           reason,
           ...ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {},
@@ -220,6 +224,17 @@ function BreakglassPanel({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.radios, children: [
+          mode === "copy" && /* @__PURE__ */ jsxs("label", { className: classes.radio, "data-testid": "breakglass-hold-app", children: [
+            /* @__PURE__ */ jsx("input", { type: "checkbox", checked: holdAppOn, onChange: (e) => setHoldApp(e.target.checked) }),
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Hold the app in the copy",
+              /* @__PURE__ */ jsx("br", {}),
+              /* @__PURE__ */ jsxs("span", { className: classes.hint, children: [
+                "The app's containers keep their image, config, credentials and network, but run a sleep instead of the app: nothing consumes queues, schedules work or takes leases from the copy. Untick to run the app in the copy (its own endpoints answer on localhost; on Flight that is production work).",
+                flight ? " On by default on Flight." : ""
+              ] })
+            ] })
+          ] }),
           /* @__PURE__ */ jsxs("label", { className: classes.radio, children: [
             /* @__PURE__ */ jsx("input", { type: "checkbox", checked: volumeAccess, onChange: (e) => setVolumeAccess(e.target.checked) }),
             /* @__PURE__ */ jsxs("span", { children: [
@@ -258,6 +273,7 @@ function BreakglassPanel({
         /* @__PURE__ */ jsx("div", { className: classes.full, children: /* @__PURE__ */ jsx(Field, { id: "bg-reason", label: "Reason (required)", children: (p) => /* @__PURE__ */ jsx("textarea", { ...p, rows: 2, maxLength: 2e3, value: reason, onChange: (e) => setReason(e.target.value), placeholder: "What are you looking for?" }) }) }),
         /* @__PURE__ */ jsx("div", { className: classes.full, children: /* @__PURE__ */ jsx(Field, { id: "bg-ticket", label: "Incident or ticket link (optional)", children: (p) => /* @__PURE__ */ jsx("input", { ...p, type: "url", value: ticketUrl, onChange: (e) => setTicketUrl(e.target.value), placeholder: "https://" }) }) })
       ] }),
+      sensitive && /* @__PURE__ */ jsx("span", { className: classes.warn, "data-testid": "breakglass-sensitive-note", children: "This session can read Secrets, so its recording will be restricted: admins, the approver, the reviewer and you. Other owners see the record, not the recording." }),
       flight && listInfo.canBreakGlass && /* @__PURE__ */ jsxs("label", { className: classes.radio, "data-testid": "breakglass-glass-broken", children: [
         /* @__PURE__ */ jsx("input", { type: "checkbox", checked: glassBroken, onChange: (e) => setGlassBroken(e.target.checked) }),
         /* @__PURE__ */ jsxs("span", { children: [

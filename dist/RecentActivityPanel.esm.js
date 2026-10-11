@@ -6,7 +6,7 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { renderNotificationDescription } from './notificationFormatting.esm.js';
-import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, SyncIcon, PipelineIcon, PreviewIcon } from './activityIcons.esm.js';
+import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, BreakglassIcon, SyncIcon, PipelineIcon, PreviewIcon } from './activityIcons.esm.js';
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers.esm.js';
 import { TextLink, FilterGroup, FilterChip } from './ui/index.esm.js';
 
@@ -78,7 +78,9 @@ const TOPIC_META = {
   test: { label: "Test", icon: PipelineIcon },
   images: { label: "Cleanup", icon: ImageIcon },
   "rolled-back": { label: "Rollback", icon: ReleaseIcon },
-  rollout: { label: "Rollout", icon: SyncIcon }
+  rollout: { label: "Rollout", icon: SyncIcon },
+  // Break-glass debug sessions (phase C, G12): requests, approvals, opens, ends, glass broken, reviews.
+  breakglass: { label: "Break-glass", icon: BreakglassIcon }
 };
 function topicMeta(topic) {
   if (topic && TOPIC_META[topic]) return TOPIC_META[topic];

@@ -14,6 +14,7 @@ import { printReleaseRecordPdf, downloadReleaseRecordHtml } from './ReleaseRecor
 import { confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
+import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
 import { TextLink, Button, ActionSelect, StatusChip } from './ui/index.esm.js';
 
@@ -545,6 +546,18 @@ function ReleaseRecordDetail({
           ] })
         ] })
       ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: classes.col, "data-testid": "release-breakglass", children: [
+      /* @__PURE__ */ jsx("div", { className: classes.colHead, children: /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "Break-glass sessions during this release" }) }),
+      /* @__PURE__ */ jsx("div", { className: classes.colBody, children: /* @__PURE__ */ jsx(
+        BreakglassReleaseSessions,
+        {
+          appName,
+          record,
+          others: otherRecords,
+          onOpen: (s) => window.open(`${window.location.pathname}?${new URLSearchParams({ entity: new URLSearchParams(window.location.search).get("entity") ?? "", tab: "topology", env: s.env, breakglass: s.id })}`, "_blank")
+        }
+      ) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.human, children: [
       /* @__PURE__ */ jsx("div", { className: classes.humanHead, children: /* @__PURE__ */ jsx("span", { className: classes.humanTitle, children: "Human context" }) }),
