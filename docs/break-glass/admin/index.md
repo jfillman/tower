@@ -28,9 +28,9 @@ cluster, how to operate it, and why it is built the way it is. If you only use b
 | **Permissions** | backstage `towerPermissions.ts`, `permissionPolicy.ts` | `tower.breakglass.request`, `.approve`, `.terminate` (grant-only), `.self` (grant-only) |
 | **Session store** | Backstage's database (glidepath plugin), table `breakglass_sessions` | one row per session: the audit record |
 | **Debug RBAC** (per cluster) | gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/breakglass-rbac.yaml`; gitops-cluster-kind-prod `30-policy/breakglass/rbac.yaml` | the two debug ClusterRoles and Backstage's standing *binder* right |
-| **Ground policies** (kiac-dev) | gitops-cluster-dev `30-policy/kyverno-policies/tower-breakglass.yaml` (+ `-rbac.yaml`) | three Kyverno `ValidatingPolicy` resources compiled into native ValidatingAdmissionPolicies (`vpol-tower-breakglass-*`); Kyverno's cleanup controller deletes expired grants and copy pods |
-| **Flight policies** (kind-prod) | gitops-cluster-kind-prod `30-policy/breakglass/policies.yaml` (Argo CD app `tower-breakglass`) | four native ValidatingAdmissionPolicies, including the exec deny |
-| **Recordings store** | MinIO on kiac-dev, bucket `tower-breakglass` (`40-observability/minio/create-breakglass-bucket-job.yaml`) | one asciicast per session, 365-day lifecycle; Backstage's key may put and get only |
+| **Ground policies** (kiac-dev) | gitops-cluster-dev `30-policy/kyverno-policies/tower-breakglass.yaml` (+ `-rbac.yaml`, `-debug-image.yaml`) | four Kyverno `ValidatingPolicy` resources compiled into native ValidatingAdmissionPolicies (`vpol-tower-breakglass-*`), and one `ImageValidatingPolicy` (the debug image's signature, a scoped webhook); Kyverno's cleanup controller deletes expired grants and copy pods |
+| **Flight policies** (kind-prod) | gitops-cluster-kind-prod `30-policy/breakglass/policies.yaml` (Argo CD app `tower-breakglass`), `30-policy/kyverno` + `kyverno-policies` | five native ValidatingAdmissionPolicies, including the exec deny; a slim Kyverno (admission + cleanup controllers only) for the TTL backstop and the debug image's signature |
+| **Recordings store** | MinIO on kiac-dev, bucket `tower-breakglass-v2` (`40-observability/minio/create-breakglass-locked-bucket-job.yaml`; the first bucket keeps older recordings) | one asciicast per session as versions in an object-locked bucket (governance, 365 days), 365-day lifecycle; Backstage's key may put and get only; each hash anchored in Rekor |
 | **Recordings credentials** | Infisical (`tower-breakglass-minio-access-key`, `-secret-key`) → ExternalSecret `backstage-breakglass-minio` → env `TOWER_BREAKGLASS_MINIO_*` | planted by hand, never generated |
 | **Debug image** | jfillman/tower `debug-image/` + `.github/workflows/debug-image.yml` → `ghcr.io/jfillman/tower-debug` | Alpine with the debugging tools; amd64 + arm64; signed with cosign; pinned by digest in three places |
 
@@ -63,11 +63,12 @@ Both clusters' policies name these usernames literally. A new cluster needs its 
 | | Ground (kiac-dev) | Flight (kind-prod) |
 |---|---|---|
 | Approval | none | a second person, or glass broken (admins) |
-| Policy engine | Kyverno `ValidatingPolicy` → generated VAP | hand-written VAP + bindings |
+| Policy engine | Kyverno `ValidatingPolicy` → generated VAP | hand-written VAP + bindings; a slim Kyverno (admission + cleanup only) for what a VAP cannot do |
 | Exec deny | not enforced (Tower never offers exec) | `tower-breakglass-no-exec` |
 | Approver annotation required | no | yes, or `hangar.io/breakglass-glass-broken: "true"` |
-| TTL backstop | Kyverno cleanup controller | **not yet** (slim Kyverno on kind-prod in progress); Backstage's sweep only |
-| Image signature checked at admission | no (digest only) | no (digest only); planned with the slim Kyverno |
+| TTL backstop | Kyverno cleanup controller | Kyverno cleanup controller (slim install, phase D); plus Backstage's sweep on both |
+| Image signature checked at admission | yes: `tower-breakglass-debug-image` (cosign keyless, tower's debug-image workflow) | yes, the same policy |
+| Process access enforced in the cluster | yes: the pod's `hangar.io/breakglass-process-access` annotation must name the session (G14) | yes, the same rule |
 | Last ready pod recycled | if the requester asked | never |
 
 Known gaps and their planned fixes are tracked in the platform's break-glass gaps spec; the user-facing ones are listed

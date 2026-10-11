@@ -163,4 +163,9 @@ Tracked in the platform's break-glass gaps spec:
 - ~~hold the app in a Flight copy; the approver's view of the pod's image and the recycle waiver; sessions on the
   release record and the activity feed~~ (phase C);
 - ~~shorter checkpoints~~ (phase B: 10 s);
-- the Flight TTL backstop and image-signature admission (slim Kyverno on kind-prod).
+- ~~the Flight TTL backstop and image-signature admission (slim Kyverno on kind-prod)~~ (phase D, 2026-10-11:
+  gitops-cluster-kind-prod `30-policy/kyverno`; `tower-breakglass-debug-image` on both clusters);
+- ~~process access enforced in the cluster~~ (G14: `tower-breakglass-pod-annotate` and the annotation rule in
+  `tower-breakglass-debug-container`, both clusters).
+
+Everything the gaps handoff listed is built; what remains is whatever the next field report finds.

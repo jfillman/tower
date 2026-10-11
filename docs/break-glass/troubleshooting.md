@@ -54,6 +54,8 @@ name.
 | *pod was already gone* | Nothing to restart. |
 | *copy pod not deleted (Kyverno TTL will): …* | The copy pod could not be deleted at the end; its expiry label removes it within 15 minutes after the session's planned end (Ground). Tell an admin on Flight. |
 | *RoleBinding not deleted (Kyverno TTL will): …* | Same, for the grant. |
+| *A debug container with process access (targetContainerName) must be named after the session the pod's … annotation names* | The cluster refused process access because the pod was not annotated for this session (G14). | Tower always annotates first; if you see this, the backend and the policies are out of step: tell an admin. |
+| *The break-glass debug image is not signed by tower's debug-image workflow* | The cluster could not verify the debug image's signature (an unsigned build, or Sigstore unreachable from the cluster). | Tell an admin: the debug image is released only through that workflow. |
 | *nothing was recorded: no terminal was opened* | The session started but no terminal attached. |
 
 ## Reviews and recordings
