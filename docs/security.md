@@ -148,8 +148,10 @@ refuses it.
     shares the app container's process namespace, so you see its processes. Its files and environment (secrets) under
     `/proc/<pid>/` are readable only when the app runs as the same non-root user as the debug container (65532): the
     kernel refuses another user, and the debug container is never root, so an app running as root keeps them. An
-    ephemeral container stays in the pod spec for the pod's life, so the pod is restarted (through Argo CD) when the
-    session ends; a last ready pod is left alone unless the requester ticked "restart even if it is the only ready one".
+    ephemeral container stays in the pod spec for the pod's life, so the pod is restarted when the session ends: through
+    Argo CD, or, for a pod Argo CD does not manage (an attached component such as Redis), deleted directly under the
+    session's grant, which Kyverno limits to pods carrying a debug container. A last ready pod is left alone unless the
+    requester ticked "restart even if it is the only ready one".
 - **Volume access** (optional, either mode, shown on the record with the list of volumes): the volumes the app
   container mounts (ConfigMaps, Secrets, emptyDirs, claims) mounted read-only under `/pod-volumes/<volume>`, each whole
   (an ephemeral container cannot use `subPath`, so a single file the app mounts shows as its whole ConfigMap or Secret).
@@ -164,7 +166,8 @@ refuses it.
   kept a year), with its SHA-256 on the session record. A session cannot start if recordings are not configured. Owners
   and admins can download recordings from the pod's Debug panel.
 - **No standing rights.** Backstage's Kubernetes identity can only create and delete RoleBindings to the two debug
-  roles. A session creates `tower-breakglass-<id>` in the app's namespace for its length, with a Kyverno cleanup TTL
+  roles. Both roles can delete pods while a session lasts (the copy, or the live pod's restart); Kyverno lets Backstage
+  delete only a pod carrying a break-glass debug container or a copy pod. A session creates `tower-breakglass-<id>` in the app's namespace for its length, with a Kyverno cleanup TTL
   as the backstop, and deletes it at the end. The browser never holds a Kubernetes credential: the terminal is a
   WebSocket to the backend, authenticated with the user's Backstage token.
 - **Enforced in the cluster** by Kyverno (fail closed): the RoleBinding's shape, the debug image and its
