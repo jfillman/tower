@@ -66,3 +66,49 @@ describe('RecentActivityPanel shows every notification (2026-10-11)', () => {
     expect(topicMeta('rollout').label).toBe('Rollout');
   });
 });
+
+describe('build and release rows read the outcome from the title (2026-10-11)', () => {
+  const build = (title: string) =>
+    ({
+      ...n('b', 'build', title),
+      payload: { title, severity: 'normal', topic: 'build', description: 'Repo: jfillman/backstage @ abcdef1234\nImage: ghcr.io/jfillman/backstage:1.0.2-abcdef1\nRun: ci-0-build-x' },
+    }) as any;
+  const renderRows = (items: any[]) =>
+    render(
+      <RecentActivityPanel
+        notifications={items}
+        loading={false}
+        goToImage={() => undefined}
+        goToRun={() => undefined}
+        goToEnv={() => undefined}
+        goToTopology={() => undefined}
+        pipelineOrder={undefined}
+        pipelineRuns={[]}
+        deployHistory={undefined}
+        onViewAll={() => undefined}
+      />,
+    );
+
+  it('a cancelled build says cancelled and offers no pushed image', () => {
+    renderRows([build('backstage · Build Cancelled')]);
+    expect(screen.getByText('Build cancelled')).toBeTruthy();
+    expect(screen.queryByText('Build completed, image pushed to registry')).toBeNull();
+    expect(screen.queryByText('1.0.2-abcdef1')).toBeNull();
+  });
+
+  it('a successful build says so and links its image', () => {
+    renderRows([build('backstage · Build Succeeded')]);
+    expect(screen.getByText('Build completed, image pushed to registry')).toBeTruthy();
+    expect(screen.getByText('1.0.2-abcdef1')).toBeTruthy();
+  });
+
+  it('stageOutcome covers every pipeline status', async () => {
+    const { stageOutcome } = jest.requireActual('./activityRowRenderers');
+    expect(stageOutcome('x · Build Succeeded')).toBe('succeeded');
+    expect(stageOutcome('x · Build Completed')).toBe('succeeded');
+    expect(stageOutcome('x · Build Failed')).toBe('failed');
+    expect(stageOutcome('x · Build Cancelled')).toBe('cancelled');
+    expect(stageOutcome('Release trigger cancelled for staging')).toBe('cancelled');
+    expect(stageOutcome('x · Build None')).toBe('unknown');
+  });
+});

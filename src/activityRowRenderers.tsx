@@ -205,6 +205,20 @@ function PillChain({
   );
 }
 
+/**
+ * A pipeline stage's outcome from its notification title. notify-backstage.yaml titles a stage
+ * "<app> · <Stage> <STATUS>" (STATUS Succeeded, Completed, Failed, Cancelled or None), and its release stage
+ * "Release triggered / trigger failed / trigger cancelled for <env>". 2026-10-11: a cancelled build read as
+ * "Build completed, image pushed to registry", because only "failed" was looked for.
+ */
+export function stageOutcome(title: string): 'succeeded' | 'failed' | 'cancelled' | 'unknown' {
+  const s = title.toLowerCase();
+  if (s.includes('failed')) return 'failed';
+  if (s.includes('cancelled') || s.includes('canceled')) return 'cancelled';
+  if (s.includes('succeeded') || s.includes('completed') || s.includes('triggered')) return 'succeeded';
+  return 'unknown';
+}
+
 // Build/publish (topic 'build'): line 1 names success/failure; line 2
 // chains commit -> CI run -> published, each independently clickable.
 // Parses the exact lines notify-backstage.yaml's build-stage call already
@@ -237,7 +251,13 @@ export function renderBuildRow(
   const imageRef = extractLine(desc, 'Image');
   const runName = extractLine(desc, 'Run');
   const tag = imageRef ? imageTag(imageRef) : undefined;
-  const failed = n.payload.title.toLowerCase().includes('failed');
+  const outcome = stageOutcome(n.payload.title);
+  const headline = {
+    succeeded: 'Build completed, image pushed to registry',
+    failed: 'Build failed',
+    cancelled: 'Build cancelled',
+    unknown: n.payload.title,
+  }[outcome];
 
   const items: PillItem[] = [];
   if (repoShort && sha) {
@@ -258,7 +278,8 @@ export function renderBuildRow(
       title: runName,
     });
   }
-  if (tag) {
+  // Only a successful build pushed an image; a failed or cancelled one may still name the tag it was building.
+  if (tag && outcome === 'succeeded') {
     items.push({
       key: 'published',
       icon: ImageIcon,
@@ -285,7 +306,7 @@ export function renderBuildRow(
   return (
     <>
       <Typography className={ctx.classes.rowTitle}>
-        {failed ? 'Build failed' : 'Build completed, image pushed to registry'}
+        {headline}
       </Typography>
       <PillChain items={items} n={n} ctx={ctx} />
     </>
@@ -545,7 +566,7 @@ export function renderReleaseRow(
   const tag = imageRef ? imageTag(imageRef) : undefined;
   const prUrl = extractLine(desc, 'PR');
   const prNumber = prUrl ? prNumberFromUrl(prUrl) : undefined;
-  const failed = n.payload.title.toLowerCase().includes('failed');
+  const releaseOutcome = stageOutcome(n.payload.title);
 
   const items: PillItem[] = [];
   if (repoShort && sha) {
@@ -594,9 +615,9 @@ export function renderReleaseRow(
   return (
     <>
       <Typography className={ctx.classes.rowTitle}>
-        {failed
-          ? `Release trigger failed for ${env ?? '—'}`
-          : `Release triggered for ${env ?? '—'}`}
+        {releaseOutcome === 'failed' && `Release trigger failed for ${env ?? '—'}`}
+        {releaseOutcome === 'cancelled' && `Release trigger cancelled for ${env ?? '—'}`}
+        {(releaseOutcome === 'succeeded' || releaseOutcome === 'unknown') && `Release triggered for ${env ?? '—'}`}
       </Typography>
       <PillChain items={items} n={n} ctx={ctx} />
     </>
