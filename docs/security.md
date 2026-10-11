@@ -41,8 +41,9 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
 | Edit a release record's human context | `tower.release-record.edit` | owners | owners | medium |
 | Delete old images (Images tab → Clean up old images) | `tower.images.prune` | owners | owners | high |
-| Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | **refused** (approval not built yet) | high |
-| End someone else's break-glass session | `tower.breakglass.terminate` | admins | admins | high |
+| Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | owners, **after a second person approves** | high (Flight request: medium) |
+| Approve or deny a Flight break-glass request | `tower.breakglass.approve` | n/a | owners other than the requester, admins | high |
+| End someone else's break-glass session | `tower.breakglass.terminate` | admins | admins, and the session's approver | high |
 
 - The `.flight` permissions are **grant-only**: ownership never satisfies them. Today only admins hold them.
 - An environment the server cannot place in either tier is treated as Flight, the stricter one.
@@ -137,8 +138,10 @@ app's own packages (`<app>`, `<app>-pr`, `<app>/cache`). Platform images (`glide
 ## Break-glass debug sessions
 
 A recorded, time-boxed shell on one pod, for when logs, metrics and the resource tree cannot answer the question.
-**Ground environments only** so far; Flight needs a second person's approval, which is not built yet, and the backend
-refuses it.
+On Ground it opens at once. **On Flight a second person approves first**: an owner of the app other than the requester,
+or an admin (never the requester; the backend refuses it, and the cluster refuses a RoleBinding whose approver is the
+requester). A request expires after 30 minutes; an approved one must be started within 10, and the session's own clock
+starts then. On Flight the last ready pod is never restarted for you. Not offered on preview environments.
 
 - **Never exec.** The shell runs in a separate debug container (busybox, pinned by digest): non-root (65532:65532),
   read-only root filesystem, every capability dropped, no privilege escalation. Two modes:
@@ -170,8 +173,11 @@ refuses it.
   delete only a pod carrying a break-glass debug container or a copy pod. A session creates `tower-breakglass-<id>` in the app's namespace for its length, with a Kyverno cleanup TTL
   as the backstop, and deletes it at the end. The browser never holds a Kubernetes credential: the terminal is a
   WebSocket to the backend, authenticated with the user's Backstage token.
-- **Enforced in the cluster** by Kyverno (fail closed): the RoleBinding's shape, the debug image and its
-  securityContext, and the copy pod's TTL. If Kyverno is down, break-glass is unavailable; nothing else is affected.
+- **Enforced in the cluster**, failing closed: the RoleBinding's shape, the debug image and its securityContext, the
+  copy pod's TTL, and which pods Backstage may delete. On Ground by Kyverno (if Kyverno is down, break-glass is
+  unavailable; nothing else is affected). On Flight by built-in ValidatingAdmissionPolicy, which runs inside the API
+  server and so is never down on its own; there it also refuses `pods/exec` into app namespaces to everyone but
+  operators, and lets Backstage attach only to a debug container.
 - **Audited** `high` when it opens and again when it ends (with the end reason, whether the pod was restarted, and the
   recording's hash).
 

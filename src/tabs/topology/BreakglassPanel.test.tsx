@@ -67,11 +67,18 @@ beforeEach(() => {
   postResponse = { status: 200, body: {} };
 });
 
+const at = (min: number) => new Date(Date.now() + min * 60_000).toISOString();
+const flightRow = (over: Record<string, unknown>) => ({
+  id: 'f1', app: 'sky-marshall', env: 'dev', pod: 'sky-marshall-abc', container: 'sky-marshall', mode: 'live', processAccess: true,
+  volumeAccess: false, reason: 'hung connection', requester: 'user:development/skyport-dev', createdAt: at(-1), expiresAt: at(29),
+  state: 'requested', tier: 'flight', durationMinutes: 30, ...over,
+});
+
 describe('BreakglassPanel', () => {
-  it('refuses Flight without offering a session', async () => {
-    await renderIt('upper');
-    expect(screen.getByText(/Ground environments only/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Start recorded session/ })).toBeNull();
+  it('refuses preview environments', async () => {
+    await renderIt('preview');
+    expect(screen.getByText(/not offered on preview environments/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Start recorded session|Request approval/ })).toBeNull();
   });
 
   it('needs a reason, then opens a copy-mode session and attaches with the user token as the subprotocol', async () => {
@@ -158,5 +165,54 @@ describe('BreakglassPanel', () => {
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'x' } });
     await act(async () => fireEvent.click(screen.getByRole('button', { name: /Start recorded session/ })));
     expect(screen.getByText('Flight needs approval (not built yet)')).toBeTruthy();
+  });
+});
+
+describe('BreakglassPanel on Flight (phase 3)', () => {
+  it('asks for approval instead of opening, and never offers the last-pod restart', async () => {
+    postResponse = { status: 200, body: { id: 'f1', state: 'requested', session: flightRow({}) } };
+    await renderIt('upper');
+    fireEvent.click(screen.getByRole('radio', { name: /^The live pod/ }));
+    expect(screen.queryByText(/even if it is the only ready one/)).toBeNull();
+    expect(screen.getByText(/never restarted for you/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'hung connection' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Request approval' })));
+    expect(JSON.parse(String(calls.find(c => c.init?.method === 'POST')!.init!.body))).toMatchObject({ mode: 'live', recycleLastPod: false });
+    expect(screen.getByText(/Request sent/)).toBeTruthy();
+    expect(screen.queryByText('Recorded break-glass session')).toBeNull();
+    expect(sockets).toHaveLength(0);
+  });
+
+  it('shows the requester their pending request, with Withdraw', async () => {
+    listBody = { sessions: [flightRow({})], user: 'user:development/skyport-dev', recordingsConfigured: true };
+    await renderIt('upper');
+    expect(screen.getByTestId('breakglass-awaiting').textContent).toContain('Waiting for approval');
+    expect(screen.queryByTestId('breakglass-to-decide')).toBeNull(); // never asked to decide their own
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Withdraw' })));
+    expect(calls.find(c => c.init?.method === 'POST')!.url).toBe('http://be/api/glidepath/breakglass/sessions/f1/end');
+  });
+
+  it('lets the requester start an approved session, which opens the terminal', async () => {
+    listBody = { sessions: [flightRow({ state: 'approved', approver: 'user:default/jfillman', expiresAt: at(9) })], user: 'user:development/skyport-dev', recordingsConfigured: true };
+    postResponse = { status: 200, body: { session: flightRow({ state: 'active', expiresAt: at(30) }) } };
+    await renderIt('upper');
+    expect(screen.getByTestId('breakglass-approved').textContent).toContain('Approved by jfillman');
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Start recorded session' })));
+    expect(calls.find(c => c.init?.method === 'POST')!.url).toBe('http://be/api/glidepath/breakglass/sessions/f1/start');
+    expect(screen.getByText(/Recorded break-glass session/)).toBeTruthy();
+    expect(sockets[0].url).toContain('/breakglass/sessions/f1/attach');
+  });
+
+  it('asks a second person to decide, and sends their note', async () => {
+    listBody = { sessions: [flightRow({})], user: 'user:default/jfillman', recordingsConfigured: true };
+    await renderIt('upper');
+    const box = screen.getByTestId('breakglass-to-decide');
+    expect(box.textContent).toContain('skyport-dev asks for a 30-minute live session');
+    expect(box.textContent).toContain('with process access');
+    fireEvent.change(screen.getByLabelText('Note for f1'), { target: { value: 'ok, INC-42' } });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Approve' })));
+    const post = calls.find(c => c.init?.method === 'POST')!;
+    expect(post.url).toBe('http://be/api/glidepath/breakglass/sessions/f1/approve');
+    expect(JSON.parse(String(post.init!.body))).toEqual({ note: 'ok, INC-42' });
   });
 });

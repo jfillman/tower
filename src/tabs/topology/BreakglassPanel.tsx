@@ -40,7 +40,14 @@ export interface BreakglassSession {
   recordingBytes?: number;
   recycled?: boolean;
   cleanupNotes?: string;
-  state: 'active' | 'ended';
+  /** Ground: active -> ended. Flight: requested -> approved -> active -> ended (a deny or expiry ends it early). */
+  state: 'requested' | 'approved' | 'active' | 'ended';
+  tier?: 'ground' | 'flight';
+  durationMinutes?: number;
+  approver?: string;
+  approvedAt?: string;
+  decisionNote?: string;
+  startedAt?: string;
   attached?: boolean;
 }
 
@@ -194,6 +201,8 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
   const [attachKey, setAttachKey] = useState(0);
   const [detached, setDetached] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [decisionNote, setDecisionNote] = useState<Record<string, string>>({});
+  const flight = tier === 'upper';
 
   const load = useCallback(async () => {
     if (!appName) return;
@@ -214,22 +223,28 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
     load();
   }, [load]);
 
+  // A request waiting on someone (or an approval waiting on the requester) changes elsewhere: look again every 10 s.
+  const waiting = sessions.some(s => s.state === 'requested' || s.state === 'approved');
   useEffect(() => {
-    if (!open) return undefined;
+    if (!waiting || open) return undefined;
+    const timer = setInterval(() => load(), 10_000);
+    return () => clearInterval(timer);
+  }, [waiting, open, load]);
+
+  useEffect(() => {
+    if (!open && !waiting) return undefined;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [open]);
+  }, [open, waiting]);
 
   if (!appName) return <span className={classes.hint}>No app is known for this environment.</span>;
-  if (tier !== 'lower') {
-    return (
-      <span className={classes.hint}>
-        Break-glass debug is available on Ground environments only. Flight needs a second person's approval, which is not built yet.
-      </span>
-    );
+  if (tier === 'preview') {
+    return <span className={classes.hint}>Break-glass debug is not offered on preview environments.</span>;
   }
 
-  const mine = sessions.find(s => s.state === 'active' && s.requester === listInfo.user && s.pod === podName);
+  const mine = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod === podName);
+  const mineElsewhere = sessions.find(s => s.state !== 'ended' && s.requester === listInfo.user && s.pod !== podName);
+  const toDecide = sessions.filter(s => s.state === 'requested' && s.requester !== listInfo.user);
 
   const start = async () => {
     setBusy(true);
@@ -249,16 +264,55 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
           mode,
           processAccess: mode === 'live' && processAccess,
           volumeAccess,
-          recycleLastPod: mode === 'live' && recycleLastPod,
+          recycleLastPod: !flight && mode === 'live' && recycleLastPod,
           durationMinutes: duration,
           reason,
           ...(ticketUrl.trim() ? { ticketUrl: ticketUrl.trim() } : {}),
         }),
       });
-      setOpen(body.session);
-      setDetached(false);
+      if (body.session.state === 'active') {
+        setOpen(body.session);
+        setDetached(false);
+      } else {
+        setClosedNote('Request sent. An owner of this app other than you, or an admin, must approve it within 30 minutes.');
+      }
       setReason('');
       setTicketUrl('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
+
+  const startApproved = async (id: string) => {
+    setBusy(true);
+    setError(undefined);
+    setClosedNote(undefined);
+    try {
+      const body = await api<{ session: BreakglassSession }>(discoveryApi, fetchApi, `/sessions/${id}/start`, { method: 'POST' });
+      setOpen(body.session);
+      setDetached(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      load();
+    }
+  };
+
+  const decide = async (id: string, decision: 'approve' | 'deny') => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const note = decisionNote[id]?.trim();
+      await api(discoveryApi, fetchApi, `/sessions/${id}/${decision}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(note ? { note } : {}),
+      });
+      setClosedNote(decision === 'approve' ? 'Approved. The requester has 10 minutes to start the session.' : 'Denied.');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -363,7 +417,28 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
         </>
       ) : (
         <>
-          {mine && (
+          {mine?.state === 'requested' && (
+            <div className={classes.actions} data-testid="breakglass-awaiting">
+              <span className={classes.warn}>
+                Waiting for approval: an owner of {appName} other than you, or an admin. The request expires in {remaining(mine.expiresAt, now)}.
+              </span>
+              <Button small disabled={ending} onClick={() => end(mine.id)}>{ending ? 'Withdrawing…' : 'Withdraw'}</Button>
+            </div>
+          )}
+          {mine?.state === 'approved' && (
+            <div className={classes.actions} data-testid="breakglass-approved">
+              <span className={classes.warn}>
+                Approved by {(mine.approver ?? '').replace(/^user:[^/]+\//, '')}
+                {mine.decisionNote ? ` (“${mine.decisionNote}”)` : ''}. Start within {remaining(mine.expiresAt, now)}; the
+                {` ${mine.durationMinutes ?? ''}`}-minute clock starts then.
+              </span>
+              <Button variant="danger" disabled={busy} onClick={() => startApproved(mine.id)}>
+                {busy ? 'Preparing the debug container…' : 'Start recorded session'}
+              </Button>
+              <Button small disabled={ending} onClick={() => end(mine.id)}>Withdraw</Button>
+            </div>
+          )}
+          {mine?.state === 'active' && (
             <div className={classes.actions}>
               <span className={classes.warn}>
                 You have an active session on this pod (ends {relativeTime(mine.expiresAt)}).
@@ -381,11 +456,46 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
               <Button small variant="danger" disabled={ending} onClick={() => end(mine.id)}>{ending ? 'Ending…' : 'End it'}</Button>
             </div>
           )}
+          {mineElsewhere && !mine && (
+            <span className={classes.warn}>
+              You have a break-glass {mineElsewhere.state === 'active' ? 'session' : 'request'} open on {mineElsewhere.pod}; one at a time.
+            </span>
+          )}
+          {toDecide.length > 0 && (
+            <div className={classes.history} data-testid="breakglass-to-decide">
+              <span className={classes.hint} style={{ fontWeight: 700 }}>Requests awaiting a second person</span>
+              {toDecide.map(r => (
+                <div key={r.id} className={classes.banner} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                  <span className={classes.bannerMeta}>
+                    <b>{r.requester.replace(/^user:[^/]+\//, '')}</b> asks for a {r.durationMinutes ?? ''}-minute {r.mode} session on {r.pod}
+                    {r.processAccess ? ', with process access' : ''}
+                    {r.volumeAccess ? ', with volume access' : ''}. Expires in {remaining(r.expiresAt, now)}.
+                  </span>
+                  <span className={classes.bannerMeta}>Reason: {r.reason}</span>
+                  {r.ticketUrl && (
+                    <a className={classes.link} href={r.ticketUrl} target="_blank" rel="noopener noreferrer">{r.ticketUrl}</a>
+                  )}
+                  <div className={classes.actions}>
+                    <input
+                      aria-label={`Note for ${r.id}`}
+                      placeholder="Note (optional)"
+                      value={decisionNote[r.id] ?? ''}
+                      onChange={e => setDecisionNote(n => ({ ...n, [r.id]: e.target.value }))}
+                      style={{ flex: 1, minWidth: 160 }}
+                    />
+                    <Button variant="danger" small disabled={busy} onClick={() => decide(r.id, 'approve')}>Approve</Button>
+                    <Button small disabled={busy} onClick={() => decide(r.id, 'deny')}>Deny</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {closedNote && <span className={classes.hint}>{closedNote}</span>}
           {ending && <span className={classes.hint}>Ending the session: removing the grant and the debug pod, saving the recording…</span>}
           <span className={classes.hint}>
             A time-boxed shell in a hardened debug container (busybox, non-root, read-only, no capabilities). Everything typed and shown is
             recorded and kept for a year; the session is audited.
+            {flight && ' On Flight a second person approves first: an owner of this app other than you, or an admin.'}
           </span>
           {listInfo.recordingsConfigured === false && (
             <span className={classes.bad}>Recordings are not configured on the backend, so no session can start.</span>
@@ -435,14 +545,20 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
                       </span>
                     </span>
                   </label>
-                  <label className={classes.radio}>
-                    <input type="checkbox" checked={recycleLastPod} onChange={e => setRecycleLastPod(e.target.checked)} />
-                    <span>
-                      Restart the pod at the end even if it is the only ready one
-                      <br />
-                      <span className={classes.hint}>Otherwise a last ready pod keeps the debug container until you restart it.</span>
+                  {flight ? (
+                    <span className={classes.hint}>
+                      On Flight the last ready pod is never restarted for you: it keeps the debug container until the next rollout.
                     </span>
-                  </label>
+                  ) : (
+                    <label className={classes.radio}>
+                      <input type="checkbox" checked={recycleLastPod} onChange={e => setRecycleLastPod(e.target.checked)} />
+                      <span>
+                        Restart the pod at the end even if it is the only ready one
+                        <br />
+                        <span className={classes.hint}>Otherwise a last ready pod keeps the debug container until you restart it.</span>
+                      </span>
+                    </label>
+                  )}
                 </>
               )}
               {containers.length > 1 && (
@@ -478,8 +594,12 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             </div>
           </div>
           <div className={classes.actions}>
-            <Button variant="danger" disabled={busy || ending || !reason.trim() || !!mine || listInfo.recordingsConfigured === false} onClick={start}>
-              {busy ? 'Preparing the debug container…' : 'Start recorded session'}
+            <Button
+              variant="danger"
+              disabled={busy || ending || !reason.trim() || !!mine || !!mineElsewhere || listInfo.recordingsConfigured === false}
+              onClick={start}
+            >
+              {busy ? (flight ? 'Sending the request…' : 'Preparing the debug container…') : flight ? 'Request approval' : 'Start recorded session'}
             </Button>
             {busy && <span className={classes.hint}>This can take up to two minutes.</span>}
           </div>
@@ -493,7 +613,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
         {!listInfo.error && sessions.length === 0 && <span className={classes.hint}>None yet.</span>}
         {sessions.map(s => (
           <div key={s.id} className={classes.row}>
-            <StatusChip tone={s.state === 'active' ? 'warn' : 'neutral'}>{s.state}</StatusChip>
+            <StatusChip tone={s.state === 'active' ? 'warn' : s.state === 'ended' ? 'neutral' : 'info'}>{s.state}</StatusChip>
             <span title={formatDateTime(s.createdAt)}>{relativeTime(s.createdAt)}</span>
             <span>
               {s.mode}
@@ -510,6 +630,7 @@ export function BreakglassPanel({ env, podName, containers, tier }: { env: Envir
             {s.ticketUrl && (
               <a className={classes.link} href={s.ticketUrl} target="_blank" rel="noopener noreferrer">ticket</a>
             )}
+            {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {s.approver.replace(/^user:[^/]+\//, '')}</span>}
             {s.endReason && (
               <span className={classes.rowMeta} title={s.endReason}>
                 {s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}…` : s.endReason}
