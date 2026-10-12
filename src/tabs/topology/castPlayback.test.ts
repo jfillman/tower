@@ -1,5 +1,6 @@
 import { createHash, webcrypto } from 'node:crypto';
 import { clock, eventsUntil, parseCast, parseSize, sha256Hex } from './castPlayback';
+import { sha256HexJs } from './castPlayback';
 
 const cast = [
   JSON.stringify({ version: 2, width: 100, height: 30, timestamp: 1760000000, title: 'break-glass copy sky-marshall/staging' }),
@@ -52,19 +53,33 @@ describe('playback helpers', () => {
     expect(clock(61.9)).toBe('1:01');
   });
 
-  it('hashes the bytes as the backend does, and says so when the browser cannot hash', async () => {
+  it('hashes the bytes as the backend does, with crypto.subtle or without it (plain-HTTP pages)', async () => {
     const bytes = Buffer.from(cast);
     const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const saved = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
     try {
-      // jsdom has no crypto.subtle; a browser on https (or localhost) does.
+      // jsdom has no crypto.subtle, nor does a browser on plain http; one on https (or localhost) does.
       Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
       expect(await sha256Hex(buf)).toBe(createHash('sha256').update(cast).digest('hex'));
       Object.defineProperty(globalThis, 'crypto', { value: {}, configurable: true });
-      expect(await sha256Hex(buf)).toBeUndefined();
+      expect(await sha256Hex(buf)).toBe(createHash('sha256').update(cast).digest('hex'));
     } finally {
       if (saved) Object.defineProperty(globalThis, 'crypto', saved);
       else delete (globalThis as { crypto?: unknown }).crypto;
     }
+  });
+});
+
+describe('sha256HexJs (the player`s digest without crypto.subtle, over plain HTTP)', () => {
+  const enc = (s: string) => new TextEncoder().encode(s);
+  it('matches the FIPS 180-4 vectors, one block and two', () => {
+    expect(sha256HexJs(enc(''))).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(sha256HexJs(enc('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    expect(sha256HexJs(enc('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'))).toBe('248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1');
+  });
+  it('handles a length that lands on the padding boundary and a million characters', () => {
+    expect(sha256HexJs(enc('a'.repeat(55)))).toBe('9f4390f8d30c2dd92ec9f095b65e2b9ae9b0a925a5258e241c9f1e910f734318');
+    expect(sha256HexJs(enc('a'.repeat(64)))).toBe('ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb');
+    expect(sha256HexJs(enc('a'.repeat(1_000_000)))).toBe('cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0');
   });
 });

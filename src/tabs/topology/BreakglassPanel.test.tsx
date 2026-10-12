@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { BreakglassPanel } from './BreakglassPanel';
 import type { EnvironmentSummary } from '../../types';
@@ -338,7 +339,7 @@ describe('the recording player', () => {
       JSON.stringify([0.6, 'o', 'uid=65532\r\n']),
     ].join('\n');
     listBody = {
-      sessions: [flightRow({ id: 'r1', state: 'ended', recordingKey: 'k', recordingSha256: 'whatever', endedAt: at(-1) })],
+      sessions: [flightRow({ id: 'r1', state: 'ended', recordingKey: 'k', recordingSha256: createHash('sha256').update(recording).digest('hex'), endedAt: at(-1) })],
       user: 'user:default/riley-roooo', recordingsConfigured: true,
     };
     await renderIt('upper');
@@ -346,8 +347,8 @@ describe('the recording player', () => {
     expect(calls.some(c => c.url === 'http://be/api/glidepath/breakglass/sessions/r1/recording?purpose=play')).toBe(true);
     const player = screen.getByTestId('breakglass-player');
     expect(player.textContent).toContain('1 keystroke events');
-    // jsdom cannot hash (no crypto.subtle), and says so rather than claiming a match.
-    expect(player.textContent).toContain('integrity not checked');
+    // jsdom has no crypto.subtle (nor does a plain-http browser): the plain-JS SHA-256 checks the recording anyway.
+    expect(player.textContent).toContain('SHA-256 matches the session record');
     await act(async () => fireEvent.change(screen.getByLabelText('Seek'), { target: { value: '99' } }));
     expect(mockWrite).toHaveBeenLastCalledWith('$ uid=65532\r\n');
   });
