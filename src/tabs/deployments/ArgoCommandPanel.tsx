@@ -3,11 +3,11 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../../shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
-import { Button, StatusChip, TextLink } from '../../ui';
+import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
 import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
@@ -53,7 +53,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 10,
   },
   headRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi, flexShrink: 0 },
   statusChips: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' },
@@ -117,7 +116,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   flags: { display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 },
   flag: { fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
   flagOff: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
-  subTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi, marginBottom: 2 },
+  subTitleGap: { marginBottom: 2 },
   // The full ArgoCD "Sync Status" panel column set (2026-09-16: "I would
   // like the argocd resource tree section to contain the same info as
   // argocd's UI does in the sync status page... sync wave, status, health,
@@ -153,7 +152,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.sky,
   },
   diffNote: { fontSize: 11, color: ({ t }) => t.textFaint, paddingTop: 6 },
-  note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textLo, padding: '2px 0' },
 }));
 
 
@@ -253,8 +251,8 @@ export function ArgoCommandPanel({
   if (!env.argoAppName) {
     return (
       <div className={classes.panel}>
-        <Typography className={classes.title}>ArgoCD application</Typography>
-        <Typography className={classes.note}>This environment has no ArgoCD Application resolved yet.</Typography>
+        <SectionTitle level={2}>ArgoCD application</SectionTitle>
+        <EmptyNote>This environment has no ArgoCD Application resolved yet.</EmptyNote>
       </div>
     );
   }
@@ -280,7 +278,7 @@ export function ArgoCommandPanel({
     <div className={classes.panel}>
       <div className={classes.headRow}>
         <div>
-          <Typography className={classes.title}>{env.argoAppName}</Typography>
+          <SectionTitle level={2}>{env.argoAppName}</SectionTitle>
         </div>
         {currentImage?.tag && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -398,9 +396,9 @@ export function ArgoCommandPanel({
 
       {argoActions.error && <Typography className={classes.argoErr}>{argoActions.error}</Typography>}
       {!reached && (
-        <Typography className={classes.note}>
+        <EmptyNote>
           Couldn't reach ArgoCD for {env.argoAppName} - the facts here may be stale, not actually wrong.
-        </Typography>
+        </EmptyNote>
       )}
 
       {guideOpen && (
@@ -477,11 +475,11 @@ export function ArgoCommandPanel({
           </div>
 
           <div>
-            <Typography className={classes.subTitle}>Resource tree</Typography>
+            <div className={classes.subTitleGap}><SectionTitle level={2}>Resource tree</SectionTitle></div>
             {resources.length === 0 ? (
-              <Typography className={classes.note}>
+              <EmptyNote>
                 No resource tree reported yet{reached ? '' : ' (ArgoCD unreachable)'}.
-              </Typography>
+              </EmptyNote>
             ) : (
               <div className={classes.treeScroll}>
                 <table className={classes.table}>

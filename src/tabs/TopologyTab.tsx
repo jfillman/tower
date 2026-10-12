@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
-import { PageHeader } from '../ui';
+import { EmptyNote, PageHeader } from '../ui';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
@@ -26,7 +25,6 @@ const TIER_DISPLAY_ORDER: EnvTier[] = ['lower', 'upper', 'preview'];
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   main: { display: 'flex', flexDirection: 'column', gap: 16 },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
 }));
 
 export function TopologyTab() {
@@ -101,9 +99,9 @@ export function TopologyTab() {
           ]}
           showConnectors={false}
         />
-        <Typography className={classes.note}>
+        <EmptyNote inset>
           Once something's rolled out somewhere, its topology will show up here.
-        </Typography>
+        </EmptyNote>
       </div>
     );
   }

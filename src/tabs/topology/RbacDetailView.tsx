@@ -1,10 +1,10 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import PeopleIcon from '@material-ui/icons/People';
 import SecurityIcon from '@material-ui/icons/Security';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { K8sResourceRef } from '../../types';
+import { EmptyNote, SectionTitle } from '../../ui';
 
 // Human-friendly rendering for Role/ClusterRole/RoleBinding/
 // ClusterRoleBinding (2026-09-17 follow-up to the "all resources" gallery -
@@ -61,7 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   section: { display: 'flex', flexDirection: 'column', gap: 8 },
   sectionHead: { display: 'flex', alignItems: 'center', gap: 8 },
   sectionIcon: { display: 'flex', color: ({ t }) => t.sky },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   bindingCard: {
     display: 'flex',
     flexDirection: 'column',
@@ -127,7 +126,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
   },
   resourceNamePill: { backgroundColor: ({ t }) => t.skySoft, color: ({ t }) => t.sky },
-  note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textFaint },
 }));
 
 function RuleCard({ rule, classes, t }: { rule: RawPolicyRule; classes: ReturnType<typeof useStyles>; t: HangarTokens }) {
@@ -197,7 +195,7 @@ function RulesSection({ rules, classes, t }: { rules: RawPolicyRule[]; classes: 
       <div className={classes.section}>
         <div className={classes.sectionHead}>
           <span className={classes.sectionIcon}><SecurityIcon fontSize="small" /></span>
-          <Typography className={classes.sectionTitle}>Overview</Typography>
+          <SectionTitle level={2}>Overview</SectionTitle>
         </div>
         <div className={classes.kvRow}>
           <div className={classes.kv}>
@@ -209,10 +207,10 @@ function RulesSection({ rules, classes, t }: { rules: RawPolicyRule[]; classes: 
       <div className={classes.section}>
         <div className={classes.sectionHead}>
           <span className={classes.sectionIcon}><SecurityIcon fontSize="small" /></span>
-          <Typography className={classes.sectionTitle}>Rules ({rules.length})</Typography>
+          <SectionTitle level={2}>Rules ({rules.length})</SectionTitle>
         </div>
         {rules.length === 0 ? (
-          <Typography className={classes.note}>This role grants no rules.</Typography>
+          <EmptyNote>This role grants no rules.</EmptyNote>
         ) : (
           rules.map((rule, i) => <RuleCard key={i} rule={rule} classes={classes} t={t} />)
         )}
@@ -251,7 +249,7 @@ export function RbacDetailView({ resource, related }: { resource: K8sResourceRef
       <div className={classes.section}>
         <div className={classes.sectionHead}>
           <span className={classes.sectionIcon}><PeopleIcon fontSize="small" /></span>
-          <Typography className={classes.sectionTitle}>Bindings (1)</Typography>
+          <SectionTitle level={2}>Bindings (1)</SectionTitle>
         </div>
         <div className={classes.bindingCard}>
           <div className={classes.bindingHead}>
@@ -262,7 +260,7 @@ export function RbacDetailView({ resource, related }: { resource: K8sResourceRef
             </span>
           </div>
           {subjects.length === 0 ? (
-            <Typography className={classes.note}>No subjects listed on this binding.</Typography>
+            <EmptyNote>No subjects listed on this binding.</EmptyNote>
           ) : (
             subjects.map((s, i) => (
               <span key={i} className={classes.subjectRow}>
@@ -279,15 +277,15 @@ export function RbacDetailView({ resource, related }: { resource: K8sResourceRef
         <div className={classes.section}>
           <div className={classes.sectionHead}>
             <span className={classes.sectionIcon}><SecurityIcon fontSize="small" /></span>
-            <Typography className={classes.sectionTitle}>Grants ({roleRef.kind} — {roleRef.name})</Typography>
+            <SectionTitle level={2}>Grants ({roleRef.kind} — {roleRef.name})</SectionTitle>
           </div>
           {resolvedRules ? (
             <RulesSection rules={resolvedRules} classes={classes} t={t} />
           ) : (
-            <Typography className={classes.note}>
+            <EmptyNote>
               Couldn't resolve {roleRef.kind} "{roleRef.name}" - it isn't in Tower's fetched resources yet (may need a
               refresh, or Tower's RBAC read grant doesn't cover it).
-            </Typography>
+            </EmptyNote>
           )}
         </div>
       )}

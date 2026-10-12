@@ -29,7 +29,7 @@ import {
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers';
 import type { DeployHistoryEntry } from './types';
 import type { PipelineRunSummary } from './tekton/types';
-import { FilterChip, FilterGroup, TextLink } from './ui';
+import { EmptyNote, FilterChip, FilterGroup, SectionTitle, TextLink } from './ui';
 
 // Overview tab's "Recent Activity" panel (Concept 2 - Grouped Timeline, see
 // the published mockup artifact) - a typed, per-app, day-grouped read of the
@@ -296,12 +296,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 10,
     marginBottom: 10,
   },
-  title: {
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 15,
-    color: ({ t }) => t.textHi,
-  },
   filters: { marginBottom: 8 },
   // Unselected: the category's own color (background tint + icon/text in
   // its fg color, set inline per-button since it varies by category).
@@ -515,12 +509,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textDecoration: 'none',
     '&:hover': { textDecoration: 'underline' },
   },
-  empty: {
-    fontSize: 12.5,
-    fontStyle: 'italic',
-    color: ({ t }) => t.textFaint,
-    padding: '8px 0',
-  },
   // 2026-09-15 feedback: raising MAX_ROWS back up (see its own comment)
   // needed a way to not just make the card tall again - a fixed-height,
   // internally-scrolling row area keeps the panel's footprint on the
@@ -609,7 +597,7 @@ export function RecentActivityPanel({
   return (
     <div className={classes.card} ref={panelRef} style={{ scrollMarginTop: 16, scrollMarginBottom: 16 }}>
       <div className={classes.headRow}>
-        <Typography className={classes.title}>Recent activity</Typography>
+        <SectionTitle>Recent activity</SectionTitle>
         <TextLink onClick={onViewAll}>View all in Notifications →</TextLink>
       </div>
       <div className={classes.filters}>
@@ -642,9 +630,9 @@ export function RecentActivityPanel({
 
       <div className={classes.scrollArea}>
       {groups.length === 0 ? (
-        <Typography className={classes.empty}>
+        <EmptyNote>
           {emptyText}
-        </Typography>
+        </EmptyNote>
       ) : (
         groups.map((group, gi) => (
           <div key={`${group.day}-${gi}`}>

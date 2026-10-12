@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
@@ -11,8 +10,8 @@ import { useClusterRbac } from './useClusterRbac';
 import { TopoDag, buildTopoStages, type TopoStageKey } from './tabs/topology/TopoDag';
 import { TopologyStageDetail } from './tabs/topology/StageDetail';
 import { ResourceGallery } from './tabs/topology/ResourceGallery';
-import { ENV_TIER_LABEL, health, type EnvironmentSummary, type EnvTier, type Health } from './types';
-import { FilterChip, FilterGroup, healthTone, StatusChip } from './ui';
+import { ENV_TIER_LABEL, health, type EnvironmentSummary, type EnvTier } from './types';
+import { FilterChip, FilterGroup, HEALTH_LABEL, healthTone, SectionTitle, StatusChip } from './ui';
 
 // The single-environment topology view Ground Control's own DAG/detail
 // pattern established on the Deployments tab (2026-09-17 Topology
@@ -24,13 +23,6 @@ import { FilterChip, FilterGroup, healthTone, StatusChip } from './ui';
 // for the flow itself; Events/Logs/Metrics/YAML are the real per-click
 // fetches, same as before.
 
-const HEALTH_LABEL: Record<Health, string> = {
-  healthy: 'Healthy',
-  progressing: 'Scaling',
-  paused: 'Paused',
-  degraded: 'Degraded',
-  unknown: 'Unknown',
-};
 const TIER_ACCENT: Record<EnvTier, keyof HangarTokens> = { preview: 'textFaint', lower: 'sky', upper: 'amber' };
 const TIER_CHIP_COLOR: Record<EnvTier, keyof HangarTokens> = { preview: 'textFaint', lower: 'sky', upper: 'amber' };
 const TIER_CHIP_SOFT: Record<EnvTier, keyof HangarTokens> = { preview: 'panelAlt', lower: 'skySoft', upper: 'amberSoft' };
@@ -58,7 +50,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: '16px 18px' },
   panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
-  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
 }));
 
 export function EnvironmentTopology({
@@ -165,7 +156,7 @@ export function EnvironmentTopology({
         </FilterGroup>
         <Collapse in={showResources} unmountOnExit>
           <div className={classes.panel} style={{ marginTop: 10 }}>
-            <Typography className={classes.panelTitle}>All resources in {env.namespace}</Typography>
+            <SectionTitle level={2}>All resources in {env.namespace}</SectionTitle>
             <ResourceGallery resources={galleryResources} argoResources={env.argoResources} />
           </div>
         </Collapse>

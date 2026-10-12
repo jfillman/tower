@@ -17,6 +17,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { TaskRunLogConsole, stepDuration } from './TaskRunLogConsole';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/types';
+import { EmptyNote } from './ui';
 
 // The one piece of the Tekton plugin the user actually wants adopted here
 // (2026-09-11: "the only part of the tekton plugin that i want incorporated
@@ -219,7 +220,6 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   detailGridItem: { flex: '1 1 140px' },
   kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, display: 'block' },
   kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
   archivedTag: {
     marginLeft: 8,
     padding: '1px 6px',
@@ -639,9 +639,9 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                 </div>
               </div>
               {openTaskRun?.startTime && (
-                <Typography className={classes.note} style={{ marginBottom: 0 }}>
+                <EmptyNote>
                   Started {relativeTime(openTaskRun.startTime)} &middot; {formatDateTime(openTaskRun.startTime)}
-                </Typography>
+                </EmptyNote>
               )}
               {openTaskRun && openTaskRun.params.length > 0 && (
                 <div className={classes.ioSection}>

@@ -14,7 +14,7 @@ import { envTierOf, imageTag, previewPrNumber, type DeployHistoryEntry, type Env
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { FilterChips, StatusChip, type StatusTone } from './ui';
+import { EmptyNote, FilterChips, SectionTitle, StatusChip, type StatusTone } from './ui';
 
 // The real chronological "release log" the 2026-09-16 Releases revamp asked
 // for, replacing the old always-on Gantt track (ReleaseTimelinePanel, kept
@@ -129,7 +129,6 @@ export function buildLogEntries(
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: 'hidden' },
   head: { padding: '14px 20px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
   scroll: { overflowX: 'auto', padding: '0 20px 18px' },
   table: { width: '100%', borderCollapse: 'collapse' },
@@ -151,7 +150,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     border: '1px solid',
     whiteSpace: 'nowrap',
   },
-  emptyRow: { padding: '18px 20px', fontSize: 12.5, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   expandRow: { padding: '2px 20px 14px' },
   expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
   timelineWrap: { padding: '4px 0' },
@@ -189,7 +187,7 @@ export function ReleaseLog({
     <div className={classes.wrap}>
       <div className={classes.head}>
         <div>
-          <Typography className={classes.title}>Release log</Typography>
+          <SectionTitle>Release log</SectionTitle>
           <Typography className={classes.sub}>
             Every promotion and preview spin-up, newest first - table for scanning, timeline for reading how long
             each release ran.
@@ -207,7 +205,7 @@ export function ReleaseLog({
       </div>
 
       {view === 'table' && entries.length === 0 && (
-        <Typography className={classes.emptyRow}>No recorded promotions yet.</Typography>
+        <EmptyNote inset>No recorded promotions yet.</EmptyNote>
       )}
       {view === 'table' && entries.length > 0 && (
         <div className={classes.scroll}>

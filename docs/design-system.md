@@ -14,6 +14,14 @@ its own title, chip, table header and button styles with slightly different numb
 - **Surfaces.** A `Panel` is a 1px `line` border, 6px radius, `panel` background. An accented panel (amber line)
   is for the pending-changes panel only.
 - **Labels.** `SectionLabel` (mono, uppercase, 11px) names a block; `ColumnLabel` (10.5px) heads a column.
+- **Sections.** A block inside a tab is a `Section`: title 15px condensed 700, an optional `meta` right after it
+  (a repo chip), and a `count` and `actions` at the right. `framed` draws it as a panel whose head is a bar, for a
+  list or table that fills the panel. `level={2}` (13px) is for a title inside a card. `SectionTitle` is the title
+  alone, for a head with its own layout (an icon before it).
+- **Notes.** `EmptyNote` (italic) says there is nothing to show; `Hint` (not italic) explains. Both 12.5px textLo;
+  `inset` adds the panel padding when the note sits straight inside a framed Section. `Count` is the mono count
+  beside a title or at the end of a filter bar ("3 open", "39 images").
+- **Refresh** is an action: `RefreshButton` is a small kit `Button`.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 
   | Kind | Does | Looks like | Kit |
@@ -43,7 +51,7 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Kit
 
-`PageHeader`, `Panel`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
+`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
 `FilterBar`, `FilterChips`, `FilterChip`, `FilterGroup`, `FilterSelect`, `SearchField`, `TextLink`, `Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 

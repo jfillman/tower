@@ -15,7 +15,7 @@ import { PipelineRunList } from '../PipelineRunList';
 import { PipelineDag } from '../PipelineDag';
 import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
-import { FilterBar, FilterChips, PageHeader } from '../ui';
+import { Count, FilterBar, FilterChips, PageHeader } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 
@@ -28,9 +28,7 @@ import { isPreviewEnvName, isRolloutActive } from '../types';
 // removal of the CD panel (which moved to DeploymentsTab) and the
 // cross-link to it at the bottom.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
   dagGap: { marginTop: 12 },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
   warnNote: { fontSize: 11.5, fontFamily: fontMono, padding: '10px 20px 0', color: ({ t }) => t.amberInk },
   dotLive: {
     width: 7,
@@ -274,14 +272,14 @@ export function PipelinesTab() {
             moved to the Deployments tab, so this tab is only pipelines and the tab name already says so. */}
         <FilterBar
           end={
-            <span className={classes.sectionSub}>
+            <Count>
               {listLoading
                 ? 'loading…'
                 : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
                     historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
                   }`}{' '}
               &middot; kind-dev
-            </span>
+            </Count>
           }
         >
           <FilterChips<HistoryRange>

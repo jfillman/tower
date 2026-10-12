@@ -1,10 +1,9 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { formatDateTime, relativeTime } from '../shared/format';
 import type { ReleaseRecord } from '../useReleaseRecords';
-import { StatusChip } from '../ui';
+import { EmptyNote, StatusChip } from '../ui';
 import { shortUser, useBreakglassSessions, type BreakglassSession } from '../tabs/topology/breakglassShared';
 
 // Break-glass sessions during a release (gaps phase C, G12): the sessions started in an environment while this
@@ -17,7 +16,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   row: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint },
   link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
-  empty: { fontSize: 12, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
 }));
 
 /** The window a release occupied an environment: from its deploy there to the next release's deploy to the same env. */
@@ -44,8 +42,8 @@ function EnvSessions({ appName, env, window, onOpen }: { appName: string; env: s
   const classes = useStyles({ t });
   const { sessions, info } = useBreakglassSessions(appName, env);
   const inWindow = sessionsInWindow(sessions, window);
-  if (info.error) return <Typography className={classes.empty}>{env}: {info.error}</Typography>;
-  if (inWindow.length === 0) return <Typography className={classes.empty}>{env}: none while this release ran here.</Typography>;
+  if (info.error) return <EmptyNote>{env}: {info.error}</EmptyNote>;
+  if (inWindow.length === 0) return <EmptyNote>{env}: none while this release ran here.</EmptyNote>;
   return (
     <div className={classes.list} data-testid={`breakglass-release-${env}`}>
       {inWindow.map(s => (
@@ -79,7 +77,7 @@ export function BreakglassReleaseSessions({ appName, record, others, onOpen }: {
   const windows = record.deployments
     .map(d => ({ env: d.env, window: releaseWindow(record, others, d.env) }))
     .filter((x): x is { env: string; window: { from: string; to?: string } } => !!x.window);
-  if (windows.length === 0) return <Typography className={classes.empty}>No deployment to look at.</Typography>;
+  if (windows.length === 0) return <EmptyNote>No deployment to look at.</EmptyNote>;
   return (
     <div className={classes.list}>
       {windows.map(w => (

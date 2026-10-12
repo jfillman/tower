@@ -28,11 +28,11 @@ describe('Glidepath tab', () => {
     expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual([
       'Build', 'Test', 'Deploy', 'Preview environments', 'Governance', 'Notifications', 'Secrets', 'Pipelines', 'Advanced',
     ]);
-    expect(screen.getByText('Build', { selector: 'p' })).toBeTruthy();
-    expect(screen.queryByText('Governance', { selector: 'p' })).toBeNull();
+    expect(screen.getByText('Build', { selector: 'h2' })).toBeTruthy();
+    expect(screen.queryByText('Governance', { selector: 'h2' })).toBeNull();
     tab('Governance');
-    expect(screen.getByText('Governance', { selector: 'p' })).toBeTruthy();
-    expect(screen.queryByText('Build', { selector: 'p' })).toBeNull();
+    expect(screen.getByText('Governance', { selector: 'h2' })).toBeTruthy();
+    expect(screen.queryByText('Build', { selector: 'h2' })).toBeNull();
     expect(screen.queryByText('Platform files')).toBeNull();
   });
 

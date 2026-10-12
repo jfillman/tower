@@ -7,6 +7,7 @@ import { preventFocusScroll } from './preventFocusScroll';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { useAnalysisRuns } from './useAnalysisRuns';
 import type { AnalysisRunSummary, CanaryProgress, CanaryStepDef } from './types';
+import { EmptyNote } from './ui';
 
 // Real canary weight chart + step ramp, replacing the mocked-up version
 // (2026-09-11 design session, artifact 44818a11) with live data: real steps
@@ -112,7 +113,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   measureTime: { color: ({ t }) => t.textFaint, width: 172, flexShrink: 0, whiteSpace: 'nowrap' },
   measureVal: { color: ({ t }) => t.textHi },
   cond: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 8 },
-  note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textLo, padding: '4px 0' },
 }));
 
 function stepLabelParts(s: CanaryStepDef): { icon: string; text: string; caption: string } {
@@ -167,7 +167,7 @@ function AnalysisCard({ templateName, run, classes, t }: { templateName: string;
           {run.message}
         </Typography>
       )}
-      {run.metrics.length === 0 && <Typography className={classes.note}>No metric results recorded yet.</Typography>}
+      {run.metrics.length === 0 && <EmptyNote>No metric results recorded yet.</EmptyNote>}
       {run.metrics.map(m => (
         <div key={m.name} style={{ marginBottom: 8 }}>
           {m.query && <div className={classes.query}>{m.query}</div>}
@@ -263,7 +263,7 @@ export function CanaryRampChart({
   }
 
   if (steps.length === 0) {
-    return <Typography className={classes.note}>This rollout declares no canary steps.</Typography>;
+    return <EmptyNote>This rollout declares no canary steps.</EmptyNote>;
   }
 
   const width = contentWidth(steps.length) + CHART_TRAIL;
@@ -444,7 +444,7 @@ export function CanaryRampChart({
             {backgroundRun ? (
               <AnalysisCard templateName={backgroundTemplates.join(', ')} run={backgroundRun} classes={classes} t={t} />
             ) : (
-              <Typography className={classes.note}>{backgroundTemplates.join(', ')} - not currently running.</Typography>
+              <EmptyNote>{backgroundTemplates.join(', ')} - not currently running.</EmptyNote>
             )}
           </div>
         )}
@@ -464,9 +464,9 @@ export function CanaryRampChart({
             const label = `Step ${i + 1} · ${name}`;
             if (!run) {
               return (
-                <Typography key={i} className={classes.note}>
+                <EmptyNote key={i}>
                   {label} - not started yet.
-                </Typography>
+                </EmptyNote>
               );
             }
             const collapsed = collapsedSteps.has(i);
@@ -494,11 +494,11 @@ export function CanaryRampChart({
         </div>
       )}
       {analysisStepIndices.length > 0 && analysisRuns.runs.length === 0 && !analysisRuns.loading && !analysisRuns.error && (
-        <Typography className={classes.note}>
+        <EmptyNote>
           No AnalysisRuns found for this rollout{podHash ? ` (pod hash ${podHash})` : ''} yet.
-        </Typography>
+        </EmptyNote>
       )}
-      {analysisRuns.error && <Typography className={classes.note}>Couldn't load analysis results: {analysisRuns.error}</Typography>}
+      {analysisRuns.error && <EmptyNote>Couldn't load analysis results: {analysisRuns.error}</EmptyNote>}
     </div>
   );
 }

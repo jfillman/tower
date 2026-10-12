@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader, StatusChip } from '../ui';
+import { EmptyNote, PageHeader, StatusChip } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
@@ -95,7 +95,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   windowLabel: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint },
   detailsToggle: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, marginTop: 4 },
   query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre' },
-  note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textLo },
 }));
 
 const WINDOWS = ['5m', '30m', '1h', '2h', '6h', '1d', '3d', '30d'] as const;
@@ -336,13 +335,13 @@ function SloCard({
 
       {loading && meta.samples.length === 0 && <Progress />}
       {anyError && (
-        <Typography className={classes.note}>Couldn't query Prometheus: {anyError}</Typography>
+        <EmptyNote>Couldn't query Prometheus: {anyError}</EmptyNote>
       )}
       {noDataYet && (
-        <Typography className={classes.note}>
+        <EmptyNote>
           No burn-rate data yet - Sloth's generated recording rules may not have loaded into
           Prometheus yet (this can lag several minutes after an SLO is first created).
-        </Typography>
+        </EmptyNote>
       )}
 
       {!noDataYet && !anyError && (

@@ -7,7 +7,7 @@ import SpeedIcon from '@material-ui/icons/Speed';
 import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
 import StorageIcon from '@material-ui/icons/Storage';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { preventFocusScroll } from '../../preventFocusScroll';
 import { usePrometheusRangeQuery, type PrometheusSeries } from '../../usePrometheusQuery';
 import {
@@ -20,6 +20,7 @@ import {
   networkRxQuery,
   networkTxQuery,
 } from './metricsQueries';
+import { EmptyNote, SectionTitle } from '../../ui';
 
 // Item 5 of the Topology-tab modernization: CPU, memory, network in/out and
 // disk IO, the metrics anyone reaches for first when looking at a running
@@ -54,7 +55,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 10,
   },
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   liveToggle: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -87,7 +87,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tileLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' },
   tileValue: { fontFamily: fontMono, fontWeight: 700, fontSize: 18, color: ({ t }) => t.textHi },
   tileNote: { fontSize: 10.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
-  note: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textLo },
 }));
 
 function Sparkline({ points, color, t }: { points: Array<{ time: number; value: number }>; color: string; t: HangarTokens }) {
@@ -205,8 +204,8 @@ export function MetricsPanel({
   if (podNames.length === 0) {
     return (
       <div className={classes.panel}>
-        <Typography className={classes.title}>{title}</Typography>
-        <Typography className={classes.note}>No running pods to measure.</Typography>
+        <SectionTitle level={2}>{title}</SectionTitle>
+        <EmptyNote>No running pods to measure.</EmptyNote>
       </div>
     );
   }
@@ -221,9 +220,9 @@ export function MetricsPanel({
   return (
     <div className={classes.panel}>
       <div className={classes.head}>
-        <Typography className={classes.title}>
+        <SectionTitle level={2}>
           {title} <span style={{ fontWeight: 400, color: t.textFaint }}>· {podNames.length} pod{podNames.length === 1 ? '' : 's'}</span>
-        </Typography>
+        </SectionTitle>
         <button
           type="button"
           className={`${classes.liveToggle} ${live ? classes.liveToggleActive : ''}`}

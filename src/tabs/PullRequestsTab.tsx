@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import CheckIcon from '@material-ui/icons/Check';
 import { Progress, ResponseErrorPanel, MissingAnnotationEmptyState } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
@@ -9,8 +8,8 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader, StatusChip } from '../ui';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { EmptyNote, PageHeader, Section, StatusChip } from '../ui';
+import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
 
@@ -39,24 +38,7 @@ function curateSourcePrs(prs: PullRequestSummary[]) {
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  section: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  sectionHead: {
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-    padding: '14px 20px',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-  },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
+  body: { display: 'flex', flexDirection: 'column', gap: 16 },
   chip: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -115,7 +97,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     color: ({ t }) => t.textFaint,
   },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
   overflowNote: { fontSize: 12.5, padding: '10px 20px' },
   link: { color: ({ t }) => t.sky, textDecoration: 'none' },
   repoBadge: {
@@ -180,7 +161,7 @@ function PrTable({
   classes: ReturnType<typeof useStyles>;
   showPreviewChip?: boolean;
 }) {
-  if (prs.length === 0) return <Typography className={classes.note}>{emptyMessage}</Typography>;
+  if (prs.length === 0) return <EmptyNote inset>{emptyMessage}</EmptyNote>;
   return (
     <table className={classes.table}>
       <thead>
@@ -226,7 +207,7 @@ function PrTable({
 // gitops/source tables) since by the time a PR has merged, which repo it
 // was on matters less than just "what happened recently".
 function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: ReturnType<typeof useStyles> }) {
-  if (prs.length === 0) return <Typography className={classes.note}>Nothing merged recently.</Typography>;
+  if (prs.length === 0) return <EmptyNote inset>Nothing merged recently.</EmptyNote>;
   return (
     <table className={classes.table}>
       <thead>
@@ -311,26 +292,23 @@ export function PullRequestsTab() {
         subtitle="Open release, preview and source pull requests, and what merged recently."
         actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
       />
-      <div className={classes.section}>
-        <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>
-            Release PRs
-            <span className={classes.chip}>{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</span>
-          </span>
-          <span className={classes.sectionSub}>{gitopsPrs.length} open</span>
-        </div>
+      <div className={classes.body}>
+      <Section
+        framed
+        title="Release PRs"
+        meta={<span className={classes.chip}>{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</span>}
+        count={`${gitopsPrs.length} open`}
+      >
         <PrTable prs={gitopsPrs} emptyMessage="No open release PRs." variant="gitops" classes={classes} />
-      </div>
+      </Section>
 
       {previewPrs.length > 0 && (
-        <div className={classes.section}>
-          <div className={classes.sectionHead}>
-            <span className={classes.sectionTitle}>
-              Preview PRs
-              <span className={classes.chip}>ephemeral env</span>
-            </span>
-            <span className={classes.sectionSub}>{previewPrs.length} open</span>
-          </div>
+        <Section
+          framed
+          title="Preview PRs"
+          meta={<span className={classes.chip}>ephemeral env</span>}
+          count={`${previewPrs.length} open`}
+        >
           <PrTable
             prs={previewPrs}
             emptyMessage="No open preview PRs."
@@ -338,17 +316,10 @@ export function PullRequestsTab() {
             classes={classes}
             showPreviewChip={false}
           />
-        </div>
+        </Section>
       )}
 
-      <div className={classes.section}>
-        <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>
-            Source PRs
-            <span className={classes.chip}>{appName}</span>
-          </span>
-          <span className={classes.sectionSub}>{sourcePrsRaw.length} open</span>
-        </div>
+      <Section framed title="Source PRs" meta={<span className={classes.chip}>{appName}</span>} count={`${sourcePrsRaw.length} open`}>
         <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} />
         {overflowCount > 0 && (
           <div className={classes.overflowNote}>
@@ -362,14 +333,11 @@ export function PullRequestsTab() {
             </a>
           </div>
         )}
-      </div>
+      </Section>
 
-      <div className={classes.section}>
-        <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>Recently merged</span>
-          <span className={classes.sectionSub}>{mergedPrs.length} shown</span>
-        </div>
+      <Section framed title="Recently merged" count={`${mergedPrs.length} shown`}>
         <MergedPrTable prs={mergedPrs} classes={classes} />
+      </Section>
       </div>
     </div>
   );

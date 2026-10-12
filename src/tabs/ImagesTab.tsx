@@ -10,7 +10,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
-import { FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
+import { Count, EmptyNote, FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -87,9 +87,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
   },
-  detailNote: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
-  countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
   footer: {
     padding: '10px 20px',
     fontFamily: fontMono,
@@ -254,7 +251,7 @@ function ImagesTable({
         subtitle={`ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}: every image this service pushed, with its signature, provenance and SBOM.`}
         actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
       />
-      <FilterBar end={versions.data && <span className={classes.countNote}>{filteredEntries.length} image{filteredEntries.length === 1 ? '' : 's'}</span>}>
+      <FilterBar end={versions.data && <Count>{filteredEntries.length} image{filteredEntries.length === 1 ? '' : 's'}</Count>}>
         <FilterChips<TagFilter>
           label="Tags"
           value={tagFilter}
@@ -270,15 +267,15 @@ function ImagesTable({
       </FilterBar>
       {versions.loading && <Progress />}
       {versions.error && (
-        <Typography className={classes.note}>Couldn't list image versions: {versions.error}</Typography>
+        <EmptyNote inset>Couldn't list image versions: {versions.error}</EmptyNote>
       )}
       {versions.data && imageEntries.length === 0 && (
-        <Typography className={classes.note}>No package versions found for this repo on GHCR yet.</Typography>
+        <EmptyNote inset>No package versions found for this repo on GHCR yet.</EmptyNote>
       )}
       {versions.data && imageEntries.length > 0 && filteredEntries.length === 0 && (
-        <Typography className={classes.note}>
+        <EmptyNote inset>
           No {tagFilter} images - {imageEntries.length} total, hidden by the filter above.
-        </Typography>
+        </EmptyNote>
       )}
       {versions.data && filteredEntries.length > 0 && (
         <div className={classes.list}>
@@ -407,9 +404,9 @@ function ImagePanel({
         <div className={classes.detailBody}>
           {provenance?.loading && <Progress />}
           {provenance?.error && (
-            <Typography className={classes.detailNote}>
+            <EmptyNote inset>
               Couldn't reach the registry for attestations: {provenance.error}
-            </Typography>
+            </EmptyNote>
           )}
           {provenance?.data && <PipelineFlow stages={stages} />}
         </div>

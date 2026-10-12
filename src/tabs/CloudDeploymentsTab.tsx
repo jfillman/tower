@@ -11,7 +11,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Chip, PageHeader, StatusChip, type StatusTone } from '../ui';
+import { Chip, EmptyNote, PageHeader, StatusChip, type StatusTone } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -61,7 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   td: { padding: '9px 10px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
-  empty: { padding: '36px 8px', color: ({ t }) => t.textLo, fontSize: 14, lineHeight: 1.6 },
   linkBtn: {
     background: 'none',
     border: 'none',
@@ -130,10 +129,10 @@ export function CloudDeploymentsTab() {
     return (
       <div className={classes.wrap}>
         <PageHeader title="Deployments" subtitle="What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." />
-        <div className={classes.empty}>
+        <EmptyNote>
           No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs);
           a Flight environment&apos;s current release is its pin, below.
-        </div>
+        </EmptyNote>
         {owner && <FlightPins owner={owner} appName={appName} flight={flight} deploys={deploys} />}
       </div>
     );

@@ -18,7 +18,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
-import { ActionSelect, Button, StatusChip, TextLink } from './ui';
+import { ActionSelect, Button, EmptyNote, Hint, StatusChip, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -169,7 +169,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   promoArrow: { color: ({ t }) => t.textFaint },
   promoWhen: { marginLeft: 'auto', color: ({ t }) => t.textFaint, fontSize: 11, fontFamily: fontMono },
-  empty: { fontSize: 12, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   runList: { display: 'flex', flexDirection: 'column', gap: 6 },
   runRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
   runName: { color: ({ t }) => t.textHi, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -474,7 +473,7 @@ export function ReleaseRecordDetail({
           </div>
           <div className={classes.colBody}>
             {record.pullRequests.length === 0 && record.commits.length === 0 && (
-              <Typography className={classes.empty}>No merged source PRs found in the window Tower has fetched.</Typography>
+              <EmptyNote>No merged source PRs found in the window Tower has fetched.</EmptyNote>
             )}
             {record.pullRequests.length === 0 && record.commits.length > 0 && (
               <div className={classes.kv}>
@@ -497,7 +496,7 @@ export function ReleaseRecordDetail({
                   </div>
                 ))}
                 {record.pullRequests.length > 8 && (
-                  <Typography className={classes.empty}>+{record.pullRequests.length - 8} more</Typography>
+                  <Hint>+{record.pullRequests.length - 8} more</Hint>
                 )}
               </div>
             )}
@@ -522,7 +521,7 @@ export function ReleaseRecordDetail({
           </div>
           <div className={classes.colBody}>
             {record.promotionChain.length === 0 ? (
-              <Typography className={classes.empty}>No recorded promotions between tracked environments.</Typography>
+              <EmptyNote>No recorded promotions between tracked environments.</EmptyNote>
             ) : (
               <div className={classes.promoChain}>
                 {record.promotionChain.map(p => (
@@ -625,7 +624,7 @@ export function ReleaseRecordDetail({
                         </div>
                       ))}
                       {record.testResults.length > 8 && (
-                        <Typography className={classes.empty}>+{record.testResults.length - 8} more</Typography>
+                        <Hint>+{record.testResults.length - 8} more</Hint>
                       )}
                     </div>
                   )}
@@ -650,7 +649,7 @@ export function ReleaseRecordDetail({
                     )}
                   </>
                 ) : (
-                  <Typography className={classes.empty}>No release-guardrail check data found for this release's release PR.</Typography>
+                  <EmptyNote>No release-guardrail check data found for this release's release PR.</EmptyNote>
                 )}
               </div>
             </div>

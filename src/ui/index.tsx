@@ -3,7 +3,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
-import { useControls, useStatus, useUi } from './styles';
+import { useControls, useSection, useStatus, useUi } from './styles';
 
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 
@@ -452,4 +452,79 @@ export function Field({
       {children({ id, className: ui.input })}
     </div>
   );
+}
+
+function useSectionKit() {
+  const t = useHangarTokens();
+  return useSection({ t });
+}
+
+/**
+ * A block inside a tab: a title (15px; `level={2}` is 13px, for a title inside a card), an optional `meta` right
+ * after it (a repo chip), and a `count` and `actions` at the right. `framed` draws it as a panel with the head as
+ * a bar, for a list or table that fills the panel; put an `EmptyNote inset` or a table straight inside.
+ */
+export function Section({
+  title,
+  meta,
+  count,
+  actions,
+  framed,
+  level = 1,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  meta?: ReactNode;
+  count?: ReactNode;
+  actions?: ReactNode;
+  framed?: boolean;
+  level?: 1 | 2;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const s = useSectionKit();
+  const Heading = level === 2 ? 'h3' : 'h2';
+  return (
+    <section className={cx(s.section, framed && s.framed, className)}>
+      <div className={cx(s.head, framed && s.headFramed)}>
+        <div className={s.headStart}>
+          <Heading className={cx(s.title, level === 2 && s.title2)}>{title}</Heading>
+          {meta}
+        </div>
+        {(count !== undefined || actions) && (
+          <div className={s.headEnd}>
+            {count !== undefined && <span className={s.count}>{count}</span>}
+            {actions}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Just the title, for a head that has its own layout (an icon before it, a toggle after it). */
+export function SectionTitle({ level = 1, children }: { level?: 1 | 2; children: ReactNode }) {
+  const s = useSectionKit();
+  const Heading = level === 2 ? 'h3' : 'h2';
+  return <Heading className={cx(s.title, level === 2 && s.title2)}>{children}</Heading>;
+}
+
+/** "Nothing here": No open release PRs. `inset` adds the panel padding, for a note straight inside a framed Section. */
+export function EmptyNote({ inset, className, ...rest }: { inset?: boolean } & React.HTMLAttributes<HTMLParagraphElement>) {
+  const s = useSectionKit();
+  return <p className={cx(s.empty, inset && s.inset, className)} {...rest} />;
+}
+
+/** A line that explains (what a chart shows, why a control is off). Not italic: it is not an empty state. */
+export function Hint({ inset, className, ...rest }: { inset?: boolean } & React.HTMLAttributes<HTMLParagraphElement>) {
+  const s = useSectionKit();
+  return <p className={cx(s.hint, inset && s.inset, className)} {...rest} />;
+}
+
+/** A count or range next to a title or at the end of a filter bar: "3 open", "39 images", "10 shown". */
+export function Count({ children }: { children: ReactNode }) {
+  const s = useSectionKit();
+  return <span className={s.count}>{children}</span>;
 }

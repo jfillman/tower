@@ -22,7 +22,7 @@ import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
-import { FilterBar, FilterChips, SearchField, TextLink } from './ui';
+import { EmptyNote, FilterBar, FilterChips, SearchField, TextLink } from './ui';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -146,12 +146,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
   // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
   owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  empty: {
-    padding: '24px 18px',
-    fontSize: 13,
-    color: ({ t }) => t.textLo,
-    fontStyle: 'italic',
-  },
   rowMain: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -674,7 +668,7 @@ export function AppPicker({
               </div>
               {filteredMinusStarred.length === 0 ? (
                 <div className={classes.list}>
-                  <div className={classes.empty}>{emptyMessage}</div>
+                  <EmptyNote inset>{emptyMessage}</EmptyNote>
                 </div>
               ) : (
                 renderCollection(filteredMinusStarred)
