@@ -66,12 +66,16 @@ access only with `live`, `recycleLastPod` only with `live` (and dropped on Fligh
 2. Re-check the target: the namespace's `hangar.io/app` and `hangar.io/env` labels name this app and environment; the
    pod is `Running`; the container exists. (An approved request may be minutes old.)
 3. Volume access: compute the mounts (`podVolumeMounts`) and store the list on the row.
-4. Create RoleBinding `tower-breakglass-<id>` binding the mode's debug role to Backstage's own identity on that
+4. Write the recording's header to the store (G4). If that fails, refuse with 503: nothing has reached the cluster.
+5. Create RoleBinding `tower-breakglass-<id>` binding the mode's debug role to Backstage's own identity on that
    cluster (a `SelfSubjectReview`, cached), with the TTL label and the requester, approver (or glass-broken) and expiry
    annotations.
-5. Live: re-read the pod and `replaceNamespacedPodEphemeralcontainers` with the debug container appended. Copy: create
-   the copy pod. Both retry a 403 for up to 5 s (`withGrant`), because a new RoleBinding takes a moment to apply.
-6. Wait up to 120 s for the debug container to be `running`; fail fast on an image pull or config error.
+6. Live: with process access, first annotate the pod `hangar.io/breakglass-process-access: <id>` (a merge patch through
+   `setHeaderOptions`; G14), then re-read the pod and `replaceNamespacedPodEphemeralcontainers` with the debug
+   container appended. Copy: create the copy pod, with the app's containers held (`holdContainer`: a sleep, no probes
+   or hooks) when the request asked (G11). Both retry a 403 for up to 5 s (`withGrant`), because a new RoleBinding
+   takes a moment to apply.
+7. Wait up to 120 s for the debug container to be `running`; fail fast on an image pull or config error.
 
 Any failure ends the session (`failed to start: …`) and runs the normal cleanup, so a half-opened session leaves
 nothing behind.
