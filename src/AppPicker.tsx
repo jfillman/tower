@@ -257,6 +257,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 8,
     minWidth: 0,
   },
