@@ -25,6 +25,7 @@
     "build": "backstage-cli package build",
     "clean": "backstage-cli package clean",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "ratchet": "node scripts/style-ratchet.mjs",
     "test": "backstage-cli package test",
     "tsc": "tsc"
   },

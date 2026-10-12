@@ -81,15 +81,18 @@ Services, Pipelines and its run list, Environments, Images, Release log, Deploym
 Release matrix and records, Topology, Overview's Recent activity, pod logs, the dialogs and the Ops Wall. Status chips
 too (2026-10-09): every state display is a `StatusChip`.
 
-**Inside the tabs: not done.** Below the header, most tabs still declare their own section titles, chips, tables, cards
-and buttons. A tab is done when it declares no title, chip, table-header, panel or button style of its own.
+**Inside the tabs: done** (2026-10-11, tower#80, #81, #83). Section titles, notes, label/value facts, tables, cards,
+tiles, banners and headline numbers use the kit on every tab. Local styles that redo a kit piece went from 328 to
+119; what is left is bespoke on purpose (the Pipeline and Rollout DAGs, the Release matrix grid, EnvPicker, the
+Canary ramp chart, the Topology flow strip, the Ops Wall layout, the break-glass session strip, the App
+Configuration form) or layout.
 
-| Tab | Inside the tab | Status |
-|---|---|---|
-| Environments | kit only | done |
-| App Configuration, Glidepath | `Subtabs`, `PendingPanel`; form inputs and section cards are the older MUI ones | partly |
-| Releases | `Subtabs`; the command deck, matrix, log and record panels have their own styles | partly |
-| Overview, Pipelines, Deployments, Images, SLOs, Pull requests, Topology, Notifications, cloud Deployments | section titles, chips, tables, cards, buttons of their own | not started |
+**The ratchet.** `yarn ratchet` (scripts/style-ratchet.mjs, run in CI) counts those local styles per kind and fails if
+any count goes up; when one goes down, run `node scripts/style-ratchet.mjs --update` and commit the baseline
+(scripts/style-ratchet.json). It also fails on a `classes.x` whose sheet has no `x`: such an element renders with no
+style and tsc does not see it, because the class map is loosely typed. That happens most when a style is removed from
+a sheet another file borrows (the break-glass views share `useBreakglassStyles`, the Rollout DAG borrows the Pipeline
+DAG's).
 
 To check a change by eye, run the backstage app locally (`yarn start` with guest sign-in) and copy this package's
 built `dist/` into its `node_modules/@jfillman/tower/dist`; the dev server needs a restart to pick it up.
