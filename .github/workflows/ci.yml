@@ -34,6 +34,11 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      - name: Style ratchet
+        # Local styles that redo a kit piece may only go down; no class name may be used without a style
+        # (docs/design-system.md, scripts/style-ratchet.mjs).
+        run: yarn ratchet
+
       - name: Test
         run: yarn test --ci
 
