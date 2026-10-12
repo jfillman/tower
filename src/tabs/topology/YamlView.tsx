@@ -5,7 +5,7 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { JsonNode } from '../../ResourceInspector';
-import { preventFocusScroll } from '../../preventFocusScroll';
+import { keepAnchored, preventFocusScroll } from '../../preventFocusScroll';
 import type { K8sResourceRef } from '../../types';
 import { CopyButton, YamlBlock } from '../../ui';
 
@@ -139,10 +139,10 @@ export function YamlView({ resource }: { resource: K8sResourceRef }) {
         <span className={classes.kind}>{resource.kind}</span>
         <span className={classes.name}>{resource.name}</span>
         <span className={classes.spacer} />
-        <button type="button" className={`${classes.modeBtn} ${mode === 'yaml' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => switchMode('yaml')}>
+        <button type="button" className={`${classes.modeBtn} ${mode === 'yaml' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => switchMode('yaml'))}>
           YAML
         </button>
-        <button type="button" className={`${classes.modeBtn} ${mode === 'tree' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => switchMode('tree')}>
+        <button type="button" className={`${classes.modeBtn} ${mode === 'tree' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => switchMode('tree'))}>
           Structured
         </button>
         <CopyButton text={yamlText} />

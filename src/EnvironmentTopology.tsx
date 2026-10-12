@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRevealOnChange } from './preventFocusScroll';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Collapse from '@material-ui/core/Collapse';
@@ -67,6 +68,7 @@ export function EnvironmentTopology({
   const stages = buildTopoStages(env);
 
   const [selectedStage, setSelectedStage] = useState<TopoStageKey>(linkedSessionId ? 'pods' : 'workload');
+  const stageDetailRef = useRevealOnChange<HTMLDivElement>(selectedStage);
   // Reset to the workload stage whenever the selected environment itself
   // changes (TopologyTab's own env-picker click) - keeping the previous
   // env's selected stage would silently show e.g. "Pods" detail for an env
@@ -139,7 +141,7 @@ export function EnvironmentTopology({
           <TopoDag stages={stages} selectedKey={selectedStage} onSelectKey={setSelectedStage} t={t} />
         </div>
         <hr className={classes.dagDivider} />
-        <div className={classes.stageDetailInner}>
+        <div className={classes.stageDetailInner} ref={stageDetailRef}>
           <TopologyStageDetail env={env} tier={tier} selectedKey={selectedStage} linkedSessionId={linkedSessionId} />
         </div>
       </div>

@@ -7,7 +7,7 @@ import LayersIcon from '@material-ui/icons/Layers';
 import AppsIcon from '@material-ui/icons/Apps';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { preventFocusScroll } from '../../preventFocusScroll';
+import { preventFocusScroll, useRevealOnChange } from '../../preventFocusScroll';
 import { CanaryRampChart } from '../../CanaryRampChart';
 import { YamlView } from './YamlView';
 import { MetricsPanel } from './MetricsPanel';
@@ -89,6 +89,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: ReturnType<typeof useStyles>; t: HangarTokens }) {
   const routeResource = findResource(env.resources, 'HTTPRoute', env.appName ?? '') ?? env.resources.find(r => r.kind === 'HTTPRoute' || r.kind === 'Ingress');
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange<HTMLDivElement>(showYaml);
   return (
     <div className={classes.body}>
       <div className={classes.head}>
@@ -115,7 +116,11 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
           <TextLink expanded={showYaml} onClick={() => setShowYaml(v => !v)}>
             Route YAML
           </TextLink>
-          {showYaml && <YamlView resource={routeResource} />}
+          {showYaml && (
+            <div ref={yamlRef}>
+              <YamlView resource={routeResource} />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -124,6 +129,7 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
 
 function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: ReturnType<typeof useStyles> }) {
   const [selected, setSelected] = useState<string | null>(env.services.length === 1 ? env.services[0].name : null);
+  const serviceDetailRef = useRevealOnChange<HTMLDivElement>(selected);
   // Separate from `selected` (which service's YAML would show) - defaults
   // closed even when a single service is auto-selected, so this stage
   // matches Route/Workload's own "▸ view … YAML" toggle instead of the
@@ -132,6 +138,7 @@ function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: Ret
   // YAML' link"). Reset whenever the selected service itself changes, so
   // switching services doesn't carry the previous one's YAML open.
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange<HTMLDivElement>(showYaml);
   const selectedResource = selected ? findResource(env.resources, 'Service', selected) : undefined;
 
   return (
@@ -172,16 +179,16 @@ function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: Ret
               which squashed the YAML/search/copy row into an unreadably
               narrow box (2026-09-17 bug report). */}
           {selectedResource && (
-            <>
+            <div ref={serviceDetailRef}>
               <TextLink expanded={showYaml} onClick={() => setShowYaml(v => !v)}>
                 Service YAML
               </TextLink>
               {showYaml && (
-                <div className={classes.fullWidthDetail}>
+                <div className={classes.fullWidthDetail} ref={yamlRef}>
                   <YamlView resource={selectedResource} />
                 </div>
               )}
-            </>
+            </div>
           )}
         </>
       )}
@@ -191,6 +198,7 @@ function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: Ret
 
 function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: ReturnType<typeof useStyles> }) {
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange<HTMLDivElement>(showYaml);
   const workload = env.workload;
   const workloadResource = workload ? findResource(env.resources, workload.kind, workload.name) : undefined;
   const podNames = env.pods.map(p => p.name);
@@ -259,7 +267,11 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
                   Workload YAML
                 </TextLink>
               </div>
-              {showYaml && <YamlView resource={workloadResource} />}
+              {showYaml && (
+                <div ref={yamlRef}>
+                  <YamlView resource={workloadResource} />
+                </div>
+              )}
             </>
           )}
         </>

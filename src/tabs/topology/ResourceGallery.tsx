@@ -22,7 +22,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import ShowChartIcon from '@material-ui/icons/ShowChart';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { preventFocusScroll } from '../../preventFocusScroll';
+import { keepAnchored, preventFocusScroll, useRevealOnChange } from '../../preventFocusScroll';
 import { YamlView } from './YamlView';
 import { RbacDetailView, RBAC_KINDS } from './RbacDetailView';
 import { resourceKey } from '../../ResourceInspector';
@@ -135,6 +135,7 @@ export function ResourceGallery({ resources, argoResources }: { resources: K8sRe
   const classes = useStyles({ t });
   const [query, setQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const detailRef = useRevealOnChange<HTMLDivElement>(selectedKey);
 
   const filtered = resources.filter(r => {
     if (!query) return true;
@@ -201,7 +202,7 @@ export function ResourceGallery({ resources, argoResources }: { resources: K8sRe
       })}
       <Collapse in={Boolean(selected)} unmountOnExit>
         {selected && (
-          <div className={classes.detail}>
+          <div className={classes.detail} ref={detailRef}>
             {isRbacKind(selected.kind) ? (
               <>
                 <div className={classes.detailModeRow}>
@@ -209,7 +210,7 @@ export function ResourceGallery({ resources, argoResources }: { resources: K8sRe
                     type="button"
                     className={`${classes.detailModeBtn} ${detailMode === 'friendly' ? classes.detailModeBtnActive : ''}`}
                     onMouseDown={preventFocusScroll}
-                    onClick={() => setDetailMode('friendly')}
+                    onClick={e => keepAnchored(e.currentTarget, () => setDetailMode('friendly'))}
                   >
                     Overview
                   </button>
@@ -217,7 +218,7 @@ export function ResourceGallery({ resources, argoResources }: { resources: K8sRe
                     type="button"
                     className={`${classes.detailModeBtn} ${detailMode === 'yaml' ? classes.detailModeBtnActive : ''}`}
                     onMouseDown={preventFocusScroll}
-                    onClick={() => setDetailMode('yaml')}
+                    onClick={e => keepAnchored(e.currentTarget, () => setDetailMode('yaml'))}
                   >
                     YAML
                   </button>
