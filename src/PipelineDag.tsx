@@ -213,7 +213,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   nodeSub: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, letterSpacing: '0.03em' },
   legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 2px 0', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 6 },
-  detail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8 },
+  detail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
   detailTitleGap: { marginBottom: 8 },
   archivedTag: {
     marginLeft: 8,
@@ -245,7 +245,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   },
   ioName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, flexShrink: 0, minWidth: 130 },
   ioValue: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, wordBreak: 'break-word', whiteSpace: 'pre-wrap' },
-  pipelineDetail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8 },
+  pipelineDetail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
   pipelineDetailHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   dialogTitle: {
     display: 'flex',

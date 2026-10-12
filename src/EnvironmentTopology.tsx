@@ -44,11 +44,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tierDot: { width: 6, height: 6, borderRadius: '50%', display: 'inline-block', marginRight: 5 },
   tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 3, display: 'inline-flex', alignItems: 'center' },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: 'flex', flexDirection: 'column' },
+  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, display: 'flex', flexDirection: 'column' },
   dagInner: { padding: '10px 12px 4px' },
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: '16px 18px' },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
 }));
 
 export function EnvironmentTopology({

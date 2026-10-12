@@ -11,7 +11,7 @@ import { Button } from './ui';
 // used, rather than silent auto-polling. It is an action, so it is a kit Button.
 export function RefreshButton({ onClick, label = 'Refresh' }: { onClick: () => void; label?: string }) {
   return (
-    <Button small onClick={onClick} title="Re-fetch PR, deploy-history, and image data" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+    <Button small onClick={onClick} title="Re-fetch PR, deploy-history, and image data">
       <RefreshIcon style={{ fontSize: 14 }} aria-hidden />
       {label}
     </Button>

@@ -67,11 +67,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // drives what's shown below it. dagInner keeps the Rail's own compact
   // padding; stageDetailInner supplies the flex/gap StageDetail's own
   // panel wrapper used to before this merge.
-  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: 'flex', flexDirection: 'column' },
+  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, display: 'flex', flexDirection: 'column' },
   dagInner: { padding: '10px 12px 4px' },
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
 }));
 
 // The pill's own real image state - the currently-live tag normally, or
@@ -270,7 +270,7 @@ export function DeploymentsTab() {
           summary="0 envs"
           groups={TIER_ORDER.map(tier => ({ tier, items: [] }))}
         />
-        <EmptyNote inset>No environments configured for this app yet.</EmptyNote>
+        <EmptyNote>No environments configured for this app yet.</EmptyNote>
       </div>
     );
   }
@@ -403,7 +403,7 @@ export function DeploymentsTab() {
               onSelectKey={setSelectedStepKey}
             />
           ) : (
-            <EmptyNote inset>No delivery recorded for {env.env} yet.</EmptyNote>
+            <EmptyNote>No delivery recorded for {env.env} yet.</EmptyNote>
           )}
         </div>
         {activeDelivery && selectedStepKey ? (
@@ -428,7 +428,7 @@ export function DeploymentsTab() {
             <hr className={classes.dagDivider} />
             <div className={classes.stageDetailInner}>
               <SectionTitle>Deployment detail</SectionTitle>
-              <EmptyNote inset>No release PRs found yet for {env.env}.</EmptyNote>
+              <EmptyNote>No release PRs found yet for {env.env}.</EmptyNote>
             </div>
           </>
         )}
@@ -438,7 +438,7 @@ export function DeploymentsTab() {
         <div className={classes.panel}>
           <SectionTitle>Supply chain security</SectionTitle>
           <PipelineFlow stages={supplyChainStages} />
-          {provenance?.error && <EmptyNote inset>Couldn't load supply-chain data: {provenance.error}</EmptyNote>}
+          {provenance?.error && <EmptyNote>Couldn't load supply-chain data: {provenance.error}</EmptyNote>}
         </div>
       )}
     </div>

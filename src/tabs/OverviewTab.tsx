@@ -75,7 +75,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   monitoringCard: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: '16px 20px',
     display: 'flex',
     flexWrap: 'wrap',
@@ -104,7 +104,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     maxWidth: 320,
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: '16px 18px',
     // A flex column so the "View Rollout" link (rolloutLink, below) can pin
     // itself to the card's bottom edge via marginTop: auto - every card in a
@@ -328,7 +328,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   notifCard: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: '12px 18px',
     marginBottom: 20,
     display: 'flex',

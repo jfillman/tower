@@ -237,7 +237,7 @@ export function YamlView({ resource }: { resource: K8sResourceRef }) {
         <button type="button" className={`${classes.modeBtn} ${mode === 'tree' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => switchMode('tree')}>
           Structured
         </button>
-        <Button small onClick={copy} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Button small onClick={copy}>
           <FileCopyOutlinedIcon style={{ fontSize: 13 }} />
           {copied ? 'Copied' : 'Copy'}
         </Button>

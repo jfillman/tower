@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
+import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { EmptyNote, PageHeader, StatusChip, TextLink } from '../ui';
+import { Card, Chip, ColumnLabel, Count, EmptyNote, PageHeader, Section, SectionTitle, Stat, StatusChip, TextLink, TierChip } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
-import type { SloSummary } from '../types';
+import { envTierOf, type SloSummary } from '../types';
+import { useReleaseContext } from '../useReleaseContext';
 
 // Real Sloth-backed SLO burn-rate view, first built once a live SLO instance
 // existed anywhere to verify against (see HANDOFF-tower-slos.md - the SLO
@@ -31,53 +32,14 @@ import type { SloSummary } from '../types';
 // request per metric.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   envGroup: { marginBottom: 26 },
-  envGroupHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 9,
-    padding: '7px 14px',
-    borderRadius: 6,
-    borderLeft: '4px solid',
-    marginBottom: 12,
-  },
-  envGroupDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  envGroupName: {
-    fontFamily: fontMono,
-    fontWeight: 700,
-    fontSize: 13,
-    textTransform: 'lowercase',
-    letterSpacing: '0.02em',
-  },
-  envGroupCount: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, marginLeft: 'auto' },
   grid: { display: 'flex', flexDirection: 'column', gap: 14 },
-  card: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    padding: '14px 18px',
-  },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
   explainer: { fontSize: 13, lineHeight: 1.5, color: ({ t }) => t.textLo, margin: '2px 0 14px' },
   windowsCaption: { fontSize: 11.5, lineHeight: 1.4, color: ({ t }) => t.textFaint, margin: '2px 0 6px' },
-  chip: {
-    display: 'inline-flex',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '2px 8px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    backgroundColor: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-  },
   headRight: { display: 'flex', alignItems: 'center', gap: 8 },
   statsRow: { display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 12 },
-  stat: { minWidth: 140 },
-  statLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, marginBottom: 4 },
-  statValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
-  statNote: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, marginTop: 2 },
+  budget: { flex: '1 1 220px', display: 'flex', flexDirection: 'column' },
   budgetTrack: { height: 8, borderRadius: 4, backgroundColor: ({ t }) => t.panelAlt, overflow: 'hidden', marginTop: 6 },
   budgetFill: { height: '100%', borderRadius: 4 },
   // alignItems left at its 'stretch' default (not 'flex-end') - .windowBar
@@ -92,53 +54,16 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   windows: { display: 'flex', gap: 6, height: 60, marginTop: 4, marginBottom: 4 },
   windowBar: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', gap: 4 },
   windowBarFill: { width: '100%', maxWidth: 22, borderRadius: '2px 2px 0 0' },
-  windowLabel: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint },
+  windowLabel: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre' },
 }));
 
 const WINDOWS = ['5m', '30m', '1h', '2h', '6h', '1d', '3d', '30d'] as const;
 
-// 2026-09-15: a single flat violet (the old ENV_ACCENT) marked cards as
-// "environment-flavored" but didn't distinguish *which* environment - two
-// same-named SLO cards for prod vs proofing both got the identical chip
-// color, so the only real cue was the small text label itself ("at the
-// moment they all share the same coloured small chip"). This is a per-NAME
-// palette instead: each distinct env seen in the current SLO set gets its
-// own hue, assigned by index once envs are sorted (see envAccentFor below) -
-// stable as long as the same set of envs is on screen, and guaranteed
-// non-colliding for however many envs are actually present (cycling past 6
-// only if a single app ever has more than 6 environments' worth of SLOs,
-// which no real app on this platform does yet). Deliberately avoids
-// amber/sky/good/bad - those already carry tier/health meaning elsewhere in
-// Tower (EnvironmentTopology's TIER_ACCENT, STATUS_COLOR) - reusing one here
-// would misread as tier or status rather than plain env identity.
-const ENV_GROUP_PALETTE: Array<{ light: { fg: string; bg: string }; dark: { fg: string; bg: string } }> = [
-  { light: { fg: '#6E5FA8', bg: '#EAE6F6' }, dark: { fg: '#B3A6E0', bg: '#292140' } }, // violet
-  { light: { fg: '#B0466E', bg: '#F7E3EC' }, dark: { fg: '#E08FB0', bg: '#3A1B29' } }, // rose
-  { light: { fg: '#1E7F91', bg: '#DCEEF1' }, dark: { fg: '#6FC7D6', bg: '#16323A' } }, // teal
-  { light: { fg: '#7A7A1F', bg: '#F1F1D6' }, dark: { fg: '#C9C96B', bg: '#2E2E12' } }, // olive
-  { light: { fg: '#4C5FA6', bg: '#E4E7F7' }, dark: { fg: '#96A8E3', bg: '#1C2140' } }, // indigo
-  { light: { fg: '#B25A2E', bg: '#F6E6DA' }, dark: { fg: '#E29A6F', bg: '#3A2416' } }, // terracotta
-];
-
-// Bucket key for SLOs missing the hangar.io/env label (shouldn't happen in
-// practice - see useSlos.ts's own comment on how every SLO gets it via the
-// shared airframe-application.labels chart helper - but the old per-card
-// chip already defensively guarded on `slo.env` being present, so this
-// grouping keeps that same defensiveness rather than silently dropping
-// unlabeled SLOs from the tab).
+// Environments are told apart by their name and their tier chip (Ground sky, Flight amber), the same as every other
+// tab. The per-environment violet/rose/teal/olive hues this tab used to give each group were not Hangar colours
+// (user decision, 2026-10-11).
 const UNKNOWN_ENV_KEY = '(no environment)';
-const UNKNOWN_ENV_ACCENT = {
-  light: { fg: '#5B6570', bg: '#E8ECEF' },
-  dark: { fg: '#96A2AC', bg: '#1A1F26' },
-};
-
-function envAccentFor(env: string, envOrder: string[], isDark: boolean): { fg: string; bg: string } {
-  if (env === UNKNOWN_ENV_KEY) return isDark ? UNKNOWN_ENV_ACCENT.dark : UNKNOWN_ENV_ACCENT.light;
-  const idx = Math.max(0, envOrder.indexOf(env));
-  const palette = ENV_GROUP_PALETTE[idx % ENV_GROUP_PALETTE.length];
-  return isDark ? palette.dark : palette.light;
-}
 
 // 2026-09-15: sloth_slo alone is no longer a unique series selector once
 // the same SLO name/service is promoted to more than one environment
@@ -181,25 +106,32 @@ function metaValue(samples: ReturnType<typeof usePrometheusInstantQuery>['sample
 // is a glance-value for the dashboard, not a re-implementation of the
 // alerting policy. >1 means consuming budget faster than the compliance
 // period allows; >2 is a blunt "clearly bad" threshold on top of that.
-function burnRateTone(t: HangarTokens, rate: number | undefined): string {
-  if (rate === undefined) return t.textFaint;
-  if (rate > 2) return t.bad;
-  if (rate > 1) return t.amberInk;
-  return t.good;
+type Tone = 'ok' | 'warn' | 'bad' | undefined;
+
+function burnRateTone(rate: number | undefined): Tone {
+  if (rate === undefined) return undefined;
+  if (rate > 2) return 'bad';
+  if (rate > 1) return 'warn';
+  return 'ok';
 }
 
-function budgetTone(t: HangarTokens, remaining: number | undefined): string {
-  if (remaining === undefined) return t.textFaint;
-  if (remaining < 0.2) return t.bad;
-  if (remaining < 0.5) return t.amberInk;
-  return t.good;
+function budgetTone(remaining: number | undefined): Tone {
+  if (remaining === undefined) return undefined;
+  if (remaining < 0.2) return 'bad';
+  if (remaining < 0.5) return 'warn';
+  return 'ok';
 }
 
-function verdictTone(t: HangarTokens, meeting: boolean | undefined): { bg: string; border: string; fg: string } {
-  if (meeting === undefined) return { bg: t.panelAlt, border: t.line, fg: t.textFaint };
-  return meeting
-    ? { bg: t.goodSoft, border: t.good, fg: t.good }
-    : { bg: t.badSoft, border: t.bad, fg: t.bad };
+function verdictTone(meeting: boolean | undefined): Tone {
+  if (meeting === undefined) return undefined;
+  return meeting ? 'ok' : 'bad';
+}
+
+function toneColor(t: HangarTokens, tone: Tone): string {
+  if (tone === 'bad') return t.bad;
+  if (tone === 'warn') return t.amberInk;
+  if (tone === 'ok') return t.good;
+  return t.textFaint;
 }
 
 // A plain-language reading of the same numbers the stat grid below already
@@ -252,11 +184,9 @@ function windowTooltip(window: string, ratio: number | undefined, errorBudgetRat
 function SloCard({
   slo,
   refreshNonce,
-  accentColor,
 }: {
   slo: SloSummary;
   refreshNonce: number;
-  accentColor: string;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -313,10 +243,10 @@ function SloCard({
   const noDataYet = !loading && !anyError && meta.samples.length === 0;
 
   return (
-    <div className={classes.card} style={{ borderLeftColor: accentColor }}>
+    <Card>
       <div className={classes.head}>
         <div>
-          <Typography className={classes.name}>{slo.name}</Typography>
+          <SectionTitle>{slo.name}</SectionTitle>
           <Typography className={classes.sub}>
             service={slo.service} &middot; {slo.cluster}
             {slo.environmentRefName ? ` · ${slo.environmentRefName}` : ''}
@@ -328,7 +258,7 @@ function SloCard({
               {meetingObjective ? 'meeting objective' : 'breaching objective'}
             </StatusChip>
           )}
-          <span className={classes.chip}>{slo.indicator.type}</span>
+          <Chip tone="sky">{slo.indicator.type}</Chip>
         </div>
       </div>
 
@@ -347,51 +277,38 @@ function SloCard({
         <>
           {summary && <Typography className={classes.explainer}>{summary}</Typography>}
           <div className={classes.statsRow}>
-            <div className={classes.stat}>
-              <div className={classes.statLabel}>Current SLI</div>
-              <div className={classes.statValue} style={{ color: verdictTone(t, meetingObjective).fg }}>
-                {currentSli !== undefined ? `${currentSli.toFixed(3)}%` : '—'}
-              </div>
-              <div className={classes.statNote}>
-                {periodDays !== undefined ? `over the last ${periodDays}d` : ' '}
-              </div>
-            </div>
-            <div className={classes.stat}>
-              <div className={classes.statLabel}>Objective</div>
-              <div className={classes.statValue} style={{ color: t.textHi }}>
-                {slo.objective}%
-              </div>
-              {periodDays !== undefined && (
-                <div className={classes.statNote}>{periodDays}d compliance window</div>
-              )}
-            </div>
-            <div className={classes.stat}>
-              <div className={classes.statLabel}>Current burn rate</div>
-              <div className={classes.statValue} style={{ color: burnRateTone(t, currentBurnRate) }}>
-                {currentBurnRate !== undefined ? `${currentBurnRate.toFixed(2)}×` : '—'}
-              </div>
-              <div className={classes.statNote}>
-                {periodBurnRate !== undefined ? `${periodBurnRate.toFixed(2)}× over full period` : ' '}
-              </div>
-            </div>
-            <div className={classes.stat} style={{ flex: '1 1 220px' }}>
-              <div className={classes.statLabel}>Error budget remaining</div>
-              <div className={classes.statValue} style={{ color: budgetTone(t, budgetRemaining) }}>
-                {budgetRemaining !== undefined ? `${(budgetRemaining * 100).toFixed(1)}%` : '—'}
-              </div>
+            <Stat
+              label="Current SLI"
+              tone={verdictTone(meetingObjective)}
+              value={currentSli !== undefined ? `${currentSli.toFixed(3)}%` : '—'}
+              caption={periodDays !== undefined ? `over the last ${periodDays}d` : undefined}
+            />
+            <Stat label="Objective" value={`${slo.objective}%`} caption={periodDays !== undefined ? `${periodDays}d compliance window` : undefined} />
+            <Stat
+              label="Current burn rate"
+              tone={burnRateTone(currentBurnRate)}
+              value={currentBurnRate !== undefined ? `${currentBurnRate.toFixed(2)}×` : '—'}
+              caption={periodBurnRate !== undefined ? `${periodBurnRate.toFixed(2)}× over full period` : undefined}
+            />
+            <div className={classes.budget}>
+              <Stat
+                label="Error budget remaining"
+                tone={budgetTone(budgetRemaining)}
+                value={budgetRemaining !== undefined ? `${(budgetRemaining * 100).toFixed(1)}%` : '—'}
+              />
               <div className={classes.budgetTrack}>
                 <div
                   className={classes.budgetFill}
                   style={{
                     width: `${Math.max(0, Math.min(100, (budgetRemaining ?? 0) * 100))}%`,
-                    backgroundColor: budgetTone(t, budgetRemaining),
+                    backgroundColor: toneColor(t, budgetTone(budgetRemaining)),
                   }}
                 />
               </div>
             </div>
           </div>
 
-          <div className={classes.statLabel}>SLI error ratio by window</div>
+          <ColumnLabel>SLI error ratio by window</ColumnLabel>
           <Typography className={classes.windowsCaption}>
             Each bar is the share of checks that were bad within that trailing window alone (not the
             30-day figure above) - red means that window's own error rate already exceeds the budget.
@@ -437,14 +354,14 @@ function SloCard({
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
 export function SlosTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const isDark = useTheme().palette.type === 'dark';
+  const { pipelineOrder } = useReleaseContext();
   const { slos, loading, refreshing, error } = useSlos();
   const [refreshNonce, setRefreshNonce] = useState(0);
 
@@ -481,32 +398,27 @@ export function SlosTab() {
         actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} />}
       />
       {groups.map(group => {
-        const accent = envAccentFor(group.env, envOrder, isDark);
+        const tier = group.env === UNKNOWN_ENV_KEY ? 'preview' : envTierOf(group.env, pipelineOrder);
+        const clusters = Array.from(new Set(group.slos.map(x => x.cluster).filter(Boolean))).join(', ');
         return (
-          <div key={group.env} className={classes.envGroup}>
-            <div
-              className={classes.envGroupHeader}
-              style={{ borderLeftColor: accent.fg, backgroundColor: accent.bg }}
-            >
-              <span className={classes.envGroupDot} style={{ backgroundColor: accent.fg }} />
-              <span className={classes.envGroupName} style={{ color: accent.fg }}>
-                {group.env}
-              </span>
-              <span className={classes.envGroupCount}>
-                {group.slos.length} SLO{group.slos.length === 1 ? '' : 's'}
-              </span>
-            </div>
+          <Section
+            key={group.env}
+            className={classes.envGroup}
+            title={group.env}
+            meta={
+              <>
+                {tier !== 'preview' && <TierChip tier={tier === 'upper' ? 'flight' : 'ground'} />}
+                {clusters && <Count>{clusters}</Count>}
+              </>
+            }
+            count={`${group.slos.length} SLO${group.slos.length === 1 ? '' : 's'}`}
+          >
             <div className={classes.grid}>
               {group.slos.map(slo => (
-                <SloCard
-                  key={`${slo.cluster}/${slo.namespace}/${slo.name}`}
-                  slo={slo}
-                  refreshNonce={refreshNonce}
-                  accentColor={accent.fg}
-                />
+                <SloCard key={`${slo.cluster}/${slo.namespace}/${slo.name}`} slo={slo} refreshNonce={refreshNonce} />
               ))}
             </div>
-          </div>
+          </Section>
         );
       })}
     </div>

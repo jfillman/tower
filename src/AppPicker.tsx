@@ -123,7 +123,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   search: { marginBottom: 20 },
   list: {
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: ({ t }) => t.panel,
   },
@@ -233,7 +233,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
   },
   cardTop: {
@@ -273,7 +273,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tableWrap: {
     overflowX: 'auto',
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel,
   },
   tdDesc: {

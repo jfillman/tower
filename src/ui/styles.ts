@@ -35,6 +35,11 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   // ---- controls
   button: {
+    // An icon before the label (Refresh, Copy) sits 5px from it.
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     fontFamily: fontBody,
     fontSize: 13,
     fontWeight: 500,
@@ -95,6 +100,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
   chipFlight: { color: ({ t }) => t.amber, borderColor: ({ t }) => t.amberLine },
   chipOk: { color: ({ t }) => t.good, borderColor: ({ t }) => t.good },
   chipBad: { color: ({ t }) => t.bad, borderColor: ({ t }) => t.bad },
+  chipSky: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   // ---- sub-tabs inside a panel
   subtabs: { display: 'flex', gap: 2, borderBottom: ({ t }) => `1px solid ${t.line}` },
   subtab: {
@@ -334,4 +340,61 @@ export const useData = makeStyles<Theme, { t: HangarTokens }>(() => ({
       '&:last-child': { paddingRight: 0 },
     },
   },
+}));
+
+// Cards, tiles, callouts and headline numbers. A card is a Panel with the kit padding; a tile is an item inside a
+// card (a pod, a resource); a callout is a banner in a status tone; a stat is a big number with its label. Its own
+// hook for the same reason as useControls.
+export const useBlocks = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  card: { padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
+  cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px 12px', flexWrap: 'wrap' },
+  cardHeadStart: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 },
+  cardHeadEnd: { display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' },
+  tile: {
+    backgroundColor: ({ t }) => t.panelAlt,
+    border: ({ t }) => `1px solid ${t.lineSoft}`,
+    borderRadius: 4,
+    padding: '8px 10px',
+    minWidth: 0,
+  },
+  tileLink: { cursor: 'pointer', '&:hover': { borderColor: ({ t }) => t.line, backgroundColor: ({ t }) => t.bg } },
+  callout: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', borderRadius: 6, border: '1px solid' },
+  calloutIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    flexShrink: 0,
+    display: 'grid',
+    placeItems: 'center',
+    fontFamily: fontMono,
+    fontWeight: 700,
+    fontSize: 11,
+    // The circle takes the tone's colour (inherited), the glyph is cut out of it in the page background.
+    backgroundColor: 'currentColor',
+  },
+  calloutIconGlyph: { color: ({ t }) => t.bg },
+  calloutBody: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 },
+  calloutTitle: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, lineHeight: 1.35 },
+  calloutText: { fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textHi },
+  calloutActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
+  info: { color: ({ t }) => t.sky, backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine },
+  warn: { color: ({ t }) => t.amberInk, backgroundColor: ({ t }) => t.amberSoft, borderColor: ({ t }) => t.amberLine },
+  bad: { color: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft, borderColor: ({ t }) => t.bad },
+  ok: { color: ({ t }) => t.good, backgroundColor: ({ t }) => t.goodSoft, borderColor: ({ t }) => t.good },
+  neutral: { color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line },
+  calloutLabel: { fontFamily: fontMono, fontWeight: 500, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase' },
+  stat: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
+  statLabel: {
+    fontFamily: fontMono,
+    fontWeight: 500,
+    fontSize: 10.5,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color: ({ t }) => t.textLo,
+  },
+  statValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: ({ t }) => t.textHi, overflowWrap: 'anywhere' },
+  statValueOk: { color: ({ t }) => t.good },
+  statValueWarn: { color: ({ t }) => t.amberInk },
+  statValueBad: { color: ({ t }) => t.bad },
+  statCaption: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
 }));

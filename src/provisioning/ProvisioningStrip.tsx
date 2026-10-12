@@ -8,7 +8,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   strip: {
     border: ({ t }) => `1px solid ${t.line}`,
     borderLeft: ({ t }) => `3px solid ${t.sky}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel,
     padding: '12px 14px',
     marginBottom: 20,

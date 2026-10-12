@@ -54,7 +54,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   panel: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   panelHighlighted: {

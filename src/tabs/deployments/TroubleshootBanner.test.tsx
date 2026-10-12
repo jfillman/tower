@@ -54,6 +54,13 @@ describe('the banner for a deployment that is not coming up', () => {
     expect(details.getByText('0/1 nodes are available: 1 Insufficient memory.')).toBeTruthy();
   });
 
+  it('stays out of the way when ArgoCD cannot be read: the ArgoCD card above says so once', () => {
+    const unreachable = env({ rolloutPhase: 'Healthy', argoHealthStatus: undefined, argoSyncStatus: undefined });
+    expect(diagnose(unreachable, undefined, [], []).unreachable).toBe(true);
+    const { container } = render(<TroubleshootBanner env={unreachable} currentSteps={undefined} pods={[]} events={[]} />);
+    expect(container.textContent).toBe('');
+  });
+
   it('does not invent a problem for a healthy rollout, whatever an old pod looks like', () => {
     render(<TroubleshootBanner env={env({ rolloutPhase: 'Healthy', argoHealthStatus: 'Healthy' })} currentSteps={undefined} pods={[podPulling]} events={[]} />);
     expect(screen.getByText('Synced and healthy')).toBeTruthy();

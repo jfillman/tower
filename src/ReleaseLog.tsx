@@ -127,7 +127,7 @@ export function buildLogEntries(
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: 'hidden' },
+  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, overflow: 'hidden' },
   head: { padding: '14px 20px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
   scroll: { overflowX: 'auto', padding: '0 20px 18px' },

@@ -11,7 +11,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Chip, EmptyNote, PageHeader, StatusChip, type StatusTone, TextLink, useTableKit } from '../ui';
+import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, TextLink, useTableKit } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -23,23 +23,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { paddingBottom: 40 },
   resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginBottom: 22 },
-  card: {
-    background: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 8,
-    padding: '14px 16px',
-  },
   cardBad: { borderColor: ({ t }) => t.bad, background: ({ t }) => t.badSoft },
   cardRun: { borderColor: ({ t }) => t.amberLine, background: ({ t }) => t.amberSoft },
-  label: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    letterSpacing: '0.12em',
-    textTransform: 'uppercase',
-    color: ({ t }) => t.textFaint,
-    marginBottom: 6,
-  },
-  big: { fontFamily: fontMono, fontSize: 15, color: ({ t }) => t.textHi, wordBreak: 'break-all' },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
 }));
@@ -135,11 +120,10 @@ export function CloudDeploymentsTab() {
       />
 
       <div className={classes.grid}>
-        <div className={classes.card}>
-          <div className={classes.label}>Last successful deploy</div>
+        <Card>
           {current ? (
             <>
-              <div className={classes.big}>{current.imageTag ?? current.imageRef ?? 'unknown image'}</div>
+              <Stat label="Last successful deploy" value={current.imageTag ?? current.imageRef ?? 'unknown image'} />
               <div className={classes.sub}>
                 {current.flowSlug ? `${current.flowSlug} · ` : ''}
                 {current.shortSha ? `commit ${current.shortSha} · ` : ''}
@@ -147,27 +131,25 @@ export function CloudDeploymentsTab() {
               </div>
             </>
           ) : (
-            <div className={classes.sub}>No deploy has succeeded yet.</div>
+            <Stat label="Last successful deploy" value="—" caption="No deploy has succeeded yet." />
           )}
-        </div>
+        </Card>
 
         {inFlight && (
-          <div className={`${classes.card} ${classes.cardRun}`}>
-            <div className={classes.label}>Deploying now</div>
-            <div className={classes.big}>{inFlight.imageTag ?? inFlight.imageRef ?? 'unknown image'}</div>
+          <Card className={classes.cardRun}>
+            <Stat label="Deploying now" value={inFlight.imageTag ?? inFlight.imageRef ?? 'unknown image'} />
             <div className={classes.sub}>
               started {relativeTime(inFlight.startTime)} ·{' '}
               <TextLink onClick={() => openRun(inFlight.runName)}>
                 watch the run
               </TextLink>
             </div>
-          </div>
+          </Card>
         )}
 
         {latestFailure && (
-          <div className={`${classes.card} ${classes.cardBad}`}>
-            <div className={classes.label}>Latest deploy failed</div>
-            <div className={classes.big}>{latestFailure.imageTag ?? latestFailure.imageRef ?? 'unknown image'}</div>
+          <Card className={classes.cardBad}>
+            <Stat label="Latest deploy failed" value={latestFailure.imageTag ?? latestFailure.imageRef ?? 'unknown image'} />
             <div className={classes.sub}>
               {latestFailure.failure?.task ? `${latestFailure.failure.task}: ` : ''}
               {latestFailure.failure?.message ?? 'see the run for details'}
@@ -180,7 +162,7 @@ export function CloudDeploymentsTab() {
                 open the run and its logs
               </TextLink>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 

@@ -99,6 +99,9 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   radio: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: ({ t }) => t.textHi, cursor: 'pointer' },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
   bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  // Shared with BreakglassEnvironmentView and BreakglassPanel, which use them inline inside labels and rows.
+  hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
+  link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
   actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   banner: {
     display: 'flex',
