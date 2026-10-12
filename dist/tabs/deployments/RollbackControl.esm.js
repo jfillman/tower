@@ -4,13 +4,12 @@ import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
-import { Button } from '../../ui/index.esm.js';
+import { Hint, Button } from '../../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 6, paddingTop: 8, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
   row: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
-  note: { fontSize: 11.5, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   mono: { fontFamily: fontMono, fontSize: 11 },
   input: {
     fontSize: 12,
@@ -89,13 +88,13 @@ function RollbackControl({
       "Roll back ",
       env
     ] }),
-    !plan && !error && /* @__PURE__ */ jsx("span", { className: c.note, children: "Reading this environment's releases\u2026" }),
-    plan && !plan.current && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+    !plan && !error && /* @__PURE__ */ jsx(Hint, { children: "Reading this environment's releases\u2026" }),
+    plan && !plan.current && /* @__PURE__ */ jsxs(Hint, { children: [
       "Nothing has been released to ",
       env,
       " yet."
     ] }),
-    plan?.current && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+    plan?.current && /* @__PURE__ */ jsxs(Hint, { children: [
       "Running: ",
       /* @__PURE__ */ jsx("span", { className: c.mono, children: tagOf(plan.current.image) }),
       " (",
@@ -103,7 +102,7 @@ function RollbackControl({
       plan.current.stateAt ? `, ${relativeTime(plan.current.stateAt)}` : "",
       ")"
     ] }),
-    plan?.current && plan.targets.length === 0 && /* @__PURE__ */ jsx("span", { className: c.note, children: "No earlier image ran healthy here in the last five releases, so there is nothing to roll back to." }),
+    plan?.current && plan.targets.length === 0 && /* @__PURE__ */ jsx(Hint, { children: "No earlier image ran healthy here in the last five releases, so there is nothing to roll back to." }),
     plan?.current && plan.targets.length > 0 && /* @__PURE__ */ jsxs("div", { className: c.row, children: [
       /* @__PURE__ */ jsx("select", { "aria-label": `Release to roll ${env} back to`, className: c.input, value: target, onChange: (e) => setTarget(e.target.value), children: plan.targets.map((x) => /* @__PURE__ */ jsxs("option", { value: x.releaseId, children: [
         tagOf(x.image),
@@ -133,7 +132,7 @@ function RollbackControl({
       )
     ] }),
     confirming && chosen && /* @__PURE__ */ jsxs("div", { className: c.row, children: [
-      /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+      /* @__PURE__ */ jsxs(Hint, { children: [
         "Open a release PR putting ",
         /* @__PURE__ */ jsx("span", { className: c.mono, children: tagOf(chosen.image) }),
         " back on ",

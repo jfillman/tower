@@ -20,7 +20,7 @@ import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioningHistory, typicalFor } from './provisioning/provisioningHistory.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
-import { TextLink, FilterBar, FilterChips, SearchField } from './ui/index.esm.js';
+import { TextLink, FilterBar, FilterChips, SearchField, EmptyNote } from './ui/index.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -116,12 +116,6 @@ const useStyles = makeStyles(() => ({
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
   // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
   owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  empty: {
-    padding: "24px 18px",
-    fontSize: 13,
-    color: ({ t }) => t.textLo,
-    fontStyle: "italic"
-  },
   rowMain: { display: "flex", alignItems: "center", gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -567,7 +561,7 @@ function AppPicker({
             }
           )
         ] }),
-        filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx("div", { className: classes.empty, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
+        filteredMinusStarred.length === 0 ? /* @__PURE__ */ jsx("div", { className: classes.list, children: /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: emptyMessage }) }) : renderCollection(filteredMinusStarred)
       ] })
     ] })
   ] });

@@ -6,6 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
+import { Hint } from '../../ui/index.esm.js';
 
 const shortUser = (ref) => ref.replace(/^user:[^/]+\//, "");
 const useBreakglassStyles = makeStyles(() => ({
@@ -14,7 +15,6 @@ const useBreakglassStyles = makeStyles(() => ({
   full: { gridColumn: "1 / -1" },
   radios: { display: "flex", flexDirection: "column", gap: 6 },
   radio: { display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: ({ t }) => t.textHi, cursor: "pointer" },
-  hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
   bad: { fontSize: 11.5, color: ({ t }) => t.bad },
   actions: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
@@ -233,7 +233,7 @@ function OpenSession({
       /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, style: { color: t.bad }, disabled: ending, onClick: () => onEnd(open.id), children: ending ? "Ending\u2026" : "End session" })
     ] }),
     open.mode === "live" && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This pod will be restarted when you end the session." }),
-    open.volumeAccess && /* @__PURE__ */ jsx("div", { className: classes.history, "data-testid": "breakglass-volumes", children: (open.volumes ?? []).length === 0 ? /* @__PURE__ */ jsxs("span", { className: classes.hint, children: [
+    open.volumeAccess && /* @__PURE__ */ jsx("div", { className: classes.history, "data-testid": "breakglass-volumes", children: (open.volumes ?? []).length === 0 ? /* @__PURE__ */ jsxs(Hint, { children: [
       "Volume access: ",
       open.container,
       " mounts no volumes besides its service account token."
@@ -258,7 +258,7 @@ function OpenSession({
       attachKey
     ),
     closedNote && /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
-      /* @__PURE__ */ jsx("span", { className: classes.hint, children: closedNote }),
+      /* @__PURE__ */ jsx(Hint, { children: closedNote }),
       detached && /* @__PURE__ */ jsx(
         "button",
         {

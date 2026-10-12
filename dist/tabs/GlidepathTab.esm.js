@@ -18,7 +18,7 @@ import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
-import { PageHeader, Subtabs } from '../ui/index.esm.js';
+import { PageHeader, Subtabs, SectionTitle } from '../ui/index.esm.js';
 import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
@@ -182,12 +182,6 @@ const useStyles = makeStyles(() => ({
   root: { paddingBottom: 40, display: "flex", flexDirection: "column", gap: 20 },
   headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
   headerTitle: { display: "flex", alignItems: "center", gap: 10 },
-  title: {
-    fontFamily: fontDisplay,
-    fontSize: 20,
-    fontWeight: 600,
-    color: ({ t }) => t.textHi
-  },
   section: {
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     borderRadius: 6,
@@ -196,12 +190,6 @@ const useStyles = makeStyles(() => ({
     flexDirection: "column",
     gap: 12,
     backgroundColor: ({ t }) => t.panel
-  },
-  sectionTitle: {
-    fontFamily: fontDisplay,
-    fontSize: 14,
-    fontWeight: 600,
-    color: ({ t }) => t.textHi
   },
   sectionHint: { fontSize: 12, color: ({ t }) => t.textLo },
   row: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" },
@@ -322,7 +310,7 @@ function GlidepathTab() {
     ),
     /* @__PURE__ */ jsx(Subtabs, { label: "Glidepath sections", value: tab, onChange: setTab, tabs: GLIDEPATH_TABS.map((x) => ({ ...x, marked: dirtyTabs.has(x.id) })) }),
     tab === "build" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Build" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Build" }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsx(Select, { value: form.buildAgent, onChange: (e) => setForm((f) => f ? { ...f, buildAgent: e.target.value } : f), children: BUILD_AGENTS.map((a) => /* @__PURE__ */ jsx(MenuItem, { value: a, children: a }, a)) }),
         /* @__PURE__ */ jsx(
@@ -416,7 +404,7 @@ function GlidepathTab() {
       ] })
     ] }),
     tab === "test" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Test" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Test" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(Switch, { checked: form.testEnabled, onChange: (e) => setForm((f) => f ? { ...f, testEnabled: e.target.checked } : f) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "Enabled" })
@@ -432,7 +420,7 @@ function GlidepathTab() {
       )
     ] }),
     tab === "deploy" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Deploy" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Deploy" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "The environments are edited in the Environments tab (deploy.environments)." }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsx(Select, { value: form.strategy, disabled: true, children: /* @__PURE__ */ jsx(MenuItem, { value: "rollout", children: "rollout" }) }),
@@ -440,7 +428,7 @@ function GlidepathTab() {
       ] })
     ] }),
     tab === "preview" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Ephemeral Environments" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Ephemeral Environments" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(
           Switch,
@@ -492,7 +480,7 @@ function GlidepathTab() {
       )
     ] }),
     tab === "governance" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Governance" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Governance" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.govCaption, children: [
         "Pre-flight checks only. The release-blocking gate on ",
         appName,
@@ -525,7 +513,7 @@ function GlidepathTab() {
       )
     ] }),
     tab === "notifications" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Notifications" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Notifications" }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(
           Switch,
@@ -569,7 +557,7 @@ function GlidepathTab() {
       ] })
     ] }),
     tab === "secrets" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Secrets" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Secrets" }),
       form.secrets.map((s, i) => /* @__PURE__ */ jsxs("div", { className: classes.secretRow, children: [
         /* @__PURE__ */ jsx(
           TextField,
@@ -608,7 +596,7 @@ function GlidepathTab() {
       )
     ] }),
     tab === "pipelines" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Pipelines" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Pipelines" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "Raw YAML - named-flow map (trigger + steps, or the legacy list form)." }),
       /* @__PURE__ */ jsx(
         YamlBlockEditor,
@@ -621,7 +609,7 @@ function GlidepathTab() {
       )
     ] }),
     tab === "advanced" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Committed cicd.yaml" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Committed cicd.yaml" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges." }),
       /* @__PURE__ */ jsx("pre", { className: classes.rawView, children: cicd.data?.raw || "(no cicd.yaml committed yet)" })
     ] }),

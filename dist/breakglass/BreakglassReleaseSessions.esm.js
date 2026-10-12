@@ -1,17 +1,15 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
-import { StatusChip } from '../ui/index.esm.js';
+import { EmptyNote, StatusChip } from '../ui/index.esm.js';
 import { useBreakglassSessions, shortUser } from '../tabs/topology/breakglassShared.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 6 },
   row: { display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" },
-  empty: { fontSize: 12, color: ({ t }) => t.textFaint, fontStyle: "italic" }
+  link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }
 }));
 function releaseWindow(record, others, env) {
   const own = record.deployments.find((d) => d.env === env);
@@ -31,12 +29,12 @@ function EnvSessions({ appName, env, window, onOpen }) {
   const classes = useStyles({ t });
   const { sessions, info } = useBreakglassSessions(appName, env);
   const inWindow = sessionsInWindow(sessions, window);
-  if (info.error) return /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
+  if (info.error) return /* @__PURE__ */ jsxs(EmptyNote, { children: [
     env,
     ": ",
     info.error
   ] });
-  if (inWindow.length === 0) return /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
+  if (inWindow.length === 0) return /* @__PURE__ */ jsxs(EmptyNote, { children: [
     env,
     ": none while this release ran here."
   ] });
@@ -68,7 +66,7 @@ function BreakglassReleaseSessions({ appName, record, others, onOpen }) {
   const classes = useStyles({ t });
   if (!appName) return null;
   const windows = record.deployments.map((d) => ({ env: d.env, window: releaseWindow(record, others, d.env) })).filter((x) => !!x.window);
-  if (windows.length === 0) return /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No deployment to look at." });
+  if (windows.length === 0) return /* @__PURE__ */ jsx(EmptyNote, { children: "No deployment to look at." });
   return /* @__PURE__ */ jsx("div", { className: classes.list, children: windows.map((w) => /* @__PURE__ */ jsx(EnvSessions, { appName, env: w.env, window: w.window, onOpen }, w.env)) });
 }
 

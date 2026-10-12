@@ -7,10 +7,11 @@ import SpeedIcon from '@material-ui/icons/Speed';
 import ArrowDownwardIcon from '@material-ui/icons/ArrowDownward';
 import ArrowUpwardIcon from '@material-ui/icons/ArrowUpward';
 import StorageIcon from '@material-ui/icons/Storage';
-import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
 import { usePrometheusRangeQuery } from '../../usePrometheusQuery.esm.js';
 import { cpuUsageQuery, memoryUsageQuery, networkRxQuery, networkTxQuery, diskReadQuery, diskWriteQuery, formatCores, formatBytesPerSec } from './metricsQueries.esm.js';
+import { SectionTitle, EmptyNote } from '../../ui/index.esm.js';
 
 const RANGE_SECONDS = 15 * 60;
 const STEP_SECONDS = 30;
@@ -35,7 +36,6 @@ const useStyles = makeStyles(() => ({
     gap: 10
   },
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   liveToggle: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -67,8 +67,7 @@ const useStyles = makeStyles(() => ({
   tileIcon: { display: "flex", fontSize: 15 },
   tileLabel: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" },
   tileValue: { fontFamily: fontMono, fontWeight: 700, fontSize: 18, color: ({ t }) => t.textHi },
-  tileNote: { fontSize: 10.5, fontStyle: "italic", color: ({ t }) => t.textFaint },
-  note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textLo }
+  tileNote: { fontSize: 10.5, fontStyle: "italic", color: ({ t }) => t.textFaint }
 }));
 function Sparkline({ points, color, t }) {
   const width = 130;
@@ -150,8 +149,8 @@ function MetricsPanel({
   }, [live]);
   if (podNames.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: title }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No running pods to measure." })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: title }),
+      /* @__PURE__ */ jsx(EmptyNote, { children: "No running pods to measure." })
     ] });
   }
   const cpuQuery = cpuUsageQuery(namespace, podNames);
@@ -162,7 +161,7 @@ function MetricsPanel({
   const writeQuery = diskWriteQuery(namespace, podNames);
   return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsxs(Typography, { className: classes.title, children: [
+      /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
         title,
         " ",
         /* @__PURE__ */ jsxs("span", { style: { fontWeight: 400, color: t.textFaint }, children: [

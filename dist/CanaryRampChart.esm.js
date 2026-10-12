@@ -6,6 +6,7 @@ import { formatDateTime } from './shared/format.esm.js';
 import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { useAnalysisRuns } from './useAnalysisRuns.esm.js';
+import { EmptyNote } from './ui/index.esm.js';
 
 const STEP_COL = 64;
 const STEP_GAP = 2;
@@ -98,8 +99,7 @@ const useStyles = makeStyles(() => ({
   measureRowLast: { borderBottom: "none" },
   measureTime: { color: ({ t }) => t.textFaint, width: 172, flexShrink: 0, whiteSpace: "nowrap" },
   measureVal: { color: ({ t }) => t.textHi },
-  cond: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 8 },
-  note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textLo, padding: "4px 0" }
+  cond: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 8 }
 }));
 function stepLabelParts(s) {
   if (s.kind === "setWeight") {
@@ -134,7 +134,7 @@ function AnalysisCard({ templateName, run, classes, t }) {
       /* @__PURE__ */ jsx("span", { className: classes.badge, style: { borderColor: toneColor, backgroundColor: toneSoft, color: toneColor }, children: run.phase ?? "Unknown" })
     ] }),
     run.message && /* @__PURE__ */ jsx(Typography, { className: classes.analysisMessage, style: { backgroundColor: toneSoft, color: toneColor }, children: run.message }),
-    run.metrics.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No metric results recorded yet." }),
+    run.metrics.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No metric results recorded yet." }),
     run.metrics.map((m) => /* @__PURE__ */ jsxs("div", { style: { marginBottom: 8 }, children: [
       m.query && /* @__PURE__ */ jsx("div", { className: classes.query, children: m.query }),
       m.measurements.map((meas, i) => /* @__PURE__ */ jsxs("div", { className: `${classes.measureRow} ${i === m.measurements.length - 1 ? classes.measureRowLast : ""}`, children: [
@@ -179,7 +179,7 @@ function CanaryRampChart({
     });
   }
   if (steps.length === 0) {
-    return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This rollout declares no canary steps." });
+    return /* @__PURE__ */ jsx(EmptyNote, { children: "This rollout declares no canary steps." });
   }
   const width = contentWidth(steps.length) + CHART_TRAIL;
   const padT = 10;
@@ -342,7 +342,7 @@ function CanaryRampChart({
       ] }),
       backgroundTemplates.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.backgroundAnalysis, children: [
         /* @__PURE__ */ jsx("div", { className: classes.backgroundAnalysisTitle, children: "Background analysis" }),
-        backgroundRun ? /* @__PURE__ */ jsx(AnalysisCard, { templateName: backgroundTemplates.join(", "), run: backgroundRun, classes, t }) : /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+        backgroundRun ? /* @__PURE__ */ jsx(AnalysisCard, { templateName: backgroundTemplates.join(", "), run: backgroundRun, classes, t }) : /* @__PURE__ */ jsxs(EmptyNote, { children: [
           backgroundTemplates.join(", "),
           " - not currently running."
         ] })
@@ -373,7 +373,7 @@ function CanaryRampChart({
         const name = (steps[i].analysisTemplates ?? []).join(", ") || "analysis";
         const label = `Step ${i + 1} \xB7 ${name}`;
         if (!run) {
-          return /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+          return /* @__PURE__ */ jsxs(EmptyNote, { children: [
             label,
             " - not started yet."
           ] }, i);
@@ -405,12 +405,12 @@ function CanaryRampChart({
         ] }, i);
       })
     ] }),
-    analysisStepIndices.length > 0 && analysisRuns.runs.length === 0 && !analysisRuns.loading && !analysisRuns.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    analysisStepIndices.length > 0 && analysisRuns.runs.length === 0 && !analysisRuns.loading && !analysisRuns.error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "No AnalysisRuns found for this rollout",
       podHash ? ` (pod hash ${podHash})` : "",
       " yet."
     ] }),
-    analysisRuns.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    analysisRuns.error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't load analysis results: ",
       analysisRuns.error
     ] })

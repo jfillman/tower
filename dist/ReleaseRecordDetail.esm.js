@@ -16,7 +16,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
-import { TextLink, Button, ActionSelect, StatusChip } from './ui/index.esm.js';
+import { TextLink, Button, ActionSelect, EmptyNote, Hint, StatusChip } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -119,6 +119,10 @@ const useStyles = makeStyles(() => ({
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
   colHeadBuilt: { borderTop: ({ t }) => `3px solid ${t.amber}` },
   colHeadHappened: { borderTop: ({ t }) => `3px solid ${t.good}` },
+  // The break-glass panel (phase C, G12): its own strip in the break-glass red, and the same gap the Human context
+  // panel keeps from the columns above (2026-10-12 bug: it hugged them, with no strip).
+  colHeadBreakglass: { borderTop: ({ t }) => `3px solid ${t.bad}` },
+  colBreakglass: { marginTop: 18 },
   colTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: ({ t }) => t.textHi },
   colBody: { padding: "14px 15px", display: "flex", flexDirection: "column", gap: 14 },
   prItem: { display: "flex", gap: 8, fontSize: 12.5, alignItems: "baseline" },
@@ -152,7 +156,6 @@ const useStyles = makeStyles(() => ({
   },
   promoArrow: { color: ({ t }) => t.textFaint },
   promoWhen: { marginLeft: "auto", color: ({ t }) => t.textFaint, fontSize: 11, fontFamily: fontMono },
-  empty: { fontSize: 12, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   runList: { display: "flex", flexDirection: "column", gap: 6 },
   runRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   runName: { color: ({ t }) => t.textHi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
@@ -413,7 +416,7 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
-          record.pullRequests.length === 0 && record.commits.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No merged source PRs found in the window Tower has fetched." }),
+          record.pullRequests.length === 0 && record.commits.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No merged source PRs found in the window Tower has fetched." }),
           record.pullRequests.length === 0 && record.commits.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
             /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "No merged source PRs found in the window Tower has fetched \u2014 commits by environment:" }),
             dedupeCommits(record.commits).map((c) => /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
@@ -430,7 +433,7 @@ function ReleaseRecordDetail({
               /* @__PURE__ */ jsx("span", { className: classes.prTitle, children: pr.title }),
               pr.author && /* @__PURE__ */ jsx("span", { className: classes.prWho, children: pr.author })
             ] }, pr.number)),
-            record.pullRequests.length > 8 && /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
+            record.pullRequests.length > 8 && /* @__PURE__ */ jsxs(Hint, { children: [
               "+",
               record.pullRequests.length - 8,
               " more"
@@ -449,7 +452,7 @@ function ReleaseRecordDetail({
           /* @__PURE__ */ jsx(StatusChip, { tone: record.incidents.length === 0 ? "ok" : "bad", children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents` })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
-          record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
+          record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
             /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.fromEnv }),
             /* @__PURE__ */ jsx("span", { className: classes.promoArrow, children: "\u2192" }),
             /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.toEnv }),
@@ -522,7 +525,7 @@ function ReleaseRecordDetail({
                 ] }),
                 /* @__PURE__ */ jsx("span", { className: classes.testResult, children: tr.value })
               ] }, `${tr.taskName}-${tr.resultName}-${i}`)),
-              record.testResults.length > 8 && /* @__PURE__ */ jsxs(Typography, { className: classes.empty, children: [
+              record.testResults.length > 8 && /* @__PURE__ */ jsxs(Hint, { children: [
                 "+",
                 record.testResults.length - 8,
                 " more"
@@ -542,13 +545,13 @@ function ReleaseRecordDetail({
             record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
               /* @__PURE__ */ jsx(GateGrid, { checks: record.guardrails.checks ?? [], classes, t }),
               record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: `View ${record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}` })
-            ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: "No release-guardrail check data found for this release's release PR." })
+            ] }) : /* @__PURE__ */ jsx(EmptyNote, { children: "No release-guardrail check data found for this release's release PR." })
           ] })
         ] })
       ] })
     ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.col, "data-testid": "release-breakglass", children: [
-      /* @__PURE__ */ jsx("div", { className: classes.colHead, children: /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "Break-glass sessions during this release" }) }),
+    /* @__PURE__ */ jsxs("div", { className: `${classes.col} ${classes.colBreakglass}`, "data-testid": "release-breakglass", children: [
+      /* @__PURE__ */ jsx("div", { className: `${classes.colHead} ${classes.colHeadBreakglass}`, children: /* @__PURE__ */ jsx("span", { className: classes.colTitle, children: "Break-glass sessions during this release" }) }),
       /* @__PURE__ */ jsx("div", { className: classes.colBody, children: /* @__PURE__ */ jsx(
         BreakglassReleaseSessions,
         {

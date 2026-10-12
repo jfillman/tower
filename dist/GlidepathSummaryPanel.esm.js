@@ -10,7 +10,7 @@ import { useCicdConfig, usePlatformEnvs, usePlatformFile } from './useConfigData
 import { PipelineFlowPreview } from './PipelineFlowPreview.esm.js';
 import { readEnvironments, pipelinesNamingEnv } from './environments/stagedChanges.esm.js';
 import { DEPLOY_TARGETS } from './serviceClass.esm.js';
-import { TextLink, TierChip, ColumnLabel } from './ui/index.esm.js';
+import { SectionTitle, TextLink, TierChip, ColumnLabel } from './ui/index.esm.js';
 import { ENVS_ROOT } from './types.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -27,7 +27,6 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },
   headLeft: { display: "flex", alignItems: "center", gap: 8 },
   headRight: { display: "flex", gap: 18, alignItems: "center" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
   chain: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chainItem: { display: "inline-flex", alignItems: "center", gap: 6 },
   chainName: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
@@ -100,7 +99,7 @@ function GlidepathSummaryPanel({ owner, appName }) {
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
         /* @__PURE__ */ jsx(HangarMark, { glyph: "glidepath", size: 18 }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Glidepath at a glance" }),
+        /* @__PURE__ */ jsx(SectionTitle, { children: "Glidepath at a glance" }),
         statusNote && /* @__PURE__ */ jsx(Typography, { className: cicd.error ? classes.statusNoteError : classes.statusNote, children: statusNote })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.headRight, children: [

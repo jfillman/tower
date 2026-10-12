@@ -1,16 +1,14 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { preventFocusScroll } from './preventFocusScroll.esm.js';
-import { FilterSelect, FilterChip } from './ui/index.esm.js';
+import { SectionTitle, FilterSelect, FilterChip, EmptyNote } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   refresh: {
     fontFamily: fontMono,
     fontSize: 11,
@@ -55,8 +53,7 @@ const useStyles = makeStyles(() => ({
     maxHeight: 420,
     overflow: "auto",
     whiteSpace: "pre-wrap"
-  },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo }
+  }
 }));
 function PodLogsView({
   cluster,
@@ -98,7 +95,7 @@ function PodLogsView({
   }, [live, container, previous]);
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsxs(Typography, { className: classes.title, children: [
+      /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
         "Logs \u2014 ",
         podName
       ] }),
@@ -109,8 +106,8 @@ function PodLogsView({
         "live"
       ] }) : /* @__PURE__ */ jsx("button", { type: "button", className: classes.refresh, onMouseDown: preventFocusScroll, onClick: () => setNonce((n) => n + 1), children: "\u21BB refresh" })
     ] }),
-    state.loading && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading logs\u2026" }),
-    state.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    state.loading && /* @__PURE__ */ jsx(EmptyNote, { children: "Loading logs\u2026" }),
+    state.error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't load logs",
       previous ? " (no previous terminated container found?)" : "",
       ": ",

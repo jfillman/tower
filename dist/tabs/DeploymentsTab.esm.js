@@ -2,14 +2,13 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useArgoActions } from '../useReleaseData.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, EmptyNote, Section, TierChip, Count, SectionTitle } from '../ui/index.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { useSignalRailStyles, deliveryTag, Rail } from '../SignalRail.esm.js';
 import { EnvPicker } from '../EnvPicker.esm.js';
@@ -29,7 +28,6 @@ const useStyles = makeStyles(() => ({
   // which env we're looking at" - the picker above already shows env+
   // cluster+image, and the app name is the entity/page itself, so this is
   // now a single lightweight line, not a second full heading).
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 20, color: ({ t }) => t.textHi },
   // The DAG and its stage-detail panel are one connected unit (2026-09-16:
   // "should the stage details pane actually be connected to the DAG?
   // separated by a horizontal rule or something like that?") - a single
@@ -41,9 +39,7 @@ const useStyles = makeStyles(() => ({
   dagInner: { padding: "10px 12px 4px" },
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 },
-  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo }
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
 }));
 function envPillImage(env, delivery, pipelineRuns) {
   if (delivery.current) {
@@ -170,7 +166,7 @@ function DeploymentsTab() {
           groups: TIER_ORDER.map((tier) => ({ tier, items: [] }))
         }
       ),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No environments configured for this app yet." })
+      /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No environments configured for this app yet." })
     ] });
   }
   const selected = deliveries.find((d) => d.env.env === selectedEnv) ?? deliveries[0];
@@ -237,7 +233,16 @@ function DeploymentsTab() {
         groups: pickerGroups
       }
     ),
-    /* @__PURE__ */ jsx(Typography, { className: classes.title, children: env.env }),
+    /* @__PURE__ */ jsx(
+      Section,
+      {
+        title: env.env,
+        meta: /* @__PURE__ */ jsxs(Fragment, { children: [
+          envTierOf(env.env, pipelineOrder) !== "preview" && /* @__PURE__ */ jsx(TierChip, { tier: envTierOf(env.env, pipelineOrder) === "upper" ? "flight" : "ground" }),
+          env.cluster && /* @__PURE__ */ jsx(Count, { children: env.cluster })
+        ] })
+      }
+    ),
     /* @__PURE__ */ jsx(ArgoCommandPanel, { env, argoActions, currentImage: liveImage, incomingImage }),
     /* @__PURE__ */ jsx(
       TroubleshootBanner,
@@ -260,7 +265,7 @@ function DeploymentsTab() {
           selectedKey: selectedStepKey,
           onSelectKey: setSelectedStepKey
         }
-      ) : /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+      ) : /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
         "No delivery recorded for ",
         env.env,
         " yet."
@@ -284,8 +289,8 @@ function DeploymentsTab() {
       ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("hr", { className: classes.dagDivider }),
         /* @__PURE__ */ jsxs("div", { className: classes.stageDetailInner, children: [
-          /* @__PURE__ */ jsx(Typography, { className: classes.panelTitle, children: "Deployment detail" }),
-          /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+          /* @__PURE__ */ jsx(SectionTitle, { children: "Deployment detail" }),
+          /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
             "No release PRs found yet for ",
             env.env,
             "."
@@ -294,9 +299,9 @@ function DeploymentsTab() {
       ] })
     ] }),
     hasSupplyChain && /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.panelTitle, children: "Supply chain security" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Supply chain security" }),
       /* @__PURE__ */ jsx(PipelineFlow, { stages: supplyChainStages }),
-      provenance?.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+      provenance?.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
         "Couldn't load supply-chain data: ",
         provenance.error
       ] })

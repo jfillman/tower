@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
-import { FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
+import { EmptyNote, FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
 
 const STATUS_FILTERS = [
   { key: "all", label: "All" },
@@ -59,7 +59,6 @@ const useStyles = makeStyles(() => ({
   actionSlot: { width: 104, display: "flex", justifyContent: "flex-end", flexShrink: 0, whiteSpace: "nowrap" },
   chipSlot: { width: 96, display: "flex", justifyContent: "center", flexShrink: 0 },
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "right", width: 70, flexShrink: 0, whiteSpace: "nowrap" },
-  empty: { padding: "22px 18px", textAlign: "center", fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -253,7 +252,7 @@ function PipelineRunList({
   const [flowFilter, setFlowFilter] = useState("all");
   const [pageSize, setPageSize] = useState(25);
   if (runs.length === 0) {
-    return /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No pipeline runs found yet in this app's CI namespace." });
+    return /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No pipeline runs found yet in this app's CI namespace." });
   }
   const query = search.trim().toLowerCase();
   const filtered = runs.filter((run) => {
@@ -309,7 +308,7 @@ function PipelineRunList({
       )
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.list, style: truncated ? { borderRadius: 0 } : void 0, children: [
-      filtered.length === 0 && /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No pipeline runs match this filter." }),
+      filtered.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No pipeline runs match this filter." }),
       visible.map((run, i) => {
         const cancelRequested = String(run.raw?.spec?.status ?? "").startsWith(
           "Cancelled"

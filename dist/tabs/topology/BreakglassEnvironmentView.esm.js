@@ -2,19 +2,17 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import LockOpenIcon from '@material-ui/icons/LockOpen';
-import { fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
-import { Button, StatusChip } from '../../ui/index.esm.js';
+import { SectionTitle, Button, StatusChip } from '../../ui/index.esm.js';
 import { RecordingPlayer } from './RecordingPlayer.esm.js';
 import { useBreakglassStyles, useBreakglassSessions, needsYou, useNow, toDecideOf, OpenSession, shortUser, remaining, mayReview, breakglassApi, mayEnd } from './breakglassShared.esm.js';
 
 const useCardStyles = makeStyles(() => ({
   card: { display: "flex", flexDirection: "column", gap: 10, marginTop: 18 },
   head: { display: "flex", alignItems: "center", gap: 9 },
-  headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi }
+  headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 }
 }));
 function BreakglassEnvironmentView({
   env,
@@ -375,7 +373,7 @@ function BreakglassEnvironmentCard({ env, tier, linkedSessionId }) {
   return /* @__PURE__ */ jsxs("div", { className: classes.card, "data-testid": "breakglass-card", children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(LockOpenIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsxs(Typography, { className: classes.title, children: [
+      /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
         "Break-glass",
         count > 0 && /* @__PURE__ */ jsx("span", { className: shared.badge, "data-testid": "breakglass-needs-you", title: "Requests you can decide, your approved request, or reviews you can do", children: count })
       ] })

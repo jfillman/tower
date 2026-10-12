@@ -8,7 +8,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { renderNotificationDescription } from './notificationFormatting.esm.js';
 import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, BreakglassIcon, SyncIcon, PipelineIcon, PreviewIcon } from './activityIcons.esm.js';
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers.esm.js';
-import { TextLink, FilterGroup, FilterChip } from './ui/index.esm.js';
+import { SectionTitle, TextLink, FilterGroup, FilterChip, EmptyNote } from './ui/index.esm.js';
 
 const CATEGORY_TOPICS = {
   // 'test' (the pipeline's test stage) and 'images' (Images -> Clean up old images) joined 2026-10-11.
@@ -161,12 +161,6 @@ const useStyles = makeStyles(() => ({
     flexWrap: "wrap",
     gap: 10,
     marginBottom: 10
-  },
-  title: {
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 15,
-    color: ({ t }) => t.textHi
   },
   filters: { marginBottom: 8 },
   // Unselected: the category's own color (background tint + icon/text in
@@ -381,12 +375,6 @@ const useStyles = makeStyles(() => ({
     textDecoration: "none",
     "&:hover": { textDecoration: "underline" }
   },
-  empty: {
-    fontSize: 12.5,
-    fontStyle: "italic",
-    color: ({ t }) => t.textFaint,
-    padding: "8px 0"
-  },
   // 2026-09-15 feedback: raising MAX_ROWS back up (see its own comment)
   // needed a way to not just make the card tall again - a fixed-height,
   // internally-scrolling row area keeps the panel's footprint on the
@@ -446,7 +434,7 @@ function RecentActivityPanel({
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.card, ref: panelRef, style: { scrollMarginTop: 16, scrollMarginBottom: 16 }, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Recent activity" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Recent activity" }),
       /* @__PURE__ */ jsx(TextLink, { onClick: onViewAll, children: "View all in Notifications \u2192" })
     ] }),
     /* @__PURE__ */ jsx("div", { className: classes.filters, children: /* @__PURE__ */ jsx(FilterGroup, { label: "Show", children: Object.keys(CATEGORY_META).map((c) => {
@@ -469,7 +457,7 @@ function RecentActivityPanel({
         c
       );
     }) }) }),
-    /* @__PURE__ */ jsx("div", { className: classes.scrollArea, children: groups.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.empty, children: emptyText }) : groups.map((group, gi) => /* @__PURE__ */ jsxs("div", { children: [
+    /* @__PURE__ */ jsx("div", { className: classes.scrollArea, children: groups.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: emptyText }) : groups.map((group, gi) => /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx("div", { className: classes.day, children: group.day }),
       group.items.map((n, i) => {
         const topic = n.payload.topic ?? "";

@@ -1,11 +1,11 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs.esm.js';
 import { useArchivedRunLookup, useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi.esm.js';
 import { renderAnsi } from './ansi.esm.js';
+import { EmptyNote } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   log: {
@@ -31,7 +31,6 @@ const useStyles = makeStyles(() => ({
   at: { color: ({ t }) => t.textFaint },
   step: { color: ({ t }) => t.sky },
   line: { wordBreak: "break-word" },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
   liveBadge: { color: ({ t }) => t.amberInk }
 }));
 function formatLineTime(iso) {
@@ -72,10 +71,10 @@ function TaskRunLogConsole({
     const el = logRef.current;
     if (el && stuckToBottom.current) el.scrollTop = el.scrollHeight;
   }, [blocks]);
-  if (loading || podGone && lookup.loading) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading logs\u2026" });
-  if (effectiveArchive && archived.error) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: archived.error });
+  if (loading || podGone && lookup.loading) return /* @__PURE__ */ jsx(EmptyNote, { children: "Loading logs\u2026" });
+  if (effectiveArchive && archived.error) return /* @__PURE__ */ jsx(EmptyNote, { children: archived.error });
   if (podGone && lookup.notFound) {
-    return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This task's pod is already gone and Tekton Results has not archived the run yet - its logs appear here once the run finishes and is archived." });
+    return /* @__PURE__ */ jsx(EmptyNote, { children: "This task's pod is already gone and Tekton Results has not archived the run yet - its logs appear here once the run finishes and is archived." });
   }
   return /* @__PURE__ */ jsx(
     "pre",

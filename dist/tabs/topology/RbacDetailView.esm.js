@@ -1,9 +1,9 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import PeopleIcon from '@material-ui/icons/People';
 import SecurityIcon from '@material-ui/icons/Security';
-import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
+import { SectionTitle, EmptyNote } from '../../ui/index.esm.js';
 
 const RBAC_KINDS = ["Role", "ClusterRole", "RoleBinding", "ClusterRoleBinding"];
 function verbTone(t, verb) {
@@ -16,7 +16,6 @@ const useStyles = makeStyles(() => ({
   section: { display: "flex", flexDirection: "column", gap: 8 },
   sectionHead: { display: "flex", alignItems: "center", gap: 8 },
   sectionIcon: { display: "flex", color: ({ t }) => t.sky },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   bindingCard: {
     display: "flex",
     flexDirection: "column",
@@ -81,8 +80,7 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.panelAlt,
     color: ({ t }) => t.textHi
   },
-  resourceNamePill: { backgroundColor: ({ t }) => t.skySoft, color: ({ t }) => t.sky },
-  note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textFaint }
+  resourceNamePill: { backgroundColor: ({ t }) => t.skySoft, color: ({ t }) => t.sky }
 }));
 function RuleCard({ rule, classes, t }) {
   const groups = (rule.apiGroups ?? []).map((g) => g === "" ? "core" : g);
@@ -117,7 +115,7 @@ function RulesSection({ rules, classes, t }) {
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsx("span", { className: classes.sectionIcon, children: /* @__PURE__ */ jsx(SecurityIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Overview" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Overview" })
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.kvRow, children: /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
         /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Rules" }),
@@ -127,13 +125,13 @@ function RulesSection({ rules, classes, t }) {
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsx("span", { className: classes.sectionIcon, children: /* @__PURE__ */ jsx(SecurityIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsxs(Typography, { className: classes.sectionTitle, children: [
+        /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
           "Rules (",
           rules.length,
           ")"
         ] })
       ] }),
-      rules.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This role grants no rules." }) : rules.map((rule, i) => /* @__PURE__ */ jsx(RuleCard, { rule, classes, t }, i))
+      rules.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "This role grants no rules." }) : rules.map((rule, i) => /* @__PURE__ */ jsx(RuleCard, { rule, classes, t }, i))
     ] })
   ] });
 }
@@ -157,7 +155,7 @@ function RbacDetailView({ resource, related }) {
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsx("span", { className: classes.sectionIcon, children: /* @__PURE__ */ jsx(PeopleIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Bindings (1)" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Bindings (1)" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.bindingCard, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.bindingHead, children: [
@@ -170,7 +168,7 @@ function RbacDetailView({ resource, related }) {
             subjects.length === 1 ? "" : "s"
           ] })
         ] }),
-        subjects.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No subjects listed on this binding." }) : subjects.map((s, i) => /* @__PURE__ */ jsxs("span", { className: classes.subjectRow, children: [
+        subjects.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No subjects listed on this binding." }) : subjects.map((s, i) => /* @__PURE__ */ jsxs("span", { className: classes.subjectRow, children: [
           /* @__PURE__ */ jsxs("span", { className: classes.subjectKind, children: [
             (s.kind ?? "subject").toLowerCase(),
             ":"
@@ -187,7 +185,7 @@ function RbacDetailView({ resource, related }) {
     roleRef && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
         /* @__PURE__ */ jsx("span", { className: classes.sectionIcon, children: /* @__PURE__ */ jsx(SecurityIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsxs(Typography, { className: classes.sectionTitle, children: [
+        /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
           "Grants (",
           roleRef.kind,
           " \u2014 ",
@@ -195,7 +193,7 @@ function RbacDetailView({ resource, related }) {
           ")"
         ] })
       ] }),
-      resolvedRules ? /* @__PURE__ */ jsx(RulesSection, { rules: resolvedRules, classes, t }) : /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+      resolvedRules ? /* @__PURE__ */ jsx(RulesSection, { rules: resolvedRules, classes, t }) : /* @__PURE__ */ jsxs(EmptyNote, { children: [
         "Couldn't resolve ",
         roleRef.kind,
         ' "',

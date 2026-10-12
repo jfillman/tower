@@ -2,7 +2,7 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
-import { useUi, useControls, useStatus } from './styles.esm.js';
+import { useUi, useControls, useSection, useStatus } from './styles.esm.js';
 
 const cx = (...c) => c.filter(Boolean).join(" ");
 function useKit() {
@@ -307,6 +307,53 @@ function Field({
     children({ id, className: ui.input })
   ] });
 }
+function useSectionKit() {
+  const t = useHangarTokens();
+  return useSection({ t });
+}
+function Section({
+  title,
+  meta,
+  count,
+  actions,
+  framed,
+  level = 1,
+  className,
+  children
+}) {
+  const s = useSectionKit();
+  const Heading = level === 2 ? "h3" : "h2";
+  return /* @__PURE__ */ jsxs("section", { className: cx(s.section, framed && s.framed, className), children: [
+    /* @__PURE__ */ jsxs("div", { className: cx(s.head, framed && s.headFramed), children: [
+      /* @__PURE__ */ jsxs("div", { className: s.headStart, children: [
+        /* @__PURE__ */ jsx(Heading, { className: cx(s.title, level === 2 && s.title2), children: title }),
+        meta
+      ] }),
+      (count !== void 0 || actions) && /* @__PURE__ */ jsxs("div", { className: s.headEnd, children: [
+        count !== void 0 && /* @__PURE__ */ jsx("span", { className: s.count, children: count }),
+        actions
+      ] })
+    ] }),
+    children
+  ] });
+}
+function SectionTitle({ level = 1, children }) {
+  const s = useSectionKit();
+  const Heading = level === 2 ? "h3" : "h2";
+  return /* @__PURE__ */ jsx(Heading, { className: cx(s.title, level === 2 && s.title2), children });
+}
+function EmptyNote({ inset, className, ...rest }) {
+  const s = useSectionKit();
+  return /* @__PURE__ */ jsx("p", { className: cx(s.empty, inset && s.inset, className), ...rest });
+}
+function Hint({ inset, className, ...rest }) {
+  const s = useSectionKit();
+  return /* @__PURE__ */ jsx("p", { className: cx(s.hint, inset && s.inset, className), ...rest });
+}
+function Count({ children }) {
+  const s = useSectionKit();
+  return /* @__PURE__ */ jsx("span", { className: s.count, children });
+}
 
-export { ActionSelect, Button, Chip, ColumnLabel, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, IconButton, PageHeader, Panel, SearchField, SectionLabel, StatusChip, StatusDot, Subtabs, TextLink, TierChip, healthColor, healthTone };
+export { ActionSelect, Button, Chip, ColumnLabel, Count, EmptyNote, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, SearchField, Section, SectionLabel, SectionTitle, StatusChip, StatusDot, Subtabs, TextLink, TierChip, healthColor, healthTone };
 //# sourceMappingURL=index.esm.js.map

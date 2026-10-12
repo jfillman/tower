@@ -1,7 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useSearchParams } from 'react-router-dom';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
@@ -15,7 +14,7 @@ import { slugHue } from '../PipelineRunList.esm.js';
 import { RecentActivityPanel } from '../RecentActivityPanel.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, healthColor, StatusChip, healthTone } from '../ui/index.esm.js';
+import { PageHeader, Section, healthColor, Hint, StatusChip, HEALTH_LABEL, healthTone } from '../ui/index.esm.js';
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
 
@@ -36,13 +35,6 @@ function computeReleaseTracks(list) {
   }
   return runs;
 }
-const HEALTH_LABEL = {
-  healthy: "Healthy",
-  progressing: "Scaling",
-  paused: "Paused",
-  degraded: "Degraded",
-  unknown: "Unknown"
-};
 const TRACK_CARD_W = 260;
 const TRACK_GAP = 16;
 const TRACK_RAIL_H = 44;
@@ -57,7 +49,7 @@ const useStyles = makeStyles(() => ({
     gap: 20,
     alignItems: "center"
   },
-  monitoringNote: { fontSize: 12.5, color: ({ t }) => t.textLo, flex: "1 1 260px" },
+  monitoringNote: { flex: "1 1 260px" },
   monitoringLinks: { display: "flex", gap: 14, flexWrap: "wrap" },
   monitoringLink: {
     fontFamily: fontMono,
@@ -302,7 +294,7 @@ const useStyles = makeStyles(() => ({
     textAlign: "left"
   },
   rolloutLinkPct: { color: ({ t }) => t.amberInk },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, margin: "24px 0 12px" },
+  block: { marginTop: 24 },
   // Restored 2026-09-10 - a real preview/PR-env indicator existed on this
   // card once before and got dropped somewhere along the way; the small
   // "own build" badge inline next to the env name is the fix, distinct from
@@ -657,31 +649,28 @@ function OverviewTab() {
         rowEnvs.map((env) => renderEnvCard(env, { skipImage: true }))
       ] }, rowEnvs[0].key)) }, run.envs[0].key);
     }) }),
-    previewEnvs.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Preview environments" }),
-      /* @__PURE__ */ jsx("div", { className: classes.previewRow, children: previewEnvs.map((env) => {
-        const h = health(env);
-        const isOpen = expandedPreview.has(env.key);
-        return /* @__PURE__ */ jsxs("div", { className: classes.previewItem, children: [
-          /* @__PURE__ */ jsxs(
-            "button",
-            {
-              type: "button",
-              className: classes.previewChip,
-              onClick: () => togglePreview(env.key),
-              "aria-expanded": isOpen,
-              children: [
-                /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: healthColor(h, t) } }),
-                env.env,
-                /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview" }),
-                isOpen ? /* @__PURE__ */ jsx(ExpandLessIcon, { style: { fontSize: 16 } }) : /* @__PURE__ */ jsx(ExpandMoreIcon, { style: { fontSize: 16 } })
-              ]
-            }
-          ),
-          isOpen && renderEnvCard(env)
-        ] }, env.key);
-      }) })
-    ] }),
+    previewEnvs.length > 0 && /* @__PURE__ */ jsx(Section, { title: "Preview environments", className: classes.block, children: /* @__PURE__ */ jsx("div", { className: classes.previewRow, children: previewEnvs.map((env) => {
+      const h = health(env);
+      const isOpen = expandedPreview.has(env.key);
+      return /* @__PURE__ */ jsxs("div", { className: classes.previewItem, children: [
+        /* @__PURE__ */ jsxs(
+          "button",
+          {
+            type: "button",
+            className: classes.previewChip,
+            onClick: () => togglePreview(env.key),
+            "aria-expanded": isOpen,
+            children: [
+              /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: healthColor(h, t) } }),
+              env.env,
+              /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview" }),
+              isOpen ? /* @__PURE__ */ jsx(ExpandLessIcon, { style: { fontSize: 16 } }) : /* @__PURE__ */ jsx(ExpandMoreIcon, { style: { fontSize: 16 } })
+            ]
+          }
+        ),
+        isOpen && renderEnvCard(env)
+      ] }, env.key);
+    }) }) }),
     /* @__PURE__ */ jsx(
       RecentActivityPanel,
       {
@@ -697,9 +686,8 @@ function OverviewTab() {
         onViewAll: goToNotifications
       }
     ),
-    /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, children: "Monitoring" }),
-    /* @__PURE__ */ jsxs("div", { className: classes.monitoringCard, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.monitoringNote, children: "No per-app dashboards exist yet - this app's live metrics aren't embedded here, but each environment's cluster runs a real Grafana instance you can explore directly." }),
+    /* @__PURE__ */ jsx(Section, { title: "Monitoring", className: classes.block, children: /* @__PURE__ */ jsxs("div", { className: classes.monitoringCard, children: [
+      /* @__PURE__ */ jsx(Hint, { className: classes.monitoringNote, children: "No per-app dashboards exist yet - this app's live metrics aren't embedded here, but each environment's cluster runs a real Grafana instance you can explore directly." }),
       /* @__PURE__ */ jsx("div", { className: classes.monitoringLinks, children: [...new Set(pipelineEnvs.map((env) => env.cluster))].map((cluster) => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] })).filter((c) => Boolean(c.host)).map(({ cluster, host }) => /* @__PURE__ */ jsxs(
         "a",
         {
@@ -715,7 +703,7 @@ function OverviewTab() {
         },
         cluster
       )) })
-    ] })
+    ] }) })
   ] });
 }
 

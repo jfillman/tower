@@ -1,11 +1,11 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime, STALE_THRESHOLD_MS, relativeTime } from './shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { imageTag, extractShortShaFromImageTag } from './types.esm.js';
 import { useRepoHead } from './useReleaseData.esm.js';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
+import { SectionTitle, EmptyNote } from './ui/index.esm.js';
 
 const TIMELINE_TAG_PALETTE_LIGHT = [
   "#3366CC",
@@ -60,7 +60,6 @@ const useStyles = makeStyles(() => ({
     marginBottom: 20
   },
   headRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 14 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   range: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   row: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
@@ -105,7 +104,6 @@ const useStyles = makeStyles(() => ({
   legendItem: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: ({ t }) => t.textFaint },
   swatch: { width: 10, height: 10, borderRadius: 2 },
   swatchStale: { backgroundColor: "transparent", border: "2px dashed" },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
   leadGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 },
   leadCard: {
     backgroundColor: ({ t }) => t.panelAlt,
@@ -144,7 +142,7 @@ function ReleaseTimelinePanel({
   });
   return /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release timeline" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Release timeline" }),
       /* @__PURE__ */ jsx("span", { className: classes.range, children: withHistory.length > 0 ? `${formatDateTime(new Date(rangeStart).toISOString())} \u2013 ${formatDateTime(new Date(now).toISOString())}` : "no promotions recorded" })
     ] }),
     environments.map((env) => {
@@ -191,7 +189,7 @@ function ReleaseTimelinePanel({
         "stale (running >3 days)"
       ] })
     ] }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.note, style: { marginTop: 10 }, children: "Showing up to the last 10 tracked promotions per environment, not a fixed date window - an environment that promotes rarely may show a much longer span than one that promotes often." })
+    /* @__PURE__ */ jsx(EmptyNote, { style: { marginTop: 10 }, children: "Showing up to the last 10 tracked promotions per environment, not a fixed date window - an environment that promotes rarely may show a much longer span than one that promotes often." })
   ] });
 }
 function LeadTimeCard({
@@ -208,7 +206,7 @@ function LeadTimeCard({
   if (!deployEntry) {
     return /* @__PURE__ */ jsxs("div", { className: classes.leadCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.leadEnv, children: env }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No recorded promotion yet." })
+      /* @__PURE__ */ jsx(EmptyNote, { children: "No recorded promotion yet." })
     ] });
   }
   const leadMs = commit.data ? new Date(deployEntry.date).getTime() - new Date(commit.data.pushedAt ?? deployEntry.date).getTime() : void 0;
@@ -242,12 +240,12 @@ function LeadTimePanel({
   const classes = useStyles({ t });
   if (environments.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
-      /* @__PURE__ */ jsx("div", { className: classes.headRow, children: /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Lead time \u2014 commit to deploy" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No environments to measure yet." })
+      /* @__PURE__ */ jsx("div", { className: classes.headRow, children: /* @__PURE__ */ jsx(SectionTitle, { children: "Lead time \u2014 commit to deploy" }) }),
+      /* @__PURE__ */ jsx(EmptyNote, { children: "No environments to measure yet." })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
-    /* @__PURE__ */ jsx("div", { className: classes.headRow, children: /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Lead time \u2014 commit to deploy" }) }),
+    /* @__PURE__ */ jsx("div", { className: classes.headRow, children: /* @__PURE__ */ jsx(SectionTitle, { children: "Lead time \u2014 commit to deploy" }) }),
     /* @__PURE__ */ jsx("div", { className: classes.leadGrid, children: environments.map((env) => {
       const entries = history[env.env] ?? [];
       return /* @__PURE__ */ jsx(

@@ -1,12 +1,11 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime } from './shared/format.esm.js';
-import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { StatusChip, IconButton } from './ui/index.esm.js';
+import { SectionTitle, Count, StatusChip, IconButton } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 10 },
@@ -46,9 +45,7 @@ const useStyles = makeStyles(() => ({
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   actions: { display: "flex", alignItems: "center", gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
-  head: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", gap: 8 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  countNote: { fontSize: 12, color: ({ t }) => t.textFaint }
+  head: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", gap: 8 }
 }));
 function confidenceColor(t, confidence) {
   if (confidence >= 80) return t.good;
@@ -80,8 +77,8 @@ function ReleaseRecordList({
   }
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release records" }),
-      /* @__PURE__ */ jsxs(Typography, { className: classes.countNote, children: [
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Release records" }),
+      /* @__PURE__ */ jsxs(Count, { children: [
         records.length,
         " of this app's ",
         totalKnown,

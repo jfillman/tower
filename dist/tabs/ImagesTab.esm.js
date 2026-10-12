@@ -9,7 +9,7 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, FilterBar, FilterChips, TextLink, StatusChip } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips, Count, EmptyNote, TextLink, StatusChip } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
@@ -54,9 +54,6 @@ const useStyles = makeStyles(() => ({
   detailBody: {
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`
   },
-  detailNote: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
-  countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
   footer: {
     padding: "10px 20px",
     fontFamily: fontMono,
@@ -152,7 +149,7 @@ function ImagesTable({
         actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
       }
     ),
-    /* @__PURE__ */ jsxs(FilterBar, { end: versions.data && /* @__PURE__ */ jsxs("span", { className: classes.countNote, children: [
+    /* @__PURE__ */ jsxs(FilterBar, { end: versions.data && /* @__PURE__ */ jsxs(Count, { children: [
       filteredEntries.length,
       " image",
       filteredEntries.length === 1 ? "" : "s"
@@ -177,12 +174,12 @@ function ImagesTable({
       )
     ] }),
     versions.loading && /* @__PURE__ */ jsx(Progress, {}),
-    versions.error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    versions.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
       "Couldn't list image versions: ",
       versions.error
     ] }),
-    versions.data && imageEntries.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No package versions found for this repo on GHCR yet." }),
-    versions.data && imageEntries.length > 0 && filteredEntries.length === 0 && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    versions.data && imageEntries.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No package versions found for this repo on GHCR yet." }),
+    versions.data && imageEntries.length > 0 && filteredEntries.length === 0 && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
       "No ",
       tagFilter,
       " images - ",
@@ -290,7 +287,7 @@ function ImagePanel({
         ) }),
         expanded && /* @__PURE__ */ jsxs("div", { className: classes.detailBody, children: [
           provenance?.loading && /* @__PURE__ */ jsx(Progress, {}),
-          provenance?.error && /* @__PURE__ */ jsxs(Typography, { className: classes.detailNote, children: [
+          provenance?.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
             "Couldn't reach the registry for attestations: ",
             provenance.error
           ] }),

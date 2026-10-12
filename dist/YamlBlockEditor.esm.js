@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { load } from 'js-yaml';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
+import { Hint } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 6 },
@@ -15,7 +16,6 @@ const useStyles = makeStyles(() => ({
     textTransform: "uppercase",
     color: ({ t }) => t.textFaint
   },
-  hint: { fontSize: 11.5, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   textarea: {
     width: "100%",
     boxSizing: "border-box",
@@ -70,7 +70,7 @@ function YamlBlockEditor({
       /* @__PURE__ */ jsx(Typography, { className: classes.label, children: label }),
       /* @__PURE__ */ jsx("span", { className: `${classes.status} ${validation.valid ? classes.statusOk : classes.statusBad}`, children: validation.valid ? "\u2713 Valid YAML" : `\u2717 ${validation.error}` })
     ] }),
-    hint && /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: hint }),
+    hint && /* @__PURE__ */ jsx(Hint, { children: hint }),
     /* @__PURE__ */ jsx(
       "textarea",
       {

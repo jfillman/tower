@@ -1,11 +1,11 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesApiRef } from '@backstage/plugin-kubernetes-react';
 import { relativeTime } from './shared/format.esm.js';
-import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
+import { SectionTitle, EmptyNote } from './ui/index.esm.js';
 
 function useNamespaceEvents(cluster, namespace) {
   const kubernetesApi = useApi(kubernetesApiRef);
@@ -49,8 +49,7 @@ const useStyles = makeStyles(() => ({
   mono: { fontFamily: fontMono, fontSize: 11.5 },
   dot: { width: 7, height: 7, borderRadius: "50%", display: "inline-block", marginRight: 6 },
   faint: { color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo, padding: "8px 0" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi, marginBottom: 8 }
+  titleGap: { marginBottom: 8 }
 }));
 function NamespaceEvents({ cluster, namespace }) {
   const t = useHangarTokens();
@@ -62,16 +61,16 @@ function NamespaceEvents({ cluster, namespace }) {
     return bt - at;
   });
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs(Typography, { className: classes.title, children: [
+    /* @__PURE__ */ jsx("div", { className: classes.titleGap, children: /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
       "Events in ",
       namespace
-    ] }),
-    loading && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Loading events\u2026" }),
-    error && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    ] }) }),
+    loading && /* @__PURE__ */ jsx(EmptyNote, { children: "Loading events\u2026" }),
+    error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't load events: ",
       error
     ] }),
-    !loading && !error && sorted.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No events recorded in this namespace." }),
+    !loading && !error && sorted.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No events recorded in this namespace." }),
     !loading && !error && sorted.length > 0 && /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
         /* @__PURE__ */ jsx("th", { className: classes.th, children: "Type" }),

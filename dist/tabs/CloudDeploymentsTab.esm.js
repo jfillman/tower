@@ -11,7 +11,7 @@ import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { FlightPins } from './cloud/FlightPins.esm.js';
-import { PageHeader, Chip, StatusChip } from '../ui/index.esm.js';
+import { PageHeader, EmptyNote, Chip, StatusChip } from '../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { paddingBottom: 40 },
@@ -55,7 +55,6 @@ const useStyles = makeStyles(() => ({
   },
   td: { padding: "9px 10px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
-  empty: { padding: "36px 8px", color: ({ t }) => t.textLo, fontSize: 14, lineHeight: 1.6 },
   linkBtn: {
     background: "none",
     border: "none",
@@ -113,7 +112,7 @@ function CloudDeploymentsTab() {
   if (deploys.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
       /* @__PURE__ */ jsx(PageHeader, { title: "Deployments", subtitle: "What Glidepath deployed, from its pipeline runs. Tower does not read live health from the cloud, so this cannot tell you the service is up, only that the deploy finished." }),
-      /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs); a Flight environment's current release is its pin, below." }),
+      /* @__PURE__ */ jsx(EmptyNote, { children: "No recent deploy runs. Deploys show up here while their pipeline runs are kept (Tekton cleans up older runs); a Flight environment's current release is its pin, below." }),
       owner && /* @__PURE__ */ jsx(FlightPins, { owner, appName, flight, deploys })
     ] });
   }

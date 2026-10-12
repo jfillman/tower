@@ -1,11 +1,10 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, EmptyNote } from '../ui/index.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
@@ -16,8 +15,7 @@ import { breakglassDeepLink } from './topology/breakglassDeepLink.esm.js';
 
 const TIER_DISPLAY_ORDER = ["lower", "upper", "preview"];
 const useStyles = makeStyles(() => ({
-  main: { display: "flex", flexDirection: "column", gap: 16 },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo }
+  main: { display: "flex", flexDirection: "column", gap: 16 }
 }));
 function TopologyTab() {
   const t = useHangarTokens();
@@ -85,7 +83,7 @@ function TopologyTab() {
           showConnectors: false
         }
       ),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Once something's rolled out somewhere, its topology will show up here." })
+      /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Once something's rolled out somewhere, its topology will show up here." })
     ] });
   }
   const selected = environments.find((e) => e.env === selectedEnv) ?? environments[0];

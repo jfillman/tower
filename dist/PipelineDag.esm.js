@@ -16,6 +16,7 @@ import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { stepDuration, TaskRunLogConsole } from './TaskRunLogConsole.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
+import { EmptyNote } from './ui/index.esm.js';
 
 const NODE_W = 150;
 const NODE_H = 56;
@@ -200,7 +201,6 @@ const usePipelineDagStyles = makeStyles(() => ({
   detailGridItem: { flex: "1 1 140px" },
   kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, display: "block" },
   kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: "break-word" },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
   archivedTag: {
     marginLeft: 8,
     padding: "1px 6px",
@@ -513,7 +513,7 @@ function PipelineDag({ run, expandSignal }) {
             /* @__PURE__ */ jsx("span", { className: classes.kvValue, title: openTaskRun?.message, children: taskResultText(openTaskRun, openTask.phase) })
           ] })
         ] }),
-        openTaskRun?.startTime && /* @__PURE__ */ jsxs(Typography, { className: classes.note, style: { marginBottom: 0 }, children: [
+        openTaskRun?.startTime && /* @__PURE__ */ jsxs(EmptyNote, { children: [
           "Started ",
           relativeTime(openTaskRun.startTime),
           " \xB7 ",

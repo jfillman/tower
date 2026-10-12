@@ -11,7 +11,7 @@ import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { BreakglassPanel } from './BreakglassPanel.esm.js';
-import { StatusChip } from '../../ui/index.esm.js';
+import { SectionTitle, StatusChip } from '../../ui/index.esm.js';
 
 function findPodResource(resources, name) {
   return resources.find((r) => r.kind === "Pod" && r.name === name);
@@ -65,7 +65,7 @@ const useStyles = makeStyles(() => ({
   kv: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
   k: { fontFamily: fontMono, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, fontWeight: 700 },
   v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: "break-word" },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
+  titleGap: { marginBottom: 6 },
   containerRow: {
     display: "flex",
     alignItems: "center",
@@ -178,7 +178,7 @@ function PodDetail({
       ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, style: { marginBottom: 6 }, children: "Containers" }),
+      /* @__PURE__ */ jsx("div", { className: classes.titleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Containers" }) }),
       (raw?.spec?.containers ?? []).length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.none, children: "No container spec recorded." }) : /* @__PURE__ */ jsx("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: (raw?.spec?.containers ?? []).map((c) => {
         const cs = raw?.status?.containerStatuses?.find((s) => s.name === c.name);
         const state = containerStateLabel(cs);
@@ -204,7 +204,7 @@ function PodDetail({
       }) })
     ] }),
     (raw?.status?.conditions ?? []).length > 0 && /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.sectionTitle, style: { marginBottom: 6 }, children: "Conditions" }),
+      /* @__PURE__ */ jsx("div", { className: classes.titleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Conditions" }) }),
       /* @__PURE__ */ jsx("div", { style: { display: "flex", flexDirection: "column", gap: 3 }, children: raw.status.conditions.map((c) => /* @__PURE__ */ jsxs("div", { className: classes.conditionRow, children: [
         /* @__PURE__ */ jsx("span", { className: classes.conditionType, children: c.type }),
         /* @__PURE__ */ jsx("span", { className: c.status === "True" ? classes.conditionOk : classes.conditionBad, children: c.status }),

@@ -14,7 +14,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { PipelineFlow, buildSupplyChainStages } from './PipelineFlow.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
-import { StatusChip, TextLink, Button } from './ui/index.esm.js';
+import { SectionTitle, StatusChip, TextLink, Button } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: {
@@ -28,7 +28,6 @@ const useStyles = makeStyles(() => ({
     padding: "14px 20px",
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
   },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   scroll: { overflowX: "auto", padding: "4px 20px 18px" },
   table: { borderCollapse: "collapse", width: "100%", minWidth: 480 },
@@ -147,7 +146,7 @@ function ReleaseMatrix({
   if (releases.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release matrix" }),
+        /* @__PURE__ */ jsx(SectionTitle, { children: "Release matrix" }),
         /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Rows are recent releases, newest first \xB7 columns are environments in promotion order. Read a column for what's live right now, a row for one release's full journey." })
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
@@ -172,7 +171,7 @@ function ReleaseMatrix({
   const openProvenance = openRow?.image ? provenanceByImage[openRow.image] : void 0;
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release matrix" }),
+      /* @__PURE__ */ jsx(SectionTitle, { children: "Release matrix" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.sub, children: [
         "Rows are recent releases, newest first \xB7 columns are environments in promotion order. Read a column for what's live right now, a row for one release's full journey.",
         totalCount > releases.length ? ` Showing the latest ${releases.length} of ${totalCount} known releases.` : ""

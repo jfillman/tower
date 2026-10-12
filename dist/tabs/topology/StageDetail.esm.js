@@ -1,7 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import RouterIcon from '@material-ui/icons/Router';
 import DeviceHubIcon from '@material-ui/icons/DeviceHub';
 import LayersIcon from '@material-ui/icons/Layers';
@@ -14,7 +13,7 @@ import { YamlView } from './YamlView.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodsPanel } from './PodsPanel.esm.js';
 import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView.esm.js';
-import { TextLink } from '../../ui/index.esm.js';
+import { SectionTitle, EmptyNote, TextLink } from '../../ui/index.esm.js';
 
 function findResource(resources, kind, name) {
   return resources.find((r) => r.kind === kind && r.name === name);
@@ -27,8 +26,6 @@ function autoPromoteLabel(blueGreen) {
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 9 },
   headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
   body: { display: "flex", flexDirection: "column", gap: 14 },
   bigCard: {
     display: "flex",
@@ -108,7 +105,7 @@ function RouteDetail({ env, classes, t }) {
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(RouterIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Route" })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Route" })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.bigCard, children: [
       /* @__PURE__ */ jsx("span", { className: classes.bigIcon, style: { backgroundColor: env.ingressUrl ? t.skySoft : t.panelAlt, color: env.ingressUrl ? t.sky : t.textFaint }, children: /* @__PURE__ */ jsx(RouterIcon, { fontSize: "inherit" }) }),
@@ -117,7 +114,7 @@ function RouteDetail({ env, classes, t }) {
           env.ingressUrl,
           " ",
           /* @__PURE__ */ jsx(OpenInNewIcon, { style: { fontSize: 14 } })
-        ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No external route configured for this environment." }),
+        ] }) : /* @__PURE__ */ jsx(EmptyNote, { children: "No external route configured for this environment." }),
         routeResource && /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
           routeResource.kind,
           " \xB7 ",
@@ -138,9 +135,9 @@ function ServiceDetail({ env, classes }) {
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(DeviceHubIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Service" })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Service" })
     ] }),
-    env.services.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No Service resolved for this environment." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+    env.services.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No Service resolved for this environment." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx("div", { className: classes.serviceGrid, children: env.services.map((svc) => {
         const isSelected = selected === svc.name;
         return /* @__PURE__ */ jsxs(
@@ -181,9 +178,9 @@ function WorkloadDetail({ env, classes }) {
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(LayersIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: workload ? `${workload.kind} \u2014 ${workload.name}` : "Workload" })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: workload ? `${workload.kind} \u2014 ${workload.name}` : "Workload" })
     ] }),
-    !workload ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No Rollout or Deployment found for this environment." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+    !workload ? /* @__PURE__ */ jsx(EmptyNote, { children: "No Rollout or Deployment found for this environment." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.strategyGrid, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
           /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Strategy" }),
@@ -285,7 +282,7 @@ function PodsDetail({
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(AppsIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Pods" })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Pods" })
     ] }),
     /* @__PURE__ */ jsx(PodsPanel, { env, tier, linkedSessionId }),
     /* @__PURE__ */ jsx(BreakglassEnvironmentCard, { env, tier, linkedSessionId })

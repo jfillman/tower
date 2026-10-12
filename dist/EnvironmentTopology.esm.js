@@ -1,10 +1,9 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { fontDisplay, fontMono, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { NamespaceEvents } from './NamespaceEvents.esm.js';
 import { useNamespaceResource } from './useNamespaceResource.esm.js';
 import { useClusterRbac } from './useClusterRbac.esm.js';
@@ -12,15 +11,8 @@ import { buildTopoStages, TopoDag } from './tabs/topology/TopoDag.esm.js';
 import { TopologyStageDetail } from './tabs/topology/StageDetail.esm.js';
 import { ResourceGallery } from './tabs/topology/ResourceGallery.esm.js';
 import { health, ENV_TIER_LABEL } from './types.esm.js';
-import { StatusChip, healthTone, FilterGroup, FilterChip } from './ui/index.esm.js';
+import { StatusChip, HEALTH_LABEL, healthTone, FilterGroup, FilterChip, SectionTitle } from './ui/index.esm.js';
 
-const HEALTH_LABEL = {
-  healthy: "Healthy",
-  progressing: "Scaling",
-  paused: "Paused",
-  degraded: "Degraded",
-  unknown: "Unknown"
-};
 const TIER_ACCENT = { preview: "textFaint", lower: "sky", upper: "amber" };
 const TIER_CHIP_COLOR = { preview: "textFaint", lower: "sky", upper: "amber" };
 const TIER_CHIP_SOFT = { preview: "panelAlt", lower: "skySoft", upper: "amberSoft" };
@@ -46,8 +38,7 @@ const useStyles = makeStyles(() => ({
   dagInner: { padding: "10px 12px 4px" },
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: "16px 18px" },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 },
-  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi }
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
 }));
 function EnvironmentTopology({
   env,
@@ -111,7 +102,7 @@ function EnvironmentTopology({
         /* @__PURE__ */ jsx(FilterChip, { on: showEvents, onClick: () => setShowEvents((v) => !v), children: "Events" })
       ] }),
       /* @__PURE__ */ jsx(Collapse, { in: showResources, unmountOnExit: true, children: /* @__PURE__ */ jsxs("div", { className: classes.panel, style: { marginTop: 10 }, children: [
-        /* @__PURE__ */ jsxs(Typography, { className: classes.panelTitle, children: [
+        /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
           "All resources in ",
           env.namespace
         ] }),

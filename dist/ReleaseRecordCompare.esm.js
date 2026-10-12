@@ -1,12 +1,11 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime } from './shared/format.esm.js';
 import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { TextLink, StatusChip } from './ui/index.esm.js';
+import { TextLink, SectionTitle, StatusChip } from './ui/index.esm.js';
 
 function leadTimeMs(record) {
   const promo = [...record.promotionChain].reverse().find((p) => p.mergedAt);
@@ -31,7 +30,7 @@ function formatSignedPercentPoints(delta) {
   return pts > 0 ? `+${pts}%` : `\u2212${Math.abs(pts)}%`;
 }
 const useStyles = makeStyles(() => ({
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, marginBottom: 14 },
+  titleGap: { marginBottom: 14 },
   grid: {
     display: "grid",
     gridTemplateColumns: "1fr auto 1fr",
@@ -147,7 +146,7 @@ function ReleaseRecordCompare({
   const rightPill = statusPill(right);
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to record" }),
-    /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Compare releases" }),
+    /* @__PURE__ */ jsx("div", { className: classes.titleGap, children: /* @__PURE__ */ jsx(SectionTitle, { children: "Compare releases" }) }),
     /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
       /* @__PURE__ */ jsx(RecordColumn, { record: left, pill: leftPill, side: "left", t, classes }),
       /* @__PURE__ */ jsxs("div", { className: classes.mid, children: [

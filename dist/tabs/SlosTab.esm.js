@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, StatusChip } from '../ui/index.esm.js';
+import { PageHeader, StatusChip, EmptyNote } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useSlos } from '../useSlos.esm.js';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery.esm.js';
@@ -76,8 +76,7 @@ const useStyles = makeStyles(() => ({
   windowBarFill: { width: "100%", maxWidth: 22, borderRadius: "2px 2px 0 0" },
   windowLabel: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint },
   detailsToggle: { background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, marginTop: 4 },
-  query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: "6px 8px", borderRadius: 4, marginTop: 8, overflowX: "auto", whiteSpace: "pre" },
-  note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textLo }
+  query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: "6px 8px", borderRadius: 4, marginTop: 8, overflowX: "auto", whiteSpace: "pre" }
 }));
 const WINDOWS = ["5m", "30m", "1h", "2h", "6h", "1d", "3d", "30d"];
 const ENV_GROUP_PALETTE = [
@@ -214,11 +213,11 @@ function SloCard({
       ] })
     ] }),
     loading && meta.samples.length === 0 && /* @__PURE__ */ jsx(Progress, {}),
-    anyError && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    anyError && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't query Prometheus: ",
       anyError
     ] }),
-    noDataYet && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No burn-rate data yet - Sloth's generated recording rules may not have loaded into Prometheus yet (this can lag several minutes after an SLO is first created)." }),
+    noDataYet && /* @__PURE__ */ jsx(EmptyNote, { children: "No burn-rate data yet - Sloth's generated recording rules may not have loaded into Prometheus yet (this can lag several minutes after an SLO is first created)." }),
     !noDataYet && !anyError && /* @__PURE__ */ jsxs(Fragment, { children: [
       summary && /* @__PURE__ */ jsx(Typography, { className: classes.explainer, children: summary }),
       /* @__PURE__ */ jsxs("div", { className: classes.statsRow, children: [

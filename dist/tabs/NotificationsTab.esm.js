@@ -5,20 +5,14 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { relativeTime } from '../shared/format.esm.js';
-import { fontDisplay, fontMono, useHangarTokens } from '../brand/tokens.esm.js';
+import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
-import { PageHeader } from '../ui/index.esm.js';
+import { PageHeader, Section, EmptyNote } from '../ui/index.esm.js';
 import { useAppNotifications, isRecentNotification } from '../useAppNotifications.esm.js';
 import { renderNotificationDescription } from '../notificationFormatting.esm.js';
 
 const useStyles = makeStyles(() => ({
-  section: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    overflow: "hidden",
-    marginBottom: 16
-  },
+  stack: { display: "flex", flexDirection: "column", gap: 16 },
   row: {
     display: "flex",
     gap: 12,
@@ -79,17 +73,7 @@ const useStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     color: ({ t }) => t.textFaint,
     marginRight: 8
-  },
-  sectionHead: {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    padding: "14px 20px",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
-  },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo }
+  }
 }));
 function NotificationRow({
   n,
@@ -142,22 +126,9 @@ function NotificationsTab() {
   const earlier = notifications.filter((n) => !isRecentNotification(n));
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(PageHeader, { title: "Notifications", subtitle: `Build, test, deploy and release results Glidepath posted for ${appName}.` }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.sectionTitle, children: "New" }),
-        /* @__PURE__ */ jsx("span", { className: classes.sectionSub, children: "last hour" })
-      ] }),
-      recent.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Nothing new in the last hour." }) : recent.map((n) => /* @__PURE__ */ jsx(NotificationRow, { n, isNew: true, classes, t, goToImage }, n.id))
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.sectionTitle, children: "Earlier" }),
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          earlier.length,
-          " shown"
-        ] })
-      ] }),
-      earlier.length === 0 ? /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Nothing older yet." }) : earlier.map((n) => /* @__PURE__ */ jsx(NotificationRow, { n, isNew: false, classes, t, goToImage }, n.id))
+    /* @__PURE__ */ jsxs("div", { className: classes.stack, children: [
+      /* @__PURE__ */ jsx(Section, { framed: true, title: "New", count: "last hour", children: recent.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing new in the last hour." }) : recent.map((n) => /* @__PURE__ */ jsx(NotificationRow, { n, isNew: true, classes, t, goToImage }, n.id)) }),
+      /* @__PURE__ */ jsx(Section, { framed: true, title: "Earlier", count: `${earlier.length} shown`, children: earlier.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing older yet." }) : earlier.map((n) => /* @__PURE__ */ jsx(NotificationRow, { n, isNew: false, classes, t, goToImage }, n.id)) })
     ] })
   ] });
 }

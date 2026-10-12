@@ -1,7 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import CheckIcon from '@material-ui/icons/Check';
 import { MissingAnnotationEmptyState, Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
@@ -9,8 +8,8 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format.esm.js';
 import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
 import { parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, StatusChip } from '../ui/index.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { PageHeader, Section, EmptyNote, StatusChip } from '../ui/index.esm.js';
+import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
 const SOURCE_DISPLAY_CAP = 12;
@@ -23,24 +22,7 @@ function curateSourcePrs(prs) {
   return { shown, overflowCount };
 }
 const useStyles = makeStyles(() => ({
-  section: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    marginBottom: 16,
-    overflow: "hidden"
-  },
-  sectionHead: {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 8,
-    padding: "14px 20px",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
-  },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
+  body: { display: "flex", flexDirection: "column", gap: 16 },
   chip: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -99,7 +81,6 @@ const useStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     color: ({ t }) => t.textFaint
   },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
   overflowNote: { fontSize: 12.5, padding: "10px 20px" },
   link: { color: ({ t }) => t.sky, textDecoration: "none" },
   repoBadge: {
@@ -149,7 +130,7 @@ function PrTable({
   classes,
   showPreviewChip = true
 }) {
-  if (prs.length === 0) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: emptyMessage });
+  if (prs.length === 0) return /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: emptyMessage });
   return /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
     /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
       /* @__PURE__ */ jsx("th", { className: classes.th, children: "#" }),
@@ -187,7 +168,7 @@ function PrTable({
   ] });
 }
 function MergedPrTable({ prs, classes }) {
-  if (prs.length === 0) return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Nothing merged recently." });
+  if (prs.length === 0) return /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing merged recently." });
   return /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
     /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
       /* @__PURE__ */ jsx("th", { className: classes.th, children: "#" }),
@@ -253,79 +234,56 @@ function PullRequestsTab() {
         actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1) })
       }
     ),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionTitle, children: [
-          "Release PRs",
-          /* @__PURE__ */ jsx("span", { className: classes.chip, children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` })
-        ] }),
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          gitopsPrs.length,
-          " open"
-        ] })
-      ] }),
-      /* @__PURE__ */ jsx(PrTable, { prs: gitopsPrs, emptyMessage: "No open release PRs.", variant: "gitops", classes })
-    ] }),
-    previewPrs.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionTitle, children: [
-          "Preview PRs",
-          /* @__PURE__ */ jsx("span", { className: classes.chip, children: "ephemeral env" })
-        ] }),
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          previewPrs.length,
-          " open"
-        ] })
-      ] }),
+    /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
       /* @__PURE__ */ jsx(
-        PrTable,
+        Section,
         {
-          prs: previewPrs,
-          emptyMessage: "No open preview PRs.",
-          variant: "source",
-          classes,
-          showPreviewChip: false
+          framed: true,
+          title: "Release PRs",
+          meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` }),
+          count: `${gitopsPrs.length} open`,
+          children: /* @__PURE__ */ jsx(PrTable, { prs: gitopsPrs, emptyMessage: "No open release PRs.", variant: "gitops", classes })
         }
-      )
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionTitle, children: [
-          "Source PRs",
-          /* @__PURE__ */ jsx("span", { className: classes.chip, children: appName })
-        ] }),
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          sourcePrsRaw.length,
-          " open"
-        ] })
-      ] }),
-      /* @__PURE__ */ jsx(PrTable, { prs: sourcePrs, emptyMessage: "No open source PRs.", variant: "source", classes }),
-      overflowCount > 0 && /* @__PURE__ */ jsx("div", { className: classes.overflowNote, children: /* @__PURE__ */ jsxs(
-        "a",
+      ),
+      previewPrs.length > 0 && /* @__PURE__ */ jsx(
+        Section,
         {
-          className: classes.link,
-          href: `https://github.com/${owner}/${appName}/pulls`,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          children: [
-            "+",
-            overflowCount,
-            " more open PR",
-            overflowCount === 1 ? "" : "s",
-            " on GitHub"
-          ]
+          framed: true,
+          title: "Preview PRs",
+          meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: "ephemeral env" }),
+          count: `${previewPrs.length} open`,
+          children: /* @__PURE__ */ jsx(
+            PrTable,
+            {
+              prs: previewPrs,
+              emptyMessage: "No open preview PRs.",
+              variant: "source",
+              classes,
+              showPreviewChip: false
+            }
+          )
         }
-      ) })
-    ] }),
-    /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.sectionTitle, children: "Recently merged" }),
-        /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
-          mergedPrs.length,
-          " shown"
-        ] })
+      ),
+      /* @__PURE__ */ jsxs(Section, { framed: true, title: "Source PRs", meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: appName }), count: `${sourcePrsRaw.length} open`, children: [
+        /* @__PURE__ */ jsx(PrTable, { prs: sourcePrs, emptyMessage: "No open source PRs.", variant: "source", classes }),
+        overflowCount > 0 && /* @__PURE__ */ jsx("div", { className: classes.overflowNote, children: /* @__PURE__ */ jsxs(
+          "a",
+          {
+            className: classes.link,
+            href: `https://github.com/${owner}/${appName}/pulls`,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            children: [
+              "+",
+              overflowCount,
+              " more open PR",
+              overflowCount === 1 ? "" : "s",
+              " on GitHub"
+            ]
+          }
+        ) })
       ] }),
-      /* @__PURE__ */ jsx(MergedPrTable, { prs: mergedPrs, classes })
+      /* @__PURE__ */ jsx(Section, { framed: true, title: "Recently merged", count: `${mergedPrs.length} shown`, children: /* @__PURE__ */ jsx(MergedPrTable, { prs: mergedPrs, classes }) })
     ] })
   ] });
 }

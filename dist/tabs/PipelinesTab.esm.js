@@ -14,14 +14,12 @@ import { PipelineRunList } from '../PipelineRunList.esm.js';
 import { PipelineDag } from '../PipelineDag.esm.js';
 import { scrollPanelIntoView } from '../preventFocusScroll.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, FilterBar, FilterChips } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips, Count } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
   dagGap: { marginTop: 12 },
-  note: { fontSize: 12.5, fontStyle: "italic", padding: "14px 20px", color: ({ t }) => t.textLo },
   warnNote: { fontSize: 11.5, fontFamily: fontMono, padding: "10px 20px 0", color: ({ t }) => t.amberInk },
   dotLive: {
     width: 7,
@@ -224,7 +222,7 @@ function PipelinesTab() {
       /* @__PURE__ */ jsx(
         FilterBar,
         {
-          end: /* @__PURE__ */ jsxs("span", { className: classes.sectionSub, children: [
+          end: /* @__PURE__ */ jsxs(Count, { children: [
             listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
             " ",
             "\xB7 kind-dev"

@@ -3,10 +3,10 @@ import { useState, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { ImageTagPill } from './ImageTagPill.esm.js';
 import { useArgoCapabilities } from '../../useReleaseData.esm.js';
-import { StatusChip, Button, TextLink } from '../../ui/index.esm.js';
+import { SectionTitle, EmptyNote, StatusChip, Button, TextLink } from '../../ui/index.esm.js';
 import { argoTone } from '../../argoTone.esm.js';
 
 function syncWaveFor(node, k8sResources) {
@@ -23,7 +23,6 @@ const useStyles = makeStyles(() => ({
     gap: 10
   },
   headRow: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi, flexShrink: 0 },
   statusChips: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" },
@@ -87,7 +86,7 @@ const useStyles = makeStyles(() => ({
   flags: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 },
   flag: { fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 5, backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
   flagOff: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
-  subTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi, marginBottom: 2 },
+  subTitleGap: { marginBottom: 2 },
   // The full ArgoCD "Sync Status" panel column set (2026-09-16: "I would
   // like the argocd resource tree section to contain the same info as
   // argocd's UI does in the sync status page... sync wave, status, health,
@@ -122,8 +121,7 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.skySoft,
     color: ({ t }) => t.sky
   },
-  diffNote: { fontSize: 11, color: ({ t }) => t.textFaint, paddingTop: 6 },
-  note: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textLo, padding: "2px 0" }
+  diffNote: { fontSize: 11, color: ({ t }) => t.textFaint, paddingTop: 6 }
 }));
 const SYNC_GUIDE = [
   {
@@ -185,8 +183,8 @@ function ArgoCommandPanel({
   }, [env.argoAppName, env.argoOperationStartedAt, env.argoOperationFinishedAt, env.argoSyncStatus]);
   if (!env.argoAppName) {
     return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "ArgoCD application" }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This environment has no ArgoCD Application resolved yet." })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "ArgoCD application" }),
+      /* @__PURE__ */ jsx(EmptyNote, { children: "This environment has no ArgoCD Application resolved yet." })
     ] });
   }
   const canAct = Boolean(env.cluster);
@@ -202,7 +200,7 @@ function ArgoCommandPanel({
   const replaced = forceSyncTargets(resources);
   return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
-      /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(Typography, { className: classes.title, children: env.argoAppName }) }),
+      /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: env.argoAppName }) }),
       currentImage?.tag && /* @__PURE__ */ jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
         incomingImage?.tag && /* @__PURE__ */ jsx("span", { style: { fontSize: 10, color: t.textFaint, fontFamily: fontMono }, children: "LIVE" }),
         /* @__PURE__ */ jsx(ImageTagPill, { tag: currentImage.tag, nickname: currentImage.nickname, size: "small" })
@@ -304,7 +302,7 @@ function ArgoCommandPanel({
       ] })
     ] }),
     argoActions.error && /* @__PURE__ */ jsx(Typography, { className: classes.argoErr, children: argoActions.error }),
-    !reached && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+    !reached && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't reach ArgoCD for ",
       env.argoAppName,
       " - the facts here may be stale, not actually wrong."
@@ -367,8 +365,8 @@ function ArgoCommandPanel({
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.subTitle, children: "Resource tree" }),
-        resources.length === 0 ? /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+        /* @__PURE__ */ jsx("div", { className: classes.subTitleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Resource tree" }) }),
+        resources.length === 0 ? /* @__PURE__ */ jsxs(EmptyNote, { children: [
           "No resource tree reported yet",
           reached ? "" : " (ArgoCD unreachable)",
           "."

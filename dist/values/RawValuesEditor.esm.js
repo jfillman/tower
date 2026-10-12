@@ -5,11 +5,11 @@ import Link from '@material-ui/core/Link';
 import { ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
-import { Button } from '../ui/index.esm.js';
+import { Hint, Button } from '../ui/index.esm.js';
 import { describeChart } from '../environments/ownChart.esm.js';
 
 const useStyles = makeStyles({
-  note: { fontSize: 12.5, color: ({ t }) => t.textFaint, marginBottom: 10, lineHeight: 1.5 },
+  noteGap: { marginBottom: 10 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   bar: { display: "flex", alignItems: "center", gap: 12, marginTop: 8 }
 });
@@ -22,7 +22,7 @@ function RawValuesEditor({ source, chart }) {
   const check = validateYamlBlock(text);
   const dirty = text !== original;
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsxs("div", { className: c.note, children: [
+    /* @__PURE__ */ jsxs(Hint, { className: c.noteGap, children: [
       "This environment renders its own chart, ",
       /* @__PURE__ */ jsx("span", { className: c.mono, children: describeChart(chart) }),
       ", not Airframe's, so its values are edited as YAML here. The keys are that chart's. ",

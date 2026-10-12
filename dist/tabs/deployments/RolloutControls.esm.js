@@ -3,7 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { TierChip, Button, Chip } from '../../ui/index.esm.js';
+import { TierChip, Hint, Button, Chip } from '../../ui/index.esm.js';
 import { RollbackControl } from './RollbackControl.esm.js';
 
 const ACTION_COPY = {
@@ -47,7 +47,6 @@ const useStyles = makeStyles(() => ({
   },
   row: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
-  note: { fontSize: 11.5, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   confirm: {
     display: "flex",
     gap: 8,
@@ -164,7 +163,7 @@ function RolloutControls({
       "Couldn't read the Rollout's actions: ",
       loadError
     ] }),
-    !loadError && !data && /* @__PURE__ */ jsx("span", { className: c.note, children: "Reading the Rollout's actions\u2026" }),
+    !loadError && !data && /* @__PURE__ */ jsx(Hint, { children: "Reading the Rollout's actions\u2026" }),
     data && /* @__PURE__ */ jsx("div", { className: c.row, children: actions.map((a) => /* @__PURE__ */ jsxs(
       Button,
       {
@@ -180,7 +179,7 @@ function RolloutControls({
       },
       a.name
     )) }),
-    noneAllowed && /* @__PURE__ */ jsx("span", { className: c.note, children: "Only the app's owning team (or an admin) can run these. Hover a button for what it does." }),
+    noneAllowed && /* @__PURE__ */ jsx(Hint, { children: "Only the app's owning team (or an admin) can run these. Hover a button for what it does." }),
     confirming && /* @__PURE__ */ jsxs("div", { className: c.confirm, children: [
       /* @__PURE__ */ jsxs("span", { children: [
         ACTION_COPY[confirming.name].body,

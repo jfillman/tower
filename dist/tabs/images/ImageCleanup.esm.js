@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
-import { Button, TextLink } from '../../ui/index.esm.js';
+import { SectionTitle, Button, Hint, TextLink } from '../../ui/index.esm.js';
 
 const POLL_MS = 1500;
 function planCounts(plan) {
@@ -31,8 +31,6 @@ const useStyles = makeStyles(() => ({
     gap: 8
   },
   head: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  title: { fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  note: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   pkg: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   row: { display: "grid", gridTemplateColumns: "64px minmax(140px, 220px) 1fr", gap: 8, fontSize: 12, alignItems: "baseline" },
   del: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, color: ({ t }) => t.bad },
@@ -143,10 +141,10 @@ function ImageCleanup({ owner, appName }) {
   const caches = plan?.packages.filter((p) => p.kind === "cache") ?? [];
   return /* @__PURE__ */ jsxs("div", { className: c.card, "data-testid": "image-cleanup", children: [
     /* @__PURE__ */ jsxs("div", { className: c.head, children: [
-      /* @__PURE__ */ jsx("span", { className: c.title, children: "Clean up old images" }),
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Clean up old images" }),
       /* @__PURE__ */ jsx(Button, { small: true, disabled: !!busy, onClick: () => loadPlan(!!plan), children: planLabel })
     ] }),
-    !plan && !progress && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+    !plan && !progress && /* @__PURE__ */ jsxs(Hint, { children: [
       "Deletes this app's old images from the registry (",
       appName,
       ", ",
@@ -154,7 +152,7 @@ function ImageCleanup({ owner, appName }) {
       "-pr and the build cache), never one that is running, that an old ReplicaSet could scale back to, that git or an open PR names, or that is in an environment's last five healthy releases. You see the plan first."
     ] }),
     plan && /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+      /* @__PURE__ */ jsxs(Hint, { children: [
         "Also kept: anything younger than ",
         plan.rules.minAgeDays,
         " days, and the ",
@@ -174,7 +172,7 @@ function ImageCleanup({ owner, appName }) {
             " of ",
             plural(p.decisions.length, "release")
           ] }),
-          del.length > 0 && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+          del.length > 0 && /* @__PURE__ */ jsxs(Hint, { children: [
             " ",
             "(",
             p.deleteIds.length,
@@ -194,7 +192,7 @@ function ImageCleanup({ owner, appName }) {
             /* @__PURE__ */ jsx("span", { className: c.mono, children: d.key }),
             /* @__PURE__ */ jsx("span", { className: c.reasons, children: d.reasons.join("; ") })
           ] }, d.key)),
-          p.unattributed > 0 && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+          p.unattributed > 0 && /* @__PURE__ */ jsxs(Hint, { children: [
             p.unattributed,
             " untagged versions no release claims are kept."
           ] })
@@ -211,7 +209,7 @@ function ImageCleanup({ owner, appName }) {
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: showKept, onClick: () => setShowKept((v) => !v), children: "Why each kept release is kept" }) }),
       /* @__PURE__ */ jsxs("div", { className: c.head, children: [
         /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: !!busy || !!blocker, title: blocker, onClick: () => setConfirming(true), children: busy === "prune" ? "Deleting\u2026" : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}` }),
-        blocker && /* @__PURE__ */ jsx("span", { className: c.note, children: blocker })
+        blocker && /* @__PURE__ */ jsx(Hint, { children: blocker })
       ] }),
       confirming && /* @__PURE__ */ jsxs("div", { className: c.confirm, "data-testid": "prune-confirm", children: [
         /* @__PURE__ */ jsxs("span", { children: [
@@ -239,7 +237,7 @@ function PruneProgressView({ progress, c }) {
   const pct = total ? Math.round(done / total * 100) : 100;
   if (progress.state === "running") {
     return /* @__PURE__ */ jsxs("div", { "data-testid": "prune-progress", style: { display: "flex", flexDirection: "column", gap: 4 }, children: [
-      /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+      /* @__PURE__ */ jsxs(Hint, { children: [
         "Deleting: releases ",
         releases.done,
         " of ",
@@ -263,7 +261,7 @@ function PruneProgressView({ progress, c }) {
       ".",
       left ? ` ${whatGoes(progress.remaining.releases, progress.remaining.cacheLayers)} remain for another run: plan again.` : ""
     ] }),
-    progress.deletedReleases.length > 0 && /* @__PURE__ */ jsxs("span", { className: c.note, children: [
+    progress.deletedReleases.length > 0 && /* @__PURE__ */ jsxs(Hint, { children: [
       "Releases deleted: ",
       progress.deletedReleases.map((r) => r.split(":").slice(1).join(":")).join(", ")
     ] })

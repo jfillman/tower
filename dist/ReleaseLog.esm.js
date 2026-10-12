@@ -11,7 +11,7 @@ import { SupplyChainChips } from './SupplyChainChips.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { gitopsPrForEnvAndImage, nicknameForImageTag, parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import { imageTag, envTierOf, previewPrNumber } from './types.esm.js';
-import { FilterChips, StatusChip } from './ui/index.esm.js';
+import { SectionTitle, FilterChips, EmptyNote, StatusChip } from './ui/index.esm.js';
 
 const LOG_ROW_CAP = 25;
 function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns) {
@@ -78,7 +78,6 @@ function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistor
 const useStyles = makeStyles(() => ({
   wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: "hidden" },
   head: { padding: "14px 20px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
   scroll: { overflowX: "auto", padding: "0 20px 18px" },
   table: { width: "100%", borderCollapse: "collapse" },
@@ -100,7 +99,6 @@ const useStyles = makeStyles(() => ({
     border: "1px solid",
     whiteSpace: "nowrap"
   },
-  emptyRow: { padding: "18px 20px", fontSize: 12.5, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   expandRow: { padding: "2px 20px 14px" },
   expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
   timelineWrap: { padding: "4px 0" }
@@ -128,7 +126,7 @@ function ReleaseLog({
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Release log" }),
+        /* @__PURE__ */ jsx(SectionTitle, { children: "Release log" }),
         /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Every promotion and preview spin-up, newest first - table for scanning, timeline for reading how long each release ran." })
       ] }),
       /* @__PURE__ */ jsx(
@@ -144,7 +142,7 @@ function ReleaseLog({
         }
       )
     ] }),
-    view === "table" && entries.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.emptyRow, children: "No recorded promotions yet." }),
+    view === "table" && entries.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No recorded promotions yet." }),
     view === "table" && entries.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
         /* @__PURE__ */ jsx("th", { className: classes.th, children: "Time" }),

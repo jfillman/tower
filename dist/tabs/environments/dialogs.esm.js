@@ -13,7 +13,7 @@ import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { applyStaged, validateEnvironments, validateAddedFlight } from '../../environments/stagedChanges.esm.js';
-import { Field, Button } from '../../ui/index.esm.js';
+import { Field, Hint, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 import { MAIN_FIELD } from './shared.esm.js';
 
@@ -21,7 +21,7 @@ const useStyles = makeStyles(() => ({
   paper: { backgroundColor: ({ t }) => t.panel, backgroundImage: "none", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, minWidth: 440 },
   stack: { display: "flex", flexDirection: "column", gap: 12 },
   mono: { fontFamily: fontMono, fontSize: 12 },
-  note: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 8 },
+  noteGap: { marginTop: 8 },
   problem: { fontSize: 12.5, color: ({ t }) => t.bad, marginTop: 10 }
 }));
 function useDialogStyles() {
@@ -77,7 +77,7 @@ function AddEnvironmentDialog({
     /* @__PURE__ */ jsx(DialogTitle, { children: duplicateOf ? `Duplicate ${duplicateOf.name}` : "Add environment" }),
     /* @__PURE__ */ jsx(DialogContent, { children: /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
       /* @__PURE__ */ jsx(Field, { id: "add-env-name", label: "Name", children: (p) => /* @__PURE__ */ jsx("input", { ...p, autoFocus: true, value: name, onChange: (e) => setName(e.target.value) }) }),
-      /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Lowercase letters, digits and '-', for example qa." }),
+      /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Lowercase letters, digits and '-', for example qa." }),
       /* @__PURE__ */ jsxs(RadioGroup, { "aria-label": "Tier", value: tier, onChange: (e) => setTier(e.target.value), children: [
         /* @__PURE__ */ jsx(FormControlLabel, { value: "ground", disabled: Boolean(duplicateOf), control: /* @__PURE__ */ jsx(Radio, { size: "small" }), label: "Ground: deploys on every push" }),
         /* @__PURE__ */ jsx(
@@ -91,7 +91,7 @@ function AddEnvironmentDialog({
         )
       ] }),
       tier === "flight" && cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx("div", { className: c.note, children: "Each release to it opens a pull request on this repo that changes its release pin (glidepath/releases/<name>.yaml). Merging the pull request deploys exactly that image." }),
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Each release to it opens a pull request on this repo that changes its release pin (glidepath/releases/<name>.yaml). Merging the pull request deploys exactly that image." }),
         /* @__PURE__ */ jsx(
           FormControlLabel,
           {
@@ -103,8 +103,8 @@ function AddEnvironmentDialog({
       tier === "flight" && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsx("input", { ...p, list: "flight-clusters", value: cluster, onChange: (e) => setCluster(e.target.value) }) }),
         /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((k) => /* @__PURE__ */ jsx("option", { value: k }, k)) }),
-        /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "The registered upper cluster it runs on, for example kind-prod." }),
-        /* @__PURE__ */ jsx("div", { className: c.note, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first." }),
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "The registered upper cluster it runs on, for example kind-prod." }),
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first." }),
         /* @__PURE__ */ jsx(
           FormControlLabel,
           {
@@ -112,11 +112,11 @@ function AddEnvironmentDialog({
             label: "Also add a release step for it to the pipeline"
           }
         ),
-        /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
       ] }),
       cloudBlock && mainField && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-override", label: `${targetLabel} ${mainField} (optional)`, children: (p) => /* @__PURE__ */ jsx("input", { ...p, value: override, onChange: (e) => setOverride(e.target.value) }) }),
-        /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: "Leave empty to use the app-level value." })
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Leave empty to use the app-level value." })
       ] }),
       duplicateOf && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(
@@ -126,9 +126,9 @@ function AddEnvironmentDialog({
             label: `Copy the values of ${duplicateOf.name}`
           }
         ),
-        /* @__PURE__ */ jsx("div", { className: c.note, style: { marginTop: -6 }, children: tier === "ground" ? `The new environment's values file is created in the same pull request, with the values of ${duplicateOf.name} (its own image excluded).` : `A Flight environment's values file is written by Crossplane after its request merges. When it exists, use "Copy values from" in its Values tab.` })
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: tier === "ground" ? `The new environment's values file is created in the same pull request, with the values of ${duplicateOf.name} (its own image excluded).` : `A Flight environment's values file is written by Crossplane after its request merges. When it exists, use "Copy values from" in its Values tab.` })
       ] }),
-      duplicateOf && cloudBlock && mainField && /* @__PURE__ */ jsxs("div", { className: c.note, children: [
+      duplicateOf && cloudBlock && mainField && /* @__PURE__ */ jsxs(Hint, { className: c.noteGap, children: [
         "Settings are copied except ",
         mainField,
         ": give it its own above, or both environments will deploy to the same resource."
@@ -183,14 +183,14 @@ function RemoveEnvironmentDialog({
         " from cicd.yaml. Nothing happens until you open the pull request and merge it.",
         cloud ? /* @__PURE__ */ jsxs(Fragment, { children: [
           files.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx("div", { className: c.note, children: "The same pull request deletes its release pin and promote flow, so merging it starts no deploy:" }),
+            /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "The same pull request deletes its release pin and promote flow, so merging it starts no deploy:" }),
             /* @__PURE__ */ jsx("ul", { className: c.mono, children: files.map((f) => /* @__PURE__ */ jsx("li", { children: f }, f)) })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: c.note, children: "The cloud resource this environment deployed to is not deleted. Remove it in your cloud account." })
+          /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "The cloud resource this environment deployed to is not deleted. Remove it in your cloud account." })
         ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx("div", { className: c.note, children: "The same pull request deletes, where they exist:" }),
+          /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "The same pull request deletes, where they exist:" }),
           /* @__PURE__ */ jsx("ul", { className: c.mono, children: files.map((f) => /* @__PURE__ */ jsx("li", { children: f }, f)) }),
-          /* @__PURE__ */ jsxs("div", { className: c.note, children: [
+          /* @__PURE__ */ jsxs(Hint, { className: c.noteGap, children: [
             "After it merges, Argo CD prunes the Application",
             " ",
             /* @__PURE__ */ jsxs("span", { className: c.mono, children: [

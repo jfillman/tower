@@ -13,7 +13,7 @@ import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
 import { RolloutControls } from './RolloutControls.esm.js';
 import { imageTag } from '../../types.esm.js';
-import { StatusChip, TextLink, Button } from '../../ui/index.esm.js';
+import { SectionTitle, EmptyNote, StatusChip, TextLink, Button } from '../../ui/index.esm.js';
 
 function rolloutControlsFor(env) {
   if (env.workload?.kind !== "Rollout" || !env.argoAppName || !env.cluster || !env.namespace) return null;
@@ -23,8 +23,6 @@ const PR_BODY_TRUNCATE = 700;
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 9 },
   headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: "italic", color: ({ t }) => t.textLo },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   prLink: {
     display: "inline-flex",
@@ -88,12 +86,12 @@ function CreatedBody({
         delivery.pr.author && `opened by ${delivery.pr.author} \xB7 `,
         timeText(step?.at)
       ] }),
-      delivery.pr.body ? /* @__PURE__ */ jsx(Typography, { className: classes.body, children: delivery.pr.body.length > PR_BODY_TRUNCATE ? `${delivery.pr.body.slice(0, PR_BODY_TRUNCATE)}\u2026` : delivery.pr.body }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This PR has no description." })
+      delivery.pr.body ? /* @__PURE__ */ jsx(Typography, { className: classes.body, children: delivery.pr.body.length > PR_BODY_TRUNCATE ? `${delivery.pr.body.slice(0, PR_BODY_TRUNCATE)}\u2026` : delivery.pr.body }) : /* @__PURE__ */ jsx(EmptyNote, { children: "This PR has no description." })
     ] });
   }
   if (delivery.commit) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Ground-tier environments promote by pushing a commit straight to the gitops branch - there's no PR to show for this delivery." }),
+      /* @__PURE__ */ jsx(EmptyNote, { children: "Ground-tier environments promote by pushing a commit straight to the gitops branch - there's no PR to show for this delivery." }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.meta, children: [
         delivery.commit.sha.slice(0, 7),
         " \xB7 ",
@@ -103,7 +101,7 @@ function CreatedBody({
       ] })
     ] });
   }
-  return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No delivery recorded yet." });
+  return /* @__PURE__ */ jsx(EmptyNote, { children: "No delivery recorded yet." });
 }
 function MergedBody({
   delivery,
@@ -173,7 +171,7 @@ function MergedBody({
       ) })
     ] });
   }
-  return /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "Not merged yet." });
+  return /* @__PURE__ */ jsx(EmptyNote, { children: "Not merged yet." });
 }
 function notStartedFor(delivery, stage, releaseTag, runningTag) {
   const idx = delivery.steps.findIndex((s) => s.key === stage);
@@ -187,12 +185,11 @@ function NotStarted({
   releaseTag,
   runningTag,
   waitingFor,
-  classes,
   children
 }) {
   const [open, setOpen] = useState(false);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsxs(Typography, { className: classes.note, "data-testid": "stage-not-started", children: [
+    /* @__PURE__ */ jsxs(EmptyNote, { "data-testid": "stage-not-started", children: [
       "Not started for ",
       /* @__PURE__ */ jsx("span", { style: { fontFamily: fontMono }, children: releaseTag }),
       " yet: waiting for ",
@@ -233,7 +230,7 @@ function StageDetail({
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 18 }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: delivery.pr ? "PR created" : "Direct commit" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: delivery.pr ? "PR created" : "Direct commit" })
       ] }),
       /* @__PURE__ */ jsx(CreatedBody, { delivery, step, classes })
     ] });
@@ -242,17 +239,17 @@ function StageDetail({
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(SecurityIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Guardrails" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Guardrails" })
       ] }),
       /* @__PURE__ */ jsx(Typography, { className: classes.meta, children: timeText(step?.at) }),
-      gateCi?.checks ? /* @__PURE__ */ jsx(GateLedger, { ci: gateCi, classes: railClasses, t }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: guardrailsFallbackNote(delivery) })
+      gateCi?.checks ? /* @__PURE__ */ jsx(GateLedger, { ci: gateCi, classes: railClasses, t }) : /* @__PURE__ */ jsx(EmptyNote, { children: guardrailsFallbackNote(delivery) })
     ] });
   }
   if (selectedKey === "merged") {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 18 }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "PR merged" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "PR merged" })
       ] }),
       /* @__PURE__ */ jsx(MergedBody, { delivery, step, gateCi, classes, onSelectStage })
     ] });
@@ -265,7 +262,7 @@ function StageDetail({
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(SyncIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Application sync" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Application sync" })
       ] }),
       step?.status === "bad" && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", className: classes.chipPos, children: "sync operation failed" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.meta, children: timeText(step?.at) }),
@@ -274,8 +271,8 @@ function StageDetail({
         targetImageTag
       ] }),
       argoOperationMessage && /* @__PURE__ */ jsx(Typography, { className: classes.body, children: argoOperationMessage }),
-      resources.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "No resource tree reported yet." }),
-      resources.length > 0 && outOfSync.length === 0 && /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+      resources.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No resource tree reported yet." }),
+      resources.length > 0 && outOfSync.length === 0 && /* @__PURE__ */ jsxs(EmptyNote, { children: [
         "All ",
         resources.length,
         " managed resources synced."
@@ -303,7 +300,7 @@ function StageDetail({
           /* @__PURE__ */ jsx("span", { className: classes.resourceName, children: r.name }),
           /* @__PURE__ */ jsx("span", { className: classes.resourceStatus, children: r.syncStatus ?? "Unknown" })
         ] }, `${r.kind}-${r.name}-${i}`)),
-        /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
+        /* @__PURE__ */ jsxs(EmptyNote, { children: [
           outOfSync.length,
           " of ",
           resources.length,
@@ -316,7 +313,7 @@ function StageDetail({
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(TrendingUpIcon, { fontSize: "small" }) }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout starts" })
+        /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Rollout starts" })
       ] }),
       (() => {
         const runningTag = env.image ? imageTag(env.image) : void 0;
@@ -343,25 +340,25 @@ function StageDetail({
                 stepWeight: rolloutProgress.currentWeight
               }
             )
-          ] }) : /* @__PURE__ */ jsx(Typography, { className: classes.note, children: "This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart here." })
+          ] }) : /* @__PURE__ */ jsx(EmptyNote, { children: "This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to chart here." })
         ] });
-        return waiting && targetImageTag ? /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, classes, children: live }) : live;
+        return waiting && targetImageTag ? /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, children: live }) : live;
       })()
     ] });
   }
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(CheckCircleIcon, { fontSize: "small" }) }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Rollout completes" })
+      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Rollout completes" })
     ] }),
     (() => {
       const runningTag = env.image ? imageTag(env.image) : void 0;
       const waiting = notStartedFor(delivery, "healthy", targetImageTag, runningTag);
       if (waiting && targetImageTag) {
-        return /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, classes, children: rolloutControlsFor(env) });
+        return /* @__PURE__ */ jsx(NotStarted, { releaseTag: targetImageTag, runningTag, waitingFor: waiting.waitingFor, children: rolloutControlsFor(env) });
       }
       return /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.note, children: healthyNote(step) }),
+        /* @__PURE__ */ jsx(EmptyNote, { children: healthyNote(step) }),
         rolloutControlsFor(env)
       ] });
     })()
