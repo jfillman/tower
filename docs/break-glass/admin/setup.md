@@ -106,12 +106,14 @@ cluster they record).
    `tower-breakglass`, from `create-breakglass-bucket-job.yaml`, is unlocked and keeps the recordings written before
    phase B until they expire; the backend reads those rows from it as `recordings.legacyBucket`.) Both Jobs use the MinIO *server* image's
    `mc`: `quay.io/minio/mc` no longer pulls.)
-2. **Access key**, by hand in the MinIO console, with exactly this policy (put and get, nothing else: Backstage can
-   write a recording and read it back, never list or delete):
+2. **Access key**, by hand in the MinIO console (a service account of the root user with an *embedded* policy), with
+   exactly this policy: put and get on both buckets, plus reading a named version in the locked one; never list, delete
+   or bypass-governance. (Extended to the second bucket on 2026-10-12 with `mc admin user svcacct edit <key> --policy`
+   as root inside the MinIO pod; `mc admin user svcacct info <key> --policy` shows it.)
 
    ```json
-   {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:PutObject","s3:GetObject"],
-     "Resource":["arn:aws:s3:::tower-breakglass/*"]}]}
+   {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:PutObject","s3:GetObject","s3:GetObjectVersion"],
+     "Resource":["arn:aws:s3:::tower-breakglass/*","arn:aws:s3:::tower-breakglass-v2/*"]}]}
    ```
 3. **Infisical.** Plant the key and secret as `tower-breakglass-minio-access-key` and
    `tower-breakglass-minio-secret-key` (kind-prod, `platform-cicd-kind-prod`, shared). Never paste them anywhere else.
@@ -122,7 +124,7 @@ cluster they record).
    so), and the sweep anchors them once the key appears, for a day after each session's end.
 5. **Rekor route.** gitops-cluster-dev `60-gateway-routes/rekor-httproute.yaml` exposes `rekor.dev.kiac.local`; the
    kind-prod Backstage Deployment's `hostAliases` maps it like `minio.dev.kiac.local`.
-4. **Into Backstage.** gitops-cluster-kind-prod `60-backstage/backstage/breakglass-minio-external-secret.yaml` syncs them
+6. **Into Backstage.** gitops-cluster-kind-prod `60-backstage/backstage/breakglass-minio-external-secret.yaml` syncs them
    into Secret `backstage-breakglass-minio`; the Deployment maps them to `TOWER_BREAKGLASS_MINIO_ACCESS_KEY` and
    `TOWER_BREAKGLASS_MINIO_SECRET_KEY`.
 
