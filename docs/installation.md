@@ -65,9 +65,24 @@ yarn dev
 ## Configuration
 
 Tower reads cluster configuration from:
-- Kubernetes API access (assumes in-cluster or configured kubeconfig)
+- Kubernetes API access (`kubernetes.clusterLocatorMethods` in Backstage's `app-config.yaml`)
 - ArgoCD API endpoint (configurable via env or backstage.io labels)
 - Tekton dashboard URL (auto-discovered or configured)
+
+### Cluster access
+
+Don't give Backstage a long-lived ServiceAccount token for any cluster.
+
+- **The cluster Backstage runs in:** use the pod's own in-cluster identity (`authProvider: serviceAccount`, no token,
+  `caFile` set to the in-cluster CA).
+- **Every other cluster:** make that cluster trust the home cluster's ServiceAccount issuer (apron
+  `components.clusterIdentity`). Then point the entry at:
+  - a projected token file for reads (`authMetadata` `hangar.io/token-file`);
+  - an actor ServiceAccount that is minted per write (`hangar.io/actor-*`).
+- **On a managed cloud cluster** (EKS, GKE, AKS), use the provider's workload-identity exchange instead.
+
+The full setup, including a `serviceAccountToken` placeholder the Kubernetes plugin needs, is in
+[Cluster credentials](credentials/index.md).
 
 ### Environment Variables
 
@@ -127,4 +142,4 @@ After installation, Tower should be available in the Backstage sidebar. Verify b
 If Tower doesn't appear, check:
 - Browser console for module load errors
 - Backstage backend logs for API connectivity issues
-- Kubernetes connectivity (in-cluster vs. external access)
+- Kubernetes connectivity (in-cluster vs. external access): see the troubleshooting table in [Cluster credentials](credentials/index.md)

@@ -46,8 +46,9 @@ What each rule does, and how to edit one without an outage, is in [Admission pol
 - Apply `30-policy/kyverno-policies/tower-breakglass-rbac.yaml`: aggregated ClusterRoles that let Kyverno's controllers
   read `pods/ephemeralcontainers` and let its **cleanup controller** delete expired RoleBindings and pods (it has no
   delete on those kinds by default). The cleanup controller acts on the `cleanup.kyverno.io/ttl` label.
-- Replace the literal username `system:serviceaccount:backstage-system:backstage-ingestor` with Backstage's identity on
-  the new cluster, everywhere it appears.
+- Replace the literal username `hangar:kind-prod:tower-actor` (kiac-dev's federated write identity, see
+  [Cluster credentials](../../credentials/index.md)) with Backstage's write identity on the new cluster, everywhere it
+  appears. That includes the RoleBinding policy's subject check, which expects a `User` subject there.
 
 Check:
 
@@ -80,14 +81,15 @@ ServiceAccount there:
 | ClusterRole `tower-breakglass-debug-live` | `pods`: get, list, delete · `pods/ephemeralcontainers`: get, patch, update · `pods/attach`: get, create |
 | ClusterRole `tower-breakglass-debug-copy` | `pods`: get, list, create, delete · `pods/attach`: get, create |
 | ClusterRole `tower-breakglass-binder` | `rolebindings`: get, list, create, delete · `clusterroles`: `bind`, resourceNames the two roles above |
-| ClusterRoleBinding `backstage-ingestor-breakglass-binder` | the binder role, to Backstage's ServiceAccount |
+| ClusterRoleBinding with the binder role | on kiac-dev `tower-actor-breakglass-binder` (`tower-actor-rbac.yaml`), to the User `hangar:kind-prod:tower-actor`; on kind-prod `backstage-ingestor-breakglass-binder`, to Backstage's ServiceAccount |
 
 The debug roles are **never bound at rest**. Backstage binds one to itself, per session, in one namespace.
 
 Check, as Backstage (replace the identity and namespace):
 
 ```bash
-SA=system:serviceaccount:backstage:backstage-ingestor; NS=app-sky-marshall-staging
+SA=system:serviceaccount:backstage:backstage-ingestor; NS=app-sky-marshall-staging   # kind-prod
+# kiac-dev: AS="--as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod"; NS=app-sky-marshall-dev
 kubectl auth can-i create rolebindings -n $NS --as=$SA              # yes
 kubectl auth can-i create pods/attach -n $NS --as=$SA               # no
 kubectl auth can-i patch pods/ephemeralcontainers -n $NS --as=$SA   # no
