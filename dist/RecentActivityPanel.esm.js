@@ -142,7 +142,7 @@ const useStyles = makeStyles(() => ({
   card: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: "14px 18px",
     // 2026-09-14 feedback: this panel sat directly against the Preview
     // environments section above it with no breathing room - a plain

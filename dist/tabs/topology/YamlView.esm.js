@@ -7,6 +7,7 @@ import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { JsonNode } from '../../ResourceInspector.esm.js';
 import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
+import { Button } from '../../ui/index.esm.js';
 
 function redactIfSecret(ref) {
   if (ref.kind !== "Secret" || !ref.raw || typeof ref.raw !== "object") return ref.raw;
@@ -82,20 +83,6 @@ const useStyles = makeStyles(() => ({
     cursor: "pointer"
   },
   modeBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
-  copyBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "3px 9px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: "none",
-    color: ({ t }) => t.textFaint,
-    cursor: "pointer",
-    "&:hover": { color: ({ t }) => t.sky }
-  },
   secretNote: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint },
   search: {
     fontFamily: fontMono,
@@ -190,9 +177,9 @@ function YamlView({ resource }) {
       /* @__PURE__ */ jsx("span", { className: classes.spacer }),
       /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "yaml" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => switchMode("yaml"), children: "YAML" }),
       /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "tree" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => switchMode("tree"), children: "Structured" }),
-      /* @__PURE__ */ jsxs("button", { type: "button", className: classes.copyBtn, onMouseDown: preventFocusScroll, onClick: copy, children: [
+      /* @__PURE__ */ jsxs(Button, { small: true, onClick: copy, children: [
         /* @__PURE__ */ jsx(FileCopyOutlinedIcon, { style: { fontSize: 13 } }),
-        copied ? "copied" : "copy"
+        copied ? "Copied" : "Copy"
       ] })
     ] }),
     resource.kind === "Secret" && /* @__PURE__ */ jsx(Typography, { className: classes.secretNote, children: "Values redacted below - this is a real Secret, not a preview of one." }),

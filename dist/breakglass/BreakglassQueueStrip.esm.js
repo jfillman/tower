@@ -10,7 +10,7 @@ const useStyles = makeStyles(() => ({
   strip: {
     border: ({ t }) => `1px solid ${t.line}`,
     borderLeft: ({ t }) => `3px solid ${t.bad}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel,
     padding: "12px 14px",
     marginBottom: 20,

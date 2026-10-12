@@ -2,14 +2,13 @@ import { jsx, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
-import { EmptyNote, StatusChip } from '../ui/index.esm.js';
+import { EmptyNote, StatusChip, TextLink } from '../ui/index.esm.js';
 import { useBreakglassSessions, shortUser } from '../tabs/topology/breakglassShared.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 6 },
   row: { display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontFamily: fontMono, fontSize: 11 },
-  meta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }
+  meta: { color: ({ t }) => t.textFaint }
 }));
 function releaseWindow(record, others, env) {
   const own = record.deployments.find((d) => d.env === env);
@@ -58,7 +57,7 @@ function EnvSessions({ appName, env, window, onOpen }) {
       s.reason.length > 50 ? `${s.reason.slice(0, 50)}\u2026` : s.reason,
       "\u201D"
     ] }),
-    onOpen && /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => onOpen(s), children: "open" })
+    onOpen && /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpen(s), children: "open" })
   ] }, s.id)) });
 }
 function BreakglassReleaseSessions({ appName, record, others, onOpen }) {

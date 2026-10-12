@@ -5,7 +5,7 @@ import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { TextLink, SectionTitle, StatusChip } from './ui/index.esm.js';
+import { TextLink, SectionTitle, StatusChip, Fact } from './ui/index.esm.js';
 
 function leadTimeMs(record) {
   const promo = [...record.promotionChain].reverse().find((p) => p.mergedAt);
@@ -44,9 +44,6 @@ const useStyles = makeStyles(() => ({
   colHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 14 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
   kv: { display: "flex", flexDirection: "column", gap: 8 },
-  kvRow: { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5 },
-  kvK: { color: ({ t }) => t.textFaint },
-  kvV: { color: ({ t }) => t.textHi, fontFamily: fontMono, fontSize: 11.5 },
   mid: {
     width: 150,
     display: "flex",
@@ -104,26 +101,11 @@ function RecordColumn({
       /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Deployed" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvV, children: formatDateTime(record.createdAt) })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "PRs" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvV, children: record.pullRequests.length })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Lead time (merge\u2192prod)" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvV, children: lead === void 0 ? "\u2014" : formatDuration(lead) })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Guardrail checks" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvV, children: record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Confidence" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvV, style: { color: confidenceColor(t, record.confidence) }, children: record.confidence })
-      ] })
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Deployed", children: formatDateTime(record.createdAt) }),
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "PRs", children: record.pullRequests.length }),
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Lead time (merge\u2192prod)", children: lead === void 0 ? "\u2014" : formatDuration(lead) }),
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Guardrail checks", children: record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Confidence", children: /* @__PURE__ */ jsx("span", { style: { color: confidenceColor(t, record.confidence) }, children: record.confidence }) })
     ] })
   ] });
 }

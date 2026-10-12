@@ -2,12 +2,13 @@ import { jsxs, jsx } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { fmtDuration, stateLabel } from './shared.esm.js';
+import { TextLink } from '../ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   strip: {
     border: ({ t }) => `1px solid ${t.line}`,
     borderLeft: ({ t }) => `3px solid ${t.sky}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel,
     padding: "12px 14px",
     marginBottom: 20,
@@ -39,16 +40,6 @@ const useStyles = makeStyles(() => ({
     borderRadius: 10,
     backgroundColor: ({ t }) => t.amber,
     color: ({ t }) => t.bg
-  },
-  link: {
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-    "&:hover": { textDecoration: "underline" }
   },
   row: {
     display: "grid",
@@ -144,7 +135,7 @@ function ProvisioningStrip({ items, onOpen }) {
         "In flight ",
         /* @__PURE__ */ jsx("span", { className: classes.badge, children: items.length })
       ] }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => onOpen(items[0].inputs.xr.name), children: "View all in Provisioning \u2192" })
+      /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpen(items[0].inputs.xr.name), children: "View all in Provisioning \u2192" })
     ] }),
     items.map((item) => {
       const { derived, inputs } = item;

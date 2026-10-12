@@ -29,7 +29,7 @@ const useStyles = makeStyles(() => ({
   panel: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 10,
+    borderRadius: 6,
     padding: "14px 18px",
     display: "flex",
     flexDirection: "column",
@@ -55,7 +55,7 @@ const useStyles = makeStyles(() => ({
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 },
   tile: {
     padding: "10px 12px",
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panelAlt,
     display: "flex",

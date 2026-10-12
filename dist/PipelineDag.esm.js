@@ -1,7 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useMemo, useState, useRef, useEffect, Fragment as Fragment$1 } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -13,10 +12,10 @@ import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import CloseIcon from '@material-ui/icons/Close';
 import { dump } from 'js-yaml';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { stepDuration, TaskRunLogConsole } from './TaskRunLogConsole.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
-import { EmptyNote } from './ui/index.esm.js';
+import { SectionTitle, FactGrid, Fact, EmptyNote } from './ui/index.esm.js';
 
 const NODE_W = 150;
 const NODE_H = 56;
@@ -195,12 +194,8 @@ const usePipelineDagStyles = makeStyles(() => ({
   nodeSub: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, letterSpacing: "0.03em" },
   legend: { display: "flex", gap: 16, flexWrap: "wrap", padding: "10px 2px 0", fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block", marginRight: 6 },
-  detail: { marginTop: 12, padding: "14px 16px", backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8 },
-  detailTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13.5, marginBottom: 8, color: ({ t }) => t.textHi },
-  detailGrid: { display: "flex", flexWrap: "wrap", gap: "10px 22px", marginBottom: 8 },
-  detailGridItem: { flex: "1 1 140px" },
-  kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, display: "block" },
-  kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: "break-word" },
+  detail: { marginTop: 12, padding: "14px 16px", backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
+  detailTitleGap: { marginBottom: 8 },
   archivedTag: {
     marginLeft: 8,
     padding: "1px 6px",
@@ -231,7 +226,7 @@ const usePipelineDagStyles = makeStyles(() => ({
   },
   ioName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, flexShrink: 0, minWidth: 130 },
   ioValue: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, wordBreak: "break-word", whiteSpace: "pre-wrap" },
-  pipelineDetail: { marginTop: 12, padding: "14px 16px", backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8 },
+  pipelineDetail: { marginTop: 12, padding: "14px 16px", backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
   pipelineDetailHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
   dialogTitle: {
     display: "flex",
@@ -474,7 +469,7 @@ function PipelineDag({ run, expandSignal }) {
       ] }),
       (run.params.length > 0 || run.results.length > 0) && /* @__PURE__ */ jsxs("div", { className: classes.pipelineDetail, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.pipelineDetailHead, children: [
-          /* @__PURE__ */ jsx(Typography, { className: classes.detailTitle, style: { marginBottom: 0 }, children: "Pipeline" }),
+          /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Pipeline" }),
           /* @__PURE__ */ jsxs("button", { type: "button", className: classes.utilBtn, onClick: () => setPipelineIoOpen((v) => !v), children: [
             pipelineIoOpen ? /* @__PURE__ */ jsx(ExpandLessIcon, { style: { fontSize: 14 } }) : /* @__PURE__ */ jsx(ExpandMoreIcon, { style: { fontSize: 14 } }),
             pipelineIoOpen ? "Hide inputs & results" : "Show inputs & results"
@@ -498,20 +493,11 @@ function PipelineDag({ run, expandSignal }) {
         ] })
       ] }),
       openTask && /* @__PURE__ */ jsxs("div", { className: classes.detail, children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.detailTitle, children: openTask.label }),
-        /* @__PURE__ */ jsxs("div", { className: classes.detailGrid, children: [
-          /* @__PURE__ */ jsxs("div", { className: classes.detailGridItem, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Duration" }),
-            /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: openTaskRun ? taskDuration(openTaskRun.startTime, openTaskRun.completionTime) : "\u2014" })
-          ] }),
-          openTaskDef?.taskRefName && openTaskDef.taskRefName !== openTask.label && /* @__PURE__ */ jsxs("div", { className: classes.detailGridItem, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Task" }),
-            /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: openTaskDef.taskRefName })
-          ] }),
-          /* @__PURE__ */ jsxs("div", { className: classes.detailGridItem, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Result" }),
-            /* @__PURE__ */ jsx("span", { className: classes.kvValue, title: openTaskRun?.message, children: taskResultText(openTaskRun, openTask.phase) })
-          ] })
+        /* @__PURE__ */ jsx("div", { className: classes.detailTitleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: openTask.label }) }),
+        /* @__PURE__ */ jsxs(FactGrid, { children: [
+          /* @__PURE__ */ jsx(Fact, { label: "Duration", children: openTaskRun ? taskDuration(openTaskRun.startTime, openTaskRun.completionTime) : "\u2014" }),
+          openTaskDef?.taskRefName && openTaskDef.taskRefName !== openTask.label && /* @__PURE__ */ jsx(Fact, { label: "Task", children: openTaskDef.taskRefName }),
+          /* @__PURE__ */ jsx(Fact, { label: "Result", title: openTaskRun?.message, children: taskResultText(openTaskRun, openTask.phase) })
         ] }),
         openTaskRun?.startTime && /* @__PURE__ */ jsxs(EmptyNote, { children: [
           "Started ",

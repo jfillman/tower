@@ -7,7 +7,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import { formatDateTime, relativeTime } from '../../shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { useSignalRailStyles, GitPrIcon, GateLedger } from '../../SignalRail.esm.js';
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
@@ -24,17 +24,6 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 9 },
   headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  prLink: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13.5,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    "&:hover": { textDecoration: "underline" }
-  },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
   chipPos: { alignSelf: "flex-start" },
   "@keyframes livePulse": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0.5 } },
@@ -75,7 +64,7 @@ function CreatedBody({
 }) {
   if (delivery.pr) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("a", { className: classes.prLink, href: delivery.pr.url, target: "_blank", rel: "noopener noreferrer", children: [
+      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
         /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
         "PR #",
         delivery.pr.number,
@@ -144,7 +133,7 @@ function MergedBody({
   }
   if (delivery.pr) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("a", { className: classes.prLink, href: delivery.pr.url, target: "_blank", rel: "noopener noreferrer", children: [
+      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
         /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
         "PR #",
         delivery.pr.number,

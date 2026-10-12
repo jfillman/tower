@@ -1,68 +1,21 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { STALE_THRESHOLD_MS, relativeTime } from './shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { useHangarTokens } from './brand/tokens.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
-import { StatusChip, healthTone, TextLink } from './ui/index.esm.js';
+import { Card, StatusChip, healthTone, Callout, TextLink, Tile, Stat } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
-  deck: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 6,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
-    marginBottom: 20,
-    overflow: "hidden"
-  },
-  deckInner: { padding: "14px 20px 16px" },
-  envRow: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  tasks: { marginTop: 14, display: "flex", flexDirection: "column", gap: 6 },
-  task: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 5, flexWrap: "wrap" },
-  taskIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    fontSize: 14,
-    fontWeight: 700,
-    border: "2px solid",
-    backgroundColor: ({ t }) => t.panel
-  },
-  taskBody: { flex: "1 1 240px", minWidth: 0 },
-  taskEyebrow: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" },
-  taskHeadline: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  taskDetail: { fontSize: 11.5, color: ({ t }) => t.textLo, marginTop: 1 },
-  statsRow: { marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 },
-  stat: {
-    backgroundColor: ({ t }) => t.panelAlt,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 5,
-    padding: "10px 14px"
-  },
-  statVal: { fontFamily: fontMono, fontSize: 22, fontWeight: 600, color: ({ t }) => t.textHi },
-  statValSm: { fontSize: 14 },
-  statLabel: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 }
+  deck: { marginBottom: 20 },
+  deckBody: { display: "flex", flexDirection: "column", gap: 14 },
+  envRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  tasks: { display: "flex", flexDirection: "column", gap: 6 },
+  statsRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }
 }));
-function toneColors(t, tone) {
-  switch (tone) {
-    case "bad":
-      return { bg: t.badSoft, border: t.bad, fg: t.bad };
-    case "warn":
-      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
-    case "good":
-      return { bg: t.goodSoft, border: t.good, fg: t.good };
-    case "neutral":
-    default:
-      return { bg: t.panelAlt, border: t.line, fg: t.textFaint };
-  }
-}
+const CALLOUT_TONE = { bad: "bad", warn: "warn", good: "ok", neutral: "neutral" };
 function computeTaskQueue(environments, gitopsPrs, sourcePrs, goToMatrix, goToPullRequests, goToTopology) {
   if (environments.length === 0) {
     return [
@@ -188,7 +141,7 @@ function CommandDeck({
   const openSourcePrCount = sourcePrs.filter((pr) => pr.state === "open").length;
   const releasesWeek = releasesThisWeek(deployHistory);
   const { verified, total } = verifiedSupplyChainCount(environments, provenanceByImage);
-  return /* @__PURE__ */ jsx("div", { className: classes.deck, children: /* @__PURE__ */ jsxs("div", { className: classes.deckInner, children: [
+  return /* @__PURE__ */ jsx(Card, { className: classes.deck, children: /* @__PURE__ */ jsxs("div", { className: classes.deckBody, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.envRow, children: [
       environments.map((env) => {
         const h = health(env);
@@ -213,39 +166,26 @@ function CommandDeck({
         " preview"
       ] })
     ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.tasks, children: tasks.map((task, i) => {
-      const colors = toneColors(t, task.tone);
-      return /* @__PURE__ */ jsxs("div", { className: classes.task, style: { backgroundColor: colors.bg }, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.taskIcon, style: { borderColor: colors.border, color: colors.fg }, children: task.icon }),
-        /* @__PURE__ */ jsxs("div", { className: classes.taskBody, children: [
-          /* @__PURE__ */ jsx(Typography, { className: classes.taskEyebrow, style: { color: colors.fg }, children: task.eyebrow }),
-          /* @__PURE__ */ jsx(Typography, { className: classes.taskHeadline, children: task.headline }),
-          task.detail && /* @__PURE__ */ jsx(Typography, { className: classes.taskDetail, children: task.detail })
-        ] }),
-        task.pr && /* @__PURE__ */ jsx(PrButton, { pr: task.pr, showTarget: true }),
-        task.action && /* @__PURE__ */ jsx(TextLink, { onClick: task.action.onClick, children: task.action.label })
-      ] }, i);
-    }) }),
+    /* @__PURE__ */ jsx("div", { className: classes.tasks, children: tasks.map((task, i) => /* @__PURE__ */ jsx(
+      Callout,
+      {
+        tone: CALLOUT_TONE[task.tone],
+        icon: task.icon,
+        label: task.eyebrow,
+        title: task.headline,
+        actions: task.pr || task.action ? /* @__PURE__ */ jsxs(Fragment, { children: [
+          task.pr && /* @__PURE__ */ jsx(PrButton, { pr: task.pr, showTarget: true }),
+          task.action && /* @__PURE__ */ jsx(TextLink, { onClick: task.action.onClick, children: task.action.label })
+        ] }) : void 0,
+        children: task.detail
+      },
+      i
+    )) }),
     /* @__PURE__ */ jsxs("div", { className: classes.statsRow, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.stat, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.statVal, children: releasesWeek }),
-        /* @__PURE__ */ jsx("div", { className: classes.statLabel, children: "releases this week" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.stat, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.statVal, children: openSourcePrCount }),
-        /* @__PURE__ */ jsx("div", { className: classes.statLabel, children: "open source PRs" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.stat, children: [
-        /* @__PURE__ */ jsx("div", { className: classes.statVal, children: openPromotions }),
-        /* @__PURE__ */ jsxs("div", { className: classes.statLabel, children: [
-          "pending promotion",
-          openPromotions === 1 ? "" : "s"
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.stat, children: [
-        /* @__PURE__ */ jsx("div", { className: `${classes.statVal} ${classes.statValSm}`, children: total > 0 ? `${verified}/${total} verified` : "checking\u2026" }),
-        /* @__PURE__ */ jsx("div", { className: classes.statLabel, children: "cosign \xB7 SLSA \xB7 Rekor" })
-      ] })
+      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Releases this week", value: releasesWeek }) }),
+      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Open source PRs", value: openSourcePrCount }) }),
+      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: `Pending promotion${openPromotions === 1 ? "" : "s"}`, value: openPromotions }) }),
+      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Supply chain", value: total > 0 ? `${verified}/${total} verified` : "checking\u2026", caption: "cosign \xB7 SLSA \xB7 Rekor" }) })
     ] })
   ] }) });
 }

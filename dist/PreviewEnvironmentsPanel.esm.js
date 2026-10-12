@@ -9,13 +9,13 @@ import { health, previewPrNumber, imageTag } from './types.esm.js';
 import { SectionTitle, StatusChip, healthTone } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
-  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: "hidden" },
+  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, overflow: "hidden" },
   head: { padding: "14px 20px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   card: {
     margin: "16px 20px",
     border: ({ t }) => `1px dashed ${t.skyLine}`,
-    borderRadius: 5,
+    borderRadius: 4,
     padding: "14px 18px",
     backgroundColor: ({ t }) => t.panelAlt
   },

@@ -29,6 +29,11 @@ const useUi = makeStyles(() => ({
   },
   // ---- controls
   button: {
+    // An icon before the label (Refresh, Copy) sits 5px from it.
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
     fontFamily: fontBody,
     fontSize: 13,
     fontWeight: 500,
@@ -89,6 +94,7 @@ const useUi = makeStyles(() => ({
   chipFlight: { color: ({ t }) => t.amber, borderColor: ({ t }) => t.amberLine },
   chipOk: { color: ({ t }) => t.good, borderColor: ({ t }) => t.good },
   chipBad: { color: ({ t }) => t.bad, borderColor: ({ t }) => t.bad },
+  chipSky: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   // ---- sub-tabs inside a panel
   subtabs: { display: "flex", gap: 2, borderBottom: ({ t }) => `1px solid ${t.line}` },
   subtab: {
@@ -257,6 +263,118 @@ const useSection = makeStyles(() => ({
   hint: { margin: 0, fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textLo },
   inset: { padding: "12px 18px" }
 }));
+const columnLabelLook = {
+  fontFamily: fontMono,
+  fontWeight: 500,
+  fontSize: 10.5,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase"
+};
+const useData = makeStyles(() => ({
+  factGrid: { display: "grid", gap: "12px 24px", minWidth: 0 },
+  factRow: { display: "flex", flexWrap: "wrap" },
+  fact: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 },
+  factInline: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 12,
+    padding: "5px 0",
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    "&:last-child": { borderBottom: "none" }
+  },
+  factLabel: { ...columnLabelLook, color: ({ t }) => t.textLo, whiteSpace: "nowrap" },
+  factValue: { fontFamily: fontMono, fontSize: 12.5, lineHeight: 1.4, color: ({ t }) => t.textHi, overflowWrap: "anywhere", minWidth: 0 },
+  factValueInline: { textAlign: "right" },
+  table: { width: "100%", borderCollapse: "collapse", "& tbody tr:last-child td": { borderBottom: "none" } },
+  th: {
+    ...columnLabelLook,
+    textAlign: "left",
+    color: ({ t }) => t.textLo,
+    padding: "8px 14px",
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    whiteSpace: "nowrap",
+    "&:first-child": { paddingLeft: 18 },
+    "&:last-child": { paddingRight: 18 }
+  },
+  td: {
+    fontFamily: fontBody,
+    fontSize: 13,
+    padding: "9px 14px",
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    color: ({ t }) => t.textHi,
+    verticalAlign: "middle",
+    "&:first-child": { paddingLeft: 18 },
+    "&:last-child": { paddingRight: 18 }
+  },
+  rowLink: { cursor: "pointer", "&:hover": { backgroundColor: ({ t }) => t.panelAlt } },
+  rowSelected: { backgroundColor: ({ t }) => t.panelAlt },
+  // Inside a small panel (events, the ArgoCD resource tree, RBAC): no side padding, mono cells.
+  dense: {
+    "& th": { padding: "4px 12px 6px 0", "&:first-child": { paddingLeft: 0 }, "&:last-child": { paddingRight: 0 } },
+    "& td": {
+      padding: "6px 12px 6px 0",
+      fontFamily: fontMono,
+      fontSize: 12,
+      verticalAlign: "top",
+      "&:first-child": { paddingLeft: 0 },
+      "&:last-child": { paddingRight: 0 }
+    }
+  }
+}));
+const useBlocks = makeStyles(() => ({
+  card: { padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 },
+  cardHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px 12px", flexWrap: "wrap" },
+  cardHeadStart: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 },
+  cardHeadEnd: { display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" },
+  tile: {
+    backgroundColor: ({ t }) => t.panelAlt,
+    border: ({ t }) => `1px solid ${t.lineSoft}`,
+    borderRadius: 4,
+    padding: "8px 10px",
+    minWidth: 0
+  },
+  tileLink: { cursor: "pointer", "&:hover": { borderColor: ({ t }) => t.line, backgroundColor: ({ t }) => t.bg } },
+  callout: { display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 14px", borderRadius: 6, border: "1px solid" },
+  calloutIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: "50%",
+    flexShrink: 0,
+    display: "grid",
+    placeItems: "center",
+    fontFamily: fontMono,
+    fontWeight: 700,
+    fontSize: 11,
+    // The circle takes the tone's colour (inherited), the glyph is cut out of it in the page background.
+    backgroundColor: "currentColor"
+  },
+  calloutIconGlyph: { color: ({ t }) => t.bg },
+  calloutBody: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 },
+  calloutTitle: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, lineHeight: 1.35 },
+  calloutText: { fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textHi },
+  calloutActions: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
+  info: { color: ({ t }) => t.sky, backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine },
+  warn: { color: ({ t }) => t.amberInk, backgroundColor: ({ t }) => t.amberSoft, borderColor: ({ t }) => t.amberLine },
+  bad: { color: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft, borderColor: ({ t }) => t.bad },
+  ok: { color: ({ t }) => t.good, backgroundColor: ({ t }) => t.goodSoft, borderColor: ({ t }) => t.good },
+  neutral: { color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line },
+  calloutLabel: { fontFamily: fontMono, fontWeight: 500, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase" },
+  stat: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 },
+  statLabel: {
+    fontFamily: fontMono,
+    fontWeight: 500,
+    fontSize: 10.5,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    color: ({ t }) => t.textLo
+  },
+  statValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: ({ t }) => t.textHi, overflowWrap: "anywhere" },
+  statValueOk: { color: ({ t }) => t.good },
+  statValueWarn: { color: ({ t }) => t.amberInk },
+  statValueBad: { color: ({ t }) => t.bad },
+  statCaption: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint }
+}));
 
-export { useControls, useSection, useStatus, useUi };
+export { useBlocks, useControls, useData, useSection, useStatus, useUi };
 //# sourceMappingURL=styles.esm.js.map

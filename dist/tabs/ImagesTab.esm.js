@@ -9,7 +9,7 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, FilterBar, FilterChips, Count, EmptyNote, TextLink, StatusChip } from '../ui/index.esm.js';
+import { PageHeader, FilterBar, FilterChips, Count, EmptyNote, TextLink, FactGrid, Fact, StatusChip } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
@@ -21,7 +21,7 @@ const useStyles = makeStyles(() => ({
   panel: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: "hidden"
   },
   panelHighlighted: {
@@ -39,16 +39,7 @@ const useStyles = makeStyles(() => ({
   },
   tagsRow: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" },
   untagged: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textFaint },
-  metaRow: { display: "flex", gap: 18, flexWrap: "wrap", marginTop: 8 },
-  metaItem: { display: "flex", flexDirection: "column", gap: 2 },
-  metaLabel: {
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    color: ({ t }) => t.textFaint
-  },
-  metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
+  metaGap: { marginTop: 8 },
   hintRow: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 },
   expandRow: { padding: "10px 20px 14px" },
   detailBody: {
@@ -243,19 +234,10 @@ function ImagePanel({
         /* @__PURE__ */ jsxs("div", { className: classes.panelHead, children: [
           /* @__PURE__ */ jsxs("div", { children: [
             /* @__PURE__ */ jsx("div", { className: classes.tagsRow, children: entry.tags.length > 0 ? entry.tags.map((tag) => /* @__PURE__ */ jsx(ImageTagPill, { tag, nickname: nicknameForImageTag(tag, pipelineRuns) }, tag)) : /* @__PURE__ */ jsx("span", { className: classes.untagged, children: "untagged" }) }),
-            /* @__PURE__ */ jsxs("div", { className: classes.metaRow, children: [
-              /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-                /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Digest" }),
-                /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entry.digest.startsWith("sha256:") ? `${entry.digest.slice(7, 19)}\u2026` : entry.digest })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-                /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Pushed" }),
-                /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entry.createdAt ? relativeTime(entry.createdAt) : "\u2014" })
-              ] }),
-              /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-                /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Date" }),
-                /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entry.createdAt ? formatDateTime(entry.createdAt) : "\u2014" })
-              ] })
+            /* @__PURE__ */ jsxs(FactGrid, { row: true, className: classes.metaGap, children: [
+              /* @__PURE__ */ jsx(Fact, { label: "Digest", children: entry.digest.startsWith("sha256:") ? `${entry.digest.slice(7, 19)}\u2026` : entry.digest }),
+              /* @__PURE__ */ jsx(Fact, { label: "Pushed", children: entry.createdAt ? relativeTime(entry.createdAt) : "\u2014" }),
+              /* @__PURE__ */ jsx(Fact, { label: "Date", children: entry.createdAt ? formatDateTime(entry.createdAt) : "\u2014" })
             ] }),
             /* @__PURE__ */ jsxs("div", { className: classes.hintRow, children: [
               /* @__PURE__ */ jsxs(StatusChip, { tone: hasProvenanceHint ? "ok" : "neutral", children: [

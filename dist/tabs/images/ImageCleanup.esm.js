@@ -22,7 +22,7 @@ function whatGoes(releases, cacheLayers) {
 const useStyles = makeStyles(() => ({
   card: {
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 10,
+    borderRadius: 6,
     padding: "12px 14px",
     marginBottom: 14,
     backgroundColor: ({ t }) => t.panel,

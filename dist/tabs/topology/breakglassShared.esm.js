@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { Hint } from '../../ui/index.esm.js';
+import { Button, Hint } from '../../ui/index.esm.js';
 
 const shortUser = (ref) => ref.replace(/^user:[^/]+\//, "");
 const useBreakglassStyles = makeStyles(() => ({
@@ -17,6 +17,9 @@ const useBreakglassStyles = makeStyles(() => ({
   radio: { display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: ({ t }) => t.textHi, cursor: "pointer" },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
   bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  // Shared with BreakglassEnvironmentView and BreakglassPanel, which use them inline inside labels and rows.
+  hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
+  link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" },
   actions: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
   banner: {
     display: "flex",
@@ -39,7 +42,6 @@ const useBreakglassStyles = makeStyles(() => ({
   row: { display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontFamily: fontMono, fontSize: 11 },
   rowLinked: { outline: ({ t }) => `1px solid ${t.skyLine}`, backgroundColor: ({ t }) => t.skySoft, borderRadius: 4, padding: "4px 6px" },
   rowMeta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" },
   badge: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -229,8 +231,8 @@ function OpenSession({
         open.extendedAt ? " (extended)" : ""
       ] }),
       /* @__PURE__ */ jsx("span", { style: { flex: 1 } }),
-      !open.extendedAt && /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, disabled: ending, title: "Your one free extension: 15 more minutes, no approval.", onClick: () => onExtend(open.id), children: "Extend +15 min" }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, style: { color: t.bad }, disabled: ending, onClick: () => onEnd(open.id), children: ending ? "Ending\u2026" : "End session" })
+      !open.extendedAt && /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, title: "Your one free extension: 15 more minutes, no approval.", onClick: () => onExtend(open.id), children: "Extend +15 min" }),
+      /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: ending, onClick: () => onEnd(open.id), children: ending ? "Ending\u2026" : "End session" })
     ] }),
     open.mode === "live" && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This pod will be restarted when you end the session." }),
     open.volumeAccess && /* @__PURE__ */ jsx("div", { className: classes.history, "data-testid": "breakglass-volumes", children: (open.volumes ?? []).length === 0 ? /* @__PURE__ */ jsxs(Hint, { children: [
@@ -260,10 +262,9 @@ function OpenSession({
     closedNote && /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
       /* @__PURE__ */ jsx(Hint, { children: closedNote }),
       detached && /* @__PURE__ */ jsx(
-        "button",
+        Button,
         {
-          type: "button",
-          className: classes.link,
+          small: true,
           onClick: () => {
             setDetached(false);
             setClosedNote(void 0);

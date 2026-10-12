@@ -1,11 +1,11 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { podIssues, warningGroups } from '../../deployment/problems.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { NamespaceEvents } from '../../NamespaceEvents.esm.js';
 import { useState } from 'react';
+import { Callout, TextLink } from '../../ui/index.esm.js';
 
 function stepByKey(steps, key) {
   return steps?.find((s) => s.key === key);
@@ -90,6 +90,7 @@ function diagnose(env, currentSteps, issues = [], warnings = [], now = Date.now(
   if (env.argoHealthStatus === void 0 && env.argoSyncStatus === void 0) {
     return {
       tone: "info",
+      unreachable: true,
       title: "Couldn't reach ArgoCD for this environment",
       body: "Sync/health facts elsewhere on this page may be stale rather than wrong - try Refresh, and if this persists it may be an RBAC or connectivity issue rather than a release problem."
     };
@@ -107,51 +108,14 @@ function diagnose(env, currentSteps, issues = [], warnings = [], now = Date.now(
     body: "No specific issue matched the rules above - see the ArgoCD application panel below for the full facts."
   };
 }
-function toneColors(t, tone, live = false) {
-  if (live && tone === "info") return { border: t.amberLine, bg: t.amberSoft, fg: t.amberInk, icon: "i" };
-  switch (tone) {
-    case "ok":
-      return { border: "#2c4a37", bg: t.goodSoft, fg: t.good, icon: "\u2713" };
-    case "bad":
-      return { border: t.bad, bg: t.badSoft, fg: t.bad, icon: "!" };
-    case "info":
-    default:
-      return { border: t.skyLine, bg: t.skySoft, fg: t.sky, icon: "i" };
-  }
+function calloutTone(d) {
+  if (d.live && d.tone === "info") return "warn";
+  return d.tone;
 }
+const ICON = { ok: "\u2713", bad: "!", info: "i", warn: "i", neutral: "i" };
 const useStyles = makeStyles(() => ({
   "@keyframes livePulse": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0.55 } },
-  livePulse: { animation: "$livePulse 1.6s ease-in-out infinite" },
-  banner: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: "14px 18px",
-    borderRadius: 10,
-    border: ({ t, tone, live }) => `1px solid ${toneColors(t, tone, live).border}`,
-    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).bg
-  },
-  icon: {
-    width: 22,
-    height: 22,
-    borderRadius: "50%",
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: 800,
-    fontSize: 12,
-    color: ({ t }) => t.bg,
-    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).fg
-  },
-  title: {
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13,
-    marginBottom: 3,
-    color: ({ t, tone, live }) => toneColors(t, tone, live).fg
-  },
-  body: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.55 }
+  livePulse: { animation: "$livePulse 1.6s ease-in-out infinite" }
 }));
 const useDetailStyles = makeStyles(() => ({
   details: { marginTop: 10, display: "flex", flexDirection: "column", gap: 12 },
@@ -160,8 +124,7 @@ const useDetailStyles = makeStyles(() => ({
   issueTitle: { fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5, wordBreak: "break-word" },
   hint: { fontSize: 12.5, color: ({ t }) => t.textHi, marginTop: 2 },
-  warn: { display: "grid", gridTemplateColumns: "120px 1fr", gap: 8, fontSize: 12, padding: "3px 0" },
-  link: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky, "&:hover": { textDecoration: "underline" } }
+  warn: { display: "grid", gridTemplateColumns: "120px 1fr", gap: 8, fontSize: 12, padding: "3px 0" }
 }));
 function ProblemDetails({ env, issues, warnings }) {
   const t = useHangarTokens();
@@ -207,10 +170,10 @@ function ProblemDetails({ env, issues, warnings }) {
           w.hint && /* @__PURE__ */ jsx("div", { className: classes.hint, children: w.hint })
         ] })
       ] }, `${w.reason}-${w.message}`)),
-      warnings.length > 5 && /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setShowAllWarnings((v) => !v), children: showAllWarnings ? "Show fewer warnings" : `Show ${warnings.length - 5} more` })
+      warnings.length > 5 && /* @__PURE__ */ jsx(TextLink, { expanded: showAllWarnings, onClick: () => setShowAllWarnings((v) => !v), children: showAllWarnings ? "Show fewer warnings" : `Show ${warnings.length - 5} more` })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setAll((v) => !v), "aria-expanded": all, children: all ? "Hide all events" : `Show all events in ${env.namespace}` }),
+      /* @__PURE__ */ jsx(TextLink, { expanded: all, onClick: () => setAll((v) => !v), children: all ? "Hide all events" : `Show all events in ${env.namespace}` }),
       all && /* @__PURE__ */ jsx(NamespaceEvents, { cluster: env.cluster, namespace: env.namespace })
     ] })
   ] });
@@ -221,21 +184,17 @@ function TroubleshootBanner({
   pods,
   events
 }) {
-  const t = useHangarTokens();
   const now = Date.now();
   const issues = podIssues(pods ?? [], now);
   const warnings = warningGroups(events ?? [], now);
   const diagnosis = diagnose(env, currentSteps, issues, warnings, now);
-  const classes = useStyles({ t, tone: diagnosis.tone, live: Boolean(diagnosis.live) });
-  const icon = toneColors(t, diagnosis.tone, diagnosis.live).icon;
+  const classes = useStyles();
+  if (diagnosis.unreachable) return null;
+  const tone = calloutTone(diagnosis);
   const showDetails = issues.length > 0 || diagnosis.tone !== "ok" && warnings.length > 0;
-  return /* @__PURE__ */ jsxs("div", { className: classes.banner, children: [
-    /* @__PURE__ */ jsx("span", { className: classes.icon, children: icon }),
-    /* @__PURE__ */ jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
-      /* @__PURE__ */ jsx(Typography, { className: `${classes.title} ${diagnosis.live ? classes.livePulse : ""}`, children: diagnosis.title }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.body, children: diagnosis.body }),
-      showDetails && /* @__PURE__ */ jsx(ProblemDetails, { env, issues, warnings })
-    ] })
+  return /* @__PURE__ */ jsxs(Callout, { tone, icon: ICON[tone], title: /* @__PURE__ */ jsx("span", { className: diagnosis.live ? classes.livePulse : void 0, children: diagnosis.title }), children: [
+    diagnosis.body,
+    showDetails && /* @__PURE__ */ jsx(ProblemDetails, { env, issues, warnings })
   ] });
 }
 

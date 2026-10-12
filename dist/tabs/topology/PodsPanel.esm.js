@@ -11,7 +11,7 @@ import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { BreakglassPanel } from './BreakglassPanel.esm.js';
-import { SectionTitle, StatusChip } from '../../ui/index.esm.js';
+import { FactGrid, Fact, SectionTitle, StatusChip, FilterChip, Button } from '../../ui/index.esm.js';
 
 function findPodResource(resources, name) {
   return resources.find((r) => r.kind === "Pod" && r.name === name);
@@ -37,7 +37,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 8,
     padding: "9px 12px",
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panelAlt,
     cursor: "pointer",
@@ -52,7 +52,7 @@ const useStyles = makeStyles(() => ({
   detail: {
     marginTop: 12,
     padding: "14px 16px",
-    borderRadius: 8,
+    borderRadius: 6,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panel,
     display: "flex",
@@ -61,10 +61,6 @@ const useStyles = makeStyles(() => ({
   },
   detailHead: { display: "flex", alignItems: "center", gap: 8 },
   detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  kvGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "8px 12px" },
-  kv: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 },
-  k: { fontFamily: fontMono, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, fontWeight: 700 },
-  v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: "break-word" },
   titleGap: { marginBottom: 6 },
   containerRow: {
     display: "flex",
@@ -84,21 +80,6 @@ const useStyles = makeStyles(() => ({
   conditionOk: { color: ({ t }) => t.good },
   conditionBad: { color: ({ t }) => t.bad },
   actionsRow: { display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 4, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
-  actionBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: "4px 10px",
-    borderRadius: 5,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: "none",
-    color: ({ t }) => t.textFaint,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    "&:hover": { color: ({ t }) => t.sky }
-  },
-  actionBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   // The active action's own content (logs/metrics/YAML) always gets its own
   // full-width row below the action buttons, one at a time - never squeezed
   // next to the summary grid or another pod's panel.
@@ -155,27 +136,12 @@ function PodDetail({
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.detail, children: [
     /* @__PURE__ */ jsx("div", { className: classes.detailHead, children: /* @__PURE__ */ jsx(Typography, { className: classes.detailName, children: pod.name }) }),
-    /* @__PURE__ */ jsxs("div", { className: classes.kvGrid, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.k, children: "Node" }),
-        /* @__PURE__ */ jsx("span", { className: classes.v, children: raw?.spec?.nodeName ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.k, children: "Pod IP" }),
-        /* @__PURE__ */ jsx("span", { className: classes.v, children: raw?.status?.podIP ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.k, children: "Host IP" }),
-        /* @__PURE__ */ jsx("span", { className: classes.v, children: raw?.status?.hostIP ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.k, children: "QoS class" }),
-        /* @__PURE__ */ jsx("span", { className: classes.v, children: raw?.status?.qosClass ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.k, children: "Created" }),
-        /* @__PURE__ */ jsx("span", { className: classes.v, title: raw?.metadata?.creationTimestamp ? formatDateTime(raw.metadata.creationTimestamp) : void 0, children: raw?.metadata?.creationTimestamp ? relativeTime(raw.metadata.creationTimestamp) : "\u2014" })
-      ] })
+    /* @__PURE__ */ jsxs(FactGrid, { children: [
+      /* @__PURE__ */ jsx(Fact, { label: "Node", children: raw?.spec?.nodeName ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "Pod IP", children: raw?.status?.podIP ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "Host IP", children: raw?.status?.hostIP ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "QoS class", children: raw?.status?.qosClass ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "Created", title: raw?.metadata?.creationTimestamp ? formatDateTime(raw.metadata.creationTimestamp) : void 0, children: raw?.metadata?.creationTimestamp ? relativeTime(raw.metadata.creationTimestamp) : "\u2014" })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx("div", { className: classes.titleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Containers" }) }),
@@ -212,15 +178,13 @@ function PodDetail({
       ] }, c.type)) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.actionsRow, children: [
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "logs" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "logs" ? null : "logs")), children: "Logs" }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "metrics" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "metrics" ? null : "metrics")), children: "Metrics" }),
-      resource && /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.actionBtn} ${panel === "yaml" ? classes.actionBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "yaml" ? null : "yaml")), children: "YAML" }),
+      /* @__PURE__ */ jsx(FilterChip, { on: panel === "logs", onClick: () => setPanel((p) => p === "logs" ? null : "logs"), children: "Logs" }),
+      /* @__PURE__ */ jsx(FilterChip, { on: panel === "metrics", onClick: () => setPanel((p) => p === "metrics" ? null : "metrics"), children: "Metrics" }),
+      resource && /* @__PURE__ */ jsx(FilterChip, { on: panel === "yaml", onClick: () => setPanel((p) => p === "yaml" ? null : "yaml"), children: "YAML" }),
       /* @__PURE__ */ jsxs(
-        "button",
+        Button,
         {
-          type: "button",
-          className: classes.actionBtn,
-          onMouseDown: preventFocusScroll,
+          small: true,
           onClick: () => copy(`kubectl logs -n ${env.namespace} ${pod.name} --context ${env.cluster}`, "kubectl-logs"),
           children: [
             /* @__PURE__ */ jsx(FileCopyOutlinedIcon, { style: { fontSize: 12 } }),
@@ -233,12 +197,10 @@ function PodDetail({
         // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
         /* @__PURE__ */ jsx("span", { className: classes.cardSub, title: "On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.", children: "exec is refused on Flight; use Debug" })
       ) : /* @__PURE__ */ jsxs(
-        "button",
+        Button,
         {
-          type: "button",
-          className: classes.actionBtn,
+          small: true,
           title: "For operators with their own cluster access. Debug records the session; exec does not.",
-          onMouseDown: preventFocusScroll,
           onClick: () => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, "kubectl-exec"),
           children: [
             /* @__PURE__ */ jsx(FileCopyOutlinedIcon, { style: { fontSize: 12 } }),
@@ -246,14 +208,12 @@ function PodDetail({
           ]
         }
       ),
-      /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, buttonClass: classes.actionBtn, noteClass: classes.cardSub, badClass: classes.conditionBad }),
+      /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, noteClass: classes.cardSub, badClass: classes.conditionBad }),
       /* @__PURE__ */ jsx(
-        "button",
+        Button,
         {
-          type: "button",
-          className: `${classes.actionBtn} ${panel === "debug" ? classes.actionBtnActive : ""}`,
+          small: true,
           title: tier === "upper" ? "Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves." : "Open a recorded, time-boxed debug shell on this pod (break-glass).",
-          onMouseDown: preventFocusScroll,
           onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "debug" ? null : "debug")),
           children: "Debug"
         }

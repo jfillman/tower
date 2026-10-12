@@ -14,7 +14,7 @@ import { slugHue } from '../PipelineRunList.esm.js';
 import { RecentActivityPanel } from '../RecentActivityPanel.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, Section, healthColor, Hint, StatusChip, HEALTH_LABEL, healthTone } from '../ui/index.esm.js';
+import { PageHeader, Panel, FactGrid, Fact, TextLink, Section, healthColor, Hint, StatusChip, HEALTH_LABEL, healthTone } from '../ui/index.esm.js';
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
 
@@ -42,7 +42,7 @@ const useStyles = makeStyles(() => ({
   monitoringCard: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: "16px 20px",
     display: "flex",
     flexWrap: "wrap",
@@ -51,27 +51,7 @@ const useStyles = makeStyles(() => ({
   },
   monitoringNote: { flex: "1 1 260px" },
   monitoringLinks: { display: "flex", gap: 14, flexWrap: "wrap" },
-  monitoringLink: {
-    fontFamily: fontMono,
-    fontSize: 12.5,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    whiteSpace: "nowrap"
-  },
-  metaCard: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    padding: "16px 20px",
-    marginBottom: 20,
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "10px 32px"
-  },
-  metaItem: { display: "flex", flexDirection: "column", gap: 3, minWidth: 140 },
-  metaLabel: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint },
-  metaLink: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky, textDecoration: "none" },
-  metaValue: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
+  metaCard: { padding: "14px 18px", marginBottom: 20 },
   // A flex row (not a CSS grid) so a release track - see below - can size
   // itself by its own card count instead of an equal share of the row.
   // alignItems: 'stretch' (the flex default, but named here so it doesn't
@@ -91,7 +71,7 @@ const useStyles = makeStyles(() => ({
     maxWidth: 320,
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: "16px 18px",
     // A flex column so the "View Rollout" link (rolloutLink, below) can pin
     // itself to the card's bottom edge via marginTop: auto - every card in a
@@ -229,7 +209,20 @@ const useStyles = makeStyles(() => ({
       transform: "translateX(-50%)"
     }
   },
-  cardHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  cardHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 },
+  cardName: { display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" },
+  facts: { display: "flex", flexDirection: "column", marginBottom: 10 },
+  rolloutFooter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: "auto",
+    paddingTop: 10,
+    borderTop: ({ t }) => `1px solid ${t.lineSoft}`
+  },
+  step: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
+  stepActive: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
   // level (DNS-1123) - capitalizing them for display invented a form the
   // real resource doesn't have. Lowercase here, sentence case kept for
@@ -237,7 +230,6 @@ const useStyles = makeStyles(() => ({
   // own pass for the fuller rationale.
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, textTransform: "lowercase", color: ({ t }) => t.textHi },
   dot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
-  healthChip: { alignSelf: "flex-start", marginBottom: 10 },
   flowRow: { marginBottom: 12 },
   pendingPr: { marginBottom: 12 },
   pendingPrLabel: {
@@ -262,38 +254,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textFaint,
     marginBottom: 4
   },
-  kv: { display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0", borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, fontSize: 12.5 },
-  kvLabel: { color: ({ t }) => t.textFaint },
-  kvValue: { fontFamily: fontMono, color: ({ t }) => t.textHi, textAlign: "right" },
-  kvLink: {
-    fontFamily: fontMono,
-    fontSize: 12.5,
-    color: ({ t }) => t.sky,
-    textAlign: "right",
-    textDecoration: "none",
-    overflowWrap: "anywhere",
-    "&:hover": { textDecoration: "underline" }
-  },
-  rolloutLink: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: "auto",
-    paddingTop: 10,
-    borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
-    background: "none",
-    border: "none",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: ({ t }) => t.lineSoft,
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    cursor: "pointer",
-    textAlign: "left"
-  },
-  rolloutLinkPct: { color: ({ t }) => t.amberInk },
   block: { marginTop: 24 },
   // Restored 2026-09-10 - a real preview/PR-env indicator existed on this
   // card once before and got dropped somewhere along the way; the small
@@ -335,7 +295,7 @@ const useStyles = makeStyles(() => ({
   notifCard: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: "12px 18px",
     marginBottom: 20,
     display: "flex",
@@ -446,12 +406,11 @@ function OverviewTab() {
         {
           className: `${classes.card} ${classes.cardUndeployed} ${opts?.skipImage ? classes.trackCard : ""} ${!opts?.skipImage && hasRail ? classes.cardBelowRail : ""}`,
           children: [
-            /* @__PURE__ */ jsx("div", { className: classes.cardHead, children: /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }) }),
-            /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", dot: true, className: classes.healthChip, children: "Not yet deployed" }),
-            /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { borderBottom: "none" }, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cluster || "\u2014" })
-            ] })
+            /* @__PURE__ */ jsxs("div", { className: classes.cardHead, children: [
+              /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }),
+              /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", dot: true, children: "Not yet deployed" })
+            ] }),
+            /* @__PURE__ */ jsx(Fact, { inline: true, label: "Cluster", children: env.cluster || "\u2014" })
           ]
         },
         env.key
@@ -465,10 +424,12 @@ function OverviewTab() {
     const previewPr = sourcePrs.find((pr) => pr.number === previewPrNumber(env.env));
     return /* @__PURE__ */ jsxs("div", { className: `${classes.card} ${opts?.skipImage ? classes.trackCard : ""}`, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.cardHead, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }),
-        isPreviewEnvName(env.env) && /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview \xB7 own build" })
+        /* @__PURE__ */ jsxs("span", { className: classes.cardName, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.envName, children: env.env }),
+          isPreviewEnvName(env.env) && /* @__PURE__ */ jsx("span", { className: classes.previewBadge, children: "preview \xB7 own build" })
+        ] }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(h), dot: true, children: HEALTH_LABEL[h] })
       ] }),
-      /* @__PURE__ */ jsx(StatusChip, { tone: healthTone(h), dot: true, className: classes.healthChip, children: HEALTH_LABEL[h] }),
       /* @__PURE__ */ jsx("div", { className: classes.flowRow, children: /* @__PURE__ */ jsx(MiniFlow, { stages: scStages }) }),
       pendingPr && /* @__PURE__ */ jsxs("div", { className: classes.pendingPr, children: [
         /* @__PURE__ */ jsx("span", { className: classes.pendingPrLabel, children: "Promotion pending" }),
@@ -478,63 +439,34 @@ function OverviewTab() {
         /* @__PURE__ */ jsx("span", { className: classes.previewPrLabel, children: "Pull request" }),
         /* @__PURE__ */ jsx(PrButton, { pr: previewPr })
       ] }),
-      env.cloud ? /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: env.cloud.resource?.kind ?? env.cloud.targetLabel }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.cloud.resource ? `${env.cloud.resource.name} \xB7 ${env.cloud.resource.region ?? env.cloud.targetLabel}` : env.cloud.targetLabel })
-      ] }) : /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Cluster / namespace" }),
-        /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
-          env.cluster,
-          " / ",
-          env.namespace
-        ] })
-      ] }),
-      !opts?.skipImage && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Image" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: imageTag(env.image) })
-      ] }),
-      env.cloud ? env.cloud.consoleUrl && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Console" }),
-        /* @__PURE__ */ jsx("a", { className: classes.kvLink, href: env.cloud.consoleUrl, target: "_blank", rel: "noopener noreferrer", children: env.cloud.targetLabel })
-      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Replicas" }),
-          /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
+      /* @__PURE__ */ jsxs("div", { className: classes.facts, children: [
+        env.cloud ? /* @__PURE__ */ jsx(Fact, { inline: true, label: env.cloud.resource?.kind ?? env.cloud.targetLabel, children: env.cloud.resource ? `${env.cloud.resource.name} \xB7 ${env.cloud.resource.region ?? env.cloud.targetLabel}` : env.cloud.targetLabel }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx(Fact, { inline: true, label: "Cluster", children: env.cluster }),
+          /* @__PURE__ */ jsx(Fact, { inline: true, label: "Namespace", children: env.namespace })
+        ] }),
+        !opts?.skipImage && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Image", children: imageTag(env.image) }),
+        env.cloud ? env.cloud.consoleUrl && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Console", children: /* @__PURE__ */ jsxs(TextLink, { href: env.cloud.consoleUrl, children: [
+          env.cloud.targetLabel,
+          " \u2197"
+        ] }) }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsxs(Fact, { inline: true, label: "Replicas", children: [
             env.availableReplicas ?? "\u2014",
             " / ",
             env.desiredReplicas ?? "\u2014"
-          ] })
+          ] }),
+          /* @__PURE__ */ jsx(Fact, { inline: true, label: "Strategy", children: env.strategy ?? "\u2014" })
         ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Strategy" }),
-          /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: env.strategy ?? "\u2014" })
-        ] })
+        env.ingressUrl && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Route", children: /* @__PURE__ */ jsxs(TextLink, { href: env.ingressUrl, children: [
+          env.ingressUrl.replace(/^https?:\/\//, ""),
+          " \u2197"
+        ] }) }),
+        /* @__PURE__ */ jsx(Fact, { inline: true, label: "Deployed", title: formatDateTime(lastDeployedAt(env, deployHistory.data)), children: relativeTime(lastDeployedAt(env, deployHistory.data)) })
       ] }),
-      env.ingressUrl && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Route" }),
-        /* @__PURE__ */ jsx(
-          "a",
-          {
-            className: classes.kvLink,
-            href: env.ingressUrl,
-            target: "_blank",
-            rel: "noopener noreferrer",
-            children: env.ingressUrl
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { borderBottom: "none" }, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Deployed" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvValue, title: formatDateTime(lastDeployedAt(env, deployHistory.data)), children: relativeTime(lastDeployedAt(env, deployHistory.data)) })
-      ] }),
-      !isPreviewEnvName(env.env) && env.workload?.kind === "Rollout" && env.workload.canaryProgress && /* @__PURE__ */ jsxs("button", { type: "button", className: classes.rolloutLink, onClick: () => goToRollout(env.env), children: [
-        /* @__PURE__ */ jsxs("span", { children: [
-          "View rollout",
-          env.workload.canaryProgress.currentStepIndex !== void 0 && ` \xB7 step ${Math.min(env.workload.canaryProgress.currentStepIndex + 1, env.workload.canaryProgress.steps.length)}/${env.workload.canaryProgress.steps.length}`
-        ] }),
-        env.workload.canaryProgress.currentWeight !== void 0 && /* @__PURE__ */ jsxs("span", { className: classes.rolloutLinkPct, children: [
-          env.workload.canaryProgress.currentWeight,
-          "% traffic \u2192"
+      !isPreviewEnvName(env.env) && env.workload?.kind === "Rollout" && env.workload.canaryProgress && /* @__PURE__ */ jsxs("div", { className: classes.rolloutFooter, children: [
+        /* @__PURE__ */ jsx(TextLink, { onClick: () => goToRollout(env.env), children: "View rollout \u2192" }),
+        /* @__PURE__ */ jsxs("span", { className: env.workload.canaryProgress.currentWeight !== void 0 && env.workload.canaryProgress.currentWeight < 100 ? classes.stepActive : classes.step, children: [
+          env.workload.canaryProgress.currentStepIndex !== void 0 && `step ${Math.min(env.workload.canaryProgress.currentStepIndex + 1, env.workload.canaryProgress.steps.length)}/${env.workload.canaryProgress.steps.length}`,
+          env.workload.canaryProgress.currentWeight !== void 0 && ` \xB7 ${env.workload.canaryProgress.currentWeight}%`
         ] })
       ] })
     ] }, env.key);
@@ -575,35 +507,22 @@ function OverviewTab() {
         ]
       }
     ),
-    /* @__PURE__ */ jsxs("div", { className: classes.metaCard, children: [
-      /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Source repo" }),
-        sourceUrl ? /* @__PURE__ */ jsxs("a", { className: classes.metaLink, href: sourceUrl, target: "_blank", rel: "noopener noreferrer", children: [
-          sourceRepo.owner,
-          "/",
-          sourceRepo.repo
-        ] }) : /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "GitOps repo" }),
-        gitopsUrl ? /* @__PURE__ */ jsxs("a", { className: classes.metaLink, href: gitopsUrl, target: "_blank", rel: "noopener noreferrer", children: [
-          "gitops-",
-          appName
-        ] }) : /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Owner" }),
-        /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entity.spec?.owner ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "System" }),
-        /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entity.spec?.system ?? "\u2014" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: classes.metaItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.metaLabel, children: "Lifecycle" }),
-        /* @__PURE__ */ jsx("span", { className: classes.metaValue, children: entity.spec?.lifecycle ?? "\u2014" })
-      ] })
-    ] }),
+    /* @__PURE__ */ jsx(Panel, { className: classes.metaCard, children: /* @__PURE__ */ jsxs(FactGrid, { min: 150, children: [
+      /* @__PURE__ */ jsx(Fact, { label: "Source repo", children: sourceUrl ? /* @__PURE__ */ jsxs(TextLink, { href: sourceUrl, children: [
+        sourceRepo.owner,
+        "/",
+        sourceRepo.repo,
+        " \u2197"
+      ] }) : "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "GitOps repo", children: gitopsUrl ? /* @__PURE__ */ jsxs(TextLink, { href: gitopsUrl, children: [
+        "gitops-",
+        appName,
+        " \u2197"
+      ] }) : "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "Owner", children: entity.spec?.owner ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "System", children: entity.spec?.system ?? "\u2014" }),
+      /* @__PURE__ */ jsx(Fact, { label: "Lifecycle", children: entity.spec?.lifecycle ?? "\u2014" })
+    ] }) }),
     pipelineEnvs.length === 0 ? /* @__PURE__ */ jsx(
       TowerEmptyState,
       {
@@ -688,21 +607,11 @@ function OverviewTab() {
     ),
     /* @__PURE__ */ jsx(Section, { title: "Monitoring", className: classes.block, children: /* @__PURE__ */ jsxs("div", { className: classes.monitoringCard, children: [
       /* @__PURE__ */ jsx(Hint, { className: classes.monitoringNote, children: "No per-app dashboards exist yet - this app's live metrics aren't embedded here, but each environment's cluster runs a real Grafana instance you can explore directly." }),
-      /* @__PURE__ */ jsx("div", { className: classes.monitoringLinks, children: [...new Set(pipelineEnvs.map((env) => env.cluster))].map((cluster) => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] })).filter((c) => Boolean(c.host)).map(({ cluster, host }) => /* @__PURE__ */ jsxs(
-        "a",
-        {
-          className: classes.monitoringLink,
-          href: `http://${host}`,
-          target: "_blank",
-          rel: "noopener noreferrer",
-          children: [
-            "Open Grafana (",
-            cluster,
-            ") \u2197"
-          ]
-        },
-        cluster
-      )) })
+      /* @__PURE__ */ jsx("div", { className: classes.monitoringLinks, children: [...new Set(pipelineEnvs.map((env) => env.cluster))].map((cluster) => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] })).filter((c) => Boolean(c.host)).map(({ cluster, host }) => /* @__PURE__ */ jsxs(TextLink, { href: `http://${host}`, children: [
+        "Open Grafana (",
+        cluster,
+        ") \u2197"
+      ] }, cluster)) })
     ] }) })
   ] });
 }

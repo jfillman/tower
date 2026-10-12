@@ -35,11 +35,11 @@ const useStyles = makeStyles(() => ({
   // drives what's shown below it. dagInner keeps the Rail's own compact
   // padding; stageDetailInner supplies the flex/gap StageDetail's own
   // panel wrapper used to before this merge.
-  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: "flex", flexDirection: "column" },
+  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, display: "flex", flexDirection: "column" },
   dagInner: { padding: "10px 12px 4px" },
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
 }));
 function envPillImage(env, delivery, pipelineRuns) {
   if (delivery.current) {
@@ -166,7 +166,7 @@ function DeploymentsTab() {
           groups: TIER_ORDER.map((tier) => ({ tier, items: [] }))
         }
       ),
-      /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No environments configured for this app yet." })
+      /* @__PURE__ */ jsx(EmptyNote, { children: "No environments configured for this app yet." })
     ] });
   }
   const selected = deliveries.find((d) => d.env.env === selectedEnv) ?? deliveries[0];
@@ -265,7 +265,7 @@ function DeploymentsTab() {
           selectedKey: selectedStepKey,
           onSelectKey: setSelectedStepKey
         }
-      ) : /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
+      ) : /* @__PURE__ */ jsxs(EmptyNote, { children: [
         "No delivery recorded for ",
         env.env,
         " yet."
@@ -290,7 +290,7 @@ function DeploymentsTab() {
         /* @__PURE__ */ jsx("hr", { className: classes.dagDivider }),
         /* @__PURE__ */ jsxs("div", { className: classes.stageDetailInner, children: [
           /* @__PURE__ */ jsx(SectionTitle, { children: "Deployment detail" }),
-          /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
+          /* @__PURE__ */ jsxs(EmptyNote, { children: [
             "No release PRs found yet for ",
             env.env,
             "."
@@ -301,7 +301,7 @@ function DeploymentsTab() {
     hasSupplyChain && /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Supply chain security" }),
       /* @__PURE__ */ jsx(PipelineFlow, { stages: supplyChainStages }),
-      provenance?.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
+      provenance?.error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
         "Couldn't load supply-chain data: ",
         provenance.error
       ] })

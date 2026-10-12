@@ -16,7 +16,7 @@ const useStyles = makeStyles(() => ({
     gap: 18,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panel,
-    borderRadius: 8,
+    borderRadius: 6,
     padding: "14px 18px",
     cursor: "pointer",
     textAlign: "left",
@@ -34,7 +34,7 @@ const useStyles = makeStyles(() => ({
     gap: 10,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panelAlt,
-    borderRadius: 8,
+    borderRadius: 4,
     padding: "6px 12px"
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },

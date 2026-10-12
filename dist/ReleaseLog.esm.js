@@ -4,14 +4,14 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import { relativeTime } from './shared/format.esm.js';
-import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { ReleaseTimelinePanel, formatDuration } from './TimelinePanel.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { SupplyChainChips } from './SupplyChainChips.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { gitopsPrForEnvAndImage, nicknameForImageTag, parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import { imageTag, envTierOf, previewPrNumber } from './types.esm.js';
-import { SectionTitle, FilterChips, EmptyNote, StatusChip } from './ui/index.esm.js';
+import { useTableKit, SectionTitle, FilterChips, EmptyNote, StatusChip } from './ui/index.esm.js';
 
 const LOG_ROW_CAP = 25;
 function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns) {
@@ -76,15 +76,10 @@ function buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistor
   return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, LOG_ROW_CAP);
 }
 const useStyles = makeStyles(() => ({
-  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: "hidden" },
+  wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, overflow: "hidden" },
   head: { padding: "14px 20px", borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
   scroll: { overflowX: "auto", padding: "0 20px 18px" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { textAlign: "left", fontFamily: fontDisplay, fontWeight: 700, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.04em", color: ({ t }) => t.textLo, padding: "9px 12px", borderBottom: ({ t }) => `1px solid ${t.line}`, whiteSpace: "nowrap" },
-  tr: { cursor: "default" },
-  trClickable: { cursor: "pointer" },
-  td: { padding: "10px 12px", fontSize: 12.5, borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, whiteSpace: "nowrap" },
   time: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11 },
   env: { fontFamily: fontMono, fontSize: 11.5, fontWeight: 600, color: ({ t }) => t.textHi },
   envPreview: { color: ({ t }) => t.sky },
@@ -114,6 +109,7 @@ function ReleaseLog({
   deployHistory,
   provenanceByImage
 }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [view, setView] = useState("table");
@@ -143,14 +139,14 @@ function ReleaseLog({
       )
     ] }),
     view === "table" && entries.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "No recorded promotions yet." }),
-    view === "table" && entries.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+    view === "table" && entries.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: tc.table, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Time" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Env" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Release" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Trigger" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Duration" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Status" })
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Time" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Env" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Release" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Trigger" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Duration" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Status" })
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: entries.map((entry) => {
         const tone = statusTone(entry.status);
@@ -160,12 +156,12 @@ function ReleaseLog({
           /* @__PURE__ */ jsxs(
             "tr",
             {
-              className: `${classes.tr} ${clickable ? classes.trClickable : ""}`,
+              className: clickable ? tc.rowLink : void 0,
               onClick: clickable ? () => setExpanded(isOpen ? null : entry.id) : void 0,
               children: [
-                /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.time}`, children: relativeTime(entry.date) }),
-                /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ""}`, children: entry.env }),
-                /* @__PURE__ */ jsxs("td", { className: `${classes.td} ${classes.tag}`, children: [
+                /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.time}`, children: relativeTime(entry.date) }),
+                /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ""}`, children: entry.env }),
+                /* @__PURE__ */ jsxs("td", { className: `${tc.td} ${classes.tag}`, children: [
                   entry.imageTag ?? "\u2014",
                   entry.nickname && /* @__PURE__ */ jsx(
                     "span",
@@ -180,9 +176,9 @@ function ReleaseLog({
                     }
                   )
                 ] }),
-                /* @__PURE__ */ jsx("td", { className: classes.td, children: entry.trigger }),
-                /* @__PURE__ */ jsx("td", { className: classes.td, children: entry.duration ?? "\u2014" }),
-                /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx(StatusChip, { tone, children: STATUS_LABEL[entry.status] }) })
+                /* @__PURE__ */ jsx("td", { className: tc.td, children: entry.trigger }),
+                /* @__PURE__ */ jsx("td", { className: tc.td, children: entry.duration ?? "\u2014" }),
+                /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsx(StatusChip, { tone, children: STATUS_LABEL[entry.status] }) })
               ]
             }
           ),

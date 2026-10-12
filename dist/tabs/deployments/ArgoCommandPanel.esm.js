@@ -1,4 +1,4 @@
-import { jsxs, jsx } from 'react/jsx-runtime';
+import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -6,27 +6,17 @@ import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { ImageTagPill } from './ImageTagPill.esm.js';
 import { useArgoCapabilities } from '../../useReleaseData.esm.js';
-import { SectionTitle, EmptyNote, StatusChip, Button, TextLink } from '../../ui/index.esm.js';
+import { useTableKit, Card, EmptyNote, SectionTitle, StatusChip, Button, TextLink, Callout, Tile, Fact } from '../../ui/index.esm.js';
 import { argoTone } from '../../argoTone.esm.js';
 
 function syncWaveFor(node, k8sResources) {
   return k8sResources.find((r) => r.kind === node.kind && r.name === node.name)?.annotations?.["argocd.argoproj.io/sync-wave"];
 }
 const useStyles = makeStyles(() => ({
-  panel: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 10,
-    padding: "14px 18px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10
-  },
   headRow: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
   statusChips: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" },
-  argoErr: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
   // a sync result message" - operationState.message and status.conditions
@@ -34,29 +24,7 @@ const useStyles = makeStyles(() => ({
   // Always visible, not gated behind "show details" - these are exactly
   // the kind of thing that banner exists to hide by default (routine
   // sync/revision facts), not this.
-  opBanner: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: "8px 10px",
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`
-  },
-  opBannerBadge: { fontFamily: fontMono, fontSize: 9.5, fontWeight: 700, color: ({ t }) => t.sky, flexShrink: 0, marginTop: 1 },
-  opBannerText: { fontSize: 12, color: ({ t }) => t.textHi, lineHeight: 1.5 },
   opBannerMeta: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 2 },
-  condition: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: "8px 10px",
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.badSoft,
-    border: ({ t }) => `1px solid ${t.bad}`
-  },
-  conditionType: { fontFamily: fontMono, fontSize: 9.5, fontWeight: 700, color: ({ t }) => t.bad, flexShrink: 0, marginTop: 1 },
-  conditionText: { fontSize: 12, color: ({ t }) => t.textHi, lineHeight: 1.5, wordBreak: "break-word" },
   // The per-action explainer table (2026-09-16: "easy to understand
   // explainers on which sync option to enable depending on the argocd
   // state and what its possible errors are") - a short, always-the-same
@@ -70,7 +38,7 @@ const useStyles = makeStyles(() => ({
     gap: 6,
     padding: "10px 12px",
     backgroundColor: ({ t }) => t.panelAlt,
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`
   },
   guideRow: { display: "flex", gap: 10, fontSize: 11.5 },
@@ -79,13 +47,8 @@ const useStyles = makeStyles(() => ({
   guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   detail: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" },
-  kv: { display: "flex", flexDirection: "column", gap: 2, padding: "7px 9px", backgroundColor: ({ t }) => t.panelAlt, borderRadius: 6 },
   kvFull: { gridColumn: "1 / -1" },
-  k: { fontFamily: fontMono, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em", color: ({ t }) => t.textFaint, fontWeight: 700 },
-  v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: "break-word" },
   flags: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 },
-  flag: { fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 5, backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  flagOff: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   subTitleGap: { marginBottom: 2 },
   // The full ArgoCD "Sync Status" panel column set (2026-09-16: "I would
   // like the argocd resource tree section to contain the same info as
@@ -93,17 +56,6 @@ const useStyles = makeStyles(() => ({
   // hook, message") - a real table, not the prior flat pill list, since
   // that's the shape this much real per-resource data actually needs.
   treeScroll: { overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", fontFamily: fontMono, fontSize: 11 },
-  headCell: {
-    textAlign: "left",
-    padding: "5px 8px",
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    fontWeight: 700,
-    color: ({ t }) => t.textFaint,
-    whiteSpace: "nowrap"
-  },
   bodyRow: { borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   bodyRowHook: { backgroundColor: ({ t }) => t.panelAlt },
   cell: { padding: "6px 8px", color: ({ t }) => t.textHi, verticalAlign: "top" },
@@ -169,6 +121,7 @@ function ArgoCommandPanel({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
+  const tc = useTableKit();
   const [detailOpen, setDetailOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmForce, setConfirmForce] = useState(false);
@@ -182,10 +135,7 @@ function ArgoCommandPanel({
     errorSignatureRef.current = signature;
   }, [env.argoAppName, env.argoOperationStartedAt, env.argoOperationFinishedAt, env.argoSyncStatus]);
   if (!env.argoAppName) {
-    return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
-      /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "ArgoCD application" }),
-      /* @__PURE__ */ jsx(EmptyNote, { children: "This environment has no ArgoCD Application resolved yet." })
-    ] });
+    return /* @__PURE__ */ jsx(Card, { title: "ArgoCD application", children: /* @__PURE__ */ jsx(EmptyNote, { children: "This environment has no ArgoCD Application resolved yet." }) });
   }
   const canAct = Boolean(env.cluster);
   const reached = env.argoHealthStatus !== void 0 || env.argoSyncStatus !== void 0;
@@ -198,7 +148,7 @@ function ArgoCommandPanel({
   const notAllowed = (a) => caps.data?.tier === "flight" && (a === "sync" || a === "force") ? "On a Flight environment only an admin may do this." : "Only the app's owning team (or an admin) may do this.";
   const running = env.argoOperationPhase === "Running";
   const replaced = forceSyncTargets(resources);
-  return /* @__PURE__ */ jsxs("div", { className: classes.panel, children: [
+  return /* @__PURE__ */ jsxs(Card, { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: env.argoAppName }) }),
       currentImage?.tag && /* @__PURE__ */ jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
@@ -210,8 +160,8 @@ function ArgoCommandPanel({
         /* @__PURE__ */ jsx(ImageTagPill, { tag: incomingImage.tag, nickname: incomingImage.nickname, size: "small" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.statusChips, children: [
-        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoSyncStatus), children: env.argoSyncStatus ?? "unknown" }),
-        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoHealthStatus), children: env.argoHealthStatus ?? "unknown" }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoSyncStatus), children: env.argoSyncStatus ?? "Sync unknown" }),
+        /* @__PURE__ */ jsx(StatusChip, { tone: argoTone(env.argoHealthStatus), children: env.argoHealthStatus ?? "Health unknown" }),
         env.argoRevision && /* @__PURE__ */ jsxs("span", { className: classes.revision, children: [
           "@ ",
           env.argoRevision.slice(0, 9)
@@ -265,48 +215,35 @@ function ArgoCommandPanel({
         /* @__PURE__ */ jsx(TextLink, { expanded: guideOpen, onClick: () => setGuideOpen((v) => !v), children: "Which one?" })
       ] })
     ] }),
-    (env.argoOperationMessage || env.argoOperationPhase) && /* @__PURE__ */ jsxs("div", { className: classes.opBanner, children: [
-      /* @__PURE__ */ jsx("span", { className: classes.opBannerBadge, children: env.argoOperationPhase ?? "OPERATION" }),
-      /* @__PURE__ */ jsxs("div", { children: [
-        env.argoOperationMessage && /* @__PURE__ */ jsx(Typography, { className: classes.opBannerText, children: env.argoOperationMessage }),
-        env.argoReconciledAt && /* @__PURE__ */ jsxs(Typography, { className: classes.opBannerMeta, title: formatDateTime(env.argoReconciledAt), children: [
-          "Last reconcile: ",
-          relativeTime(env.argoReconciledAt)
-        ] })
+    (env.argoOperationMessage || env.argoOperationPhase) && /* @__PURE__ */ jsxs(Callout, { tone: "info", title: `Last operation: ${env.argoOperationPhase ?? "unknown"}`, children: [
+      env.argoOperationMessage,
+      env.argoReconciledAt && /* @__PURE__ */ jsxs("div", { className: classes.opBannerMeta, title: formatDateTime(env.argoReconciledAt), children: [
+        "Last reconcile: ",
+        relativeTime(env.argoReconciledAt)
       ] })
     ] }),
-    (env.argoConditions ?? []).map((c, i) => /* @__PURE__ */ jsxs("div", { className: classes.condition, children: [
-      /* @__PURE__ */ jsx("span", { className: classes.conditionType, children: c.type }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.conditionText, children: c.message })
-    ] }, `${c.type}-${i}`)),
-    confirmForce && /* @__PURE__ */ jsxs("div", { className: classes.condition, "data-testid": "force-sync-confirm", children: [
-      /* @__PURE__ */ jsx("span", { className: classes.conditionType, children: "Force sync" }),
-      /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx(Typography, { className: classes.conditionText, children: replaced.length > 0 ? `Delete and recreate what is out of sync in ${env.argoAppName}: ${replaced.join(", ")}. Each is down until it is recreated.` : `Nothing in ${env.argoAppName} is out of sync right now, so a force sync has nothing to replace.` }),
-        /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 6, marginTop: 6 }, children: [
-          /* @__PURE__ */ jsx(
-            Button,
-            {
-              small: true,
-              variant: "danger",
-              disabled: replaced.length === 0,
-              onClick: () => {
-                setConfirmForce(false);
-                act(argoActions.forceSync);
-              },
-              children: "Force sync"
-            }
-          ),
-          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setConfirmForce(false), children: "Cancel" })
-        ] })
+    (env.argoConditions ?? []).map((c, i) => /* @__PURE__ */ jsx(Callout, { tone: "bad", title: c.type, children: c.message }, `${c.type}-${i}`)),
+    confirmForce && /* @__PURE__ */ jsx("div", { "data-testid": "force-sync-confirm", children: /* @__PURE__ */ jsxs(Callout, { tone: "bad", title: "Force sync", children: [
+      /* @__PURE__ */ jsx("div", { children: replaced.length > 0 ? `Delete and recreate what is out of sync in ${env.argoAppName}: ${replaced.join(", ")}. Each is down until it is recreated.` : `Nothing in ${env.argoAppName} is out of sync right now, so a force sync has nothing to replace.` }),
+      /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 6, marginTop: 6 }, children: [
+        /* @__PURE__ */ jsx(
+          Button,
+          {
+            small: true,
+            variant: "danger",
+            disabled: replaced.length === 0,
+            onClick: () => {
+              setConfirmForce(false);
+              act(argoActions.forceSync);
+            },
+            children: "Force sync"
+          }
+        ),
+        /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setConfirmForce(false), children: "Cancel" })
       ] })
-    ] }),
-    argoActions.error && /* @__PURE__ */ jsx(Typography, { className: classes.argoErr, children: argoActions.error }),
-    !reached && /* @__PURE__ */ jsxs(EmptyNote, { children: [
-      "Couldn't reach ArgoCD for ",
-      env.argoAppName,
-      " - the facts here may be stale, not actually wrong."
-    ] }),
+    ] }) }),
+    argoActions.error && /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "The ArgoCD action failed", children: argoActions.error }),
+    !reached && /* @__PURE__ */ jsx(Callout, { tone: "warn", icon: "!", title: `Couldn't reach ArgoCD for ${env.argoAppName}`, children: "Sync and health on this page may be stale, not wrong. Try Refresh; if it persists, check RBAC or connectivity before treating it as a release problem." }),
     guideOpen && /* @__PURE__ */ jsx("div", { className: classes.guide, children: SYNC_GUIDE.map((g) => /* @__PURE__ */ jsxs("div", { className: classes.guideRow, children: [
       /* @__PURE__ */ jsxs("span", { className: classes.guideName, children: [
         g.name,
@@ -317,52 +254,21 @@ function ArgoCommandPanel({
     /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: detailOpen, onClick: () => setDetailOpen((v) => !v), children: "Sync policy, revision and resource tree" }) }),
     detailOpen && /* @__PURE__ */ jsxs("div", { className: classes.detail, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.kvGrid, children: [
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Application" }),
-          /* @__PURE__ */ jsx("span", { className: classes.v, children: env.argoAppName })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Target revision" }),
-          /* @__PURE__ */ jsx("span", { className: classes.v, children: env.argoSource?.targetRevision ?? "\u2014" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Last sync" }),
-          /* @__PURE__ */ jsx(
-            "span",
-            {
-              className: classes.v,
-              title: env.argoOperationStartedAt ? formatDateTime(env.argoOperationStartedAt) : void 0,
-              children: env.argoOperationStartedAt ? relativeTime(env.argoOperationStartedAt) : "\u2014"
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Last operation" }),
-          /* @__PURE__ */ jsx("span", { className: classes.v, children: env.argoOperationPhase ?? "\u2014" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Out of sync" }),
-          /* @__PURE__ */ jsx("span", { className: classes.v, children: resources.length > 0 ? `${outOfSync} resource${outOfSync === 1 ? "" : "s"}` : "\u2014" })
-        ] }),
-        env.argoOperationMessage && /* @__PURE__ */ jsxs("div", { className: `${classes.kv} ${classes.kvFull}`, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Last operation message" }),
-          /* @__PURE__ */ jsx("span", { className: classes.v, children: env.argoOperationMessage })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: `${classes.kv} ${classes.kvFull}`, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Sync policy" }),
-          /* @__PURE__ */ jsxs("div", { className: classes.flags, children: [
-            /* @__PURE__ */ jsx("span", { className: `${classes.flag} ${env.argoSyncPolicy?.automated ? "" : classes.flagOff}`, children: "automated" }),
-            /* @__PURE__ */ jsx("span", { className: `${classes.flag} ${env.argoSyncPolicy?.selfHeal ? "" : classes.flagOff}`, children: "self-heal" }),
-            /* @__PURE__ */ jsx("span", { className: `${classes.flag} ${env.argoSyncPolicy?.prune ? "" : classes.flagOff}`, children: "prune" })
-          ] })
-        ] }),
-        env.argoSource?.repoUrl && /* @__PURE__ */ jsxs("div", { className: `${classes.kv} ${classes.kvFull}`, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.k, children: "Source" }),
-          /* @__PURE__ */ jsxs("span", { className: classes.v, children: [
-            env.argoSource.repoUrl.replace(/^https?:\/\//, ""),
-            env.argoSource.path ? ` \xB7 ${env.argoSource.path}` : ""
-          ] })
-        ] })
+        /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Fact, { label: "Application", children: env.argoAppName }) }),
+        /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Fact, { label: "Target revision", children: env.argoSource?.targetRevision ?? "\u2014" }) }),
+        /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Fact, { label: "Last sync", title: env.argoOperationStartedAt ? formatDateTime(env.argoOperationStartedAt) : void 0, children: env.argoOperationStartedAt ? relativeTime(env.argoOperationStartedAt) : "\u2014" }) }),
+        /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Fact, { label: "Last operation", children: env.argoOperationPhase ?? "\u2014" }) }),
+        /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Fact, { label: "Out of sync", children: resources.length > 0 ? `${outOfSync} resource${outOfSync === 1 ? "" : "s"}` : "\u2014" }) }),
+        env.argoOperationMessage && /* @__PURE__ */ jsx(Tile, { className: classes.kvFull, children: /* @__PURE__ */ jsx(Fact, { label: "Last operation message", children: env.argoOperationMessage }) }),
+        /* @__PURE__ */ jsx(Tile, { className: classes.kvFull, children: /* @__PURE__ */ jsx(Fact, { label: "Sync policy", children: /* @__PURE__ */ jsxs("span", { className: classes.flags, children: [
+          /* @__PURE__ */ jsx(StatusChip, { tone: env.argoSyncPolicy?.automated ? "ok" : "neutral", children: "automated" }),
+          /* @__PURE__ */ jsx(StatusChip, { tone: env.argoSyncPolicy?.selfHeal ? "ok" : "neutral", children: "self-heal" }),
+          /* @__PURE__ */ jsx(StatusChip, { tone: env.argoSyncPolicy?.prune ? "ok" : "neutral", children: "prune" })
+        ] }) }) }),
+        env.argoSource?.repoUrl && /* @__PURE__ */ jsx(Tile, { className: classes.kvFull, children: /* @__PURE__ */ jsxs(Fact, { label: "Source", children: [
+          env.argoSource.repoUrl.replace(/^https?:\/\//, ""),
+          env.argoSource.path ? ` \xB7 ${env.argoSource.path}` : ""
+        ] }) })
       ] }),
       /* @__PURE__ */ jsxs("div", { children: [
         /* @__PURE__ */ jsx("div", { className: classes.subTitleGap, children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Resource tree" }) }),
@@ -370,15 +276,15 @@ function ArgoCommandPanel({
           "No resource tree reported yet",
           reached ? "" : " (ArgoCD unreachable)",
           "."
-        ] }) : /* @__PURE__ */ jsx("div", { className: classes.treeScroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+        ] }) : /* @__PURE__ */ jsx("div", { className: classes.treeScroll, children: /* @__PURE__ */ jsxs("table", { className: `${tc.table} ${tc.dense}`, children: [
           /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Sync wave" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Kind" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Name" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Status" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Health" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Hook" }),
-            /* @__PURE__ */ jsx("th", { className: classes.headCell, children: "Message" })
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Sync wave" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Kind" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Name" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Status" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Health" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Hook" }),
+            /* @__PURE__ */ jsx("th", { className: tc.th, children: "Message" })
           ] }) }),
           /* @__PURE__ */ jsx("tbody", { children: resources.map((r, i) => /* @__PURE__ */ jsxs("tr", { className: `${classes.bodyRow} ${r.hookType ? classes.bodyRowHook : ""}`, children: [
             /* @__PURE__ */ jsx("td", { className: classes.cellMuted, children: syncWaveFor(r, env.resources) ?? "\u2014" }),

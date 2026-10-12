@@ -1,8 +1,9 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { forwardRef } from 'react';
 import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
-import { useUi, useControls, useSection, useStatus } from './styles.esm.js';
+import { useUi, useBlocks, useSection, useData, useControls, useStatus } from './styles.esm.js';
 
 const cx = (...c) => c.filter(Boolean).join(" ");
 function useKit() {
@@ -23,10 +24,12 @@ function PageHeader({ title, subtitle, actions }) {
     actions && /* @__PURE__ */ jsx("div", { className: ui.pageActions, children: actions })
   ] });
 }
-function Panel({ accent, className, children, ...rest }) {
-  const { ui } = useKit();
-  return /* @__PURE__ */ jsx("div", { className: cx(ui.panel, accent && ui.panelAccent, className), ...rest, children });
-}
+const Panel = forwardRef(
+  function Panel2({ accent, className, children, ...rest }, ref) {
+    const { ui } = useKit();
+    return /* @__PURE__ */ jsx("div", { ref, className: cx(ui.panel, accent && ui.panelAccent, className), ...rest, children });
+  }
+);
 function SectionLabel({ children }) {
   const { ui } = useKit();
   return /* @__PURE__ */ jsx("h2", { className: ui.sectionLabel, children });
@@ -82,10 +85,10 @@ function IconButton({ className, type = "button", ...rest }) {
   const { ui } = useKit();
   return /* @__PURE__ */ jsx("button", { type, onMouseDown: preventFocusScroll, className: cx(ui.iconButton, className), ...rest });
 }
-function Chip({ tone = "neutral", children }) {
+function Chip({ tone = "neutral", className, children }) {
   const { ui } = useKit();
-  const toneClass = { neutral: void 0, ground: ui.chipGround, flight: ui.chipFlight, ok: ui.chipOk, bad: ui.chipBad }[tone];
-  return /* @__PURE__ */ jsx("span", { className: cx(ui.chip, toneClass), children });
+  const toneClass = { neutral: void 0, ground: ui.chipGround, flight: ui.chipFlight, ok: ui.chipOk, bad: ui.chipBad, sky: ui.chipSky }[tone];
+  return /* @__PURE__ */ jsx("span", { className: cx(ui.chip, toneClass, className), children });
 }
 function TierChip({ tier }) {
   return /* @__PURE__ */ jsx(Chip, { tone: tier, children: tier === "flight" ? "Flight" : "Ground" });
@@ -354,6 +357,102 @@ function Count({ children }) {
   const s = useSectionKit();
   return /* @__PURE__ */ jsx("span", { className: s.count, children });
 }
+function useDataKit() {
+  const t = useHangarTokens();
+  return useData({ t });
+}
+function Fact({ label, inline, title, children }) {
+  const d = useDataKit();
+  return /* @__PURE__ */ jsxs("div", { className: cx(d.fact, inline && d.factInline), children: [
+    /* @__PURE__ */ jsx("span", { className: d.factLabel, children: label }),
+    /* @__PURE__ */ jsx("span", { className: cx(d.factValue, inline && d.factValueInline), title, children })
+  ] });
+}
+function FactGrid({ min = 140, row, className, children }) {
+  const d = useDataKit();
+  return /* @__PURE__ */ jsx(
+    "div",
+    {
+      className: cx(d.factGrid, row && d.factRow, className),
+      style: row ? void 0 : { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` },
+      children
+    }
+  );
+}
+function useTableKit() {
+  const d = useDataKit();
+  return { table: d.table, th: d.th, td: d.td, rowLink: d.rowLink, rowSelected: d.rowSelected, dense: d.dense };
+}
+function useBlocksKit() {
+  const t = useHangarTokens();
+  return useBlocks({ t });
+}
+const Card = forwardRef(function Card2({ title, meta, actions, level = 2, className, children, ...rest }, ref) {
+  const b = useBlocksKit();
+  return /* @__PURE__ */ jsxs(Panel, { ref, className: cx(b.card, className), ...rest, children: [
+    (title !== void 0 || actions) && /* @__PURE__ */ jsxs("div", { className: b.cardHead, children: [
+      /* @__PURE__ */ jsxs("div", { className: b.cardHeadStart, children: [
+        title !== void 0 && /* @__PURE__ */ jsx(SectionTitle, { level, children: title }),
+        meta
+      ] }),
+      actions && /* @__PURE__ */ jsx("div", { className: b.cardHeadEnd, children: actions })
+    ] }),
+    children
+  ] });
+});
+function Tile({ onClick, className, children, ...rest }) {
+  const b = useBlocksKit();
+  if (onClick) {
+    return /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        onMouseDown: preventFocusScroll,
+        onClick,
+        className: cx(b.tile, b.tileLink, className),
+        style: { textAlign: "left", font: "inherit", color: "inherit", width: "100%" },
+        ...rest,
+        children
+      }
+    );
+  }
+  return /* @__PURE__ */ jsx("div", { className: cx(b.tile, className), ...rest, children });
+}
+function Callout({
+  tone,
+  label,
+  title,
+  icon,
+  actions,
+  className,
+  children
+}) {
+  const b = useBlocksKit();
+  return /* @__PURE__ */ jsxs("div", { className: cx(b.callout, b[tone], className), role: tone === "bad" ? "alert" : "status", children: [
+    icon !== void 0 && /* @__PURE__ */ jsx("span", { className: b.calloutIcon, "aria-hidden": true, children: /* @__PURE__ */ jsx("span", { className: b.calloutIconGlyph, children: icon }) }),
+    /* @__PURE__ */ jsxs("div", { className: b.calloutBody, children: [
+      label !== void 0 && /* @__PURE__ */ jsx("span", { className: b.calloutLabel, children: label }),
+      title !== void 0 && /* @__PURE__ */ jsx("p", { className: b.calloutTitle, children: title }),
+      children !== void 0 && /* @__PURE__ */ jsx("div", { className: b.calloutText, children })
+    ] }),
+    actions && /* @__PURE__ */ jsx("div", { className: b.calloutActions, children: actions })
+  ] });
+}
+function Stat({
+  label,
+  value,
+  caption,
+  tone,
+  title
+}) {
+  const b = useBlocksKit();
+  const toneClass = tone && { ok: b.statValueOk, warn: b.statValueWarn, bad: b.statValueBad }[tone];
+  return /* @__PURE__ */ jsxs("div", { className: b.stat, title, children: [
+    /* @__PURE__ */ jsx("span", { className: b.statLabel, children: label }),
+    /* @__PURE__ */ jsx("span", { className: cx(b.statValue, toneClass), children: value }),
+    caption !== void 0 && /* @__PURE__ */ jsx("span", { className: b.statCaption, children: caption })
+  ] });
+}
 
-export { ActionSelect, Button, Chip, ColumnLabel, Count, EmptyNote, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, SearchField, Section, SectionLabel, SectionTitle, StatusChip, StatusDot, Subtabs, TextLink, TierChip, healthColor, healthTone };
+export { ActionSelect, Button, Callout, Card, Chip, ColumnLabel, Count, EmptyNote, Fact, FactGrid, Field, FilterBar, FilterChip, FilterChips, FilterGroup, FilterSelect, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, SearchField, Section, SectionLabel, SectionTitle, Stat, StatusChip, StatusDot, Subtabs, TextLink, TierChip, Tile, healthColor, healthTone, useTableKit };
 //# sourceMappingURL=index.esm.js.map

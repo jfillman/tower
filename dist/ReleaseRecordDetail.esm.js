@@ -5,7 +5,6 @@ import Typography from '@material-ui/core/Typography';
 import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
-import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { SupplyChainChips } from './SupplyChainChips.esm.js';
 import { gateCheckTone, stripLightMarkdown, formatGateName } from './SignalRail.esm.js';
@@ -16,7 +15,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
-import { TextLink, Button, ActionSelect, EmptyNote, Hint, StatusChip } from './ui/index.esm.js';
+import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -51,13 +50,12 @@ const useStyles = makeStyles(() => ({
     gap: 10,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panelAlt,
-    borderRadius: 8,
+    borderRadius: 4,
     padding: "8px 14px"
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
   scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.3 },
-  scoreLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.sky, "&:hover": { textDecoration: "underline" } },
-  explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 8, padding: "12px 16px", marginBottom: 20, fontSize: 12.5, color: ({ t }) => t.textLo },
+  explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 4, padding: "12px 16px", marginBottom: 20, fontSize: 12.5, color: ({ t }) => t.textLo },
   explainRow: { display: "grid", gridTemplateColumns: "150px 60px 1fr", gap: 12, padding: "5px 0", borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: "baseline" },
   explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
   actionsBar: { display: "flex", gap: 8, flexWrap: "wrap" },
@@ -114,7 +112,7 @@ const useStyles = makeStyles(() => ({
   gateTileName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   gateDot: { width: 7, height: 7, borderRadius: "50%", flex: "none" },
   gateNote: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.4 },
-  col: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panel, overflow: "hidden" },
+  col: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel, overflow: "hidden" },
   colHead: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 15px", borderBottom: ({ t }) => `1px solid ${t.line}` },
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
   colHeadBuilt: { borderTop: ({ t }) => `3px solid ${t.amber}` },
@@ -140,9 +138,6 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.panelAlt
   },
   kv: { display: "flex", flexDirection: "column", gap: 6 },
-  kvRow: { display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5 },
-  kvK: { color: ({ t }) => t.textFaint },
-  kvV: { color: ({ t }) => t.textHi, fontFamily: fontMono, fontSize: 11.5 },
   promoChain: { display: "flex", flexDirection: "column", gap: 8 },
   promo: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   promoEnv: {
@@ -220,7 +215,7 @@ const useStyles = makeStyles(() => ({
     gap: 8,
     fontSize: 12,
     padding: "4px 8px",
-    borderRadius: 5,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.amberLine}`,
     backgroundColor: ({ t }) => t.bg
   },
@@ -239,7 +234,7 @@ const useStyles = makeStyles(() => ({
   cert: {
     marginTop: 18,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 8,
+    borderRadius: 4,
     backgroundColor: ({ t }) => t.panelAlt,
     padding: "12px 18px",
     display: "flex",
@@ -366,7 +361,7 @@ function ReleaseRecordDetail({
             /* @__PURE__ */ jsx("br", {}),
             "score",
             /* @__PURE__ */ jsx("br", {}),
-            /* @__PURE__ */ jsx("button", { type: "button", className: classes.scoreLink, onMouseDown: preventFocusScroll, onClick: () => setShowScoreExplainer((v) => !v), children: showScoreExplainer ? "hide how \u25B4" : "how? \u25BE" })
+            /* @__PURE__ */ jsx(TextLink, { expanded: showScoreExplainer, onClick: () => setShowScoreExplainer((v) => !v), children: "how?" })
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.actionsBar, children: [
@@ -418,11 +413,8 @@ function ReleaseRecordDetail({
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
           record.pullRequests.length === 0 && record.commits.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No merged source PRs found in the window Tower has fetched." }),
           record.pullRequests.length === 0 && record.commits.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "No merged source PRs found in the window Tower has fetched \u2014 commits by environment:" }),
-            dedupeCommits(record.commits).map((c) => /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: c.env }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: c.sha.slice(0, 7) })
-            ] }, `${c.env}-${c.sha}`))
+            /* @__PURE__ */ jsx(Hint, { children: "No merged source PRs found in the window Tower has fetched. Commits by environment:" }),
+            dedupeCommits(record.commits).map((c) => /* @__PURE__ */ jsx(Fact, { inline: true, label: c.env, children: c.sha.slice(0, 7) }, `${c.env}-${c.sha}`))
           ] }),
           record.pullRequests.length > 0 && /* @__PURE__ */ jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 7 }, children: [
             record.pullRequests.slice(0, 8).map((pr) => /* @__PURE__ */ jsxs("div", { className: classes.prItem, children: [
@@ -459,18 +451,9 @@ function ReleaseRecordDetail({
             /* @__PURE__ */ jsx("span", { className: classes.promoWhen, children: formatDateTime(p.at) })
           ] }, `${p.fromEnv}-${p.toEnv}`)) }),
           liveDeployment && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-            liveDeployment.rolloutStrategy && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Rollout strategy" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.rolloutStrategy })
-            ] }),
-            liveDeployment.argoRevision && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Argo CD revision" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.argoRevision.slice(0, 10) })
-            ] }),
-            liveDeployment.rolloutStrategy === "canary" && liveDeployment.canarySteps && liveDeployment.canarySteps.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kvRow, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "Canary steps" }),
-              /* @__PURE__ */ jsx("span", { className: classes.kvV, children: liveDeployment.canarySteps.length })
-            ] })
+            liveDeployment.rolloutStrategy && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Rollout strategy", children: liveDeployment.rolloutStrategy }),
+            liveDeployment.argoRevision && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Argo CD revision", children: liveDeployment.argoRevision.slice(0, 10) }),
+            liveDeployment.rolloutStrategy === "canary" && liveDeployment.canarySteps && liveDeployment.canarySteps.length > 0 && /* @__PURE__ */ jsx(Fact, { inline: true, label: "Canary steps", children: liveDeployment.canarySteps.length })
           ] })
         ] })
       ] })
@@ -483,7 +466,7 @@ function ReleaseRecordDetail({
       /* @__PURE__ */ jsxs("div", { className: classes.builtBody, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.builtSummary, children: [
           record.imageDigest && /* @__PURE__ */ jsxs("span", { className: classes.summaryItem, title: record.imageDigest, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.kvK, children: "digest" }),
+            /* @__PURE__ */ jsx(ColumnLabel, { children: "digest" }),
             " ",
             record.imageDigest.replace(/^sha256:/, "").slice(0, 12),
             "\u2026"
@@ -513,7 +496,7 @@ function ReleaseRecordDetail({
               scan.findingsSummary && /* @__PURE__ */ jsx("div", { className: classes.scanFindings, children: scan.findingsSummary })
             ] }, scan.scanner)),
             record.testResults.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-              /* @__PURE__ */ jsxs("span", { className: classes.kvK, children: [
+              /* @__PURE__ */ jsxs(ColumnLabel, { children: [
                 "Test results ",
                 record.testResults.length > 1 && `(${record.testResults.length})`
               ] }),

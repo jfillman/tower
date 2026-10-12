@@ -84,7 +84,7 @@ const useStyles = makeStyles(() => ({
   labelValue: { display: "block", color: ({ t }) => t.textHi, fontSize: 10 },
   legend: { display: "flex", gap: 16, flexWrap: "wrap", padding: "8px 2px 0", fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block", marginRight: 5 },
-  analysisCard: { marginTop: 12, padding: "12px 14px", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panel },
+  analysisCard: { marginTop: 12, padding: "12px 14px", border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel },
   analysisHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   // The AnalysisRun/metric's own real message (2026-09-18: "canary error
   // messages need to surface better") - distinct from `note` (this

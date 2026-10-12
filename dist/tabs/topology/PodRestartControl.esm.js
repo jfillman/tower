@@ -1,13 +1,12 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
 import { useArgoCapabilities } from '../../useReleaseData.esm.js';
+import { Button } from '../../ui/index.esm.js';
 
 function PodRestartControl({
   env,
   podName,
-  buttonClass,
   noteClass,
   badClass
 }) {
@@ -45,26 +44,22 @@ function PodRestartControl({
   };
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx(
-      "button",
+      Button,
       {
-        type: "button",
-        className: buttonClass,
+        small: true,
         disabled: !!blocked || step === "busy",
         title: blocked ?? "Delete this pod so its ReplicaSet starts a new one. Changes nothing in git.",
-        onMouseDown: preventFocusScroll,
         onClick: () => setStep("confirm"),
         children: step === "busy" ? "Restarting\u2026" : "Restart pod"
       }
     ),
     (step === "confirm" || step === "downtime") && /* @__PURE__ */ jsxs("div", { "data-testid": "pod-restart-confirm", style: { flexBasis: "100%", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }, children: [
       /* @__PURE__ */ jsx("span", { className: noteClass, children: step === "confirm" ? `Restart ${podName}? Argo CD deletes it and its ReplicaSet starts a new one. A delete skips the PodDisruptionBudget, so the last ready pod is refused on a Flight environment.` : `${message?.text} Restart anyway?` }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: buttonClass, onMouseDown: preventFocusScroll, onClick: () => restart(step === "downtime"), children: step === "downtime" ? "Restart anyway" : "Restart" }),
+      /* @__PURE__ */ jsx(Button, { small: true, onClick: () => restart(step === "downtime"), children: step === "downtime" ? "Restart anyway" : "Restart" }),
       /* @__PURE__ */ jsx(
-        "button",
+        Button,
         {
-          type: "button",
-          className: buttonClass,
-          onMouseDown: preventFocusScroll,
+          small: true,
           onClick: () => {
             setStep("idle");
             setMessage(void 0);

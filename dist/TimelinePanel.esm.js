@@ -55,7 +55,7 @@ const useStyles = makeStyles(() => ({
   card: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: "16px 20px",
     marginBottom: 20
   },
@@ -108,7 +108,7 @@ const useStyles = makeStyles(() => ({
   leadCard: {
     backgroundColor: ({ t }) => t.panelAlt,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 5,
+    borderRadius: 4,
     padding: "12px 14px"
   },
   leadEnv: { fontFamily: fontMono, fontSize: 10.5, textTransform: "lowercase", letterSpacing: "0.04em", color: ({ t }) => t.textFaint, marginBottom: 6 },

@@ -5,7 +5,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesApiRef } from '@backstage/plugin-kubernetes-react';
 import { relativeTime } from './shared/format.esm.js';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
-import { SectionTitle, EmptyNote } from './ui/index.esm.js';
+import { useTableKit, SectionTitle, EmptyNote } from './ui/index.esm.js';
 
 function useNamespaceEvents(cluster, namespace) {
   const kubernetesApi = useApi(kubernetesApiRef);
@@ -35,23 +35,13 @@ function useNamespaceEvents(cluster, namespace) {
   return state;
 }
 const useStyles = makeStyles(() => ({
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: {
-    textAlign: "left",
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    color: ({ t }) => t.textFaint,
-    padding: "4px 10px 6px 0"
-  },
-  td: { padding: "6px 10px 6px 0", fontSize: 12, verticalAlign: "top", color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 11.5 },
   dot: { width: 7, height: 7, borderRadius: "50%", display: "inline-block", marginRight: 6 },
   faint: { color: ({ t }) => t.textFaint },
   titleGap: { marginBottom: 8 }
 }));
 function NamespaceEvents({ cluster, namespace }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { loading, error, events } = useNamespaceEvents(cluster, namespace);
@@ -71,31 +61,31 @@ function NamespaceEvents({ cluster, namespace }) {
       error
     ] }),
     !loading && !error && sorted.length === 0 && /* @__PURE__ */ jsx(EmptyNote, { children: "No events recorded in this namespace." }),
-    !loading && !error && sorted.length > 0 && /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+    !loading && !error && sorted.length > 0 && /* @__PURE__ */ jsxs("table", { className: `${tc.table} ${tc.dense}`, children: [
       /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Type" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Object" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Reason" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Message" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Count" }),
-        /* @__PURE__ */ jsx("th", { className: classes.th, children: "Last seen" })
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Type" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Object" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Reason" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Message" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Count" }),
+        /* @__PURE__ */ jsx("th", { className: tc.th, children: "Last seen" })
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: sorted.map((e, i) => {
         const isWarning = e.type === "Warning";
         return /* @__PURE__ */ jsxs("tr", { children: [
-          /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
+          /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
             /* @__PURE__ */ jsx("span", { className: classes.dot, style: { backgroundColor: isWarning ? t.bad : t.good } }),
             /* @__PURE__ */ jsx("span", { className: classes.mono, children: e.type ?? "\u2014" })
           ] }),
-          /* @__PURE__ */ jsxs("td", { className: `${classes.td} ${classes.mono}`, children: [
+          /* @__PURE__ */ jsxs("td", { className: `${tc.td} ${classes.mono}`, children: [
             e.involvedObject?.kind ?? "\u2014",
             "/",
             e.involvedObject?.name ?? "\u2014"
           ] }),
-          /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: e.reason ?? "\u2014" }),
-          /* @__PURE__ */ jsx("td", { className: classes.td, children: e.message ?? "\u2014" }),
-          /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono} ${classes.faint}`, children: e.count ?? 1 }),
-          /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono} ${classes.faint}`, children: relativeTime(e.lastTimestamp ?? e.metadata?.creationTimestamp) })
+          /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono}`, children: e.reason ?? "\u2014" }),
+          /* @__PURE__ */ jsx("td", { className: tc.td, children: e.message ?? "\u2014" }),
+          /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono} ${classes.faint}`, children: e.count ?? 1 }),
+          /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono} ${classes.faint}`, children: relativeTime(e.lastTimestamp ?? e.metadata?.creationTimestamp) })
         ] }, i);
       }) })
     ] })

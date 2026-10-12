@@ -7,6 +7,7 @@ import { SegmentBar } from './ProvisioningStrip.esm.js';
 import { buildEvents } from './events.esm.js';
 import { relativeTime } from '../shared/format.esm.js';
 import { fmtDuration } from './shared.esm.js';
+import { TextLink } from '../ui/index.esm.js';
 
 const SCALE_SEC = 180;
 const useStyles = makeStyles(() => ({
@@ -32,7 +33,7 @@ const useStyles = makeStyles(() => ({
   },
   panel: {
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel,
     padding: 16,
     minWidth: 0
@@ -131,16 +132,6 @@ const useStyles = makeStyles(() => ({
     padding: "2px 8px",
     cursor: "pointer",
     "&:disabled": { opacity: 0.6, cursor: "default" }
-  },
-  link: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 3,
-    padding: "2px 7px",
-    "&:hover": { borderColor: ({ t }) => t.sky }
   },
   events: {
     fontFamily: fontMono,
@@ -348,7 +339,7 @@ function Step({
       /* @__PURE__ */ jsx("div", { className: classes.desc, children: step.desc }),
       step.detail && /* @__PURE__ */ jsx("div", { className: classes.detail, children: step.detail }),
       step.id === "catalog" && step.state === "run" && onRefreshCatalog && /* @__PURE__ */ jsx(RefreshCatalogAction, { onRefresh: onRefreshCatalog, className: classes.action }),
-      step.links && step.links.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.links, children: step.links.map((l) => /* @__PURE__ */ jsxs("a", { className: classes.link, href: l.url, target: "_blank", rel: "noopener noreferrer", children: [
+      step.links && step.links.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.links, children: step.links.map((l) => /* @__PURE__ */ jsxs(TextLink, { href: l.url, children: [
         l.label,
         l.state && /* @__PURE__ */ jsx("span", { className: classes.linkState, children: l.state })
       ] }, l.url)) })

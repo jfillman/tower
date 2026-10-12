@@ -11,7 +11,7 @@ import { buildTopoStages, TopoDag } from './tabs/topology/TopoDag.esm.js';
 import { TopologyStageDetail } from './tabs/topology/StageDetail.esm.js';
 import { ResourceGallery } from './tabs/topology/ResourceGallery.esm.js';
 import { health, ENV_TIER_LABEL } from './types.esm.js';
-import { StatusChip, HEALTH_LABEL, healthTone, FilterGroup, FilterChip, SectionTitle } from './ui/index.esm.js';
+import { TextLink, StatusChip, HEALTH_LABEL, healthTone, FilterGroup, FilterChip, SectionTitle } from './ui/index.esm.js';
 
 const TIER_ACCENT = { preview: "textFaint", lower: "sky", upper: "amber" };
 const TIER_CHIP_COLOR = { preview: "textFaint", lower: "sky", upper: "amber" };
@@ -33,12 +33,11 @@ const useStyles = makeStyles(() => ({
   tierDot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block", marginRight: 5 },
   tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 8px", borderRadius: 3, display: "inline-flex", alignItems: "center" },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  routeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, textDecoration: "none", "&:hover": { textDecoration: "underline" } },
-  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: "flex", flexDirection: "column" },
+  dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, display: "flex", flexDirection: "column" },
   dagInner: { padding: "10px 12px 4px" },
   dagDivider: { border: "none", borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: "16px 18px" },
-  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
+  panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }
 }));
 function EnvironmentTopology({
   env,
@@ -83,7 +82,7 @@ function EnvironmentTopology({
           " on ",
           env.cluster
         ] }),
-        env.ingressUrl && /* @__PURE__ */ jsxs("a", { className: classes.routeLink, href: env.ingressUrl, target: "_blank", rel: "noopener noreferrer", children: [
+        env.ingressUrl && /* @__PURE__ */ jsxs(TextLink, { href: env.ingressUrl, children: [
           env.ingressUrl.replace(/^https?:\/\//, ""),
           " ",
           /* @__PURE__ */ jsx(OpenInNewIcon, { style: { fontSize: 12 } })

@@ -86,7 +86,7 @@ const useStyles = makeStyles(() => ({
   cardGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 },
   card: {
     textAlign: "left",
-    borderRadius: 7,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panelAlt,
     padding: "8px 10px",
@@ -99,7 +99,7 @@ const useStyles = makeStyles(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   cardBadges: { display: "flex", gap: 4, flexWrap: "wrap" },
-  detail: { marginTop: 10, padding: "10px 12px", borderRadius: 8, border: ({ t }) => `1px dashed ${t.line}`, backgroundColor: ({ t }) => t.panel },
+  detail: { marginTop: 10, padding: "10px 12px", borderRadius: 6, border: ({ t }) => `1px dashed ${t.line}`, backgroundColor: ({ t }) => t.panel },
   none: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textFaint },
   detailModeRow: { display: "flex", gap: 6, marginBottom: 10 },
   detailModeBtn: {

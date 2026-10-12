@@ -1,7 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { dump } from 'js-yaml';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
@@ -9,6 +8,7 @@ import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { PodLogsView } from './PodLogsView.esm.js';
 import { usePipelineDagStyles, PAD, NODE_H, NODE_W, ROW_GAP, COL_GAP } from './PipelineDag.esm.js';
 import { useRolloutTopology } from './useRolloutTopology.esm.js';
+import { EmptyNote, SectionTitle, FactGrid, Fact } from './ui/index.esm.js';
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 1.5;
@@ -249,8 +249,8 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
       ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: dag.body, children: [
-      loading && !topology && /* @__PURE__ */ jsx(Typography, { className: dag.note, children: "Loading rollout topology\u2026" }),
-      error && /* @__PURE__ */ jsxs(Typography, { className: dag.note, children: [
+      loading && !topology && /* @__PURE__ */ jsx(EmptyNote, { children: "Loading rollout topology\u2026" }),
+      error && /* @__PURE__ */ jsxs(EmptyNote, { children: [
         "Couldn't refresh topology: ",
         error
       ] }),
@@ -346,18 +346,15 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
           /* @__PURE__ */ jsx("span", { children: "edge % = traffic weight (from Rollout status) \xB7 req/s is simulated" })
         ] }),
         openNode && /* @__PURE__ */ jsxs("div", { className: dag.detail, children: [
-          /* @__PURE__ */ jsxs(Typography, { className: dag.detailTitle, children: [
+          /* @__PURE__ */ jsx("div", { className: dag.detailTitleGap, children: /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
             openNode.kind,
             ": ",
             openNode.obj.metadata.name
-          ] }),
+          ] }) }),
           /* @__PURE__ */ jsx("div", { className: classes.tabs, children: ["info", "yaml", "logs"].map((k) => /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ""}`, onMouseDown: preventFocusScroll, onClick: () => setTab(k), children: k }, k)) }),
-          tab === "info" && /* @__PURE__ */ jsx("div", { className: dag.detailGrid, children: kvRows(openNode, topology).map(([k, v]) => /* @__PURE__ */ jsxs("div", { className: dag.detailGridItem, children: [
-            /* @__PURE__ */ jsx("span", { className: dag.kvLabel, children: k }),
-            /* @__PURE__ */ jsx("span", { className: dag.kvValue, children: v })
-          ] }, k)) }),
+          tab === "info" && /* @__PURE__ */ jsx(FactGrid, { children: kvRows(openNode, topology).map(([k, v]) => /* @__PURE__ */ jsx(Fact, { label: k, children: v }, k)) }),
           tab === "yaml" && /* @__PURE__ */ jsx("pre", { className: classes.yaml, children: dump(stripNoise(openNode.obj)) }),
-          tab === "logs" && /* @__PURE__ */ jsx(NodeLogs, { node: openNode, cluster, namespace, noteClass: dag.note })
+          tab === "logs" && /* @__PURE__ */ jsx(NodeLogs, { node: openNode, cluster, namespace })
         ] })
       ] })
     ] })
@@ -367,7 +364,7 @@ function stripNoise(obj) {
   const { managedFields, ...meta } = obj.metadata ?? {};
   return { ...obj, metadata: meta };
 }
-function NodeLogs({ node, cluster, namespace, noteClass }) {
+function NodeLogs({ node, cluster, namespace }) {
   const pod = node.pod ?? node.ar?.pods[0];
   if (pod) {
     return /* @__PURE__ */ jsx(
@@ -382,9 +379,9 @@ function NodeLogs({ node, cluster, namespace, noteClass }) {
     );
   }
   if (node.kind === "AnalysisRun") {
-    return /* @__PURE__ */ jsx(Typography, { className: noteClass, children: "This analysis has no Job pod (e.g. a Prometheus/web metric provider queries directly) - see the Info tab for its metric results and messages." });
+    return /* @__PURE__ */ jsx(EmptyNote, { children: "This analysis has no Job pod (e.g. a Prometheus/web metric provider queries directly) - see the Info tab for its metric results and messages." });
   }
-  return /* @__PURE__ */ jsxs(Typography, { className: noteClass, children: [
+  return /* @__PURE__ */ jsxs(EmptyNote, { children: [
     node.kind,
     "s don't produce logs - select a Pod to see its container logs."
   ] });

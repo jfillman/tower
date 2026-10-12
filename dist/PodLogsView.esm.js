@@ -4,20 +4,10 @@ import { makeStyles } from '@material-ui/core/styles';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
-import { preventFocusScroll } from './preventFocusScroll.esm.js';
-import { SectionTitle, FilterSelect, FilterChip, EmptyNote } from './ui/index.esm.js';
+import { SectionTitle, FilterSelect, FilterChip, Button, EmptyNote } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" },
-  refresh: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    marginLeft: "auto"
-  },
   liveBadge: {
     display: "inline-flex",
     alignItems: "center",
@@ -104,7 +94,7 @@ function PodLogsView({
       live ? /* @__PURE__ */ jsxs("span", { className: classes.liveBadge, children: [
         /* @__PURE__ */ jsx("span", { className: classes.liveDot }),
         "live"
-      ] }) : /* @__PURE__ */ jsx("button", { type: "button", className: classes.refresh, onMouseDown: preventFocusScroll, onClick: () => setNonce((n) => n + 1), children: "\u21BB refresh" })
+      ] }) : /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setNonce((n) => n + 1), children: "\u21BB Refresh" })
     ] }),
     state.loading && /* @__PURE__ */ jsx(EmptyNote, { children: "Loading logs\u2026" }),
     state.error && /* @__PURE__ */ jsxs(EmptyNote, { children: [

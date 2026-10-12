@@ -20,7 +20,7 @@ import { useNow, toItems } from './provisioning/shared.esm.js';
 import { useProvisioningHistory, typicalFor } from './provisioning/provisioningHistory.esm.js';
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
-import { TextLink, FilterBar, FilterChips, SearchField, EmptyNote } from './ui/index.esm.js';
+import { useTableKit, TextLink, FilterBar, FilterChips, SearchField, EmptyNote } from './ui/index.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -93,7 +93,7 @@ const useStyles = makeStyles(() => ({
   search: { marginBottom: 20 },
   list: {
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: "hidden",
     backgroundColor: ({ t }) => t.panel
   },
@@ -203,7 +203,7 @@ const useStyles = makeStyles(() => ({
     cursor: "pointer",
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
   cardTop: {
@@ -243,32 +243,8 @@ const useStyles = makeStyles(() => ({
   tableWrap: {
     overflowX: "auto",
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: ({ t }) => t.panel
-  },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
-  th: {
-    textAlign: "left",
-    padding: "8px 12px",
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    color: ({ t }) => t.textFaint,
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-    whiteSpace: "nowrap"
-  },
-  tr: {
-    cursor: "pointer",
-    "&:hover": { backgroundColor: ({ t }) => t.panelAlt },
-    "&:last-child td": { borderBottom: "none" }
-  },
-  td: {
-    padding: "10px 12px",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    verticalAlign: "middle",
-    color: ({ t }) => t.textLo
   },
   tdDesc: {
     maxWidth: 360,
@@ -285,6 +261,7 @@ function AppPicker({
   onOpenDashboard,
   onOpenBreakglass
 }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
@@ -431,22 +408,22 @@ function AppPicker({
       ] })
     ] }, ref);
   };
-  const renderTable = (list) => /* @__PURE__ */ jsx("div", { className: classes.tableWrap, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+  const renderTable = (list) => /* @__PURE__ */ jsx("div", { className: classes.tableWrap, children: /* @__PURE__ */ jsxs("table", { className: tc.table, children: [
     /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-      /* @__PURE__ */ jsx("th", { className: classes.th, style: { width: 40 }, "aria-label": "Starred" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Service" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Type" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Owner" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Description" })
+      /* @__PURE__ */ jsx("th", { className: tc.th, style: { width: 40 }, "aria-label": "Starred" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Service" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Type" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Owner" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Description" })
     ] }) }),
     /* @__PURE__ */ jsx("tbody", { children: list.map((e) => {
       const ref = stringifyEntityRef(e);
-      return /* @__PURE__ */ jsxs("tr", { className: classes.tr, ...activate(ref), children: [
-        /* @__PURE__ */ jsx("td", { className: classes.td, children: renderStar(ref) }),
-        /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
-        /* @__PURE__ */ jsx("td", { className: classes.td, children: renderTypeChip(e) }),
-        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.meta}`, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) }),
-        /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.tdDesc}`, children: e.metadata.description })
+      return /* @__PURE__ */ jsxs("tr", { className: tc.rowLink, ...activate(ref), children: [
+        /* @__PURE__ */ jsx("td", { className: tc.td, children: renderStar(ref) }),
+        /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
+        /* @__PURE__ */ jsx("td", { className: tc.td, children: renderTypeChip(e) }),
+        /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.meta}`, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) }),
+        /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.tdDesc}`, children: e.metadata.description })
       ] }, ref);
     }) })
   ] }) });

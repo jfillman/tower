@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import '@material-ui/core/Typography';
 import '@material-ui/core/Collapse';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
+import './ui/index.esm.js';
 
 makeStyles(() => ({
   head: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10, flexWrap: "wrap" },
@@ -153,26 +154,9 @@ function JsonDocumentView({ value, defaultExpanded = true }) {
   return /* @__PURE__ */ jsx("div", { className: classes.box, children: /* @__PURE__ */ jsx(JsonNode, { value, depth: 0, defaultExpanded }) });
 }
 makeStyles(() => ({
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: {
-    textAlign: "left",
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    color: ({ t }) => t.textFaint,
-    padding: "4px 10px 6px 0"
-  },
   // A visible row separator - without it, nothing signaled these rows were
   // clickable at all (2026-09-09 feedback) beyond a hover color that only
   // shows up once the pointer is already there.
-  row: {
-    cursor: "pointer",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
-  },
-  rowSelected: { backgroundColor: ({ t }) => t.panelAlt },
-  td: { padding: "7px 10px 7px 0", fontSize: 12, fontFamily: fontMono, color: ({ t }) => t.textHi },
   kindTd: { color: ({ t }) => t.textFaint },
   detail: {
     marginTop: 12,

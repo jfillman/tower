@@ -8,7 +8,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format.esm.js';
 import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
 import { parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, Section, EmptyNote, StatusChip } from '../ui/index.esm.js';
+import { PageHeader, Section, Chip, Hint, TextLink, useTableKit, EmptyNote, StatusChip } from '../ui/index.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -23,77 +23,12 @@ function curateSourcePrs(prs) {
 }
 const useStyles = makeStyles(() => ({
   body: { display: "flex", flexDirection: "column", gap: 16 },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    marginLeft: 8,
-    padding: "2px 7px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    backgroundColor: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky
-  },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: {
-    textAlign: "left",
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    color: ({ t }) => t.textFaint,
-    padding: "10px 20px",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
-  },
-  row: {
-    cursor: "pointer",
-    "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
-  },
-  td: {
-    padding: "10px 20px",
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    fontSize: 13,
-    color: ({ t }) => t.textHi
-  },
+  chipGap: { marginRight: 8 },
+  chipGapLeft: { marginLeft: 8 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   prNum: { color: ({ t }) => t.sky },
-  targetPill: {
-    display: "inline-flex",
-    alignItems: "center",
-    fontFamily: fontMono,
-    fontSize: 11,
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-    padding: "2px 8px",
-    borderRadius: 3,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    color: ({ t }) => t.sky,
-    marginRight: 8
-  },
   imageTagText: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   stale: { opacity: 0.6 },
-  draftChip: {
-    fontSize: 10.5,
-    marginLeft: 8,
-    padding: "2px 6px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    color: ({ t }) => t.textFaint
-  },
-  overflowNote: { fontSize: 12.5, padding: "10px 20px" },
-  link: { color: ({ t }) => t.sky, textDecoration: "none" },
-  repoBadge: {
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-    padding: "2px 6px",
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    color: ({ t }) => t.textFaint,
-    marginRight: 8
-  },
   mergedMark: {
     display: "inline-flex",
     alignItems: "center",
@@ -105,7 +40,7 @@ function GitopsTitle({ pr, classes }) {
   if (pr.releasePin) {
     const tag = pr.title.match(/^Release \S+ (\S+) to /)?.[1] ?? pr.title.match(/ to (\S+)$/)?.[1];
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsx("span", { className: classes.targetPill, children: pr.releasePin }),
+      /* @__PURE__ */ jsx(Chip, { tone: "sky", className: classes.chipGap, children: pr.releasePin }),
       /* @__PURE__ */ jsxs("span", { className: classes.imageTagText, children: [
         pr.title.startsWith("Roll back") ? "roll back to " : "@ ",
         tag ?? pr.title,
@@ -116,7 +51,7 @@ function GitopsTitle({ pr, classes }) {
   const parsed = parseGitopsPrTitle(pr.title);
   if (!parsed) return /* @__PURE__ */ jsx(Fragment, { children: pr.title });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx("span", { className: classes.targetPill, children: parsed.targetEnv }),
+    /* @__PURE__ */ jsx(Chip, { tone: "sky", className: classes.chipGap, children: parsed.targetEnv }),
     /* @__PURE__ */ jsxs("span", { className: classes.imageTagText, children: [
       "@ ",
       parsed.imageTag
@@ -130,33 +65,34 @@ function PrTable({
   classes,
   showPreviewChip = true
 }) {
+  const tc = useTableKit();
   if (prs.length === 0) return /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: emptyMessage });
-  return /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+  return /* @__PURE__ */ jsxs("table", { className: tc.table, children: [
     /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "#" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: variant === "gitops" ? "Target" : "Title" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Author" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Updated" })
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "#" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: variant === "gitops" ? "Target" : "Title" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Author" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Updated" })
     ] }) }),
     /* @__PURE__ */ jsx("tbody", { children: prs.map((pr) => {
       const stale = Date.now() - new Date(pr.updatedAt).getTime() > STALE_THRESHOLD_MS;
       return /* @__PURE__ */ jsxs(
         "tr",
         {
-          className: `${classes.row} ${stale ? classes.stale : ""}`,
+          className: `${tc.rowLink} ${stale ? classes.stale : ""}`,
           onClick: () => window.open(pr.url, "_blank", "noopener,noreferrer"),
           children: [
-            /* @__PURE__ */ jsxs("td", { className: `${classes.td} ${classes.mono} ${classes.prNum}`, children: [
+            /* @__PURE__ */ jsxs("td", { className: `${tc.td} ${classes.mono} ${classes.prNum}`, children: [
               "#",
               pr.number
             ] }),
-            /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
+            /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
               variant === "gitops" ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title,
               pr.draft && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "draft" }),
-              showPreviewChip && hasPreviewLabel(pr) && /* @__PURE__ */ jsx("span", { className: classes.draftChip, children: "preview" })
+              showPreviewChip && hasPreviewLabel(pr) && /* @__PURE__ */ jsx(Chip, { className: classes.chipGapLeft, children: "preview" })
             ] }),
-            /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
-            /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
+            /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
+            /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
               relativeTime(pr.updatedAt),
               stale && " \xB7 stale"
             ] })
@@ -168,30 +104,31 @@ function PrTable({
   ] });
 }
 function MergedPrTable({ prs, classes }) {
+  const tc = useTableKit();
   if (prs.length === 0) return /* @__PURE__ */ jsx(EmptyNote, { inset: true, children: "Nothing merged recently." });
-  return /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
+  return /* @__PURE__ */ jsxs("table", { className: tc.table, children: [
     /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "#" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Title" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Author" }),
-      /* @__PURE__ */ jsx("th", { className: classes.th, children: "Merged" })
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "#" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Title" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Author" }),
+      /* @__PURE__ */ jsx("th", { className: tc.th, children: "Merged" })
     ] }) }),
     /* @__PURE__ */ jsx("tbody", { children: prs.map((pr) => /* @__PURE__ */ jsxs(
       "tr",
       {
-        className: classes.row,
+        className: tc.rowLink,
         onClick: () => window.open(pr.url, "_blank", "noopener,noreferrer"),
         children: [
-          /* @__PURE__ */ jsxs("td", { className: `${classes.td} ${classes.mono} ${classes.prNum}`, children: [
+          /* @__PURE__ */ jsxs("td", { className: `${tc.td} ${classes.mono} ${classes.prNum}`, children: [
             "#",
             pr.number
           ] }),
-          /* @__PURE__ */ jsxs("td", { className: classes.td, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.repoBadge, children: pr.repo }),
+          /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
+            /* @__PURE__ */ jsx(Chip, { className: classes.chipGap, children: pr.repo }),
             pr.repo === "gitops" || pr.releasePin ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title
           ] }),
-          /* @__PURE__ */ jsx("td", { className: `${classes.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
-          /* @__PURE__ */ jsx("td", { className: classes.td, children: /* @__PURE__ */ jsxs("span", { className: classes.mergedMark, children: [
+          /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
+          /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsxs("span", { className: classes.mergedMark, children: [
             /* @__PURE__ */ jsx(CheckIcon, { style: { fontSize: 14 } }),
             " ",
             relativeTime(pr.mergedAt ?? pr.updatedAt)
@@ -240,7 +177,7 @@ function PullRequestsTab() {
         {
           framed: true,
           title: "Release PRs",
-          meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` }),
+          meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` }),
           count: `${gitopsPrs.length} open`,
           children: /* @__PURE__ */ jsx(PrTable, { prs: gitopsPrs, emptyMessage: "No open release PRs.", variant: "gitops", classes })
         }
@@ -250,7 +187,7 @@ function PullRequestsTab() {
         {
           framed: true,
           title: "Preview PRs",
-          meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: "ephemeral env" }),
+          meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: "ephemeral env" }),
           count: `${previewPrs.length} open`,
           children: /* @__PURE__ */ jsx(
             PrTable,
@@ -264,24 +201,15 @@ function PullRequestsTab() {
           )
         }
       ),
-      /* @__PURE__ */ jsxs(Section, { framed: true, title: "Source PRs", meta: /* @__PURE__ */ jsx("span", { className: classes.chip, children: appName }), count: `${sourcePrsRaw.length} open`, children: [
+      /* @__PURE__ */ jsxs(Section, { framed: true, title: "Source PRs", meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: appName }), count: `${sourcePrsRaw.length} open`, children: [
         /* @__PURE__ */ jsx(PrTable, { prs: sourcePrs, emptyMessage: "No open source PRs.", variant: "source", classes }),
-        overflowCount > 0 && /* @__PURE__ */ jsx("div", { className: classes.overflowNote, children: /* @__PURE__ */ jsxs(
-          "a",
-          {
-            className: classes.link,
-            href: `https://github.com/${owner}/${appName}/pulls`,
-            target: "_blank",
-            rel: "noopener noreferrer",
-            children: [
-              "+",
-              overflowCount,
-              " more open PR",
-              overflowCount === 1 ? "" : "s",
-              " on GitHub"
-            ]
-          }
-        ) })
+        overflowCount > 0 && /* @__PURE__ */ jsx(Hint, { inset: true, children: /* @__PURE__ */ jsxs(TextLink, { href: `https://github.com/${owner}/${appName}/pulls`, children: [
+          "+",
+          overflowCount,
+          " more open PR",
+          overflowCount === 1 ? "" : "s",
+          " on GitHub"
+        ] }) })
       ] }),
       /* @__PURE__ */ jsx(Section, { framed: true, title: "Recently merged", count: `${mergedPrs.length} shown`, children: /* @__PURE__ */ jsx(MergedPrTable, { prs: mergedPrs, classes }) })
     ] })

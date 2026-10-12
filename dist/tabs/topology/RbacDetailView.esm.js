@@ -3,7 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import PeopleIcon from '@material-ui/icons/People';
 import SecurityIcon from '@material-ui/icons/Security';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { SectionTitle, EmptyNote } from '../../ui/index.esm.js';
+import { SectionTitle, EmptyNote, Stat } from '../../ui/index.esm.js';
 
 const RBAC_KINDS = ["Role", "ClusterRole", "RoleBinding", "ClusterRoleBinding"];
 function verbTone(t, verb) {
@@ -21,7 +21,7 @@ const useStyles = makeStyles(() => ({
     flexDirection: "column",
     gap: 8,
     padding: "12px 14px",
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panelAlt
   },
@@ -56,15 +56,12 @@ const useStyles = makeStyles(() => ({
   subjectName: { color: ({ t }) => t.sky, fontWeight: 600 },
   subjectNs: { color: ({ t }) => t.textFaint },
   kvRow: { display: "flex", gap: 20 },
-  kv: { display: "flex", flexDirection: "column", gap: 2 },
-  kvLabel: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", color: ({ t }) => t.textFaint },
-  kvValue: { fontFamily: fontMono, fontSize: 15, fontWeight: 700, color: ({ t }) => t.textHi },
   ruleCard: {
     display: "flex",
     flexDirection: "column",
     gap: 10,
     padding: "12px 14px",
-    borderRadius: 8,
+    borderRadius: 6,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panel
   },
@@ -117,10 +114,7 @@ function RulesSection({ rules, classes, t }) {
         /* @__PURE__ */ jsx("span", { className: classes.sectionIcon, children: /* @__PURE__ */ jsx(SecurityIcon, { fontSize: "small" }) }),
         /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: "Overview" })
       ] }),
-      /* @__PURE__ */ jsx("div", { className: classes.kvRow, children: /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Rules" }),
-        /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: rules.length })
-      ] }) })
+      /* @__PURE__ */ jsx("div", { className: classes.kvRow, children: /* @__PURE__ */ jsx(Stat, { label: "Rules", value: rules.length }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.sectionHead, children: [

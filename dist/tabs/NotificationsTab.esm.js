@@ -30,15 +30,6 @@ const useStyles = makeStyles(() => ({
   title: { fontFamily: fontDisplay, fontWeight: 400, fontSize: 13.5, color: ({ t }) => t.textLo },
   titleNew: { fontWeight: 700, color: ({ t }) => t.textHi },
   time: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
-  link: {
-    display: "inline-block",
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    color: ({ t }) => t.sky,
-    textDecoration: "none",
-    marginTop: 6,
-    "&:hover": { textDecoration: "underline" }
-  },
   // Inline within a description line (2026-09-12: "any image should take you
   // to the image in the Images tab, a PR should link you to the actual PR,
   // any repo should link you to the repo/commit") - unlike `link` above,

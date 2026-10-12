@@ -20,7 +20,7 @@ const useStyles = makeStyles(() => ({
   wrap: {
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
+    borderRadius: 6,
     marginBottom: 24,
     overflow: "hidden"
   },
