@@ -25,8 +25,8 @@ Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: 
   [Security model](docs/security.md).
 - **Look inside a pod without exec.** When logs and metrics are not enough, **Debug** opens a recorded, time-boxed
   shell in a hardened debug container: a copy of the pod or the live pod. Ground opens at once; Flight needs a second
-  person, or an admin breaking the glass and a review afterwards. Every byte is recorded and plays back in Tower. See
-  [Break-glass debugging](docs/break-glass/index.md).
+  person, or an admin breaking the glass and a review afterwards. Every byte is recorded into an object-locked bucket,
+  anchored in Rekor, and plays back in Tower. See [Break-glass debugging](docs/break-glass/index.md).
 - **Roll back without guesswork.** Abort a bad canary, then roll back to one of the environment's last five healthy
   releases as an ordinary, gated release PR.
 

@@ -55,7 +55,7 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Approve or deny a Flight break-glass request | `tower.breakglass.approve` | n/a | owners other than the requester, admins | high |
 | End someone else's break-glass session | `tower.breakglass.terminate` | admins | admins, and the session's approver | high |
 | Break glass: a Flight session with no second person | `tower.breakglass.self` | n/a | admins | **critical**, announced to everyone |
-| Review a glass-broken session after it ends | `tower.breakglass.approve` | n/a | owners other than the requester, admins | high |
+| Review a glass-broken session after it ends | `tower.breakglass.approve`, or membership of `glidepath.breakglass.reviewers` (review only) | n/a | owners other than the requester, admins, the fallback reviewers group | high |
 
 - The `.flight` permissions are **grant-only**: ownership never satisfies them. Today only admins hold them.
 - An environment the server cannot place in either tier is treated as Flight, the stricter one.
@@ -165,9 +165,18 @@ cannot answer the question. It has its own guide: [Break-glass debugging](break-
 - **No standing rights.** Backstage can only create RoleBindings to two debug roles; per session it binds one to itself,
   in one namespace, with an expiry, and deletes it at the end. The browser never holds a Kubernetes credential.
 - **Enforced in the cluster, failing closed**: native ValidatingAdmissionPolicies on both tiers (on Ground compiled by
-  Kyverno from `ValidatingPolicy`, so they do not depend on Kyverno staying up).
-- **Time-boxed and recorded**: 15 to 60 minutes plus one 15-minute extension; every byte recorded with a SHA-256, kept
-  a year, playable in Tower; every step audited.
+  Kyverno from `ValidatingPolicy`, so they do not depend on Kyverno staying up). They also check the debug image's
+  cosign signature (tower's own build workflow), admit process access only for the session the pod's annotation names,
+  limit Backstage's pod patch to that annotation, and expire every grant and copy pod by label even if Backstage is
+  gone (Kyverno's cleanup controller on both clusters).
+- **Time-boxed and recorded**: 15 to 60 minutes plus one 15-minute extension; every byte recorded with a SHA-256 into
+  an object-locked, versioned bucket (no delete or overwrite for a year, root included), the hash anchored in the
+  platform's Rekor; playable in Tower; every step audited. A session that cannot be recorded never starts.
+- **Fewer eyes on Secrets.** A session with volume or process access is *sensitive*: its recording is for admins, the
+  approver, the reviewer and the requester, not every owner. A copy of a Flight pod holds the app by default, so the
+  copy does no production work.
+- **Reviews do not stall.** A glass-broken session's reviewers are reminded after a day and the admins alerted after
+  three; a fallback reviewers group covers an app whose only owner is the one admin.
 
 See [Guardrails](break-glass/guardrails.md) for every layer and what it stops.
 
