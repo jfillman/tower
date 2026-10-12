@@ -20,7 +20,9 @@ A dry run goes through admission like a real request, so it tests the **live** p
 **As Backstage**, for rules that depend on the requester (RoleBindings, pod deletes):
 
 ```bash
-SA=system:serviceaccount:backstage:backstage-ingestor   # kind-prod; backstage-system/... on kiac-dev
+SA=system:serviceaccount:backstage:backstage-ingestor   # kind-prod
+# kiac-dev: --as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod, and a User subject:
+#   subjects: [{kind: User, apiGroup: rbac.authorization.k8s.io, name: hangar:kind-prod:tower-actor}]
 cat <<EOF | kubectl --context kind-prod --as=$SA create --dry-run=server -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -73,7 +75,7 @@ identity** on each cluster, so the real RBAC and the real policies apply.
 2. **Impersonating proxies**, one per cluster:
 
    ```bash
-   kubectl --context kiac-dev  --as=system:serviceaccount:backstage-system:backstage-ingestor proxy --port=8013 --reject-paths='^/never$' &
+   kubectl --context kiac-dev  --as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod proxy --port=8013 --reject-paths='^/never$' &
    kubectl --context kind-prod --as=system:serviceaccount:backstage:backstage-ingestor        proxy --port=8014 --reject-paths='^/never$' &
    ```
 

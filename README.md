@@ -18,8 +18,12 @@ Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: 
 - **Every action explains itself.** A "Which one?" guide for the Argo CD actions, a one-line explanation on every
   Rollout action, confirmations that name what will happen (Force sync lists what it will recreate), and buttons
   you may not use say why.
-- **Safe by design.** Tower holds no standing Kubernetes write permissions (break-glass grants itself a narrow,
-  per-session role and removes it). Changes are pull requests; Argo CD and Rollout
+- **Safe by design.** Tower holds no stored Kubernetes credential.
+  - Reads use the Backstage pod's own rotating token.
+  - Each write (a Tekton Re-run or Cancel, a release run, a break-glass step) mints a 10-minute token for that action.
+  - Admission policies hold those writes to Glidepath's own shapes; see [Cluster credentials](docs/credentials/index.md).
+
+  Changes are pull requests; Argo CD and Rollout
   actions are delegated through one narrowly scoped Argo CD account; owners act on their own apps and Flight
   (upper) environments need an admin for anything that bypasses review; every write is audited. See
   [Security model](docs/security.md).

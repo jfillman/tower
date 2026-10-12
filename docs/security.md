@@ -10,8 +10,9 @@ it, and the guardrails behind each one, in Tower, in Backstage's backend, in Arg
    change what an environment runs.
 2. **Delegated, not direct.** Tower and its backend hold **no standing Kubernetes write permissions on any cluster**.
    Sync, force sync, terminate and Rollout actions run through Argo CD, as one narrowly scoped Argo CD account. Argo CD
-   checks that the resource belongs to the Application and records the operation. There are two exceptions, both
-   held to their exact shape by admission policies in the cluster:
+   checks that the resource belongs to the Application and records the operation. There are two exceptions. Both are
+   held to their exact shape by admission policies in the cluster, and on kiac-dev both are held only by
+   `hangar:kind-prod:tower-actor`, whose token is minted for each action ([Cluster credentials](credentials/index.md)):
    - Tekton Re-run and Cancel: `create` and `patch` on PipelineRuns. `tower-pipelinerun-shape` allows only
      Glidepath's own run shape in an app's `-cicd` namespace, and on an existing run only a cancel.
    - [Break-glass](break-glass/index.md): the only standing right is to bind one of two debug roles to itself, for one
@@ -27,6 +28,11 @@ it, and the guardrails behind each one, in Tower, in Backstage's backend, in Arg
 7. **The Kubernetes proxy is read-only.** Tower reads clusters through Backstage's `/api/kubernetes/proxy`, which runs
    as Backstage's own identity and does no ownership check, so the backend refuses anything but GET (and any WebSocket
    upgrade) on it. Every write goes through an owner-gated route.
+8. **No stored cluster credential.** On kind-prod, Backstage is its in-cluster ServiceAccount. On kiac-dev, reads use
+   the pod's own projected token (600 s, rotated by the kubelet), and writes use a `tower-actor` token minted for each
+   action. kiac-dev trusts kind-prod's ServiceAccount issuer and maps those two tokens to two users with separate RBAC.
+   Nothing long-lived exists to leak, and deleting one entry in kiac-dev's authentication config revokes everything in
+   seconds. See [Cluster credentials](credentials/index.md).
 
 ## Who may do what
 

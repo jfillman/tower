@@ -28,7 +28,7 @@ Backstage. Every other RoleBinding write skips it.
 |---|---|
 | Backstage may create only `tower-breakglass-*` bindings | *Backstage may only create RoleBindings named tower-breakglass-\*.* |
 | `roleRef` is ClusterRole `tower-breakglass-debug-live` or `-copy` | *…binds tower-breakglass-debug-live or -copy (a ClusterRole)…* |
-| exactly one subject: Backstage's ServiceAccount on this cluster | *…has <ns>/backstage-ingestor as its only subject.* |
+| exactly one subject: Backstage's write identity on this cluster (kiac-dev: User `hangar:kind-prod:tower-actor`; kind-prod: ServiceAccount `backstage/backstage-ingestor`) | *…binds … to Tower's write identity only …* |
 | label `cleanup.kyverno.io/ttl` is `15m`, `30m`, `45m`, `60m` or `75m` | *…carries cleanup.kyverno.io/ttl of 15m to 75m (a session plus its one 15-minute extension).* |
 | the namespace is labelled `hangar.io/app` | *…may only be created in an app namespace (labelled hangar.io/app).* |
 | **Flight only:** a requester annotation, and either an approver annotation that differs from it, or `hangar.io/breakglass-glass-broken: "true"` with no approver | *A Flight break-glass RoleBinding names an approver who is not the requester, or is marked glass broken … with no approver.* |

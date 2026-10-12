@@ -19,7 +19,7 @@ cluster, how to operate it, and why it is built the way it is. If you only use b
 
 ## Architecture
 
-![Deployment: Backstage on kind-prod reaches both clusters as its own ServiceAccount; Ground policies on kiac-dev and Flight policies on kind-prod are native admission policies; recordings go to MinIO on kiac-dev](../diagrams/06-deployment.png)
+![Deployment: Backstage on kind-prod reaches kind-prod as its own ServiceAccount and kiac-dev with a tower-actor token minted per action; Ground policies on kiac-dev and Flight policies on kind-prod are native admission policies; recordings go to MinIO on kiac-dev](../diagrams/06-deployment.png)
 
 | Component | Where | What it does |
 |---|---|---|
@@ -36,15 +36,17 @@ cluster, how to operate it, and why it is built the way it is. If you only use b
 
 ### Identities
 
-Backstage acts on each cluster as its own ServiceAccount, learned at run time with a `SelfSubjectReview` (cached per
-cluster), so the grant's subject is always whoever Backstage really is there:
+Backstage's identity on each cluster is learned at run time with a `SelfSubjectReview` (cached per cluster), so the
+grant's subject is always whoever Backstage really is there:
 
-| Cluster | Tier | Backstage's identity |
-|---|---|---|
-| kiac-dev (`kind-dev` in Backstage's config) | Ground | `system:serviceaccount:backstage-system:backstage-ingestor` |
-| kind-prod | Flight | `system:serviceaccount:backstage:backstage-ingestor` |
+| Cluster | Tier | Backstage's identity | Grant subject |
+|---|---|---|---|
+| kiac-dev (`kind-dev` in Backstage's config) | Ground | `hangar:kind-prod:tower-actor`, a token minted per step ([Cluster credentials](../../credentials/index.md)) | `kind: User` |
+| kind-prod | Flight | `system:serviceaccount:backstage:backstage-ingestor`, in-cluster | `kind: ServiceAccount` |
 
-Both clusters' policies name these usernames literally. A new cluster needs its own (see [Setup](setup.md)).
+Both clusters' policies name these usernames literally. A new cluster needs its own (see [Setup](setup.md)). On
+kiac-dev the token behind each step (activation, attach, state reads, the end) is minted fresh, because a session can
+outlive one 10-minute token.
 
 ### What Backstage can do on a cluster
 
