@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
@@ -6,7 +6,7 @@ import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { relativeTime, formatDateTime } from '../../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { PodLogsView } from '../../PodLogsView';
-import { keepAnchored, preventFocusScroll } from '../../preventFocusScroll';
+import { keepAnchored, preventFocusScroll, scrollPanelIntoView } from '../../preventFocusScroll';
 import { MetricsPanel } from './MetricsPanel';
 import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
@@ -336,6 +336,7 @@ export function PodsPanel({ env, tier, linkedSessionId }: { env: EnvironmentSumm
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState<string | undefined>(env.pods[0]?.name);
+  const podDetailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (selected && env.pods.some(p => p.name === selected)) return;
@@ -361,14 +362,21 @@ export function PodsPanel({ env, tier, linkedSessionId }: { env: EnvironmentSumm
               pod={pod}
               raw={resource?.raw as RawPod | undefined}
               selected={pod.name === selected}
-              onClick={() => setSelected(pod.name)}
+              onClick={() => {
+                setSelected(pod.name);
+                scrollPanelIntoView(() => podDetailRef.current, 120, 'nearest');
+              }}
               classes={classes}
               t={t}
             />
           );
         })}
       </div>
-      {selectedPod && <PodDetail pod={selectedPod} raw={selectedRaw} env={env} tier={tier} classes={classes} linkedSessionId={linkedSessionId} />}
+      {selectedPod && (
+        <div ref={podDetailRef}>
+          <PodDetail pod={selectedPod} raw={selectedRaw} env={env} tier={tier} classes={classes} linkedSessionId={linkedSessionId} />
+        </div>
+      )}
     </div>
   );
 }

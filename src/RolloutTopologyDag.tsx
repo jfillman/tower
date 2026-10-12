@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { dump as dumpYaml } from 'js-yaml';
 import { formatDateTime, relativeTime } from './shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { preventFocusScroll } from './preventFocusScroll';
+import { keepAnchored, preventFocusScroll, useRevealOnChange } from './preventFocusScroll';
 import { PodLogsView } from './PodLogsView';
 import { COL_GAP, NODE_H, NODE_W, PAD, ROW_GAP, usePipelineDagStyles } from './PipelineDag';
 import {
@@ -222,6 +222,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
 
   const [zoom, setZoom] = useState(1);
   const [openId, setOpenId] = useState<string | undefined>(undefined);
+  const nodeDetailRef = useRevealOnChange<HTMLDivElement>(openId);
   const [tab, setTab] = useState<DetailTab>('info');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -363,7 +364,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
               <span>edge % = traffic weight (from Rollout status) · req/s is simulated</span>
             </div>
             {openNode && (
-              <div className={dag.detail}>
+              <div className={dag.detail} ref={nodeDetailRef}>
                 <div className={dag.detailTitleGap}>
                   <SectionTitle level={2}>
                     {openNode.kind}: {openNode.obj.metadata.name}
@@ -371,7 +372,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                 </div>
                 <div className={classes.tabs}>
                   {(['info', 'yaml', 'logs'] as DetailTab[]).map(k => (
-                    <button key={k} type="button" className={`${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ''}`} onMouseDown={preventFocusScroll} onClick={() => setTab(k)}>
+                    <button key={k} type="button" className={`${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => setTab(k))}>
                       {k}
                     </button>
                   ))}

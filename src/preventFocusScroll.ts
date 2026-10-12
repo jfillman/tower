@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 
 // A focusable element's native click-to-focus can trigger scrollIntoView
 // against the wrong ancestor in this page's nested-scroll layout - first
@@ -89,4 +89,24 @@ export function keepAnchored(el: Element | null, change: () => void) {
     requestAnimationFrame(settle);
     requestAnimationFrame(() => requestAnimationFrame(settle));
   });
+}
+
+/**
+ * A ref for a detail panel that opens below the thing that was clicked: whenever `key` changes to a value (a stage, a
+ * resource, a pod, `true` for a show/hide toggle), the panel is scrolled into view - with `nearest`, so the page moves
+ * only as far as it must (2026-10-12: "any link that opens a detailed panel view should scroll down to show that view";
+ * the All resources detail "most often" opened off screen). Nothing happens on first render or when `key` clears.
+ */
+export function useRevealOnChange<T extends Element>(key: unknown): RefObject<T> {
+  const ref = useRef<T>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (key === null || key === undefined || key === false) return;
+    scrollPanelIntoView(() => ref.current, 120, 'nearest');
+  }, [key]);
+  return ref;
 }
