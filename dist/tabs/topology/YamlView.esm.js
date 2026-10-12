@@ -5,7 +5,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { JsonNode } from '../../ResourceInspector.esm.js';
-import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
+import { preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
 import '../../ui/index.esm.js';
 import { CopyButton, YamlBlock } from '../../ui/YamlBlock.esm.js';
 
@@ -98,8 +98,8 @@ function YamlView({ resource }) {
       /* @__PURE__ */ jsx("span", { className: classes.kind, children: resource.kind }),
       /* @__PURE__ */ jsx("span", { className: classes.name, children: resource.name }),
       /* @__PURE__ */ jsx("span", { className: classes.spacer }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "yaml" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => switchMode("yaml"), children: "YAML" }),
-      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "tree" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: () => switchMode("tree"), children: "Structured" }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "yaml" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => switchMode("yaml")), children: "YAML" }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.modeBtn} ${mode === "tree" ? classes.modeBtnActive : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => switchMode("tree")), children: "Structured" }),
       /* @__PURE__ */ jsx(CopyButton, { text: yamlText })
     ] }),
     resource.kind === "Secret" && /* @__PURE__ */ jsx(Typography, { className: classes.secretNote, children: "Values redacted below - this is a real Secret, not a preview of one." }),

@@ -1,3 +1,5 @@
+import { useRef, useEffect } from 'react';
+
 function preventFocusScroll(e) {
   e.preventDefault();
 }
@@ -44,6 +46,19 @@ function keepAnchored(el, change) {
     requestAnimationFrame(() => requestAnimationFrame(settle));
   });
 }
+function useRevealOnChange(key) {
+  const ref = useRef(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (key === null || key === void 0 || key === false) return;
+    scrollPanelIntoView(() => ref.current, 120, "nearest");
+  }, [key]);
+  return ref;
+}
 
-export { keepAnchored, keepScrollPosition, preventFocusScroll, scrollPanelIntoView };
+export { keepAnchored, keepScrollPosition, preventFocusScroll, scrollPanelIntoView, useRevealOnChange };
 //# sourceMappingURL=preventFocusScroll.esm.js.map

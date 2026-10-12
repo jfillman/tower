@@ -1,5 +1,6 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
+import { useRevealOnChange } from './preventFocusScroll.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import Collapse from '@material-ui/core/Collapse';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
@@ -49,6 +50,7 @@ function EnvironmentTopology({
   const h = health(env);
   const stages = buildTopoStages(env);
   const [selectedStage, setSelectedStage] = useState(linkedSessionId ? "pods" : "workload");
+  const stageDetailRef = useRevealOnChange(selectedStage);
   useEffect(() => {
     setSelectedStage(linkedSessionId ? "pods" : "workload");
   }, [env.key, linkedSessionId]);
@@ -93,7 +95,7 @@ function EnvironmentTopology({
     /* @__PURE__ */ jsxs("div", { className: classes.dagCard, children: [
       /* @__PURE__ */ jsx("div", { className: classes.dagInner, children: /* @__PURE__ */ jsx(TopoDag, { stages, selectedKey: selectedStage, onSelectKey: setSelectedStage, t }) }),
       /* @__PURE__ */ jsx("hr", { className: classes.dagDivider }),
-      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, tier, selectedKey: selectedStage, linkedSessionId }) })
+      /* @__PURE__ */ jsx("div", { className: classes.stageDetailInner, ref: stageDetailRef, children: /* @__PURE__ */ jsx(TopologyStageDetail, { env, tier, selectedKey: selectedStage, linkedSessionId }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsxs(FilterGroup, { label: "Show", children: [

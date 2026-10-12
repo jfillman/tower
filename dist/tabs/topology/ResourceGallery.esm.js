@@ -22,7 +22,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import ShowChartIcon from '@material-ui/icons/ShowChart';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
+import { useRevealOnChange, preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { RbacDetailView, RBAC_KINDS } from './RbacDetailView.esm.js';
 import { resourceKey } from '../../ResourceInspector.esm.js';
@@ -122,6 +122,7 @@ function ResourceGallery({ resources, argoResources }) {
   const classes = useStyles({ t });
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState(null);
+  const detailRef = useRevealOnChange(selectedKey);
   const filtered = resources.filter((r) => {
     if (!query) return true;
     const q = query.toLowerCase();
@@ -190,7 +191,7 @@ function ResourceGallery({ resources, argoResources }) {
         }) })
       ] }, kind);
     }),
-    /* @__PURE__ */ jsx(Collapse, { in: Boolean(selected), unmountOnExit: true, children: selected && /* @__PURE__ */ jsx("div", { className: classes.detail, children: isRbacKind(selected.kind) ? /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx(Collapse, { in: Boolean(selected), unmountOnExit: true, children: selected && /* @__PURE__ */ jsx("div", { className: classes.detail, ref: detailRef, children: isRbacKind(selected.kind) ? /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.detailModeRow, children: [
         /* @__PURE__ */ jsx(
           "button",
@@ -198,7 +199,7 @@ function ResourceGallery({ resources, argoResources }) {
             type: "button",
             className: `${classes.detailModeBtn} ${detailMode === "friendly" ? classes.detailModeBtnActive : ""}`,
             onMouseDown: preventFocusScroll,
-            onClick: () => setDetailMode("friendly"),
+            onClick: (e) => keepAnchored(e.currentTarget, () => setDetailMode("friendly")),
             children: "Overview"
           }
         ),
@@ -208,7 +209,7 @@ function ResourceGallery({ resources, argoResources }) {
             type: "button",
             className: `${classes.detailModeBtn} ${detailMode === "yaml" ? classes.detailModeBtnActive : ""}`,
             onMouseDown: preventFocusScroll,
-            onClick: () => setDetailMode("yaml"),
+            onClick: (e) => keepAnchored(e.currentTarget, () => setDetailMode("yaml")),
             children: "YAML"
           }
         )

@@ -1,12 +1,12 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { PodLogsView } from '../../PodLogsView.esm.js';
-import { preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
+import { scrollPanelIntoView, preventFocusScroll, keepAnchored } from '../../preventFocusScroll.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
 import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
@@ -229,6 +229,7 @@ function PodsPanel({ env, tier, linkedSessionId }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [selected, setSelected] = useState(env.pods[0]?.name);
+  const podDetailRef = useRef(null);
   useEffect(() => {
     if (selected && env.pods.some((p) => p.name === selected)) return;
     setSelected(env.pods[0]?.name);
@@ -251,14 +252,17 @@ function PodsPanel({ env, tier, linkedSessionId }) {
           pod,
           raw: resource?.raw,
           selected: pod.name === selected,
-          onClick: () => setSelected(pod.name),
+          onClick: () => {
+            setSelected(pod.name);
+            scrollPanelIntoView(() => podDetailRef.current, 120, "nearest");
+          },
           classes,
           t
         },
         pod.name
       );
     }) }),
-    selectedPod && /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, tier, classes, linkedSessionId })
+    selectedPod && /* @__PURE__ */ jsx("div", { ref: podDetailRef, children: /* @__PURE__ */ jsx(PodDetail, { pod: selectedPod, raw: selectedRaw, env, tier, classes, linkedSessionId }) })
   ] });
 }
 

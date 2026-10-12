@@ -7,7 +7,7 @@ import LayersIcon from '@material-ui/icons/Layers';
 import AppsIcon from '@material-ui/icons/Apps';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { preventFocusScroll } from '../../preventFocusScroll.esm.js';
+import { useRevealOnChange, preventFocusScroll } from '../../preventFocusScroll.esm.js';
 import { CanaryRampChart } from '../../CanaryRampChart.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { MetricsPanel } from './MetricsPanel.esm.js';
@@ -78,6 +78,7 @@ const useStyles = makeStyles(() => ({
 function RouteDetail({ env, classes, t }) {
   const routeResource = findResource(env.resources, "HTTPRoute", env.appName ?? "") ?? env.resources.find((r) => r.kind === "HTTPRoute" || r.kind === "Ingress");
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange(showYaml);
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(RouterIcon, { fontSize: "small" }) }),
@@ -100,13 +101,15 @@ function RouteDetail({ env, classes, t }) {
     ] }),
     routeResource && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(TextLink, { expanded: showYaml, onClick: () => setShowYaml((v) => !v), children: "Route YAML" }),
-      showYaml && /* @__PURE__ */ jsx(YamlView, { resource: routeResource })
+      showYaml && /* @__PURE__ */ jsx("div", { ref: yamlRef, children: /* @__PURE__ */ jsx(YamlView, { resource: routeResource }) })
     ] })
   ] });
 }
 function ServiceDetail({ env, classes }) {
   const [selected, setSelected] = useState(env.services.length === 1 ? env.services[0].name : null);
+  const serviceDetailRef = useRevealOnChange(selected);
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange(showYaml);
   const selectedResource = selected ? findResource(env.resources, "Service", selected) : void 0;
   return /* @__PURE__ */ jsxs("div", { className: classes.body, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
@@ -139,15 +142,16 @@ function ServiceDetail({ env, classes }) {
           svc.name
         );
       }) }),
-      selectedResource && /* @__PURE__ */ jsxs(Fragment, { children: [
+      selectedResource && /* @__PURE__ */ jsxs("div", { ref: serviceDetailRef, children: [
         /* @__PURE__ */ jsx(TextLink, { expanded: showYaml, onClick: () => setShowYaml((v) => !v), children: "Service YAML" }),
-        showYaml && /* @__PURE__ */ jsx("div", { className: classes.fullWidthDetail, children: /* @__PURE__ */ jsx(YamlView, { resource: selectedResource }) })
+        showYaml && /* @__PURE__ */ jsx("div", { className: classes.fullWidthDetail, ref: yamlRef, children: /* @__PURE__ */ jsx(YamlView, { resource: selectedResource }) })
       ] })
     ] })
   ] });
 }
 function WorkloadDetail({ env, classes }) {
   const [showYaml, setShowYaml] = useState(false);
+  const yamlRef = useRevealOnChange(showYaml);
   const workload = env.workload;
   const workloadResource = workload ? findResource(env.resources, workload.kind, workload.name) : void 0;
   const podNames = env.pods.map((p) => p.name);
@@ -217,7 +221,7 @@ function WorkloadDetail({ env, classes }) {
       /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames, title: "Workload performance" }),
       workloadResource && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: showYaml, onClick: () => setShowYaml((v) => !v), children: "Workload YAML" }) }),
-        showYaml && /* @__PURE__ */ jsx(YamlView, { resource: workloadResource })
+        showYaml && /* @__PURE__ */ jsx("div", { ref: yamlRef, children: /* @__PURE__ */ jsx(YamlView, { resource: workloadResource }) })
       ] })
     ] })
   ] });

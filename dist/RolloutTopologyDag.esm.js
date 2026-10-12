@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { dump } from 'js-yaml';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
-import { preventFocusScroll } from './preventFocusScroll.esm.js';
+import { useRevealOnChange, preventFocusScroll, keepAnchored } from './preventFocusScroll.esm.js';
 import { PodLogsView } from './PodLogsView.esm.js';
 import { usePipelineDagStyles, PAD, NODE_H, NODE_W, ROW_GAP, COL_GAP } from './PipelineDag.esm.js';
 import { useRolloutTopology } from './useRolloutTopology.esm.js';
@@ -205,6 +205,7 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
   const { loading, error, topology } = useRolloutTopology(target);
   const [zoom, setZoom] = useState(1);
   const [openId, setOpenId] = useState(void 0);
+  const nodeDetailRef = useRevealOnChange(openId);
   const [tab, setTab] = useState("info");
   const scrollRef = useRef(null);
   const [rps, setRps] = useState(120);
@@ -345,13 +346,13 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
           ] }),
           /* @__PURE__ */ jsx("span", { children: "edge % = traffic weight (from Rollout status) \xB7 req/s is simulated" })
         ] }),
-        openNode && /* @__PURE__ */ jsxs("div", { className: dag.detail, children: [
+        openNode && /* @__PURE__ */ jsxs("div", { className: dag.detail, ref: nodeDetailRef, children: [
           /* @__PURE__ */ jsx("div", { className: dag.detailTitleGap, children: /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
             openNode.kind,
             ": ",
             openNode.obj.metadata.name
           ] }) }),
-          /* @__PURE__ */ jsx("div", { className: classes.tabs, children: ["info", "yaml", "logs"].map((k) => /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ""}`, onMouseDown: preventFocusScroll, onClick: () => setTab(k), children: k }, k)) }),
+          /* @__PURE__ */ jsx("div", { className: classes.tabs, children: ["info", "yaml", "logs"].map((k) => /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ""}`, onMouseDown: preventFocusScroll, onClick: (e) => keepAnchored(e.currentTarget, () => setTab(k)), children: k }, k)) }),
           tab === "info" && /* @__PURE__ */ jsx(FactGrid, { children: kvRows(openNode, topology).map(([k, v]) => /* @__PURE__ */ jsx(Fact, { label: k, children: v }, k)) }),
           tab === "yaml" && /* @__PURE__ */ jsx(YamlBlock, { text: dump(stripNoise(openNode.obj)), maxHeight: 420, filter: true }),
           tab === "logs" && /* @__PURE__ */ jsx(NodeLogs, { node: openNode, cluster, namespace })
