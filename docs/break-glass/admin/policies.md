@@ -103,10 +103,13 @@ An `ImageValidatingPolicy`: the image must carry the cosign **keyless** signatur
 on `main` (issuer `https://token.actions.githubusercontent.com`, the public Fulcio and Rekor). The digest pin in
 `tower-breakglass-debug-container` says *which* build; this says the build came from that workflow. Image verification
 needs Kyverno's admission controller, so this is the one break-glass policy that runs as a webhook, and it fails
-closed; it is therefore scoped twice, `webhookConfiguration.matchConditions` and `matchConditions`, so the webhook
-(validating and mutating: `ivpol.*.kyverno.svc-fail-finegrained-tower-breakglass-debug-image`) sees nothing but those
-two kinds of request. Verified on kiac-dev: a plain pod create is untouched; a copy pod with the signed digest is
-admitted; a tag under the debug repository that does not exist is refused.
+closed; it is therefore scoped: Kyverno copies the policy's `matchConditions` onto the fine-grained webhook pair it
+registers for it (validating and mutating: `ivpol.*.kyverno.svc-fail-finegrained-tower-breakglass-debug-image`), so
+the webhook sees nothing but those two kinds of request. Check it after any change:
+`kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o yaml | grep -B2 -A6 finegrained-tower`.
+(The CRD has no `webhookConfiguration.matchConditions`; setting one is pruned and leaves Argo CD OutOfSync.)
+Verified on both clusters: a plain pod create is untouched; a copy pod with the signed digest is admitted; a tag under
+the debug repository that does not exist is refused.
 
 On Flight this is why kind-prod runs a **slim Kyverno** (`30-policy/kyverno`: admission and cleanup controllers only,
 no background or reports controller): this policy, and the cleanup controller's TTL backstop
