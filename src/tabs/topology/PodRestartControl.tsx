@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { preventFocusScroll } from '../../preventFocusScroll';
 import { useArgoCapabilities } from '../../useReleaseData';
 import type { EnvironmentSummary } from '../../types';
+import { Button } from '../../ui';
 
 // Restart one pod (2026-10-10; backstage /argo/pod-restart). Delegated through Argo CD, which deletes the pod; its
 // ReplicaSet starts a replacement. A delete skips the PodDisruptionBudget, so the backend refuses the last ready pod
@@ -14,13 +14,11 @@ type Step = 'idle' | 'confirm' | 'downtime' | 'busy';
 export function PodRestartControl({
   env,
   podName,
-  buttonClass,
   noteClass,
   badClass,
 }: {
   env: EnvironmentSummary;
   podName: string;
-  buttonClass: string;
   noteClass: string;
   badClass: string;
 }) {
@@ -61,16 +59,13 @@ export function PodRestartControl({
 
   return (
     <>
-      <button
-        type="button"
-        className={buttonClass}
+      <Button small
+        
         disabled={!!blocked || step === 'busy'}
         title={blocked ?? 'Delete this pod so its ReplicaSet starts a new one. Changes nothing in git.'}
-        onMouseDown={preventFocusScroll}
-        onClick={() => setStep('confirm')}
-      >
+        onClick={() => setStep('confirm')}>
         {step === 'busy' ? 'Restarting…' : 'Restart pod'}
-      </button>
+      </Button>
       {(step === 'confirm' || step === 'downtime') && (
         <div data-testid="pod-restart-confirm" style={{ flexBasis: '100%', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className={noteClass}>
@@ -78,20 +73,16 @@ export function PodRestartControl({
               ? `Restart ${podName}? Argo CD deletes it and its ReplicaSet starts a new one. A delete skips the PodDisruptionBudget, so the last ready pod is refused on a Flight environment.`
               : `${message?.text} Restart anyway?`}
           </span>
-          <button type="button" className={buttonClass} onMouseDown={preventFocusScroll} onClick={() => restart(step === 'downtime')}>
+          <Button small onClick={() => restart(step === 'downtime')}>
             {step === 'downtime' ? 'Restart anyway' : 'Restart'}
-          </button>
-          <button
-            type="button"
-            className={buttonClass}
-            onMouseDown={preventFocusScroll}
+          </Button>
+          <Button small
             onClick={() => {
               setStep('idle');
               setMessage(undefined);
-            }}
-          >
+            }}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
       {message && step === 'idle' && (

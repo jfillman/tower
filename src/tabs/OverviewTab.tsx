@@ -14,7 +14,7 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
-import { HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Section, StatusChip } from '../ui';
+import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TextLink } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
 
@@ -84,27 +84,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   monitoringNote: { flex: '1 1 260px' },
   monitoringLinks: { display: 'flex', gap: 14, flexWrap: 'wrap' },
-  monitoringLink: {
-    fontFamily: fontMono,
-    fontSize: 12.5,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    whiteSpace: 'nowrap',
-  },
-  metaCard: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    padding: '16px 20px',
-    marginBottom: 20,
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px 32px',
-  },
-  metaItem: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 140 },
-  metaLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint },
-  metaLink: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky, textDecoration: 'none' },
-  metaValue: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
+  metaCard: { padding: '14px 18px', marginBottom: 20 },
   // A flex row (not a CSS grid) so a release track - see below - can size
   // itself by its own card count instead of an equal share of the row.
   // alignItems: 'stretch' (the flex default, but named here so it doesn't
@@ -262,7 +242,20 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
       transform: 'translateX(-50%)',
     },
   },
-  cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
+  cardName: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' },
+  facts: { display: 'flex', flexDirection: 'column', marginBottom: 10 },
+  rolloutFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 'auto',
+    paddingTop: 10,
+    borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
+  },
+  step: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
+  stepActive: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
   // level (DNS-1123) - capitalizing them for display invented a form the
   // real resource doesn't have. Lowercase here, sentence case kept for
@@ -270,7 +263,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // own pass for the fuller rationale.
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, textTransform: 'lowercase', color: ({ t }) => t.textHi },
   dot: { width: 6, height: 6, borderRadius: '50%', display: 'inline-block' },
-  healthChip: { alignSelf: 'flex-start', marginBottom: 10 },
   flowRow: { marginBottom: 12 },
   pendingPr: { marginBottom: 12 },
   pendingPrLabel: {
@@ -295,38 +287,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textFaint,
     marginBottom: 4,
   },
-  kv: { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '4px 0', borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, fontSize: 12.5 },
-  kvLabel: { color: ({ t }) => t.textFaint },
-  kvValue: { fontFamily: fontMono, color: ({ t }) => t.textHi, textAlign: 'right' },
-  kvLink: {
-    fontFamily: fontMono,
-    fontSize: 12.5,
-    color: ({ t }) => t.sky,
-    textAlign: 'right',
-    textDecoration: 'none',
-    overflowWrap: 'anywhere',
-    '&:hover': { textDecoration: 'underline' },
-  },
-  rolloutLink: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 'auto',
-    paddingTop: 10,
-    borderTop: ({ t }) => `1px solid ${t.lineSoft}`,
-    background: 'none',
-    border: 'none',
-    borderTopWidth: 1,
-    borderTopStyle: 'solid',
-    borderTopColor: ({ t }) => t.lineSoft,
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    cursor: 'pointer',
-    textAlign: 'left',
-  },
-  rolloutLinkPct: { color: ({ t }) => t.amberInk },
   block: { marginTop: 24 },
   // Restored 2026-09-10 - a real preview/PR-env indicator existed on this
   // card once before and got dropped somewhere along the way; the small
@@ -542,14 +502,13 @@ export function OverviewTab() {
         >
           <div className={classes.cardHead}>
             <span className={classes.envName}>{env.env}</span>
+            <StatusChip tone="neutral" dot>
+              Not yet deployed
+            </StatusChip>
           </div>
-          <StatusChip tone="neutral" dot className={classes.healthChip}>
-            Not yet deployed
-          </StatusChip>
-          <div className={classes.kv} style={{ borderBottom: 'none' }}>
-            <span className={classes.kvLabel}>Cluster</span>
-            <span className={classes.kvValue}>{env.cluster || '—'}</span>
-          </div>
+          <Fact inline label="Cluster">
+            {env.cluster || '—'}
+          </Fact>
         </div>
       );
     }
@@ -571,12 +530,14 @@ export function OverviewTab() {
     return (
       <div key={env.key} className={`${classes.card} ${opts?.skipImage ? classes.trackCard : ''}`}>
         <div className={classes.cardHead}>
-          <span className={classes.envName}>{env.env}</span>
-          {isPreviewEnvName(env.env) && <span className={classes.previewBadge}>preview · own build</span>}
+          <span className={classes.cardName}>
+            <span className={classes.envName}>{env.env}</span>
+            {isPreviewEnvName(env.env) && <span className={classes.previewBadge}>preview · own build</span>}
+          </span>
+          <StatusChip tone={healthTone(h)} dot>
+            {HEALTH_LABEL[h]}
+          </StatusChip>
         </div>
-        <StatusChip tone={healthTone(h)} dot className={classes.healthChip}>
-          {HEALTH_LABEL[h]}
-        </StatusChip>
         <div className={classes.flowRow}>
           <MiniFlow stages={scStages} />
         </div>
@@ -592,84 +553,64 @@ export function OverviewTab() {
             <PrButton pr={previewPr} />
           </div>
         )}
-        {env.cloud ? (
-          <div className={classes.kv}>
-            <span className={classes.kvLabel}>{env.cloud.resource?.kind ?? env.cloud.targetLabel}</span>
-            <span className={classes.kvValue}>
+        <div className={classes.facts}>
+          {env.cloud ? (
+            <Fact inline label={env.cloud.resource?.kind ?? env.cloud.targetLabel}>
               {env.cloud.resource ? `${env.cloud.resource.name} · ${env.cloud.resource.region ?? env.cloud.targetLabel}` : env.cloud.targetLabel}
-            </span>
-          </div>
-        ) : (
-          <div className={classes.kv}>
-            <span className={classes.kvLabel}>Cluster / namespace</span>
-            <span className={classes.kvValue}>
-              {env.cluster} / {env.namespace}
-            </span>
-          </div>
-        )}
-        {!opts?.skipImage && (
-          <div className={classes.kv}>
-            <span className={classes.kvLabel}>Image</span>
-            <span className={classes.kvValue}>{imageTag(env.image)}</span>
-          </div>
-        )}
-        {env.cloud ? (
-          env.cloud.consoleUrl && (
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Console</span>
-              <a className={classes.kvLink} href={env.cloud.consoleUrl} target="_blank" rel="noopener noreferrer">
-                {env.cloud.targetLabel}
-              </a>
-            </div>
-          )
-        ) : (
-          <>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Replicas</span>
-              <span className={classes.kvValue}>
+            </Fact>
+          ) : (
+            <>
+              <Fact inline label="Cluster">
+                {env.cluster}
+              </Fact>
+              <Fact inline label="Namespace">
+                {env.namespace}
+              </Fact>
+            </>
+          )}
+          {!opts?.skipImage && (
+            <Fact inline label="Image">
+              {imageTag(env.image)}
+            </Fact>
+          )}
+          {env.cloud ? (
+            env.cloud.consoleUrl && (
+              <Fact inline label="Console">
+                <TextLink href={env.cloud.consoleUrl}>{env.cloud.targetLabel} ↗</TextLink>
+              </Fact>
+            )
+          ) : (
+            <>
+              <Fact inline label="Replicas">
                 {env.availableReplicas ?? '—'} / {env.desiredReplicas ?? '—'}
-              </span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Strategy</span>
-              <span className={classes.kvValue}>{env.strategy ?? '—'}</span>
-            </div>
-          </>
-        )}
-        {env.ingressUrl && (
-          <div className={classes.kv}>
-            <span className={classes.kvLabel}>Route</span>
-            <a
-              className={classes.kvLink}
-              href={env.ingressUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {env.ingressUrl}
-            </a>
-          </div>
-        )}
-        <div className={classes.kv} style={{ borderBottom: 'none' }}>
-          <span className={classes.kvLabel}>Deployed</span>
-          <span className={classes.kvValue} title={formatDateTime(lastDeployedAt(env, deployHistory.data))}>
+              </Fact>
+              <Fact inline label="Strategy">
+                {env.strategy ?? '—'}
+              </Fact>
+            </>
+          )}
+          {env.ingressUrl && (
+            <Fact inline label="Route">
+              <TextLink href={env.ingressUrl}>{env.ingressUrl.replace(/^https?:\/\//, '')} ↗</TextLink>
+            </Fact>
+          )}
+          <Fact inline label="Deployed" title={formatDateTime(lastDeployedAt(env, deployHistory.data))}>
             {relativeTime(lastDeployedAt(env, deployHistory.data))}
-          </span>
+          </Fact>
         </div>
         {/* Preview envs aren't part of the CD panel's promotion order at all
             (isPreviewEnvName filters them out of cdEnvs there) - this link
             would jump to a CI/CD tab env selector that has no such env to
             select (2026-09-12 bug). */}
         {!isPreviewEnvName(env.env) && env.workload?.kind === 'Rollout' && env.workload.canaryProgress && (
-          <button type="button" className={classes.rolloutLink} onClick={() => goToRollout(env.env)}>
-            <span>
-              View rollout
+          <div className={classes.rolloutFooter}>
+            <TextLink onClick={() => goToRollout(env.env)}>View rollout →</TextLink>
+            <span className={env.workload.canaryProgress.currentWeight !== undefined && env.workload.canaryProgress.currentWeight < 100 ? classes.stepActive : classes.step}>
               {env.workload.canaryProgress.currentStepIndex !== undefined &&
-                ` · step ${Math.min(env.workload.canaryProgress.currentStepIndex + 1, env.workload.canaryProgress.steps.length)}/${env.workload.canaryProgress.steps.length}`}
+                `step ${Math.min(env.workload.canaryProgress.currentStepIndex + 1, env.workload.canaryProgress.steps.length)}/${env.workload.canaryProgress.steps.length}`}
+              {env.workload.canaryProgress.currentWeight !== undefined && ` · ${env.workload.canaryProgress.currentWeight}%`}
             </span>
-            {env.workload.canaryProgress.currentWeight !== undefined && (
-              <span className={classes.rolloutLinkPct}>{env.workload.canaryProgress.currentWeight}% traffic &rarr;</span>
-            )}
-          </button>
+          </div>
         )}
       </div>
     );
@@ -704,40 +645,23 @@ export function OverviewTab() {
           <span className={classes.notifLink}>View →</span>
         </div>
       )}
-      <div className={classes.metaCard}>
-        <div className={classes.metaItem}>
-          <span className={classes.metaLabel}>Source repo</span>
-          {sourceUrl ? (
-            <a className={classes.metaLink} href={sourceUrl} target="_blank" rel="noopener noreferrer">
-              {sourceRepo!.owner}/{sourceRepo!.repo}
-            </a>
-          ) : (
-            <span className={classes.metaValue}>—</span>
-          )}
-        </div>
-        <div className={classes.metaItem}>
-          <span className={classes.metaLabel}>GitOps repo</span>
-          {gitopsUrl ? (
-            <a className={classes.metaLink} href={gitopsUrl} target="_blank" rel="noopener noreferrer">
-              gitops-{appName}
-            </a>
-          ) : (
-            <span className={classes.metaValue}>—</span>
-          )}
-        </div>
-        <div className={classes.metaItem}>
-          <span className={classes.metaLabel}>Owner</span>
-          <span className={classes.metaValue}>{(entity.spec?.owner as string | undefined) ?? '—'}</span>
-        </div>
-        <div className={classes.metaItem}>
-          <span className={classes.metaLabel}>System</span>
-          <span className={classes.metaValue}>{(entity.spec?.system as string | undefined) ?? '—'}</span>
-        </div>
-        <div className={classes.metaItem}>
-          <span className={classes.metaLabel}>Lifecycle</span>
-          <span className={classes.metaValue}>{(entity.spec?.lifecycle as string | undefined) ?? '—'}</span>
-        </div>
-      </div>
+      <Panel className={classes.metaCard}>
+        <FactGrid min={150}>
+          <Fact label="Source repo">
+            {sourceUrl ? (
+              <TextLink href={sourceUrl}>
+                {sourceRepo!.owner}/{sourceRepo!.repo} ↗
+              </TextLink>
+            ) : (
+              '—'
+            )}
+          </Fact>
+          <Fact label="GitOps repo">{gitopsUrl ? <TextLink href={gitopsUrl}>gitops-{appName} ↗</TextLink> : '—'}</Fact>
+          <Fact label="Owner">{(entity.spec?.owner as string | undefined) ?? '—'}</Fact>
+          <Fact label="System">{(entity.spec?.system as string | undefined) ?? '—'}</Fact>
+          <Fact label="Lifecycle">{(entity.spec?.lifecycle as string | undefined) ?? '—'}</Fact>
+        </FactGrid>
+      </Panel>
 
       {pipelineEnvs.length === 0 ? (
         <TowerEmptyState
@@ -847,15 +771,9 @@ export function OverviewTab() {
             .map(cluster => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] }))
             .filter((c): c is { cluster: string; host: string } => Boolean(c.host))
             .map(({ cluster, host }) => (
-              <a
-                key={cluster}
-                className={classes.monitoringLink}
-                href={`http://${host}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <TextLink key={cluster} href={`http://${host}`}>
                 Open Grafana ({cluster}) ↗
-              </a>
+              </TextLink>
             ))}
         </div>
       </div>

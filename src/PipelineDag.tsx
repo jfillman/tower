@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -13,11 +12,11 @@ import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import CloseIcon from '@material-ui/icons/Close';
 import { dump as dumpYaml } from 'js-yaml';
 import { formatDateTime, relativeTime } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TaskRunLogConsole, stepDuration } from './TaskRunLogConsole';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/types';
-import { EmptyNote } from './ui';
+import { EmptyNote, Fact, FactGrid, SectionTitle } from './ui';
 
 // The one piece of the Tekton plugin the user actually wants adopted here
 // (2026-09-11: "the only part of the tekton plugin that i want incorporated
@@ -215,11 +214,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 2px 0', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 6 },
   detail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8 },
-  detailTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13.5, marginBottom: 8, color: ({ t }) => t.textHi },
-  detailGrid: { display: 'flex', flexWrap: 'wrap', gap: '10px 22px', marginBottom: 8 },
-  detailGridItem: { flex: '1 1 140px' },
-  kvLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, display: 'block' },
-  kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
+  detailTitleGap: { marginBottom: 8 },
   archivedTag: {
     marginLeft: 8,
     padding: '1px 6px',
@@ -570,9 +565,7 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
           {(run.params.length > 0 || run.results.length > 0) && (
             <div className={classes.pipelineDetail}>
               <div className={classes.pipelineDetailHead}>
-                <Typography className={classes.detailTitle} style={{ marginBottom: 0 }}>
-                  Pipeline
-                </Typography>
+                <SectionTitle level={2}>Pipeline</SectionTitle>
                 <button type="button" className={classes.utilBtn} onClick={() => setPipelineIoOpen(v => !v)}>
                   {pipelineIoOpen ? <ExpandLessIcon style={{ fontSize: 14 }} /> : <ExpandMoreIcon style={{ fontSize: 14 }} />}
                   {pipelineIoOpen ? 'Hide inputs & results' : 'Show inputs & results'}
@@ -612,32 +605,19 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
           )}
           {openTask && (
             <div className={classes.detail}>
-              <Typography className={classes.detailTitle}>{openTask.label}</Typography>
-              <div className={classes.detailGrid}>
-                <div className={classes.detailGridItem}>
-                  <span className={classes.kvLabel}>Duration</span>
-                  <span className={classes.kvValue}>
-                    {openTaskRun ? taskDuration(openTaskRun.startTime, openTaskRun.completionTime) : '—'}
-                  </span>
-                </div>
+              <div className={classes.detailTitleGap}><SectionTitle level={2}>{openTask.label}</SectionTitle></div>
+              <FactGrid>
+                <Fact label="Duration">{openTaskRun ? taskDuration(openTaskRun.startTime, openTaskRun.completionTime) : '—'}</Fact>
                 {/* The Task field only earns its place when the referenced Task
                     resource's name actually differs from this pipeline task's
                     own name - the two are usually identical (confirmed live:
                     "build-image"/"build-image"), which just repeated the title
                     right above it (2026-09-11 bug report). */}
                 {openTaskDef?.taskRefName && openTaskDef.taskRefName !== openTask.label && (
-                  <div className={classes.detailGridItem}>
-                    <span className={classes.kvLabel}>Task</span>
-                    <span className={classes.kvValue}>{openTaskDef.taskRefName}</span>
-                  </div>
+                  <Fact label="Task">{openTaskDef.taskRefName}</Fact>
                 )}
-                <div className={classes.detailGridItem}>
-                  <span className={classes.kvLabel}>Result</span>
-                  <span className={classes.kvValue} title={openTaskRun?.message}>
-                    {taskResultText(openTaskRun, openTask.phase)}
-                  </span>
-                </div>
-              </div>
+                <Fact label="Result" title={openTaskRun?.message}>{taskResultText(openTaskRun, openTask.phase)}</Fact>
+              </FactGrid>
               {openTaskRun?.startTime && (
                 <EmptyNote>
                   Started {relativeTime(openTaskRun.startTime)} &middot; {formatDateTime(openTaskRun.startTime)}

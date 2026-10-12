@@ -9,6 +9,7 @@ import { buildEvents } from './events';
 import type { HistoryRun } from './provisioningHistory';
 import { relativeTime } from '../shared/format';
 import { fmtDuration, type ProvisioningItem } from './shared';
+import { TextLink } from '../ui';
 
 // Bar scale: the longest typical step (the first build) fits with headroom.
 const SCALE_SEC = 180;
@@ -135,16 +136,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '2px 8px',
     cursor: 'pointer',
     '&:disabled': { opacity: 0.6, cursor: 'default' },
-  },
-  link: {
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 3,
-    padding: '2px 7px',
-    '&:hover': { borderColor: ({ t }) => t.sky },
   },
   events: {
     fontFamily: fontMono,
@@ -376,10 +367,10 @@ function Step({
         {step.links && step.links.length > 0 && (
           <div className={classes.links}>
             {step.links.map(l => (
-              <a key={l.url} className={classes.link} href={l.url} target="_blank" rel="noopener noreferrer">
+              <TextLink key={l.url} href={l.url}>
                 {l.label}
                 {l.state && <span className={classes.linkState}>{l.state}</span>}
-              </a>
+              </TextLink>
             ))}
           </div>
         )}

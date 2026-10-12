@@ -6,7 +6,7 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { EmptyNote, PageHeader, StatusChip } from '../ui';
+import { EmptyNote, PageHeader, StatusChip, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
@@ -93,7 +93,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   windowBar: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', gap: 4 },
   windowBarFill: { width: '100%', maxWidth: 22, borderRadius: '2px 2px 0 0' },
   windowLabel: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint },
-  detailsToggle: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, marginTop: 4 },
   query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre' },
 }));
 
@@ -425,9 +424,9 @@ function SloCard({
             })}
           </div>
 
-          <button type="button" className={classes.detailsToggle} onClick={() => setShowDetails(s => !s)}>
-            {showDetails ? 'hide' : 'show'} indicator definition
-          </button>
+          <TextLink expanded={showDetails} onClick={() => setShowDetails(s => !s)}>
+            Indicator definition
+          </TextLink>
           {showDetails && (
             <div className={classes.query}>
               metric: {slo.indicator.metric}

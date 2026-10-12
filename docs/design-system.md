@@ -22,6 +22,14 @@ its own title, chip, table header and button styles with slightly different numb
   `inset` adds the panel padding when the note sits straight inside a framed Section. `Count` is the mono count
   beside a title or at the end of a filter bar ("3 open", "39 images").
 - **Refresh** is an action: `RefreshButton` is a small kit `Button`.
+- **Facts.** A label over its value is a `Fact` (label = the ColumnLabel look, value 12.5px mono); several go in a
+  `FactGrid` (`row` for a strip that sizes to its content). `Fact inline` puts label and value on one ruled row, as in
+  an environment card.
+- **Tables.** `useTableKit()` gives `table`, `th` (the ColumnLabel look), `td`, `rowLink` (a row that opens
+  something) and `rowSelected`; add `dense` to the table inside a small panel (events, the ArgoCD resource tree).
+- **Links, again.** No hand-rolled sky text: a link is `TextLink`; a show/hide is `TextLink expanded`; anything that
+  changes something (Copy, Extend, End session, Restart pod) is a small `Button`; a switch between views (a pod's
+  Logs / Metrics / YAML) is a `FilterChip`.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 
   | Kind | Does | Looks like | Kit |
@@ -51,7 +59,7 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Kit
 
-`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
+`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
 `FilterBar`, `FilterChips`, `FilterChip`, `FilterGroup`, `FilterSelect`, `SearchField`, `TextLink`, `Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 

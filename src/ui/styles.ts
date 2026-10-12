@@ -272,3 +272,66 @@ export const useSection = makeStyles<Theme, { t: HangarTokens }>(() => ({
   hint: { margin: 0, fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textLo },
   inset: { padding: '12px 18px' },
 }));
+
+// Label/value facts and tables: the label is always the ColumnLabel look (10.5px mono caps, textLo), a value is 12.5px
+// mono; a table has one header look, one cell padding and one row hover. Its own hook for the same reason as
+// useControls.
+const columnLabelLook = {
+  fontFamily: fontMono,
+  fontWeight: 500,
+  fontSize: 10.5,
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase' as const,
+};
+export const useData = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  factGrid: { display: 'grid', gap: '12px 24px', minWidth: 0 },
+  factRow: { display: 'flex', flexWrap: 'wrap' },
+  fact: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
+  factInline: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 12,
+    padding: '5px 0',
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    '&:last-child': { borderBottom: 'none' },
+  },
+  factLabel: { ...columnLabelLook, color: ({ t }) => t.textLo, whiteSpace: 'nowrap' },
+  factValue: { fontFamily: fontMono, fontSize: 12.5, lineHeight: 1.4, color: ({ t }) => t.textHi, overflowWrap: 'anywhere', minWidth: 0 },
+  factValueInline: { textAlign: 'right' },
+  table: { width: '100%', borderCollapse: 'collapse', '& tbody tr:last-child td': { borderBottom: 'none' } },
+  th: {
+    ...columnLabelLook,
+    textAlign: 'left',
+    color: ({ t }) => t.textLo,
+    padding: '8px 14px',
+    borderBottom: ({ t }) => `1px solid ${t.line}`,
+    whiteSpace: 'nowrap',
+    '&:first-child': { paddingLeft: 18 },
+    '&:last-child': { paddingRight: 18 },
+  },
+  td: {
+    fontFamily: fontBody,
+    fontSize: 13,
+    padding: '9px 14px',
+    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
+    color: ({ t }) => t.textHi,
+    verticalAlign: 'middle',
+    '&:first-child': { paddingLeft: 18 },
+    '&:last-child': { paddingRight: 18 },
+  },
+  rowLink: { cursor: 'pointer', '&:hover': { backgroundColor: ({ t }) => t.panelAlt } },
+  rowSelected: { backgroundColor: ({ t }) => t.panelAlt },
+  // Inside a small panel (events, the ArgoCD resource tree, RBAC): no side padding, mono cells.
+  dense: {
+    '& th': { padding: '4px 12px 6px 0', '&:first-child': { paddingLeft: 0 }, '&:last-child': { paddingRight: 0 } },
+    '& td': {
+      padding: '6px 12px 6px 0',
+      fontFamily: fontMono,
+      fontSize: 12,
+      verticalAlign: 'top',
+      '&:first-child': { paddingLeft: 0 },
+      '&:last-child': { paddingRight: 0 },
+    },
+  },
+}));

@@ -8,6 +8,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../..
 import { JsonNode } from '../../ResourceInspector';
 import { preventFocusScroll } from '../../preventFocusScroll';
 import type { K8sResourceRef } from '../../types';
+import { Button } from '../../ui';
 
 // Item 4's "better yaml viewer" - the old ResourceYamlView only ever showed
 // a collapsible JS-object tree (JsonNode), which reads as JSON with colons,
@@ -117,20 +118,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
   },
   modeBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
-  copyBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '3px 9px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: 'none',
-    color: ({ t }) => t.textFaint,
-    cursor: 'pointer',
-    '&:hover': { color: ({ t }) => t.sky },
-  },
   secretNote: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
   search: {
     fontFamily: fontMono,
@@ -250,10 +237,10 @@ export function YamlView({ resource }: { resource: K8sResourceRef }) {
         <button type="button" className={`${classes.modeBtn} ${mode === 'tree' ? classes.modeBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={() => switchMode('tree')}>
           Structured
         </button>
-        <button type="button" className={classes.copyBtn} onMouseDown={preventFocusScroll} onClick={copy}>
+        <Button small onClick={copy} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <FileCopyOutlinedIcon style={{ fontSize: 13 }} />
-          {copied ? 'copied' : 'copy'}
-        </button>
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
       </div>
       {resource.kind === 'Secret' && (
         <Typography className={classes.secretNote}>Values redacted below - this is a real Secret, not a preview of one.</Typography>

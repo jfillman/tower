@@ -11,7 +11,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Chip, EmptyNote, PageHeader, StatusChip, type StatusTone } from '../ui';
+import { Chip, EmptyNote, PageHeader, StatusChip, type StatusTone, TextLink, useTableKit } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -22,13 +22,6 @@ import { Chip, EmptyNote, PageHeader, StatusChip, type StatusTone } from '../ui'
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { paddingBottom: 40 },
   resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
-  link: {
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    '&:hover': { textDecoration: 'underline' },
-  },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginBottom: 22 },
   card: {
     background: ({ t }) => t.panel,
@@ -48,29 +41,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   big: { fontFamily: fontMono, fontSize: 15, color: ({ t }) => t.textHi, wordBreak: 'break-all' },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: {
-    textAlign: 'left',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    color: ({ t }) => t.textFaint,
-    padding: '6px 10px',
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-  },
-  td: { padding: '9px 10px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12.5 },
-  linkBtn: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.sky,
-    '&:hover': { textDecoration: 'underline' },
-  },
 }));
 
 const PHASE_LABEL: Record<string, string> = {
@@ -88,6 +59,7 @@ function duration(sec?: number): string {
 }
 
 export function CloudDeploymentsTab() {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { entity } = useEntity();
@@ -154,14 +126,9 @@ export function CloudDeploymentsTab() {
               </span>
             )}
             {deploys.find(d => d.consoleUrl)?.consoleUrl && (
-              <a
-                className={classes.link}
-                href={deploys.find(d => d.consoleUrl)!.consoleUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <TextLink href={deploys.find(d => d.consoleUrl)!.consoleUrl}>
                 open in console ↗
-              </a>
+              </TextLink>
             )}
           </>
         }
@@ -190,9 +157,9 @@ export function CloudDeploymentsTab() {
             <div className={classes.big}>{inFlight.imageTag ?? inFlight.imageRef ?? 'unknown image'}</div>
             <div className={classes.sub}>
               started {relativeTime(inFlight.startTime)} ·{' '}
-              <button type="button" className={classes.linkBtn} onClick={() => openRun(inFlight.runName)}>
+              <TextLink onClick={() => openRun(inFlight.runName)}>
                 watch the run
-              </button>
+              </TextLink>
             </div>
           </div>
         )}
@@ -209,42 +176,42 @@ export function CloudDeploymentsTab() {
               {current
                 ? `The service may still be running ${current.imageTag ?? 'the previous image'}.`
                 : 'Nothing has been deployed successfully.'}{' '}
-              <button type="button" className={classes.linkBtn} onClick={() => openRun(latestFailure.runName)}>
+              <TextLink onClick={() => openRun(latestFailure.runName)}>
                 open the run and its logs
-              </button>
+              </TextLink>
             </div>
           </div>
         )}
       </div>
 
-      <table className={classes.table}>
+      <table className={tc.table}>
         <thead>
           <tr>
-            <th className={classes.th}>Result</th>
-            <th className={classes.th}>Image</th>
-            <th className={classes.th}>Environment</th>
-            <th className={classes.th}>Started</th>
-            <th className={classes.th}>Took</th>
-            <th className={classes.th} />
+            <th className={tc.th}>Result</th>
+            <th className={tc.th}>Image</th>
+            <th className={tc.th}>Environment</th>
+            <th className={tc.th}>Started</th>
+            <th className={tc.th}>Took</th>
+            <th className={tc.th} />
           </tr>
         </thead>
         <tbody>
           {deploys.map(d => (
             <tr key={d.runName}>
-              <td className={classes.td}>{pill(d)}</td>
-              <td className={`${classes.td} ${classes.mono}`}>
+              <td className={tc.td}>{pill(d)}</td>
+              <td className={`${tc.td} ${classes.mono}`}>
                 {d.imageTag ?? d.imageRef ?? '—'}
                 {d.flowSlug ? ` (${d.flowSlug})` : ''}
               </td>
-              <td className={`${classes.td} ${classes.mono}`}>{d.env ?? '—'}</td>
-              <td className={classes.td} title={formatDateTime(d.startTime)}>
+              <td className={`${tc.td} ${classes.mono}`}>{d.env ?? '—'}</td>
+              <td className={tc.td} title={formatDateTime(d.startTime)}>
                 {relativeTime(d.startTime)}
               </td>
-              <td className={classes.td}>{duration(d.durationSec)}</td>
-              <td className={classes.td}>
-                <button type="button" className={classes.linkBtn} onClick={() => openRun(d.runName)}>
+              <td className={tc.td}>{duration(d.durationSec)}</td>
+              <td className={tc.td}>
+                <TextLink onClick={() => openRun(d.runName)}>
                   open run
-                </button>
+                </TextLink>
               </td>
             </tr>
           ))}

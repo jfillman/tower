@@ -8,7 +8,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
-import { EmptyNote, PageHeader, Section, StatusChip } from '../ui';
+import { EmptyNote, Hint, PageHeader, Section, StatusChip, TextLink, useTableKit } from '../ui';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -49,27 +49,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.skySoft,
     color: ({ t }) => t.sky,
   },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    textAlign: 'left',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    color: ({ t }) => t.textFaint,
-    padding: '10px 20px',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-  },
-  row: {
-    cursor: 'pointer',
-    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
-  },
-  td: {
-    padding: '10px 20px',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    fontSize: 13,
-    color: ({ t }) => t.textHi,
-  },
   mono: { fontFamily: fontMono, fontSize: 12 },
   prNum: { color: ({ t }) => t.sky },
   targetPill: {
@@ -97,8 +76,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     color: ({ t }) => t.textFaint,
   },
-  overflowNote: { fontSize: 12.5, padding: '10px 20px' },
-  link: { color: ({ t }) => t.sky, textDecoration: 'none' },
   repoBadge: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -161,15 +138,16 @@ function PrTable({
   classes: ReturnType<typeof useStyles>;
   showPreviewChip?: boolean;
 }) {
+  const tc = useTableKit();
   if (prs.length === 0) return <EmptyNote inset>{emptyMessage}</EmptyNote>;
   return (
-    <table className={classes.table}>
+    <table className={tc.table}>
       <thead>
         <tr>
-          <th className={classes.th}>#</th>
-          <th className={classes.th}>{variant === 'gitops' ? 'Target' : 'Title'}</th>
-          <th className={classes.th}>Author</th>
-          <th className={classes.th}>Updated</th>
+          <th className={tc.th}>#</th>
+          <th className={tc.th}>{variant === 'gitops' ? 'Target' : 'Title'}</th>
+          <th className={tc.th}>Author</th>
+          <th className={tc.th}>Updated</th>
         </tr>
       </thead>
       <tbody>
@@ -178,17 +156,17 @@ function PrTable({
           return (
             <tr
               key={`${pr.repo}-${pr.number}`}
-              className={`${classes.row} ${stale ? classes.stale : ''}`}
+              className={`${tc.rowLink} ${stale ? classes.stale : ''}`}
               onClick={() => window.open(pr.url, '_blank', 'noopener,noreferrer')}
             >
-              <td className={`${classes.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
-              <td className={classes.td}>
+              <td className={`${tc.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
+              <td className={tc.td}>
                 {variant === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
                 {pr.draft && <StatusChip tone="neutral">draft</StatusChip>}
                 {showPreviewChip && hasPreviewLabel(pr) && <span className={classes.draftChip}>preview</span>}
               </td>
-              <td className={`${classes.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
-              <td className={classes.td}>
+              <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
+              <td className={tc.td}>
                 {relativeTime(pr.updatedAt)}
                 {stale && ' · stale'}
               </td>
@@ -207,31 +185,32 @@ function PrTable({
 // gitops/source tables) since by the time a PR has merged, which repo it
 // was on matters less than just "what happened recently".
 function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: ReturnType<typeof useStyles> }) {
+  const tc = useTableKit();
   if (prs.length === 0) return <EmptyNote inset>Nothing merged recently.</EmptyNote>;
   return (
-    <table className={classes.table}>
+    <table className={tc.table}>
       <thead>
         <tr>
-          <th className={classes.th}>#</th>
-          <th className={classes.th}>Title</th>
-          <th className={classes.th}>Author</th>
-          <th className={classes.th}>Merged</th>
+          <th className={tc.th}>#</th>
+          <th className={tc.th}>Title</th>
+          <th className={tc.th}>Author</th>
+          <th className={tc.th}>Merged</th>
         </tr>
       </thead>
       <tbody>
         {prs.map(pr => (
           <tr
             key={`${pr.repo}-${pr.number}`}
-            className={classes.row}
+            className={tc.rowLink}
             onClick={() => window.open(pr.url, '_blank', 'noopener,noreferrer')}
           >
-            <td className={`${classes.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
-            <td className={classes.td}>
+            <td className={`${tc.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
+            <td className={tc.td}>
               <span className={classes.repoBadge}>{pr.repo}</span>
               {pr.repo === 'gitops' || pr.releasePin ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
             </td>
-            <td className={`${classes.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
-            <td className={classes.td}>
+            <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
+            <td className={tc.td}>
               <span className={classes.mergedMark}>
                 <CheckIcon style={{ fontSize: 14 }} /> {relativeTime(pr.mergedAt ?? pr.updatedAt)}
               </span>
@@ -322,16 +301,11 @@ export function PullRequestsTab() {
       <Section framed title="Source PRs" meta={<span className={classes.chip}>{appName}</span>} count={`${sourcePrsRaw.length} open`}>
         <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} />
         {overflowCount > 0 && (
-          <div className={classes.overflowNote}>
-            <a
-              className={classes.link}
-              href={`https://github.com/${owner}/${appName}/pulls`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+          <Hint inset>
+            <TextLink href={`https://github.com/${owner}/${appName}/pulls`}>
               +{overflowCount} more open PR{overflowCount === 1 ? '' : 's'} on GitHub
-            </a>
-          </div>
+            </TextLink>
+          </Hint>
         )}
       </Section>
 

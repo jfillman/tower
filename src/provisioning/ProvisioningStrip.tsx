@@ -2,6 +2,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { fmtDuration, stateLabel, type ProvisioningItem } from './shared';
+import { TextLink } from '../ui';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   strip: {
@@ -39,16 +40,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 10,
     backgroundColor: ({ t }) => t.amber,
     color: ({ t }) => t.bg,
-  },
-  link: {
-    fontFamily: fontMono,
-    fontSize: 12,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    '&:hover': { textDecoration: 'underline' },
   },
   row: {
     display: 'grid',
@@ -151,9 +142,9 @@ export function ProvisioningStrip({ items, onOpen }: { items: ProvisioningItem[]
         <span className={classes.label}>
           In flight <span className={classes.badge}>{items.length}</span>
         </span>
-        <button type="button" className={classes.link} onClick={() => onOpen(items[0].inputs.xr.name)}>
+        <TextLink onClick={() => onOpen(items[0].inputs.xr.name)}>
           View all in Provisioning →
-        </button>
+        </TextLink>
       </div>
       {items.map(item => {
         const { derived, inputs } = item;

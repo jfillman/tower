@@ -4,8 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { preventFocusScroll } from './preventFocusScroll';
-import { EmptyNote, FilterChip, FilterSelect, SectionTitle } from './ui';
+import { Button, EmptyNote, FilterChip, FilterSelect, SectionTitle } from './ui';
 
 // Item 6: "Pod logs". kubernetesProxyApiRef.getPodLogs handles cluster
 // auth/routing the same way NamespaceEvents' proxy() call does - confirmed
@@ -16,15 +15,6 @@ import { EmptyNote, FilterChip, FilterSelect, SectionTitle } from './ui';
 // full-history log browser.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' },
-  refresh: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    marginLeft: 'auto',
-  },
   liveBadge: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -150,9 +140,9 @@ export function PodLogsView({
             live
           </span>
         ) : (
-          <button type="button" className={classes.refresh} onMouseDown={preventFocusScroll} onClick={() => setNonce(n => n + 1)}>
-            ↻ refresh
-          </button>
+          <Button small onClick={() => setNonce(n => n + 1)}>
+            ↻ Refresh
+          </Button>
         )}
       </div>
       {state.loading && <EmptyNote>Loading logs…</EmptyNote>}
