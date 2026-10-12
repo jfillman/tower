@@ -53,8 +53,10 @@ const useStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panel,
     color: ({ t }) => t.textHi,
-    width: "100%",
-    maxWidth: 260
+    // In the header row with the title and Copy (2026-10-12: it sat on its own row under them).
+    flex: "1 1 160px",
+    minWidth: 120,
+    maxWidth: 280
   },
   codeBox: {
     borderRadius: 4,
@@ -119,13 +121,13 @@ function YamlBlock({
   const q = query.trim().toLowerCase();
   const showHead = title !== void 0 || actions !== void 0 || copy;
   return /* @__PURE__ */ jsxs("div", { className: `${classes.wrap} ${className ?? ""}`, children: [
-    showHead && /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
+    (showHead || filter) && /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       title !== void 0 && /* @__PURE__ */ jsx("span", { className: classes.heading, children: title }),
+      filter && /* @__PURE__ */ jsx("input", { className: classes.search, placeholder: "filter lines\u2026", value: query, onChange: (e) => setQuery(e.target.value), "aria-label": "Filter lines" }),
       /* @__PURE__ */ jsx("span", { className: classes.spacer }),
       actions,
       copy && /* @__PURE__ */ jsx(CopyButton, { text })
     ] }),
-    filter && /* @__PURE__ */ jsx("input", { className: classes.search, placeholder: "filter lines\u2026", value: query, onChange: (e) => setQuery(e.target.value), "aria-label": "Filter lines" }),
     /* @__PURE__ */ jsx("div", { className: classes.codeBox, style: { maxHeight }, ref: boxRef, "aria-label": ariaLabel, role: ariaLabel ? "region" : void 0, children: lines.map((line, i) => {
       const match = q.length > 0 && line.toLowerCase().includes(q);
       if (q.length > 0 && !match) return null;
