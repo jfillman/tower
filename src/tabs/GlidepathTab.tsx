@@ -21,7 +21,7 @@ import {
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { PageHeader, SectionTitle, Subtabs } from '../ui';
+import { PageHeader, SectionTitle, Subtabs, YamlBlock } from '../ui';
 import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
 import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
@@ -320,17 +320,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:disabled': { opacity: 0.5, cursor: 'default' },
   },
   resultLink: { fontFamily: fontMono, fontSize: 12 },
-  rawView: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    whiteSpace: 'pre-wrap',
-    color: ({ t }) => t.textLo,
-    maxHeight: 320,
-    overflow: 'auto',
-    padding: 10,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 4,
-  },
 }));
 
 type GlidepathTabId = 'build' | 'test' | 'deploy' | 'preview' | 'governance' | 'notifications' | 'secrets' | 'pipelines' | 'advanced';
@@ -734,7 +723,7 @@ export function GlidepathTab() {
         <div className={classes.section}>
           <SectionTitle>Committed cicd.yaml</SectionTitle>
           <Typography className={classes.sectionHint}>The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges.</Typography>
-          <pre className={classes.rawView}>{cicd.data?.raw || '(no cicd.yaml committed yet)'}</pre>
+          <YamlBlock text={cicd.data?.raw || '# no cicd.yaml committed yet'} title="cicd.yaml" maxHeight={320} filter />
         </div>
       )}
 

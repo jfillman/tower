@@ -59,6 +59,8 @@ Each environment shows its release as six steps, each with a detail panel:
 
 - **Guardrails** lists every release gate on the PR, its result and its report. A rollback's content checks run as
   *advisory*: they report without blocking (see [security.md](security.md#release-guardrails-tower-relies-on)).
+  The stage is drawn red when the PR merged with a failed check (GitHub Free cannot block the merge; the platform
+  records it as a bypass) even though the delivery went on: a merge does not turn a failed guardrail green.
 - **Rollout starts** and **Rollout completes** hold the Rollout controls and, on a Flight environment, Roll back.
 - The release record (Releases tab) follows the same release through its states: progressing, healthy,
   superseded, rolled back, aborted, degraded.

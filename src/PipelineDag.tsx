@@ -16,7 +16,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TaskRunLogConsole, stepDuration } from './TaskRunLogConsole';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/types';
-import { EmptyNote, Fact, FactGrid, SectionTitle } from './ui';
+import { EmptyNote, Fact, FactGrid, SectionTitle, YamlBlock } from './ui';
 
 // The one piece of the Tekton plugin the user actually wants adopted here
 // (2026-09-11: "the only part of the tekton plugin that i want incorporated
@@ -258,17 +258,6 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
     borderBottom: ({ t }) => `1px solid ${t.line}`,
   },
   dialogCloseBtn: { background: 'none', border: 'none', cursor: 'pointer', color: ({ t }) => t.textLo, display: 'flex' },
-  yamlPre: {
-    margin: 0,
-    padding: 16,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    lineHeight: 1.6,
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panel,
-    whiteSpace: 'pre',
-    overflow: 'auto',
-  },
 }));
 
 function phaseColor(t: HangarTokens, phase: TaskPhase): { bg: string; border: string; fg: string } {
@@ -679,8 +668,8 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
             <CloseIcon style={{ fontSize: 18 }} />
           </button>
         </DialogTitle>
-        <DialogContent style={{ padding: 0 }}>
-          <pre className={classes.yamlPre}>{dumpYaml(run.raw)}</pre>
+        <DialogContent style={{ padding: '12px 16px' }}>
+          <YamlBlock text={dumpYaml(run.raw)} filter maxHeight="70vh" aria-label={`${run.name}.yaml`} />
         </DialogContent>
       </Dialog>
     </div>

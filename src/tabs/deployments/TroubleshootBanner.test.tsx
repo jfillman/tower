@@ -112,3 +112,15 @@ describe('the banner for a deployment that is not coming up', () => {
     expect(screen.queryByLabelText('What Kubernetes reports')).toBeNull();
   });
 });
+
+describe('a failed guardrail', () => {
+  const step = (key: 'created' | 'guardrails' | 'merged' | 'synced' | 'progressing' | 'healthy', status: 'good' | 'current' | 'bad' | 'pending') => ({ key, label: key, status });
+  it('blocks the merge while the PR is open', () => {
+    const d = diagnose(env(), [step('created', 'good'), step('guardrails', 'bad'), step('merged', 'pending')]);
+    expect(d.title).toBe('A required guardrail failed');
+  });
+  it('is not what the banner talks about once the PR was merged anyway: the rollout is', () => {
+    const d = diagnose(env({ rolloutPhase: 'Healthy', argoHealthStatus: 'Healthy' }), [step('created', 'good'), step('guardrails', 'bad'), step('merged', 'good'), step('synced', 'good'), step('progressing', 'good'), step('healthy', 'good')]);
+    expect(d.title).not.toBe('A required guardrail failed');
+  });
+});

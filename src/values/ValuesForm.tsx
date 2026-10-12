@@ -7,7 +7,7 @@ import { dump as dumpYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Subtabs } from '../ui';
+import { Button, Subtabs, YamlBlock } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
@@ -1048,7 +1048,7 @@ function buildFormState(values: Partial<Record<ConfigTopLevelField, unknown>>): 
     : undefined;
 
   return {
-    replicas: typeof rollout.replicas === 'number' ? rollout.replicas : 2,
+    replicas: typeof rollout.replicas === 'number' ? rollout.replicas : '',
     ports: portsList && portsList.length > 0 ? portsList : DEFAULT_PORTS,
     resourcesRequestsCpu: typeof requests.cpu === 'string' ? requests.cpu : '',
     resourcesRequestsMemory: typeof requests.memory === 'string' ? requests.memory : '',
@@ -1263,6 +1263,7 @@ export function ConfigEditor({
   const [tab, setTab] = useState<ValuesTab>('workload');
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
+  const chartReplicas = (chart?.defaults as { rollout?: { replicas?: unknown } } | undefined)?.rollout?.replicas;
   const [originalForm, setOriginalForm] = useState<FormState | undefined>(undefined);
   // The Deployment switch is the workload shape (2026-10-10, airframe rollout.enabled): does this environment run a
   // service at all. Off is a deliberate "only a Job/CronJob/other XR here" (2026-09-16), written as
@@ -1700,7 +1701,7 @@ export function ConfigEditor({
                   </button>
                   {exampleOpen.has(key) && (
                     <>
-                      <pre className={classes.example}>{meta.example}</pre>
+                      <YamlBlock text={meta.example} lineNumbers={false} maxHeight={320} />
                       {!advanced[key].trim() && (
                         <button type="button" className={classes.linkBtn} style={{ marginTop: 4 }} onClick={() => setAdv(key, meta.example!)}>
                           Use this as a starting point
@@ -1758,9 +1759,13 @@ export function ConfigEditor({
                 : "Tower could not read the chart's schema, so this shows only the committed file."}
               {dirty.size > 0 ? ' (Showing your staged changes.)' : ''}
             </Typography>
-            <pre className={classes.example} style={{ maxHeight: 480, overflow: 'auto' }} aria-label="Full values">
-              {annotateValues(chart, mergeValues(cfg.data.values, previewPatch) as Record<string, unknown>)}
-            </pre>
+            <YamlBlock
+              text={annotateValues(chart, mergeValues(cfg.data.values, previewPatch) as Record<string, unknown>)}
+              title="Full values"
+              maxHeight={480}
+              filter
+              aria-label="Full values"
+            />
           </>
         )}
         {copyFrom && copyFrom.options.length > 0 && (
@@ -1783,9 +1788,12 @@ export function ConfigEditor({
               {showRawFile ? '▾ Hide full committed YAML' : '▸ View full committed YAML'}
             </button>
             {showRawFile && (
-              <pre className={classes.example} style={{ maxHeight: 420, overflow: 'auto' }}>
-                {cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values file\n# on its own branch/history. Submitting a change creates it.`}
-              </pre>
+              <YamlBlock
+                text={cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values file\n# on its own branch/history. Submitting a change creates it.`}
+                title={cfg.data.path}
+                maxHeight={420}
+                filter
+              />
             )}
           </>
         )}
@@ -1815,11 +1823,14 @@ export function ConfigEditor({
       <Section title="Scaling" dirty={dirty.has('rollout') || dirty.has('autoscaling')} classes={classes}>
         <div className={classes.grid}>
           <Field label="Replicas" classes={classes}>
+            {/* Empty when the file does not set it: the chart default is a placeholder, not a value this file holds
+                (2026-10-12: a new environment read as "a deployment with 2 replicas" that existed nowhere in its config). */}
             <input
               className={classes.input}
               type="number"
               min={0}
               value={form.replicas}
+              placeholder={`default: ${typeof chartReplicas === 'number' ? chartReplicas : "the chart's"}`}
               onChange={e => setF('replicas', e.target.value === '' ? '' : Number(e.target.value), 'rollout')}
             />
           </Field>

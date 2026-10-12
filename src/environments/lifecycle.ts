@@ -41,6 +41,8 @@ export interface EnvLifecycleInputs {
   valuesFileUrl?: string;
   /** Ground: the values file's path in the source repo (under glidepath/). */
   valuesFilePath?: string;
+  /** Ground: a pipeline has a deploy step for the environment. Undefined = unknown. */
+  pipelineStep?: boolean;
 }
 
 const prLink = (label: string, pr?: PrSnapshot): StepLink[] | undefined =>
@@ -82,12 +84,25 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
       i.declared ? 'Not opened yet: Glidepath opens it shortly after the merge.' : 'Opens after the cicd.yaml change merges.',
     );
     if (!i.declared) onboarding.state = 'pend';
+    // Argo CD creates the namespace as soon as the values file exists, but nothing runs in it until a pipeline's deploy
+    // step puts an image there - and a pipeline only has such a step if one was added (2026-10-12: a new test
+    // environment sat at "Deployed: waiting" for good, since the ci pipeline only deployed to dev).
+    let waiting: string | undefined;
+    if (!i.deployed) {
+      if (i.pipelineStep === false) {
+        waiting = `No pipeline has a deploy step for ${i.env}: nothing deploys here until one is added in the Glidepath tab (Add environment can add it next time).`;
+      } else if (!i.valuesFileExists) {
+        waiting = 'Deploys on the pipeline\'s next run (a push to the default branch) once the values file exists.';
+      } else {
+        waiting = 'Deploys on the pipeline\'s next run (a push to the default branch).';
+      }
+    }
     const live: EnvLifecycleStep = {
       id: 'workload',
       title: 'Deployed',
       desc: 'Argo CD creates the namespace and the first deploy puts the service in it.',
       state: i.deployed ? 'done' : 'pend',
-      detail: i.deployed ? undefined : 'Deploys on the next push to the default branch once the values file exists.',
+      detail: waiting,
     };
     return [cicd, onboarding, file, live];
   }

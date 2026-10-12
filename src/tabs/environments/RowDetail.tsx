@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ownChartOf } from '../../environments/ownChart';
 import { RawValuesEditor } from '../../values/RawValuesEditor';
 import { makeStyles } from '@material-ui/core/styles';
@@ -21,6 +21,9 @@ import { BLOCK_FIELDS, type DisplayRow } from './shared';
 import { ENVS_ROOT } from '../../types';
 
 type SubtabId = 'settings' | 'values' | 'promotion' | 'danger';
+
+// How often a not-yet-created values file is re-read while its environment is still provisioning.
+const VALUES_FILE_POLL_MS = 45000;
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 18px 18px 48px', backgroundColor: ({ t }) => t.panelAlt, borderTop: ({ t }) => `1px solid ${t.line}` },
@@ -96,10 +99,22 @@ function RowDetailBody({ row, ctx, source }: RowProps & { source?: ValuesSource 
       deployed: row.deployed,
       valuesFileExists,
       valuesFilePath: source?.data?.path ?? `${ENVS_ROOT}/envs/${row.name}.yaml`,
+      pipelineStep: steps.length > 0,
     },
     !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== 'new' && row.state !== 'removed',
   );
   const unfinished = lifecycle.steps.some(x => x.state !== 'done');
+  // While the environment is still being created, re-read its values file now and then: the onboarding pull request
+  // creates it after the cicd.yaml change merges, and the step for it (and the Values tab) must notice without a
+  // reload (2026-10-12: "glidepath/envs/test.yaml exists" never updated).
+  const refreshRef = useRef(source?.refresh);
+  refreshRef.current = source?.refresh;
+  const hasSource = Boolean(source);
+  useEffect(() => {
+    if (!hasSource || valuesFileExists || !unfinished || row.state === 'new' || row.state === 'removed') return undefined;
+    const id = setInterval(() => refreshRef.current?.(), VALUES_FILE_POLL_MS);
+    return () => clearInterval(id);
+  }, [hasSource, valuesFileExists, unfinished, row.state]);
 
   // A pull request is open for it but nothing exists yet: there is only progress to show, and nothing to edit.
   if (ghost) {

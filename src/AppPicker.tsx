@@ -145,7 +145,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
   // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
-  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  // The owner can be long and so can the type chip ("Function · AWS Lambda"): the footer wraps, the owner moves to its
+  // own line, right-aligned, and only then ellipsises (2026-10-12: a Lambda card cut the team name off).
+  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   rowMain: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -255,6 +257,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 8,
     minWidth: 0,
   },

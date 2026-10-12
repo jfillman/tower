@@ -1,4 +1,5 @@
 import {
+  latestOnboardingPr,
   parseTenantsRepo,
   pickFirstBuild,
   toCreated,
@@ -304,5 +305,25 @@ describe('toArgoSnapshot', () => {
   });
   it('an Application that does not exist yet has no sync or health', () => {
     expect(toArgoSnapshot('a-cicd', undefined)).toEqual({ name: 'a-cicd', sync: undefined, health: undefined });
+  });
+});
+
+describe('latestOnboardingPr', () => {
+  const pr = (number: number, state: 'open' | 'merged', title = 'Onboarding: re-sync .tekton boilerplate') => ({
+    repo: 'source' as const,
+    number,
+    title,
+    url: `https://github.com/o/source/pull/${number}`,
+    state,
+    mergedAt: state === 'merged' ? '2026-10-12T18:25:16Z' : undefined,
+  });
+  it('prefers the open onboarding PR: that is the one waiting on someone', () => {
+    expect(latestOnboardingPr([pr(1, 'merged'), pr(26, 'open'), pr(20, 'merged')])?.number).toBe(26);
+  });
+  it('falls back to the newest merged one, never the first', () => {
+    expect(latestOnboardingPr([pr(1, 'merged'), pr(20, 'merged')])).toMatchObject({ number: 20, state: 'merged', mergedAt: Date.parse('2026-10-12T18:25:16Z') });
+  });
+  it('ignores other PRs', () => {
+    expect(latestOnboardingPr([pr(30, 'open', 'Config: dev values'), { ...pr(2, 'open'), repo: 'gitops' as const }])).toBeUndefined();
   });
 });

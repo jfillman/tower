@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { TEKTON_CLUSTER, toPipelineRunSummary, type RawPipelineRun, type RawTaskRun } from './useTektonPipelineRuns';
 import type { PipelineRunSummary, TaskStepSummary } from './types';
-import type { StepLogBlock } from './useTaskRunLogs';
+import { parseTimestampedLine, type StepLogBlock, type TaskLogLine } from './useTaskRunLogs';
 
 // Archived pipeline runs from the Backstage backend's /api/glidepath/pipeline-history endpoints, which read Tekton
 // Results (30-day retention) server-side, trim each object to the fields Tower reads and cache it (backstage
@@ -116,24 +116,27 @@ export function useArchivedRunLookup(
 /**
  * Splits an archived TaskRun log into per-step blocks. Results stores one text stream per TaskRun with each line
  * prefixed by its container's short name (`[build] ...`, init containers included); lines without a prefix continue
- * the previous step. Only the TaskRun's own steps are kept, in step order.
+ * the previous step. Only the TaskRun's own steps are kept, in step order. The watcher collects the logs with
+ * `-logs_timestamps` (gitops-cluster-dev TektonConfig `result.watcher.logs_timestamps`), so after the step prefix each
+ * line starts with the same RFC3339 instant a live `?timestamps=true` read gives; runs archived before that flag have
+ * none, and a line without one is kept as it is.
  */
 export function parseArchivedLog(text: string, steps: TaskStepSummary[]): StepLogBlock[] {
-  const byStep = new Map<string, string[]>();
+  const byStep = new Map<string, TaskLogLine[]>();
   let current: string | undefined;
   for (const line of text.split('\n')) {
     const m = /^\[([^\]\s]+)\] ?(.*)$/.exec(line);
     if (m) {
       current = m[1];
       if (!byStep.has(current)) byStep.set(current, []);
-      byStep.get(current)!.push(m[2]);
+      byStep.get(current)!.push(parseTimestampedLine(m[2]));
     } else if (current && line !== '') {
-      byStep.get(current)!.push(line);
+      byStep.get(current)!.push(parseTimestampedLine(line));
     }
   }
   return steps.map(s => {
     const lines = byStep.get(s.name) ?? byStep.get(s.container.replace(/^step-/, '')) ?? [];
-    return { step: s.name, container: s.container, state: s.state, lines: lines.map(t => ({ text: t })) };
+    return { step: s.name, container: s.container, state: s.state, lines };
   });
 }
 

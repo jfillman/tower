@@ -75,8 +75,8 @@ export function readEnvironments(deploy: Deploy | undefined): { shape: Shape; en
 }
 
 export type Staged =
-  /** releaseStep: also add a `release` step for this (Flight) environment to the app's main pipeline. */
-  | { kind: 'add'; env: EnvDef; releaseStep?: boolean; copyValuesFrom?: string }
+  /** pipelineStep: also add a step for this environment to the app's main pipeline (`deploy` for Ground, `release` for Flight). */
+  | { kind: 'add'; env: EnvDef; pipelineStep?: boolean; copyValuesFrom?: string }
   | { kind: 'move'; name: string; direction: 'up' | 'down' }
   | { kind: 'setBlock'; name: string; block: CloudBlock; value: Block | undefined }
   | { kind: 'remove'; name: string };
@@ -368,16 +368,23 @@ export function isUnchanged(before: EnvDef[], after: EnvDef[]): boolean {
   return same(before, after);
 }
 
-// ---- release steps -------------------------------------------------------------------------------------------
-// A Flight environment only receives releases through a `release` step in a pipeline. Creating the environment
-// without one leaves it unreachable from CI, so adding a Flight environment can add the step too.
+// ---- pipeline steps ------------------------------------------------------------------------------------------
+// A Flight environment only receives releases through a `release` step in a pipeline, and a Ground one only
+// receives images through a `deploy` step. Creating an environment without one leaves it unreachable from CI (Argo CD
+// creates its namespace and nothing ever runs in it - found on a new Ground environment 2026-10-12), so adding an
+// environment can add the step too.
 
-export interface ReleaseStepPlan {
+export type PipelineStage = 'deploy' | 'release';
+
+export interface PipelineStepPlan {
   /** The `pipelines` value to write: the original with the steps inserted (the same object when nothing was added). */
   pipelines: unknown;
-  added: Array<{ env: string; pipeline: string; after?: string }>;
-  skipped: Array<{ env: string; reason: string }>;
+  added: Array<{ env: string; stage: PipelineStage; pipeline: string; after?: string }>;
+  skipped: Array<{ env: string; stage: PipelineStage; reason: string }>;
 }
+
+/** The pipeline stage that reaches an environment of this tier. */
+export const stageForTier = (tier: Tier): PipelineStage => (tier === 'ground' ? 'deploy' : 'release');
 
 type Step = Record<string, unknown>;
 type PipelineSlot = { name: string; steps: Step[]; get: () => unknown; set: (steps: Step[]) => void };
@@ -413,24 +420,26 @@ function pipelineSlots(pipelines: unknown): { copy: unknown; slots: PipelineSlot
 }
 
 /**
- * Adds a `release` step for each named environment to the app's main pipeline: the one with the most deploy and
- * release steps (the same rule Tower uses to infer the promotion order), the first on a tie. The step goes right
- * after the last step for the environment before it in promotion order, else at the end. An environment that
- * already has a step in any pipeline is left alone.
+ * Adds a step for each named environment to the app's main pipeline (`deploy` for a Ground environment, `release` for
+ * a Flight one): the pipeline with the most deploy and release steps (the same rule Tower uses to infer the promotion
+ * order), the first on a tie. The step goes right after the last step for the environment before it in promotion
+ * order, else at the end. An environment that already has a step in any pipeline is left alone.
  */
-export function planReleaseSteps(pipelines: unknown, envs: EnvDef[], names: string[]): ReleaseStepPlan {
+export function planPipelineSteps(pipelines: unknown, envs: EnvDef[], names: string[]): PipelineStepPlan {
   const { copy, slots } = pipelineSlots(pipelines);
-  const plan: ReleaseStepPlan = { pipelines, added: [], skipped: [] };
+  const plan: PipelineStepPlan = { pipelines, added: [], skipped: [] };
   if (names.length === 0) return plan;
+  const stageOf = (env: string) => stageForTier(envs.find(e => e.name === env)?.tier ?? 'flight');
   if (slots.length === 0) {
-    plan.skipped = names.map(env => ({ env, reason: 'the service has no pipeline with steps to add it to' }));
+    plan.skipped = names.map(env => ({ env, stage: stageOf(env), reason: 'the service has no pipeline with steps to add it to' }));
     return plan;
   }
   const weight = (sl: PipelineSlot) => sl.steps.filter(st => isStage(st, 'deploy', 'release')).length;
   const main = slots.reduce((best, sl) => (weight(sl) > weight(best) ? sl : best), slots[0]);
   for (const env of names) {
+    const stage = stageOf(env);
     if (slots.some(sl => sl.steps.some(st => st.env === env))) {
-      plan.skipped.push({ env, reason: 'a pipeline already has a step for it' });
+      plan.skipped.push({ env, stage, reason: 'a pipeline already has a step for it' });
       continue;
     }
     const i = envs.findIndex(e => e.name === env);
@@ -445,18 +454,18 @@ export function planReleaseSteps(pipelines: unknown, envs: EnvDef[], names: stri
         }
       }
     }
-    steps.splice(at, 0, { stage: 'release', env });
+    steps.splice(at, 0, { stage, env });
     main.set(steps);
-    plan.added.push({ env, pipeline: main.name, ...(prev && at > 0 && steps[at - 1].env === prev ? { after: prev } : {}) });
+    plan.added.push({ env, stage, pipeline: main.name, ...(prev && at > 0 && steps[at - 1].env === prev ? { after: prev } : {}) });
   }
   if (plan.added.length > 0) plan.pipelines = copy;
   return plan;
 }
 
-/** Flight environments whose add was staged with the release step switched on and that survive in `after`. */
-export function releaseStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
-  const alive = new Set(after.filter(e => e.tier === 'flight').map(e => e.name));
-  return staged.flatMap(s => (s.kind === 'add' && s.releaseStep && alive.has(s.env.name) ? [s.env.name] : []));
+/** Environments whose add was staged with the pipeline step switched on and that survive in `after`. */
+export function pipelineStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
+  const alive = new Set(after.map(e => e.name));
+  return staged.flatMap(s => (s.kind === 'add' && s.pipelineStep && alive.has(s.env.name) ? [s.env.name] : []));
 }
 
 /** Added environments that were staged as a copy of another, with the environment they copy. */

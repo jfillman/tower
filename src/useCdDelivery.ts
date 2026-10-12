@@ -287,14 +287,17 @@ function buildStepsCore(
   // evaluates.
   const rolloutStarted =
     merged && !argoStale && (healthy || (synced && !rolloutStillActive && healthStatus !== 'Progressing'));
-  // Once merged, guardrails must already have passed - this platform's
-  // branch protection requires every required check green before a merge
-  // can happen at all, so `merged` alone is authoritative there and
-  // guardrailsState (which the backend stops fetching post-merge anyway,
-  // see this function's own param comment) never needs consulting. Only
-  // while the PR is still open does the live ci.state decide it.
+  // Once merged the step is satisfied: the delivery moved on whatever the
+  // checks said. But GitHub Free cannot block a merge on failing checks, so
+  // a release can go out with a failed guardrail (the platform records it
+  // as a bypass) - the backend keeps the newest merged PR's ci state for
+  // exactly this, and the step is then drawn as failed, not green
+  // (2026-10-12: "for a rollout where one or more of the guardrails failed,
+  // the 'Guardrails Checked' icon in the DAG diagram should be red"). While
+  // the PR is still open the live ci.state decides it as before.
   const guardrailsPassed = merged || guardrailsState === 'success';
   const guardrailsFailing = !merged && guardrailsState === 'failure';
+  const guardrailsBypassed = merged && guardrailsState === 'failure';
   const satisfied: Record<CdStepKey, boolean> = {
     created: true,
     guardrails: guardrailsPassed,
@@ -357,7 +360,10 @@ function buildStepsCore(
 
   let gapAssigned = false;
   return keys.map(key => {
-    if (satisfied[key]) return { key, label: STEP_LABEL[key], status: 'good' as const, at: at[key] };
+    if (satisfied[key]) {
+      const status = key === 'guardrails' && guardrailsBypassed ? ('bad' as const) : ('good' as const);
+      return { key, label: STEP_LABEL[key], status, at: at[key] };
+    }
     if (!gapAssigned) {
       gapAssigned = true;
       // A real ArgoCD health of "Degraded" at the sync/progressing/healthy
@@ -487,7 +493,9 @@ export function buildCdEnvDelivery(
   if (!deployedPr) return { env };
 
   const deployedSteps = buildSteps(deployedPr, argo, rolloutStillActive, rolloutFailed);
-  const deployedFullyHealthy = deployedSteps.every(s => s.status === 'good');
+  // A guardrails step drawn red after the merge (a bypass, see buildStepsCore) is finished business, not something
+  // still in flight: it must not keep a healthy delivery "current" for good.
+  const deployedFullyHealthy = deployedSteps.every(s => s.status === 'good' || (s.key === 'guardrails' && s.status === 'bad'));
 
   if (deployedFullyHealthy) {
     // Nothing in flight - deployedPr is simply the last delivery, shown as
