@@ -147,7 +147,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   expandRow: { padding: '2px 20px 14px' },
   expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
-  timelineWrap: { padding: '4px 0' },
 }));
 
 const STATUS_LABEL: Record<ReleaseLogEntry['status'], string> = {
@@ -275,9 +274,7 @@ export function ReleaseLog({
         </div>
       )}
       {view !== 'table' && (
-        <div className={classes.timelineWrap}>
-          <ReleaseTimelinePanel environments={pipelineEnvironments} history={deployHistory} />
-        </div>
+        <ReleaseTimelinePanel environments={pipelineEnvironments} history={deployHistory} embedded />
       )}
     </div>
   );

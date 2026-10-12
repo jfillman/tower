@@ -21,9 +21,11 @@ its own title, chip, table header and button styles with slightly different numb
 - **Notes.** `EmptyNote` (italic) says there is nothing to show; `Hint` (not italic) explains. Both 12.5px textLo;
   `inset` adds the panel padding when the note sits straight inside a framed Section. `Count` is the mono count
   beside a title or at the end of a filter bar ("3 open", "39 images").
-- **Refresh** is an action: `RefreshButton` is a small kit `Button`.
+- **Refresh** is an action: `RefreshButton` is a small kit `Button`. It answers a click (the icon turns, Refreshing…,
+  then Refreshed) because the re-fetch itself is often invisible.
 - **Facts.** A label over its value is a `Fact` (label = the ColumnLabel look, value 12.5px mono); several go in a
-  `FactGrid` (`row` for a strip that sizes to its content). `Fact inline` puts label and value on one ruled row, as in
+  `FactGrid`: one wrapping row, each fact as wide as its value, so a value wraps only when it is wider than the row
+  (`min` gives equal columns, for short values where alignment matters). `Fact inline` puts label and value on one ruled row, as in
   an environment card.
 - **Tables.** `useTableKit()` gives `table`, `th` (the ColumnLabel look), `td`, `rowLink` (a row that opens
   something) and `rowSelected`; add `dense` to the table inside a small panel (events, the ArgoCD resource tree).

@@ -553,15 +553,17 @@ export function Fact({ label, inline, title, children }: { label: ReactNode; inl
 }
 
 /**
- * Stacked facts in columns at least `min` px wide (default 140). `row` lays them out in one wrapping row, each as
- * wide as its value, for a strip inside a head that sizes to its content.
+ * Stacked facts in one wrapping row, each as wide as its value, so a value only wraps when it is wider than the whole
+ * row (fixed columns broke "boarding-api-f945bbbf7-qrs5s" and image refs over two or three lines). Pass `min` for
+ * equal columns at least that wide, where values are short and alignment matters.
  */
-export function FactGrid({ min = 140, row, className, children }: { min?: number; row?: boolean; className?: string; children: ReactNode }) {
+export function FactGrid({ min, row, className, children }: { min?: number; row?: boolean; className?: string; children: ReactNode }) {
   const d = useDataKit();
+  const columns = min !== undefined && !row;
   return (
     <div
-      className={cx(d.factGrid, row && d.factRow, className)}
-      style={row ? undefined : { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` }}
+      className={cx(d.factGrid, !columns && d.factRow, className)}
+      style={columns ? { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` } : undefined}
     >
       {children}
     </div>
