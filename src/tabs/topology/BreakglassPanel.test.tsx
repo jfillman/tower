@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { BreakglassPanel } from './BreakglassPanel';
+import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView';
 import type { EnvironmentSummary } from '../../types';
 
 const mockWrite = jest.fn();
@@ -69,6 +70,14 @@ const renderIt = async (tier: 'lower' | 'upper' | 'preview' = 'lower') => {
   });
 };
 
+// Requests to decide, reviews and recordings are the environment's: they are listed once, in the Break-glass card
+// under Pods, not again inside a pod's Debug panel.
+const renderCard = async (tier: 'lower' | 'upper' | 'preview' = 'lower') => {
+  await act(async () => {
+    render(<BreakglassEnvironmentCard env={env} tier={tier} />);
+  });
+};
+
 beforeEach(() => {
   calls.length = 0;
   sockets.length = 0;
@@ -85,6 +94,12 @@ const flightRow = (over: Record<string, unknown>) => ({
 });
 
 describe('BreakglassPanel', () => {
+  it("does not repeat the environment's session list (the Break-glass card under Pods has it)", async () => {
+    listBody = { sessions: [flightRow({ id: 'e1', state: 'ended', endedAt: at(-1) })], user: 'user:default/riley-roooo', recordingsConfigured: true };
+    await renderIt('upper');
+    expect(screen.queryByText(/Break-glass sessions in dev/)).toBeNull();
+  });
+
   it('treats a preview environment like Ground: opens at once, no approval', async () => {
     await renderIt('preview');
     expect(screen.getByRole('button', { name: 'Start recorded session' })).toBeTruthy();
@@ -241,7 +256,7 @@ describe('BreakglassPanel on Flight (phase 3)', () => {
 
   it('asks a second person to decide, and sends their note', async () => {
     listBody = { sessions: [flightRow({})], user: 'user:default/jfillman', recordingsConfigured: true };
-    await renderIt('upper');
+    await renderCard('upper');
     const box = screen.getByTestId('breakglass-to-decide');
     expect(box.textContent).toContain('skyport-dev asks for a 30-minute live session');
     expect(box.textContent).toContain('with process access');
@@ -300,7 +315,7 @@ describe('glass broken and its review (phase 4)', () => {
 
   it('asks someone else to review an ended glass-broken session, with a required note', async () => {
     listBody = { sessions: [ended], user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true };
-    await renderIt('upper');
+    await renderCard('upper');
     expect(screen.getByText('glass broken')).toBeTruthy();
     expect(screen.getByText('review due')).toBeTruthy();
     const mark = screen.getByRole('button', { name: 'Mark reviewed' }) as HTMLButtonElement;
@@ -314,7 +329,7 @@ describe('glass broken and its review (phase 4)', () => {
 
   it('never asks the person who broke the glass to review it', async () => {
     listBody = { sessions: [ended], user: 'user:default/jfillman', recordingsConfigured: true, canReview: true };
-    await renderIt('upper');
+    await renderCard('upper');
     expect(screen.getByText('review due')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
   });
@@ -324,7 +339,7 @@ describe('glass broken and its review (phase 4)', () => {
       sessions: [{ ...ended, reviewState: 'done', reviewedBy: 'user:default/riley-roooo', reviewNote: 'ok' }],
       user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true,
     };
-    await renderIt('upper');
+    await renderCard('upper');
     expect(screen.getByText('reviewed by riley-roooo')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
   });
@@ -342,7 +357,7 @@ describe('the recording player', () => {
       sessions: [flightRow({ id: 'r1', state: 'ended', recordingKey: 'k', recordingSha256: createHash('sha256').update(recording).digest('hex'), endedAt: at(-1) })],
       user: 'user:default/riley-roooo', recordingsConfigured: true,
     };
-    await renderIt('upper');
+    await renderCard('upper');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'play' })));
     expect(calls.some(c => c.url === 'http://be/api/glidepath/breakglass/sessions/r1/recording?purpose=play')).toBe(true);
     const player = screen.getByTestId('breakglass-player');

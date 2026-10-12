@@ -59,6 +59,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 20,
   },
   headRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  embedded: { padding: '14px 20px 16px' },
+  headRowEmbedded: { display: 'flex', justifyContent: 'flex-end', marginBottom: 12 },
   range: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   row: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
@@ -129,9 +131,12 @@ const TIMELINE_ROW_CAP = 10;
 export function ReleaseTimelinePanel({
   environments,
   history,
+  embedded,
 }: {
   environments: EnvironmentSummary[];
   history: Record<string, DeployHistoryEntry[]>;
+  /** Inside the Release log's own panel: no second card and no second title, only the range (a card in a card). */
+  embedded?: boolean;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -175,9 +180,9 @@ export function ReleaseTimelinePanel({
     });
 
   return (
-    <div className={classes.card}>
-      <div className={classes.headRow}>
-        <SectionTitle>Release timeline</SectionTitle>
+    <div className={embedded ? classes.embedded : classes.card}>
+      <div className={embedded ? classes.headRowEmbedded : classes.headRow}>
+        {!embedded && <SectionTitle>Release timeline</SectionTitle>}
         <span className={classes.range}>
           {withHistory.length > 0
             ? `${formatDateTime(new Date(rangeStart).toISOString())} – ${formatDateTime(new Date(now).toISOString())}`

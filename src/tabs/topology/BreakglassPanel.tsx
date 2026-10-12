@@ -4,7 +4,6 @@ import { useHangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
 import type { EnvironmentSummary, EnvTier } from '../../types';
 import { Button, Field } from '../../ui';
-import { BreakglassEnvironmentView } from './BreakglassEnvironmentView';
 import {
   OpenSession,
   breakglassApi,
@@ -381,8 +380,8 @@ export function BreakglassPanel({
         </>
       )}
       {error && <span className={classes.bad}>{error}</span>}
-
-      <BreakglassEnvironmentView env={env} tier={tier} data={data} linkedSessionId={linkedSessionId} hostTerminal={false} />
+      {/* The environment's sessions (history, requests to decide, active ones) are listed once, in the Break-glass
+          card right under Pods; repeating them here showed the same list twice. */}
     </div>
   );
 }

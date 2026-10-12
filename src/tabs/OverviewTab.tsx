@@ -646,7 +646,7 @@ export function OverviewTab() {
         </div>
       )}
       <Panel className={classes.metaCard}>
-        <FactGrid min={150}>
+        <FactGrid>
           <Fact label="Source repo">
             {sourceUrl ? (
               <TextLink href={sourceUrl}>
