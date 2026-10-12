@@ -22,6 +22,7 @@ import { PageHeader, Subtabs, SectionTitle } from '../ui/index.esm.js';
 import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
+import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
 const BUILD_AGENTS = ["nodejs-18", "nodejs-20", "nodejs-22", "openjdk-17", "openjdk-21", "python-3.11", "go-1.22"];
 const VOLUME_SIZES = ["small", "medium", "large", "xlarge"];
@@ -210,18 +211,7 @@ const useStyles = makeStyles(() => ({
     color: "#1a1200",
     "&:disabled": { opacity: 0.5, cursor: "default" }
   },
-  resultLink: { fontFamily: fontMono, fontSize: 12 },
-  rawView: {
-    fontFamily: fontMono,
-    fontSize: 11,
-    whiteSpace: "pre-wrap",
-    color: ({ t }) => t.textLo,
-    maxHeight: 320,
-    overflow: "auto",
-    padding: 10,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 4
-  }
+  resultLink: { fontFamily: fontMono, fontSize: 12 }
 }));
 const GLIDEPATH_TABS = [
   { id: "build", label: "Build" },
@@ -611,7 +601,7 @@ function GlidepathTab() {
     tab === "advanced" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Committed cicd.yaml" }),
       /* @__PURE__ */ jsx(Typography, { className: classes.sectionHint, children: "The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges." }),
-      /* @__PURE__ */ jsx("pre", { className: classes.rawView, children: cicd.data?.raw || "(no cicd.yaml committed yet)" })
+      /* @__PURE__ */ jsx(YamlBlock, { text: cicd.data?.raw || "# no cicd.yaml committed yet", title: "cicd.yaml", maxHeight: 320, filter: true })
     ] }),
     /* @__PURE__ */ jsxs(
       PendingPanel,

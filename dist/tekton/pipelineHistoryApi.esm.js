@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { toPipelineRunSummary, TEKTON_CLUSTER } from './useTektonPipelineRuns.esm.js';
+import { parseTimestampedLine } from './useTaskRunLogs.esm.js';
 
 function archivedRunToSummary(app, dto) {
   const taskRunsByName = new Map(dto.taskRuns.map((tr) => [tr.metadata.name, tr]));
@@ -76,14 +77,14 @@ function parseArchivedLog(text, steps) {
     if (m) {
       current = m[1];
       if (!byStep.has(current)) byStep.set(current, []);
-      byStep.get(current).push(m[2]);
+      byStep.get(current).push(parseTimestampedLine(m[2]));
     } else if (current && line !== "") {
-      byStep.get(current).push(line);
+      byStep.get(current).push(parseTimestampedLine(line));
     }
   }
   return steps.map((s) => {
     const lines = byStep.get(s.name) ?? byStep.get(s.container.replace(/^step-/, "")) ?? [];
-    return { step: s.name, container: s.container, state: s.state, lines: lines.map((t) => ({ text: t })) };
+    return { step: s.name, container: s.container, state: s.state, lines };
   });
 }
 function useArchivedTaskRunLogs(params) {

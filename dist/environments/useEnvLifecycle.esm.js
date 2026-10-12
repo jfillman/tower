@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { infisicalProjectUrl } from '../provisioning/deriveProvisioning.esm.js';
-import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toSecrets, toOnboardingPrs } from '../provisioning/useProvisioning.esm.js';
+import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toSecrets, latestOnboardingPr } from '../provisioning/useProvisioning.esm.js';
 import { deriveEnvLifecycle } from './lifecycle.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
 
@@ -51,7 +51,7 @@ function useEnvLifecycle(target, enabled) {
           const prs = await getJson(
             `${prBase}/pull-requests?${new URLSearchParams({ owner, appName })}`
           );
-          if (prs) github.onboardingPr = toOnboardingPrs(prs).source;
+          if (prs) github.onboardingPr = latestOnboardingPr(prs);
         }
       } catch {
       } finally {
@@ -118,6 +118,7 @@ function useEnvLifecycle(target, enabled) {
     gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
     valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
+    pipelineStep: target.pipelineStep,
     ...extra,
     requestPr
   });

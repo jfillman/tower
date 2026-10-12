@@ -7,7 +7,7 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
 import Link from '@material-ui/core/Link';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
-import { TextLink, Button } from './ui/index.esm.js';
+import { Button } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   paper: {
@@ -35,10 +35,7 @@ function PrResultDialog({
       /* @__PURE__ */ jsx("br", {}),
       /* @__PURE__ */ jsx(Link, { className: classes.link, href: result?.prUrl, target: "_blank", rel: "noopener noreferrer", children: result?.prUrl })
     ] }) }),
-    /* @__PURE__ */ jsxs(DialogActions, { children: [
-      result && /* @__PURE__ */ jsx(TextLink, { href: result.prUrl, children: "View PR \u2197" }),
-      /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" })
-    ] })
+    /* @__PURE__ */ jsx(DialogActions, { children: /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" }) })
   ] });
 }
 

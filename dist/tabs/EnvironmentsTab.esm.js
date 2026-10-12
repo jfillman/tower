@@ -7,7 +7,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planReleaseSteps, releaseStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, envFilePaths, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, envFilePaths, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { dump } from 'js-yaml';
 import { useEnvValuesLoader } from '../values/sources.esm.js';
@@ -128,11 +128,11 @@ function EnvironmentsTab() {
     ],
     [before, after, targetId, pipelines]
   );
-  const releasePlan = useMemo(() => planReleaseSteps(pipelines, after, releaseStepEnvs(staged, after)), [pipelines, after, staged]);
+  const releasePlan = useMemo(() => planPipelineSteps(pipelines, after, pipelineStepEnvs(staged, after)), [pipelines, after, staged]);
   const releaseLines = useMemo(
     () => releasePlan.added.map((a) => ({
       kind: "edit",
-      title: `Add a release step for ${a.env}`,
+      title: `Add a ${a.stage} step for ${a.env}`,
       detail: `pipeline ${a.pipeline}${a.after ? `, after the step for ${a.after}` : ", at the end"}`
     })),
     [releasePlan]
@@ -151,7 +151,7 @@ function EnvironmentsTab() {
       ...followUps(before, after, targetId, appName),
       ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
-      ...releasePlan.skipped.map((k) => `No release step added for ${k.env}: ${k.reason}.`)
+      ...releasePlan.skipped.map((k) => `No ${k.stage} step added for ${k.env}: ${k.reason}.`)
     ],
     [before, after, targetId, appName, releasePlan, flightOrderChanged, staged]
   );
@@ -558,8 +558,8 @@ function EnvironmentsTab() {
         targetId,
         targetLabel,
         cloudBlock,
-        onStage: (env, releaseStep, copyValuesFrom) => {
-          setStaged((s) => [...s, { kind: "add", env, releaseStep, ...copyValuesFrom ? { copyValuesFrom } : {} }]);
+        onStage: (env, pipelineStep, copyValuesFrom) => {
+          setStaged((s) => [...s, { kind: "add", env, pipelineStep, ...copyValuesFrom ? { copyValuesFrom } : {} }]);
           setAdding(false);
           setDuplicating(void 0);
         }

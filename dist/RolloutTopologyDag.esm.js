@@ -9,6 +9,7 @@ import { PodLogsView } from './PodLogsView.esm.js';
 import { usePipelineDagStyles, PAD, NODE_H, NODE_W, ROW_GAP, COL_GAP } from './PipelineDag.esm.js';
 import { useRolloutTopology } from './useRolloutTopology.esm.js';
 import { EmptyNote, SectionTitle, FactGrid, Fact } from './ui/index.esm.js';
+import { YamlBlock } from './ui/YamlBlock.esm.js';
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 1.5;
@@ -21,8 +22,7 @@ const useStyles = makeStyles(() => ({
   traffic: { position: "absolute", display: "flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.amberInk, whiteSpace: "nowrap", transform: "translate(-50%, -100%)" },
   tabs: { display: "flex", gap: 6, marginBottom: 10 },
   tabBtn: { fontFamily: fontMono, fontSize: 11, padding: "3px 10px", borderRadius: 6, border: ({ t }) => `1px solid ${t.line}`, background: "none", color: ({ t }) => t.textLo, cursor: "pointer" },
-  tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
-  yaml: { margin: 0, padding: 12, fontFamily: fontMono, fontSize: 11.5, lineHeight: 1.55, color: ({ t }) => t.textHi, backgroundColor: ({ t }) => t.bg, border: ({ t }) => `1px solid ${t.lineSoft}`, borderRadius: 4, maxHeight: 420, overflow: "auto", whiteSpace: "pre" }
+  tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft }
 }));
 function toneColor(t, tone) {
   switch (tone) {
@@ -353,7 +353,7 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
           ] }) }),
           /* @__PURE__ */ jsx("div", { className: classes.tabs, children: ["info", "yaml", "logs"].map((k) => /* @__PURE__ */ jsx("button", { type: "button", className: `${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ""}`, onMouseDown: preventFocusScroll, onClick: () => setTab(k), children: k }, k)) }),
           tab === "info" && /* @__PURE__ */ jsx(FactGrid, { children: kvRows(openNode, topology).map(([k, v]) => /* @__PURE__ */ jsx(Fact, { label: k, children: v }, k)) }),
-          tab === "yaml" && /* @__PURE__ */ jsx("pre", { className: classes.yaml, children: dump(stripNoise(openNode.obj)) }),
+          tab === "yaml" && /* @__PURE__ */ jsx(YamlBlock, { text: dump(stripNoise(openNode.obj)), maxHeight: 420, filter: true }),
           tab === "logs" && /* @__PURE__ */ jsx(NodeLogs, { node: openNode, cluster, namespace })
         ] })
       ] })

@@ -27,6 +27,7 @@ import { declaredComponents, outputsOf, matchComponentOutput } from './component
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
 import { workloadOn, workloadStatus } from './workload.esm.js';
 import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
+import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
 function asRecord(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -720,7 +721,7 @@ function buildFormState(values) {
     })
   ) : void 0;
   return {
-    replicas: typeof rollout.replicas === "number" ? rollout.replicas : 2,
+    replicas: typeof rollout.replicas === "number" ? rollout.replicas : "",
     ports: portsList && portsList.length > 0 ? portsList : DEFAULT_PORTS,
     resourcesRequestsCpu: typeof requests.cpu === "string" ? requests.cpu : "",
     resourcesRequestsMemory: typeof requests.memory === "string" ? requests.memory : "",
@@ -887,6 +888,7 @@ function ConfigEditor({
   const schema = useValuesSchema(owner);
   const [tab, setTab] = useState("workload");
   const [form, setForm] = useState(void 0);
+  const chartReplicas = chart?.defaults?.rollout?.replicas;
   const [originalForm, setOriginalForm] = useState(void 0);
   const inheritedShape = workload?.view?.inherited ?? "service";
   const [rolloutEnabled, setRolloutEnabled] = useState(true);
@@ -1245,7 +1247,7 @@ function ConfigEditor({
       meta.example && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, style: { marginTop: 8 }, onClick: () => toggleExample(key), children: exampleOpen.has(key) ? "Hide example" : "Show example" }),
         exampleOpen.has(key) && /* @__PURE__ */ jsxs(Fragment, { children: [
-          /* @__PURE__ */ jsx("pre", { className: classes.example, children: meta.example }),
+          /* @__PURE__ */ jsx(YamlBlock, { text: meta.example, lineNumbers: false, maxHeight: 320 }),
           !advanced[key].trim() && /* @__PURE__ */ jsx("button", { type: "button", className: classes.linkBtn, style: { marginTop: 4 }, onClick: () => setAdv(key, meta.example), children: "Use this as a starting point" })
         ] })
       ] })
@@ -1281,7 +1283,16 @@ function ConfigEditor({
           chart ? 'The chart defaults with this file laid over them, every field with its description; "# set here" marks what the file sets. Changes you have staged in the form are included.' : "Tower could not read the chart's schema, so this shows only the committed file.",
           dirty.size > 0 ? " (Showing your staged changes.)" : ""
         ] }),
-        /* @__PURE__ */ jsx("pre", { className: classes.example, style: { maxHeight: 480, overflow: "auto" }, "aria-label": "Full values", children: annotateValues(chart, mergeValues(cfg.data.values, previewPatch)) })
+        /* @__PURE__ */ jsx(
+          YamlBlock,
+          {
+            text: annotateValues(chart, mergeValues(cfg.data.values, previewPatch)),
+            title: "Full values",
+            maxHeight: 480,
+            filter: true,
+            "aria-label": "Full values"
+          }
+        )
       ] }),
       copyFrom && copyFrom.options.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": "Copy values from", value: "", onChange: (e) => void copyValues(e.target.value), style: { maxWidth: 260 }, children: [
@@ -1293,8 +1304,16 @@ function ConfigEditor({
       /* @__PURE__ */ jsx(Subtabs, { label: "Values sections", value: tab, onChange: setTab, tabs: VALUES_TABS.map((x) => ({ ...x, marked: tabDirty[x.id] })) }),
       tab === "advanced" && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.advancedToggle, onClick: () => setShowRawFile((v) => !v), children: showRawFile ? "\u25BE Hide full committed YAML" : "\u25B8 View full committed YAML" }),
-        showRawFile && /* @__PURE__ */ jsx("pre", { className: classes.example, style: { maxHeight: 420, overflow: "auto" }, children: cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values file
-# on its own branch/history. Submitting a change creates it.` })
+        showRawFile && /* @__PURE__ */ jsx(
+          YamlBlock,
+          {
+            text: cfg.data.raw || `# Nothing committed yet at ${cfg.data.path} - this environment has no values file
+# on its own branch/history. Submitting a change creates it.`,
+            title: cfg.data.path,
+            maxHeight: 420,
+            filter: true
+          }
+        )
       ] }),
       tab === "workload" && /* @__PURE__ */ jsxs(Section, { title: "Deployment", dirty: rolloutEnabled !== originalRolloutEnabled, classes, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
@@ -1313,6 +1332,7 @@ function ConfigEditor({
               type: "number",
               min: 0,
               value: form.replicas,
+              placeholder: `default: ${typeof chartReplicas === "number" ? chartReplicas : "the chart's"}`,
               onChange: (e) => setF("replicas", e.target.value === "" ? "" : Number(e.target.value), "rollout")
             }
           ) }) }),

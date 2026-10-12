@@ -16,6 +16,7 @@ import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { stepDuration, TaskRunLogConsole } from './TaskRunLogConsole.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 import { SectionTitle, FactGrid, Fact, EmptyNote } from './ui/index.esm.js';
+import { YamlBlock } from './ui/YamlBlock.esm.js';
 
 const NODE_W = 150;
 const NODE_H = 56;
@@ -238,18 +239,7 @@ const usePipelineDagStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.panelAlt,
     borderBottom: ({ t }) => `1px solid ${t.line}`
   },
-  dialogCloseBtn: { background: "none", border: "none", cursor: "pointer", color: ({ t }) => t.textLo, display: "flex" },
-  yamlPre: {
-    margin: 0,
-    padding: 16,
-    fontFamily: fontMono,
-    fontSize: 11.5,
-    lineHeight: 1.6,
-    color: ({ t }) => t.textHi,
-    backgroundColor: ({ t }) => t.panel,
-    whiteSpace: "pre",
-    overflow: "auto"
-  }
+  dialogCloseBtn: { background: "none", border: "none", cursor: "pointer", color: ({ t }) => t.textLo, display: "flex" }
 }));
 function phaseColor(t, phase) {
   switch (phase) {
@@ -543,7 +533,7 @@ function PipelineDag({ run, expandSignal }) {
         ] }),
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.dialogCloseBtn, onClick: () => setYamlOpen(false), children: /* @__PURE__ */ jsx(CloseIcon, { style: { fontSize: 18 } }) })
       ] }),
-      /* @__PURE__ */ jsx(DialogContent, { style: { padding: 0 }, children: /* @__PURE__ */ jsx("pre", { className: classes.yamlPre, children: dump(run.raw) }) })
+      /* @__PURE__ */ jsx(DialogContent, { style: { padding: "12px 16px" }, children: /* @__PURE__ */ jsx(YamlBlock, { text: dump(run.raw), filter: true, maxHeight: "70vh", "aria-label": `${run.name}.yaml` }) })
     ] })
   ] });
 }

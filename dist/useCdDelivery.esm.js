@@ -48,6 +48,7 @@ function buildStepsCore(keys, {
   const rolloutStarted = merged && !argoStale && (healthy || synced && !rolloutStillActive && healthStatus !== "Progressing");
   const guardrailsPassed = merged || guardrailsState === "success";
   const guardrailsFailing = !merged && guardrailsState === "failure";
+  const guardrailsBypassed = merged && guardrailsState === "failure";
   const satisfied = {
     created: true,
     guardrails: guardrailsPassed,
@@ -86,7 +87,10 @@ function buildStepsCore(keys, {
   };
   let gapAssigned = false;
   return keys.map((key) => {
-    if (satisfied[key]) return { key, label: STEP_LABEL[key], status: "good", at: at[key] };
+    if (satisfied[key]) {
+      const status = key === "guardrails" && guardrailsBypassed ? "bad" : "good";
+      return { key, label: STEP_LABEL[key], status, at: at[key] };
+    }
     if (!gapAssigned) {
       gapAssigned = true;
       const isFailing = key === "guardrails" && guardrailsFailing || key === "synced" && syncOperationFailed || degraded && (key === "progressing" || key === "healthy");
@@ -157,7 +161,7 @@ function buildCdEnvDelivery(env, gitopsPrs, argo, deployHistory, rolloutStillAct
   }
   if (!deployedPr) return { env };
   const deployedSteps = buildSteps(deployedPr, argo, rolloutStillActive, rolloutFailed);
-  const deployedFullyHealthy = deployedSteps.every((s) => s.status === "good");
+  const deployedFullyHealthy = deployedSteps.every((s) => s.status === "good" || s.key === "guardrails" && s.status === "bad");
   if (deployedFullyHealthy) {
     return { env, previous: { pr: deployedPr, steps: deployedSteps } };
   }

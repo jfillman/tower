@@ -119,6 +119,11 @@ function toSecrets(store, missing) {
     failed: synced?.status === "False" ? synced.message ?? synced.reason ?? "sync failed" : void 0
   };
 }
+function latestOnboardingPr(prs) {
+  const mine = prs.filter((p) => p.repo === "source" && p.title.startsWith("Onboarding:")).sort((a, b) => b.number - a.number);
+  const hit = mine.find((p) => p.state === "open") ?? mine[0];
+  return hit && { number: hit.number, url: hit.url, state: hit.state, mergedAt: epoch(hit.mergedAt) };
+}
 function toOnboardingPrs(prs) {
   const pick = (repo) => {
     const mine = prs.filter((p) => p.repo === repo && p.title.startsWith("Onboarding:"));
@@ -388,5 +393,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

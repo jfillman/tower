@@ -14,7 +14,7 @@ const BLOCKING_WARNINGS = /* @__PURE__ */ new Set(["FailedCreate", "FailedSchedu
 const BLOCKING_RECENT_MS = 10 * 60 * 1e3;
 function diagnose(env, currentSteps, issues = [], warnings = [], now = Date.now()) {
   const guardrails = stepByKey(currentSteps, "guardrails");
-  if (guardrails?.status === "bad") {
+  if (guardrails?.status === "bad" && stepByKey(currentSteps, "merged")?.status !== "good") {
     return {
       tone: "bad",
       title: "A required guardrail failed",

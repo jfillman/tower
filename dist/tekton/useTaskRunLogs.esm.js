@@ -65,5 +65,5 @@ function useTaskRunLogs(params) {
   return state;
 }
 
-export { useTaskRunLogs };
+export { parseTimestampedLine, useTaskRunLogs };
 //# sourceMappingURL=useTaskRunLogs.esm.js.map

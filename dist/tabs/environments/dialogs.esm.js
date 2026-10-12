@@ -44,7 +44,7 @@ function AddEnvironmentDialog({
   const [tier, setTier] = useState(duplicateOf?.tier ?? "ground");
   const [cluster, setCluster] = useState(duplicateOf?.cluster ?? "");
   const [override, setOverride] = useState("");
-  const [releaseStep, setReleaseStep] = useState(true);
+  const [pipelineStep, setPipelineStep] = useState(true);
   const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
   const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
@@ -66,7 +66,7 @@ function AddEnvironmentDialog({
     setTier("ground");
     setCluster("");
     setOverride("");
-    setReleaseStep(true);
+    setPipelineStep(true);
     setCopyValues(true);
   };
   const close = () => {
@@ -90,12 +90,22 @@ function AddEnvironmentDialog({
           }
         )
       ] }),
+      tier === "ground" && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx(
+          FormControlLabel,
+          {
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: pipelineStep, onChange: (e) => setPipelineStep(e.target.checked) }),
+            label: "Also add a deploy step for it to the pipeline"
+          }
+        ),
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a deploy step nothing in CI deploys to this environment: Argo CD creates its namespace and waits for an image that never comes. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
+      ] }),
       tier === "flight" && cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Each release to it opens a pull request on this repo that changes its release pin (glidepath/releases/<name>.yaml). Merging the pull request deploys exactly that image." }),
         /* @__PURE__ */ jsx(
           FormControlLabel,
           {
-            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: releaseStep, onChange: (e) => setReleaseStep(e.target.checked) }),
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: pipelineStep, onChange: (e) => setPipelineStep(e.target.checked) }),
             label: "Also add a release step for it to the pipeline"
           }
         )
@@ -108,7 +118,7 @@ function AddEnvironmentDialog({
         /* @__PURE__ */ jsx(
           FormControlLabel,
           {
-            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: releaseStep, onChange: (e) => setReleaseStep(e.target.checked) }),
+            control: /* @__PURE__ */ jsx(Checkbox, { size: "small", checked: pipelineStep, onChange: (e) => setPipelineStep(e.target.checked) }),
             label: "Also add a release step for it to the pipeline"
           }
         ),
@@ -143,7 +153,7 @@ function AddEnvironmentDialog({
           variant: "primary",
           disabled: !ok,
           onClick: () => {
-            onStage(candidate, tier === "flight" && releaseStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : void 0);
+            onStage(candidate, pipelineStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : void 0);
             reset();
           },
           children: duplicateOf ? "Stage duplicate" : "Stage environment"

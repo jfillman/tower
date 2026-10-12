@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ownChartOf } from '../../environments/ownChart.esm.js';
 import { RawValuesEditor } from '../../values/RawValuesEditor.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
@@ -20,6 +20,7 @@ import { useUi } from '../../ui/styles.esm.js';
 import { BLOCK_FIELDS } from './shared.esm.js';
 import { ENVS_ROOT } from '../../types.esm.js';
 
+const VALUES_FILE_POLL_MS = 45e3;
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px 18px 48px", backgroundColor: ({ t }) => t.panelAlt, borderTop: ({ t }) => `1px solid ${t.line}` },
   body: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 },
@@ -69,11 +70,20 @@ function RowDetailBody({ row, ctx, source }) {
       knownRequestUrl: pending?.requestUrl,
       deployed: row.deployed,
       valuesFileExists,
-      valuesFilePath: source?.data?.path ?? `${ENVS_ROOT}/envs/${row.name}.yaml`
+      valuesFilePath: source?.data?.path ?? `${ENVS_ROOT}/envs/${row.name}.yaml`,
+      pipelineStep: steps.length > 0
     },
     !ctx.cloudBlock && Boolean(ctx.owner && ctx.appName) && row.state !== "new" && row.state !== "removed"
   );
   const unfinished = lifecycle.steps.some((x) => x.state !== "done");
+  const refreshRef = useRef(source?.refresh);
+  refreshRef.current = source?.refresh;
+  const hasSource = Boolean(source);
+  useEffect(() => {
+    if (!hasSource || valuesFileExists || !unfinished || row.state === "new" || row.state === "removed") return void 0;
+    const id = setInterval(() => refreshRef.current?.(), VALUES_FILE_POLL_MS);
+    return () => clearInterval(id);
+  }, [hasSource, valuesFileExists, unfinished, row.state]);
   if (ghost) {
     return /* @__PURE__ */ jsxs("div", { className: c.wrap, children: [
       /* @__PURE__ */ jsx(EnvLifecycle, { steps: lifecycle.steps, initiallyOpen: true }),

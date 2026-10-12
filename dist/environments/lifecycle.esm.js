@@ -33,12 +33,22 @@ function deriveEnvLifecycle(i) {
       i.declared ? "Not opened yet: Glidepath opens it shortly after the merge." : "Opens after the cicd.yaml change merges."
     );
     if (!i.declared) onboarding.state = "pend";
+    let waiting;
+    if (!i.deployed) {
+      if (i.pipelineStep === false) {
+        waiting = `No pipeline has a deploy step for ${i.env}: nothing deploys here until one is added in the Glidepath tab (Add environment can add it next time).`;
+      } else if (!i.valuesFileExists) {
+        waiting = "Deploys on the pipeline's next run (a push to the default branch) once the values file exists.";
+      } else {
+        waiting = "Deploys on the pipeline's next run (a push to the default branch).";
+      }
+    }
     const live = {
       id: "workload",
       title: "Deployed",
       desc: "Argo CD creates the namespace and the first deploy puts the service in it.",
       state: i.deployed ? "done" : "pend",
-      detail: i.deployed ? void 0 : "Deploys on the next push to the default branch once the values file exists."
+      detail: waiting
     };
     return [cicd, onboarding, file, live];
   }
