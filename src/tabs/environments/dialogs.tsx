@@ -50,14 +50,15 @@ export function AddEnvironmentDialog({
   cloudBlock?: CloudBlock;
   /** Duplicating: the environment this one starts as a copy of (tier, cluster and settings; the user names it). */
   duplicateOf?: EnvDef;
-  onStage: (env: EnvDef, releaseStep: boolean, copyValuesFrom?: string) => void;
+  /** pipelineStep: also add the step that reaches it (deploy for Ground, release for Flight) to the main pipeline. */
+  onStage: (env: EnvDef, pipelineStep: boolean, copyValuesFrom?: string) => void;
 }) {
   const { c } = useDialogStyles();
   const [name, setName] = useState('');
   const [tier, setTier] = useState<'ground' | 'flight'>(duplicateOf?.tier ?? 'ground');
   const [cluster, setCluster] = useState(duplicateOf?.cluster ?? '');
   const [override, setOverride] = useState('');
-  const [releaseStep, setReleaseStep] = useState(true);
+  const [pipelineStep, setPipelineStep] = useState(true);
   const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
   // A cloud Flight environment is approved by a release pin PR on the source repo (glidepath ADR-0020).
@@ -88,7 +89,7 @@ export function AddEnvironmentDialog({
     setTier('ground');
     setCluster('');
     setOverride('');
-    setReleaseStep(true);
+    setPipelineStep(true);
     setCopyValues(true);
   };
   const close = () => {
@@ -116,6 +117,19 @@ export function AddEnvironmentDialog({
               label="Flight: deploys only through an approved release"
             />
           </RadioGroup>
+          {tier === 'ground' && (
+            <>
+              <FormControlLabel
+                control={<Checkbox size="small" checked={pipelineStep} onChange={e => setPipelineStep(e.target.checked)} />}
+                label="Also add a deploy step for it to the pipeline"
+              />
+              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
+                Without a deploy step nothing in CI deploys to this environment: Argo CD creates its namespace and waits for
+                an image that never comes. It goes right after the step for the environment before it. Untick to edit the
+                pipeline yourself in the Glidepath tab.
+              </Hint>
+            </>
+          )}
           {tier === 'flight' && cloudBlock && (
             <>
               <Hint className={c.noteGap}>
@@ -123,7 +137,7 @@ export function AddEnvironmentDialog({
                 (glidepath/releases/&lt;name&gt;.yaml). Merging the pull request deploys exactly that image.
               </Hint>
               <FormControlLabel
-                control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
+                control={<Checkbox size="small" checked={pipelineStep} onChange={e => setPipelineStep(e.target.checked)} />}
                 label="Also add a release step for it to the pipeline"
               />
             </>
@@ -146,7 +160,7 @@ export function AddEnvironmentDialog({
                 then the cicd.yaml change. Merge the request first.
               </Hint>
               <FormControlLabel
-                control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
+                control={<Checkbox size="small" checked={pipelineStep} onChange={e => setPipelineStep(e.target.checked)} />}
                 label="Also add a release step for it to the pipeline"
               />
               <Hint className={c.noteGap} style={{ marginTop: -6 }}>
@@ -196,7 +210,7 @@ export function AddEnvironmentDialog({
           variant="primary"
           disabled={!ok}
           onClick={() => {
-            onStage(candidate, tier === 'flight' && releaseStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : undefined);
+            onStage(candidate, pipelineStep, duplicateOf && !cloudBlock && copyValues ? duplicateOf.name : undefined);
             reset();
           }}
         >

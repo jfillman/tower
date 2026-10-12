@@ -241,6 +241,17 @@ interface RawPr {
  * changes open more of them, so per repo a merged one wins over an open one: the
  * step is about the first one.
  */
+/**
+ * The onboarding PR an environment added later waits on: the open one if there is one (it needs merging), else the
+ * newest merged. The opposite end from toOnboardingPrs, which is about the FIRST onboarding (2026-10-12: a new Ground
+ * environment's step linked the oldest merged resync PR and never showed the open one that scaffolds its file).
+ */
+export function latestOnboardingPr(prs: RawPr[]): PrSnapshot | undefined {
+  const mine = prs.filter(p => p.repo === 'source' && p.title.startsWith('Onboarding:')).sort((a, b) => b.number - a.number);
+  const hit = mine.find(p => p.state === 'open') ?? mine[0];
+  return hit && { number: hit.number, url: hit.url, state: hit.state, mergedAt: epoch(hit.mergedAt) };
+}
+
 export function toOnboardingPrs(prs: RawPr[]): NonNullable<ProvisioningLinks['onboarding']> {
   const pick = (repo: RawPr['repo']): PrSnapshot | undefined => {
     const mine = prs.filter(p => p.repo === repo && p.title.startsWith('Onboarding:'));

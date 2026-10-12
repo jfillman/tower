@@ -18,9 +18,9 @@ import {
   envFilePaths,
   followUps,
   pipelinesNamingEnv,
-  planReleaseSteps,
+  planPipelineSteps,
   readEnvironments,
-  releaseStepEnvs,
+  pipelineStepEnvs,
   stageSetBlock,
   validateAddedFlight,
   validateEnvironments,
@@ -183,12 +183,12 @@ export function EnvironmentsTab() {
     ],
     [before, after, targetId, pipelines],
   );
-  const releasePlan = useMemo(() => planReleaseSteps(pipelines, after, releaseStepEnvs(staged, after)), [pipelines, after, staged]);
+  const releasePlan = useMemo(() => planPipelineSteps(pipelines, after, pipelineStepEnvs(staged, after)), [pipelines, after, staged]);
   const releaseLines = useMemo(
     () =>
       releasePlan.added.map(a => ({
         kind: 'edit' as const,
-        title: `Add a release step for ${a.env}`,
+        title: `Add a ${a.stage} step for ${a.env}`,
         detail: `pipeline ${a.pipeline}${a.after ? `, after the step for ${a.after}` : ', at the end'}`,
       })),
     [releasePlan],
@@ -214,7 +214,7 @@ export function EnvironmentsTab() {
       ...(flightOrderChanged
         ? ['This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too.']
         : []),
-      ...releasePlan.skipped.map(k => `No release step added for ${k.env}: ${k.reason}.`),
+      ...releasePlan.skipped.map(k => `No ${k.stage} step added for ${k.env}: ${k.reason}.`),
     ],
     [before, after, targetId, appName, releasePlan, flightOrderChanged, staged],
   );
@@ -680,8 +680,8 @@ export function EnvironmentsTab() {
         targetId={targetId}
         targetLabel={targetLabel}
         cloudBlock={cloudBlock}
-        onStage={(env, releaseStep, copyValuesFrom) => {
-          setStaged(s => [...s, { kind: 'add', env, releaseStep, ...(copyValuesFrom ? { copyValuesFrom } : {}) }]);
+        onStage={(env, pipelineStep, copyValuesFrom) => {
+          setStaged(s => [...s, { kind: 'add', env, pipelineStep, ...(copyValuesFrom ? { copyValuesFrom } : {}) }]);
           setAdding(false);
           setDuplicating(undefined);
         }}

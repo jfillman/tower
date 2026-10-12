@@ -98,3 +98,24 @@ describe('currentStep', () => {
     expect(currentStep(all)).toBeUndefined();
   });
 });
+
+describe('Ground environment lifecycle: what the last step waits for', () => {
+  const g = { tier: 'ground' as const, env: 'test', declared: true };
+  it('links the open onboarding pull request that creates the values file, and waits on it', () => {
+    const steps = deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('open', 26), pipelineStep: true });
+    expect(steps.map(s => `${s.id}:${s.state}`)).toEqual(['cicd:done', 'onboarding:run', 'values:pend', 'workload:pend']);
+    expect(steps[1].links).toEqual([{ label: 'PR #26', url: 'https://github.com/o/t/pull/26', state: 'open' }]);
+    expect(steps[1].detail).toBe('Waiting for the pull request to be merged.');
+  });
+  it('says nothing will deploy when no pipeline has a deploy step for it', () => {
+    const steps = deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: false });
+    expect(steps.map(s => `${s.id}:${s.state}`)).toEqual(['cicd:done', 'onboarding:done', 'values:done', 'workload:pend']);
+    expect(steps[3].detail).toMatch(/No pipeline has a deploy step for test/);
+    expect(currentStep(steps)?.id).toBe('workload');
+  });
+  it('says what the deploy waits for when a pipeline does deploy there', () => {
+    const steps = deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: true });
+    expect(steps[3].detail).toBe("Deploys on the pipeline's next run (a push to the default branch).");
+    expect(deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: true, deployed: true }).every(s => s.state === 'done')).toBe(true);
+  });
+});

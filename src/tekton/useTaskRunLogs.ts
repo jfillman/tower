@@ -21,7 +21,7 @@ export interface StepLogBlock {
 // Splits one k8s `?timestamps=true` log line into its real RFC3339 prefix
 // and the actual log text - the format is always `<timestamp> <rest>`, one
 // space-separated token then everything else.
-function parseTimestampedLine(line: string): TaskLogLine {
+export function parseTimestampedLine(line: string): TaskLogLine {
   const spaceIndex = line.indexOf(' ');
   if (spaceIndex === -1) return { text: line };
   const at = line.slice(0, spaceIndex);

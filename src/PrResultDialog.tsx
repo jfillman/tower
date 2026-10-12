@@ -7,14 +7,15 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
 import Link from '@material-ui/core/Link';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { Button, TextLink } from './ui';
+import { Button } from './ui';
 
 // Shown over the Config tab when an "Open PR" submit finishes (2026-09-24
 // bug: the inline PR link sat far down a long form and the page jumped to the
 // top when the submit button unmounted, losing the link). Same treatment as
 // PromoteDialog: a modal that keeps the PR link in front of the user until
 // they dismiss it. Dismissing only clears the submit state (reset()); the
-// form is left as submitted.
+// form is left as submitted. The URL in the body is the one link to the PR
+// (2026-10-12: a second "View PR" action under it was redundant).
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   paper: {
     backgroundColor: ({ t }) => t.panel,
@@ -56,7 +57,6 @@ export function PrResultDialog({
         )}
       </DialogContent>
       <DialogActions>
-        {result && <TextLink href={result.prUrl}>View PR ↗</TextLink>}
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>

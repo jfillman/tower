@@ -15,7 +15,7 @@ import {
   type TopoPod,
   type TopoReplicaSet,
 } from './useRolloutTopology';
-import { EmptyNote, Fact, FactGrid, SectionTitle } from './ui';
+import { EmptyNote, Fact, FactGrid, SectionTitle, YamlBlock } from './ui';
 
 // The Deployment tab's "Rollout Starts" Kubernetes topology DAG (2026-09-24):
 // Service -> Rollout -> ReplicaSet(s) -> Pods, plus AnalysisRuns (and their
@@ -61,7 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tabs: { display: 'flex', gap: 6, marginBottom: 10 },
   tabBtn: { fontFamily: fontMono, fontSize: 11, padding: '3px 10px', borderRadius: 6, border: ({ t }) => `1px solid ${t.line}`, background: 'none', color: ({ t }) => t.textLo, cursor: 'pointer' },
   tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
-  yaml: { margin: 0, padding: 12, fontFamily: fontMono, fontSize: 11.5, lineHeight: 1.55, color: ({ t }) => t.textHi, backgroundColor: ({ t }) => t.bg, border: ({ t }) => `1px solid ${t.lineSoft}`, borderRadius: 4, maxHeight: 420, overflow: 'auto', whiteSpace: 'pre' },
 }));
 
 function toneColor(t: HangarTokens, tone: TNode['tone']) {
@@ -386,11 +385,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                     ))}
                   </FactGrid>
                 )}
-                {tab === 'yaml' && (
-                  <pre className={classes.yaml}>
-                    {dumpYaml(stripNoise(openNode.obj))}
-                  </pre>
-                )}
+                {tab === 'yaml' && <YamlBlock text={dumpYaml(stripNoise(openNode.obj))} maxHeight={420} filter />}
                 {tab === 'logs' && <NodeLogs node={openNode} cluster={cluster} namespace={namespace} />}
               </div>
             )}

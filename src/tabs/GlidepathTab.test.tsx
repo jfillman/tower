@@ -60,6 +60,8 @@ describe('Glidepath tab', () => {
   it('shows the committed file read only under Advanced', () => {
     renderTab();
     tab('Advanced');
-    expect(screen.getByText(/agent: nodejs-20/)).toBeTruthy();
+    // YamlBlock colours a line in pieces: match on the whole line's text.
+    const lines = Array.from(document.querySelectorAll('[data-yaml-line]')).map(e => e.textContent);
+    expect(lines).toContain('  agent: nodejs-20');
   });
 });

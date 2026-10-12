@@ -8,7 +8,7 @@ import {
   type SecretsSnapshot,
   type XrCondition,
 } from '../provisioning/deriveProvisioning';
-import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toOnboardingPrs, toSecrets } from '../provisioning/useProvisioning';
+import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, latestOnboardingPr, toManaged, toSecrets } from '../provisioning/useProvisioning';
 import { deriveEnvLifecycle, type EnvLifecycleInputs, type EnvLifecycleStep } from './lifecycle';
 import { ENVS_ROOT } from '../types';
 
@@ -51,6 +51,8 @@ export interface EnvLifecycleTarget {
   valuesFilePath?: string;
   /** Request pull request URLs already known from this session's submit (Flight). */
   knownRequestUrl?: string;
+  /** Ground: a pipeline has a step that deploys to the environment (false = nothing in CI ever will). */
+  pipelineStep?: boolean;
 }
 
 export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): { steps: EnvLifecycleStep[]; loading: boolean } {
@@ -96,10 +98,10 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
           if (r?.pr) github.requestPr = r.pr;
         }
         if (tier === 'ground') {
-          const prs = await getJson<Parameters<typeof toOnboardingPrs>[0]>(
+          const prs = await getJson<Parameters<typeof latestOnboardingPr>[0]>(
             `${prBase}/pull-requests?${new URLSearchParams({ owner, appName })}`,
           );
-          if (prs) github.onboardingPr = toOnboardingPrs(prs).source;
+          if (prs) github.onboardingPr = latestOnboardingPr(prs);
         }
       } catch {
         // The links are an extra: a failed lookup leaves the step without them.
@@ -177,6 +179,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
         ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml`
         : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
+    pipelineStep: target.pipelineStep,
     ...extra,
     requestPr,
   });

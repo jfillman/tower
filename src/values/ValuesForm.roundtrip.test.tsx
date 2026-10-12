@@ -420,7 +420,7 @@ describe('values form: rollout strategy and pod template are two panels', () => 
     expect(screen.queryByRole('heading', { name: 'Rollout strategy' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show example' }));
     expect(screen.getByText(/podSpec is deep-merged onto the pod spec/)).toBeTruthy();
-    expect(screen.getByText(/extraContainers:/)).toBeTruthy();
+    expect(Array.from(document.querySelectorAll('[data-yaml-line]')).some(e => /extraContainers:/.test(e.textContent ?? ''))).toBe(true);
     tab('Release');
     expect(screen.getByRole('heading', { name: 'Rollout strategy' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Pod template' })).toBeNull();

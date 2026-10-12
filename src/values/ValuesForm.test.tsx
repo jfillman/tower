@@ -184,7 +184,9 @@ describe('values form source', () => {
     renderForm();
     fireEvent.click(tab('Advanced'));
     fireEvent.click(screen.getByText(/View full committed YAML/));
-    expect(screen.getByText(/replicas: 2/)).toBeTruthy();
+    // YamlBlock colours a line in pieces: match on the whole line's text.
+    const lines = Array.from(document.querySelectorAll('[data-yaml-line]')).map(e => e.textContent);
+    expect(lines).toContain('  replicas: 2');
   });
 });
 
