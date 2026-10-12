@@ -136,6 +136,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   colHeadChanged: { borderTop: ({ t }) => `3px solid ${t.sky}` },
   colHeadBuilt: { borderTop: ({ t }) => `3px solid ${t.amber}` },
   colHeadHappened: { borderTop: ({ t }) => `3px solid ${t.good}` },
+  // The break-glass panel (phase C, G12): its own strip in the break-glass red, and the same gap the Human context
+  // panel keeps from the columns above (2026-10-12 bug: it hugged them, with no strip).
+  colHeadBreakglass: { borderTop: ({ t }) => `3px solid ${t.bad}` },
+  colBreakglass: { marginTop: 18 },
   colTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: ({ t }) => t.textHi },
   colBody: { padding: '14px 15px', display: 'flex', flexDirection: 'column', gap: 14 },
   prItem: { display: 'flex', gap: 8, fontSize: 12.5, alignItems: 'baseline' },
@@ -657,8 +661,8 @@ export function ReleaseRecordDetail({
         </div>
 
       {/* Break-glass sessions while this release ran (gaps phase C, G12): part of the release's history, read live. */}
-      <div className={classes.col} data-testid="release-breakglass">
-        <div className={classes.colHead}>
+      <div className={`${classes.col} ${classes.colBreakglass}`} data-testid="release-breakglass">
+        <div className={`${classes.colHead} ${classes.colHeadBreakglass}`}>
           <span className={classes.colTitle}>Break-glass sessions during this release</span>
         </div>
         <div className={classes.colBody}>
