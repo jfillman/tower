@@ -12,7 +12,7 @@ import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef, PodSummary } from '../../types';
 import { BreakglassPanel } from './BreakglassPanel';
-import { SectionTitle, StatusChip } from '../../ui';
+import { Button, Fact, FactGrid, FilterChip, SectionTitle, StatusChip } from '../../ui';
 
 // Items 6 & 7 of the Topology-tab modernization ("pod logs should be
 // accessible" / "more info/details about each resource, especially pods").
@@ -115,10 +115,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   detailHead: { display: 'flex', alignItems: 'center', gap: 8 },
   detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  kvGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px 12px' },
-  kv: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
-  k: { fontFamily: fontMono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, fontWeight: 700 },
-  v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
   titleGap: { marginBottom: 6 },
   containerRow: {
     display: 'flex',
@@ -138,21 +134,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   conditionOk: { color: ({ t }) => t.good },
   conditionBad: { color: ({ t }) => t.bad },
   actionsRow: { display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 4, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
-  actionBtn: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    padding: '4px 10px',
-    borderRadius: 5,
-    border: ({ t }) => `1px solid ${t.line}`,
-    background: 'none',
-    color: ({ t }) => t.textFaint,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    '&:hover': { color: ({ t }) => t.sky },
-  },
-  actionBtnActive: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   // The active action's own content (logs/metrics/YAML) always gets its own
   // full-width row below the action buttons, one at a time - never squeezed
   // next to the summary grid or another pod's panel.
@@ -234,30 +215,13 @@ function PodDetail({
         <Typography className={classes.detailName}>{pod.name}</Typography>
       </div>
 
-      <div className={classes.kvGrid}>
-        <div className={classes.kv}>
-          <span className={classes.k}>Node</span>
-          <span className={classes.v}>{raw?.spec?.nodeName ?? '—'}</span>
-        </div>
-        <div className={classes.kv}>
-          <span className={classes.k}>Pod IP</span>
-          <span className={classes.v}>{raw?.status?.podIP ?? '—'}</span>
-        </div>
-        <div className={classes.kv}>
-          <span className={classes.k}>Host IP</span>
-          <span className={classes.v}>{raw?.status?.hostIP ?? '—'}</span>
-        </div>
-        <div className={classes.kv}>
-          <span className={classes.k}>QoS class</span>
-          <span className={classes.v}>{raw?.status?.qosClass ?? '—'}</span>
-        </div>
-        <div className={classes.kv}>
-          <span className={classes.k}>Created</span>
-          <span className={classes.v} title={raw?.metadata?.creationTimestamp ? formatDateTime(raw.metadata.creationTimestamp) : undefined}>
-            {raw?.metadata?.creationTimestamp ? relativeTime(raw.metadata.creationTimestamp) : '—'}
-          </span>
-        </div>
-      </div>
+      <FactGrid>
+        <Fact label="Node">{raw?.spec?.nodeName ?? '—'}</Fact>
+        <Fact label="Pod IP">{raw?.status?.podIP ?? '—'}</Fact>
+        <Fact label="Host IP">{raw?.status?.hostIP ?? '—'}</Fact>
+        <Fact label="QoS class">{raw?.status?.qosClass ?? '—'}</Fact>
+        <Fact label="Created" title={raw?.metadata?.creationTimestamp ? formatDateTime(raw.metadata.creationTimestamp) : undefined}>{raw?.metadata?.creationTimestamp ? relativeTime(raw.metadata.creationTimestamp) : '—'}</Fact>
+      </FactGrid>
 
       <div>
         <div className={classes.titleGap}><SectionTitle level={2}>Containers</SectionTitle></div>
@@ -300,26 +264,22 @@ function PodDetail({
       )}
 
       <div className={classes.actionsRow}>
-        <button type="button" className={`${classes.actionBtn} ${panel === 'logs' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'logs' ? null : 'logs')))}>
+        <FilterChip on={panel === 'logs'} onClick={() => setPanel(p => (p === 'logs' ? null : 'logs'))}>
           Logs
-        </button>
-        <button type="button" className={`${classes.actionBtn} ${panel === 'metrics' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'metrics' ? null : 'metrics')))}>
+        </FilterChip>
+        <FilterChip on={panel === 'metrics'} onClick={() => setPanel(p => (p === 'metrics' ? null : 'metrics'))}>
           Metrics
-        </button>
+        </FilterChip>
         {resource && (
-          <button type="button" className={`${classes.actionBtn} ${panel === 'yaml' ? classes.actionBtnActive : ''}`} onMouseDown={preventFocusScroll} onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'yaml' ? null : 'yaml')))}>
-            YAML
-          </button>
+          <FilterChip on={panel === 'yaml'} onClick={() => setPanel(p => (p === 'yaml' ? null : 'yaml'))}>
+          YAML
+        </FilterChip>
         )}
-        <button
-          type="button"
-          className={classes.actionBtn}
-          onMouseDown={preventFocusScroll}
-          onClick={() => copy(`kubectl logs -n ${env.namespace} ${pod.name} --context ${env.cluster}`, 'kubectl-logs')}
-        >
+        <Button small
+          onClick={() => copy(`kubectl logs -n ${env.namespace} ${pod.name} --context ${env.cluster}`, 'kubectl-logs')}>
           <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
           {copied === 'kubectl-logs' ? 'copied' : 'copy kubectl logs'}
-        </button>
+        </Button>
         {tier === 'upper' ? (
           // The cluster refuses exec into app namespaces on Flight (tower-breakglass-no-exec) for everyone but
           // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
@@ -327,31 +287,25 @@ function PodDetail({
             exec is refused on Flight; use Debug
           </span>
         ) : (
-          <button
-            type="button"
-            className={classes.actionBtn}
+          <Button small
+            
             title="For operators with their own cluster access. Debug records the session; exec does not."
-            onMouseDown={preventFocusScroll}
-            onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}
-          >
+            onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}>
             <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
             {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
-          </button>
+          </Button>
         )}
-        <PodRestartControl env={env} podName={pod.name} buttonClass={classes.actionBtn} noteClass={classes.cardSub} badClass={classes.conditionBad} />
-        <button
-          type="button"
-          className={`${classes.actionBtn} ${panel === 'debug' ? classes.actionBtnActive : ''}`}
+        <PodRestartControl env={env} podName={pod.name} noteClass={classes.cardSub} badClass={classes.conditionBad} />
+        <Button small
+          
           title={
             tier === 'upper'
               ? 'Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves.'
               : 'Open a recorded, time-boxed debug shell on this pod (break-glass).'
           }
-          onMouseDown={preventFocusScroll}
-          onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}
-        >
+          onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}>
           Debug
-        </button>
+        </Button>
       </div>
 
       {panel === 'logs' && (

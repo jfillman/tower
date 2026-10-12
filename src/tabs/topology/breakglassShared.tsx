@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { Hint } from '../../ui';
+import { Button, Hint } from '../../ui';
 
 // What the break-glass form (BreakglassPanel, per pod) and the environment view (BreakglassEnvironmentView, per
 // environment) share: the session record as the backend lists it, the API helper, the sessions hook, the terminal
@@ -121,7 +121,6 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   row: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
   rowLinked: { outline: ({ t }) => `1px solid ${t.skyLine}`, backgroundColor: ({ t }) => t.skySoft, borderRadius: 4, padding: '4px 6px' },
   rowMeta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
   badge: {
     fontFamily: fontMono,
     fontSize: 10.5,
@@ -364,13 +363,13 @@ export function OpenSession({
         </span>
         <span style={{ flex: 1 }} />
         {!open.extendedAt && (
-          <button type="button" className={classes.link} disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => onExtend(open.id)}>
+          <Button small disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => onExtend(open.id)}>
             Extend +15 min
-          </button>
+          </Button>
         )}
-        <button type="button" className={classes.link} style={{ color: t.bad }} disabled={ending} onClick={() => onEnd(open.id)}>
+        <Button small variant="danger" disabled={ending} onClick={() => onEnd(open.id)}>
           {ending ? 'Ending…' : 'End session'}
-        </button>
+        </Button>
       </div>
       {open.mode === 'live' && <span className={classes.warn}>This pod will be restarted when you end the session.</span>}
       {open.volumeAccess && (
@@ -402,9 +401,8 @@ export function OpenSession({
         <div className={classes.actions}>
           <Hint>{closedNote}</Hint>
           {detached && (
-            <button
-              type="button"
-              className={classes.link}
+            <Button
+              small
               onClick={() => {
                 setDetached(false);
                 setClosedNote(undefined);
@@ -412,7 +410,7 @@ export function OpenSession({
               }}
             >
               Reconnect
-            </button>
+            </Button>
           )}
         </div>
       )}

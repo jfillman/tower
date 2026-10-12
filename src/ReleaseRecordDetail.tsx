@@ -5,7 +5,6 @@ import Typography from '@material-ui/core/Typography';
 import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { preventFocusScroll } from './preventFocusScroll';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { HangarMark } from './brand/HangarMark';
 import { SupplyChainChips } from './SupplyChainChips';
@@ -18,7 +17,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
-import { ActionSelect, Button, EmptyNote, Hint, StatusChip, TextLink } from './ui';
+import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -73,7 +72,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
   scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.3 },
-  scoreLink: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.sky, '&:hover': { textDecoration: 'underline' } },
   explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 8, padding: '12px 16px', marginBottom: 20, fontSize: 12.5, color: ({ t }) => t.textLo },
   explainRow: { display: 'grid', gridTemplateColumns: '150px 60px 1fr', gap: 12, padding: '5px 0', borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: 'baseline' },
   explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
@@ -153,9 +151,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panelAlt,
   },
   kv: { display: 'flex', flexDirection: 'column', gap: 6 },
-  kvRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 },
-  kvK: { color: ({ t }) => t.textFaint },
-  kvV: { color: ({ t }) => t.textHi, fontFamily: fontMono, fontSize: 11.5 },
   promoChain: { display: 'flex', flexDirection: 'column', gap: 8 },
   promo: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
   promoEnv: {
@@ -417,9 +412,9 @@ export function ReleaseRecordDetail({
               <br />
               score
               <br />
-              <button type="button" className={classes.scoreLink} onMouseDown={preventFocusScroll} onClick={() => setShowScoreExplainer(v => !v)}>
-                {showScoreExplainer ? 'hide how ▴' : 'how? ▾'}
-              </button>
+              <TextLink expanded={showScoreExplainer} onClick={() => setShowScoreExplainer(v => !v)}>
+                how?
+              </TextLink>
             </span>
           </div>
           <div className={classes.actionsBar}>
@@ -477,12 +472,11 @@ export function ReleaseRecordDetail({
             )}
             {record.pullRequests.length === 0 && record.commits.length > 0 && (
               <div className={classes.kv}>
-                <span className={classes.kvK}>No merged source PRs found in the window Tower has fetched — commits by environment:</span>
+                <Hint>No merged source PRs found in the window Tower has fetched. Commits by environment:</Hint>
                 {dedupeCommits(record.commits).map(c => (
-                  <div key={`${c.env}-${c.sha}`} className={classes.kvRow}>
-                    <span className={classes.kvK}>{c.env}</span>
-                    <span className={classes.kvV}>{c.sha.slice(0, 7)}</span>
-                  </div>
+                  <Fact inline key={`${c.env}-${c.sha}`} label={c.env}>
+                    {c.sha.slice(0, 7)}
+                  </Fact>
                 ))}
               </div>
             )}
@@ -537,22 +531,13 @@ export function ReleaseRecordDetail({
             {liveDeployment && (
               <div className={classes.kv}>
                 {liveDeployment.rolloutStrategy && (
-                  <div className={classes.kvRow}>
-                    <span className={classes.kvK}>Rollout strategy</span>
-                    <span className={classes.kvV}>{liveDeployment.rolloutStrategy}</span>
-                  </div>
+                  <Fact inline label="Rollout strategy">{liveDeployment.rolloutStrategy}</Fact>
                 )}
                 {liveDeployment.argoRevision && (
-                  <div className={classes.kvRow}>
-                    <span className={classes.kvK}>Argo CD revision</span>
-                    <span className={classes.kvV}>{liveDeployment.argoRevision.slice(0, 10)}</span>
-                  </div>
+                  <Fact inline label="Argo CD revision">{liveDeployment.argoRevision.slice(0, 10)}</Fact>
                 )}
                 {liveDeployment.rolloutStrategy === 'canary' && liveDeployment.canarySteps && liveDeployment.canarySteps.length > 0 && (
-                  <div className={classes.kvRow}>
-                    <span className={classes.kvK}>Canary steps</span>
-                    <span className={classes.kvV}>{liveDeployment.canarySteps.length}</span>
-                  </div>
+                  <Fact inline label="Canary steps">{liveDeployment.canarySteps.length}</Fact>
                 )}
               </div>
             )}
@@ -570,7 +555,7 @@ export function ReleaseRecordDetail({
             <div className={classes.builtSummary}>
               {record.imageDigest && (
                 <span className={classes.summaryItem} title={record.imageDigest}>
-                  <span className={classes.kvK}>digest</span> {record.imageDigest.replace(/^sha256:/, '').slice(0, 12)}…
+                  <ColumnLabel>digest</ColumnLabel> {record.imageDigest.replace(/^sha256:/, '').slice(0, 12)}…
                 </span>
               )}
               {record.hasSbom && <span className={classes.chip}>SBOM attached</span>}
@@ -612,9 +597,9 @@ export function ReleaseRecordDetail({
                   ))}
                   {record.testResults.length > 0 && (
                     <div className={classes.kv}>
-                      <span className={classes.kvK}>
+                      <ColumnLabel>
                         Test results {record.testResults.length > 1 && `(${record.testResults.length})`}
-                      </span>
+                      </ColumnLabel>
                       {record.testResults.slice(0, 8).map((tr, i) => (
                         <div key={`${tr.taskName}-${tr.resultName}-${i}`} className={classes.testRow}>
                           <span className={classes.testTask}>

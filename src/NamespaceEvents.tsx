@@ -5,7 +5,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesApiRef } from '@backstage/plugin-kubernetes-react';
 import { relativeTime } from './shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { EmptyNote, SectionTitle } from './ui';
+import { EmptyNote, SectionTitle, useTableKit } from './ui';
 
 // Item 5 of the Topology-tab feature request (2026-09-08): "Events!! i want
 // events added." Namespace-wide, not scoped to one object -
@@ -59,17 +59,6 @@ function useNamespaceEvents(cluster: string, namespace: string) {
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    textAlign: 'left',
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    color: ({ t }) => t.textFaint,
-    padding: '4px 10px 6px 0',
-  },
-  td: { padding: '6px 10px 6px 0', fontSize: 12, verticalAlign: 'top', color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 11.5 },
   dot: { width: 7, height: 7, borderRadius: '50%', display: 'inline-block', marginRight: 6 },
   faint: { color: ({ t }) => t.textFaint },
@@ -77,6 +66,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 }));
 
 export function NamespaceEvents({ cluster, namespace }: { cluster: string; namespace: string }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { loading, error, events } = useNamespaceEvents(cluster, namespace);
@@ -96,15 +86,15 @@ export function NamespaceEvents({ cluster, namespace }: { cluster: string; names
         <EmptyNote>No events recorded in this namespace.</EmptyNote>
       )}
       {!loading && !error && sorted.length > 0 && (
-        <table className={classes.table}>
+        <table className={`${tc.table} ${tc.dense}`}>
           <thead>
             <tr>
-              <th className={classes.th}>Type</th>
-              <th className={classes.th}>Object</th>
-              <th className={classes.th}>Reason</th>
-              <th className={classes.th}>Message</th>
-              <th className={classes.th}>Count</th>
-              <th className={classes.th}>Last seen</th>
+              <th className={tc.th}>Type</th>
+              <th className={tc.th}>Object</th>
+              <th className={tc.th}>Reason</th>
+              <th className={tc.th}>Message</th>
+              <th className={tc.th}>Count</th>
+              <th className={tc.th}>Last seen</th>
             </tr>
           </thead>
           <tbody>
@@ -112,17 +102,17 @@ export function NamespaceEvents({ cluster, namespace }: { cluster: string; names
               const isWarning = e.type === 'Warning';
               return (
                 <tr key={i}>
-                  <td className={classes.td}>
+                  <td className={tc.td}>
                     <span className={classes.dot} style={{ backgroundColor: isWarning ? t.bad : t.good }} />
                     <span className={classes.mono}>{e.type ?? '—'}</span>
                   </td>
-                  <td className={`${classes.td} ${classes.mono}`}>
+                  <td className={`${tc.td} ${classes.mono}`}>
                     {e.involvedObject?.kind ?? '—'}/{e.involvedObject?.name ?? '—'}
                   </td>
-                  <td className={`${classes.td} ${classes.mono}`}>{e.reason ?? '—'}</td>
-                  <td className={classes.td}>{e.message ?? '—'}</td>
-                  <td className={`${classes.td} ${classes.mono} ${classes.faint}`}>{e.count ?? 1}</td>
-                  <td className={`${classes.td} ${classes.mono} ${classes.faint}`}>
+                  <td className={`${tc.td} ${classes.mono}`}>{e.reason ?? '—'}</td>
+                  <td className={tc.td}>{e.message ?? '—'}</td>
+                  <td className={`${tc.td} ${classes.mono} ${classes.faint}`}>{e.count ?? 1}</td>
+                  <td className={`${tc.td} ${classes.mono} ${classes.faint}`}>
                     {relativeTime(e.lastTimestamp ?? e.metadata?.creationTimestamp)}
                   </td>
                 </tr>

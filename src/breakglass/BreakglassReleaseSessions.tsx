@@ -3,7 +3,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { formatDateTime, relativeTime } from '../shared/format';
 import type { ReleaseRecord } from '../useReleaseRecords';
-import { EmptyNote, StatusChip } from '../ui';
+import { EmptyNote, StatusChip, TextLink } from '../ui';
 import { shortUser, useBreakglassSessions, type BreakglassSession } from '../tabs/topology/breakglassShared';
 
 // Break-glass sessions during a release (gaps phase C, G12): the sessions started in an environment while this
@@ -15,7 +15,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   list: { display: 'flex', flexDirection: 'column', gap: 6 },
   row: { display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint },
-  link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
 }));
 
 /** The window a release occupied an environment: from its deploy there to the next release's deploy to the same env. */
@@ -60,9 +59,9 @@ function EnvSessions({ appName, env, window, onOpen }: { appName: string; env: s
           {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
           <span className={classes.meta} title={s.reason}>“{s.reason.length > 50 ? `${s.reason.slice(0, 50)}…` : s.reason}”</span>
           {onOpen && (
-            <button type="button" className={classes.link} onClick={() => onOpen(s)}>
+            <TextLink onClick={() => onOpen(s)}>
               open
-            </button>
+            </TextLink>
           )}
         </div>
       ))}

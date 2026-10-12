@@ -7,7 +7,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import { relativeTime, formatDateTime } from '../../shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { GateLedger, GitPrIcon, useSignalRailStyles } from '../../SignalRail';
 import { CanaryRampChart } from '../../CanaryRampChart';
 import { RolloutTopologyDag } from '../../RolloutTopologyDag';
@@ -43,17 +43,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 9 },
   headIcon: { display: 'flex', color: ({ t }) => t.sky, flexShrink: 0 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  prLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13.5,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    '&:hover': { textDecoration: 'underline' },
-  },
   body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   chipPos: { alignSelf: 'flex-start' },
   '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
@@ -108,10 +97,10 @@ function CreatedBody({
   if (delivery.pr) {
     return (
       <>
-        <a className={classes.prLink} href={delivery.pr.url} target="_blank" rel="noopener noreferrer">
+        <TextLink href={delivery.pr.url}>
           <GitPrIcon fontSize={15} />
           PR #{delivery.pr.number}: {delivery.pr.title}
-        </a>
+        </TextLink>
         <Typography className={classes.meta}>
           {delivery.pr.author && `opened by ${delivery.pr.author} · `}
           {timeText(step?.at)}
@@ -187,10 +176,10 @@ function MergedBody({
   if (delivery.pr) {
     return (
       <>
-        <a className={classes.prLink} href={delivery.pr.url} target="_blank" rel="noopener noreferrer">
+        <TextLink href={delivery.pr.url}>
           <GitPrIcon fontSize={15} />
           PR #{delivery.pr.number}: {delivery.pr.title}
-        </a>
+        </TextLink>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {gateCi && (
             <StatusChip tone={gateCi.state === 'success' ? 'ok' : 'warn'}>

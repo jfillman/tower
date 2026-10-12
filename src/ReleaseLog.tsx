@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import { relativeTime } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { formatDuration, ReleaseTimelinePanel } from './TimelinePanel';
 import { PrButton } from './PrButton';
 import { SupplyChainChips } from './SupplyChainChips';
@@ -14,7 +14,7 @@ import { envTierOf, imageTag, previewPrNumber, type DeployHistoryEntry, type Env
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { EmptyNote, FilterChips, SectionTitle, StatusChip, type StatusTone } from './ui';
+import { EmptyNote, FilterChips, SectionTitle, StatusChip, type StatusTone, useTableKit } from './ui';
 
 // The real chronological "release log" the 2026-09-16 Releases revamp asked
 // for, replacing the old always-on Gantt track (ReleaseTimelinePanel, kept
@@ -131,11 +131,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { padding: '14px 20px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2, maxWidth: 640 },
   scroll: { overflowX: 'auto', padding: '0 20px 18px' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', fontFamily: fontDisplay, fontWeight: 700, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.04em', color: ({ t }) => t.textLo, padding: '9px 12px', borderBottom: ({ t }) => `1px solid ${t.line}`, whiteSpace: 'nowrap' },
-  tr: { cursor: 'default' },
-  trClickable: { cursor: 'pointer' },
-  td: { padding: '10px 12px', fontSize: 12.5, borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, whiteSpace: 'nowrap' },
   time: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11 },
   env: { fontFamily: fontMono, fontSize: 11.5, fontWeight: 600, color: ({ t }) => t.textHi },
   envPreview: { color: ({ t }) => t.sky },
@@ -172,6 +167,7 @@ export function ReleaseLog({
   deployHistory: Record<string, DeployHistoryEntry[]>;
   provenanceByImage: Record<string, ProvenanceState>;
 }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [view, setView] = useState<'table' | 'timeline'>('table');
@@ -209,15 +205,15 @@ export function ReleaseLog({
       )}
       {view === 'table' && entries.length > 0 && (
         <div className={classes.scroll}>
-          <table className={classes.table}>
+          <table className={tc.table}>
             <thead>
               <tr>
-                <th className={classes.th}>Time</th>
-                <th className={classes.th}>Env</th>
-                <th className={classes.th}>Release</th>
-                <th className={classes.th}>Trigger</th>
-                <th className={classes.th}>Duration</th>
-                <th className={classes.th}>Status</th>
+                <th className={tc.th}>Time</th>
+                <th className={tc.th}>Env</th>
+                <th className={tc.th}>Release</th>
+                <th className={tc.th}>Trigger</th>
+                <th className={tc.th}>Duration</th>
+                <th className={tc.th}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -228,12 +224,12 @@ export function ReleaseLog({
                 return (
                   <Fragment key={entry.id}>
                     <tr
-                      className={`${classes.tr} ${clickable ? classes.trClickable : ''}`}
+                      className={clickable ? tc.rowLink : undefined}
                       onClick={clickable ? () => setExpanded(isOpen ? null : entry.id) : undefined}
                     >
-                      <td className={`${classes.td} ${classes.time}`}>{relativeTime(entry.date)}</td>
-                      <td className={`${classes.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ''}`}>{entry.env}</td>
-                      <td className={`${classes.td} ${classes.tag}`}>
+                      <td className={`${tc.td} ${classes.time}`}>{relativeTime(entry.date)}</td>
+                      <td className={`${tc.td} ${classes.env} ${entry.isPreview ? classes.envPreview : ''}`}>{entry.env}</td>
+                      <td className={`${tc.td} ${classes.tag}`}>
                         {entry.imageTag ?? '—'}
                         {entry.nickname && (
                           <span
@@ -248,9 +244,9 @@ export function ReleaseLog({
                           </span>
                         )}
                       </td>
-                      <td className={classes.td}>{entry.trigger}</td>
-                      <td className={classes.td}>{entry.duration ?? '—'}</td>
-                      <td className={classes.td}>
+                      <td className={tc.td}>{entry.trigger}</td>
+                      <td className={tc.td}>{entry.duration ?? '—'}</td>
+                      <td className={tc.td}>
                         <StatusChip tone={tone}>{STATUS_LABEL[entry.status]}</StatusChip>
                       </td>
                     </tr>

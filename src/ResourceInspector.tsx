@@ -5,6 +5,7 @@ import Typography from '@material-ui/core/Typography';
 import Collapse from '@material-ui/core/Collapse';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import type { K8sResourceRef } from './types';
+import { useTableKit } from './ui';
 
 // Backs items 2/3/7 of the Topology-tab feature request (2026-09-08): "click
 // through and see the full resource list", "view the raw yaml of each
@@ -281,26 +282,9 @@ export function ResourceYamlView({ resource }: { resource: K8sResourceRef }) {
 }
 
 const useListStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    textAlign: 'left',
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    color: ({ t }) => t.textFaint,
-    padding: '4px 10px 6px 0',
-  },
   // A visible row separator - without it, nothing signaled these rows were
   // clickable at all (2026-09-09 feedback) beyond a hover color that only
   // shows up once the pointer is already there.
-  row: {
-    cursor: 'pointer',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
-  },
-  rowSelected: { backgroundColor: ({ t }) => t.panelAlt },
-  td: { padding: '7px 10px 7px 0', fontSize: 12, fontFamily: fontMono, color: ({ t }) => t.textHi },
   kindTd: { color: ({ t }) => t.textFaint },
   detail: {
     marginTop: 12,
@@ -338,6 +322,7 @@ export function resourceKey(r: K8sResourceRef): string {
 export function ResourceList({ resources }: { resources: K8sResourceRef[] }) {
   const t = useHangarTokens();
   const classes = useListStyles({ t });
+  const tc = useTableKit();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const byKind = new Map<string, K8sResourceRef[]>();
@@ -351,11 +336,11 @@ export function ResourceList({ resources }: { resources: K8sResourceRef[] }) {
 
   return (
     <div>
-      <table className={classes.table}>
+      <table className={`${tc.table} ${tc.dense}`}>
         <thead>
           <tr>
-            <th className={classes.th}>Kind</th>
-            <th className={classes.th}>Name</th>
+            <th className={tc.th}>Kind</th>
+            <th className={tc.th}>Name</th>
           </tr>
         </thead>
         <tbody>
@@ -366,11 +351,11 @@ export function ResourceList({ resources }: { resources: K8sResourceRef[] }) {
               return (
                 <tr
                   key={key}
-                  className={`${classes.row} ${isSelected ? classes.rowSelected : ''}`}
+                  className={`${tc.rowLink} ${isSelected ? tc.rowSelected : ''}`}
                   onClick={() => setSelectedKey(isSelected ? null : key)}
                 >
-                  <td className={`${classes.td} ${classes.kindTd}`}>{r.kind}</td>
-                  <td className={classes.td}>{r.name}</td>
+                  <td className={`${tc.td} ${classes.kindTd}`}>{r.kind}</td>
+                  <td className={tc.td}>{r.name}</td>
                 </tr>
               );
             }),

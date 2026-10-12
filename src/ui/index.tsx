@@ -3,7 +3,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
-import { useControls, useSection, useStatus, useUi } from './styles';
+import { useControls, useData, useSection, useStatus, useUi } from './styles';
 
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 
@@ -527,4 +527,50 @@ export function Hint({ inset, className, ...rest }: { inset?: boolean } & React.
 export function Count({ children }: { children: ReactNode }) {
   const s = useSectionKit();
   return <span className={s.count}>{children}</span>;
+}
+
+function useDataKit() {
+  const t = useHangarTokens();
+  return useData({ t });
+}
+
+/**
+ * A label over its value (Source repo / jfillman/boarding-api), or `inline`: label left, value right, rows ruled
+ * (an environment card's Replicas 2 / 2). Put stacked facts in a `FactGrid`.
+ */
+export function Fact({ label, inline, title, children }: { label: ReactNode; inline?: boolean; title?: string; children: ReactNode }) {
+  const d = useDataKit();
+  return (
+    <div className={cx(d.fact, inline && d.factInline)}>
+      <span className={d.factLabel}>{label}</span>
+      <span className={cx(d.factValue, inline && d.factValueInline)} title={title}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Stacked facts in columns at least `min` px wide (default 140). `row` lays them out in one wrapping row, each as
+ * wide as its value, for a strip inside a head that sizes to its content.
+ */
+export function FactGrid({ min = 140, row, className, children }: { min?: number; row?: boolean; className?: string; children: ReactNode }) {
+  const d = useDataKit();
+  return (
+    <div
+      className={cx(d.factGrid, row && d.factRow, className)}
+      style={row ? undefined : { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The kit's table classes: `table`, `th` (the ColumnLabel look), `td`, `rowLink` (a row that opens something),
+ * `rowSelected`, and `dense` on the table for a small panel (events, the ArgoCD resource tree, RBAC).
+ */
+export function useTableKit() {
+  const d = useDataKit();
+  return { table: d.table, th: d.th, td: d.td, rowLink: d.rowLink, rowSelected: d.rowSelected, dense: d.dense };
 }

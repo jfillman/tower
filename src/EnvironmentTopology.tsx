@@ -11,7 +11,7 @@ import { TopoDag, buildTopoStages, type TopoStageKey } from './tabs/topology/Top
 import { TopologyStageDetail } from './tabs/topology/StageDetail';
 import { ResourceGallery } from './tabs/topology/ResourceGallery';
 import { ENV_TIER_LABEL, health, type EnvironmentSummary, type EnvTier } from './types';
-import { FilterChip, FilterGroup, HEALTH_LABEL, healthTone, SectionTitle, StatusChip } from './ui';
+import { FilterChip, FilterGroup, HEALTH_LABEL, healthTone, SectionTitle, StatusChip, TextLink } from './ui';
 
 // The single-environment topology view Ground Control's own DAG/detail
 // pattern established on the Deployments tab (2026-09-17 Topology
@@ -44,7 +44,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   tierDot: { width: 6, height: 6, borderRadius: '50%', display: 'inline-block', marginRight: 5 },
   tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 3, display: 'inline-flex', alignItems: 'center' },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  routeLink: { display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
   dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 10, display: 'flex', flexDirection: 'column' },
   dagInner: { padding: '10px 12px 4px' },
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
@@ -125,9 +124,9 @@ export function EnvironmentTopology({
           </span>
           <span className={classes.clusterNote}>{env.namespace} on {env.cluster}</span>
           {env.ingressUrl && (
-            <a className={classes.routeLink} href={env.ingressUrl} target="_blank" rel="noopener noreferrer">
+            <TextLink href={env.ingressUrl}>
               {env.ingressUrl.replace(/^https?:\/\//, '')} <OpenInNewIcon style={{ fontSize: 12 }} />
-            </a>
+            </TextLink>
           )}
         </div>
         <StatusChip tone={healthTone(h)} dot>

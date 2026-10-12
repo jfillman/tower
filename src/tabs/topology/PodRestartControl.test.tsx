@@ -17,7 +17,7 @@ jest.mock('@backstage/core-plugin-api', () => ({
 }));
 
 const env = { env: 'dev', cluster: 'kind-dev', namespace: 'app-sky-marshall-dev', argoAppName: 'sky-marshall-dev' } as EnvironmentSummary;
-const renderIt = () => render(<PodRestartControl env={env} podName="sky-marshall-abc" buttonClass="b" noteClass="n" badClass="x" />);
+const renderIt = () => render(<PodRestartControl env={env} podName="sky-marshall-abc" noteClass="n" badClass="x" />);
 
 beforeEach(() => {
   posts.length = 0;

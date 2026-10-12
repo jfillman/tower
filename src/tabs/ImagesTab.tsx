@@ -10,7 +10,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
-import { Count, EmptyNote, FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
+import { Count, EmptyNote, Fact, FactGrid, FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -72,16 +72,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   tagsRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   untagged: { fontSize: 12, fontStyle: 'italic', color: ({ t }) => t.textFaint },
-  metaRow: { display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 8 },
-  metaItem: { display: 'flex', flexDirection: 'column', gap: 2 },
-  metaLabel: {
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    color: ({ t }) => t.textFaint,
-  },
-  metaValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
+  metaGap: { marginTop: 8 },
   hintRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
   expandRow: { padding: '10px 20px 14px' },
   detailBody: {
@@ -363,22 +354,11 @@ function ImagePanel({
               <span className={classes.untagged}>untagged</span>
             )}
           </div>
-          <div className={classes.metaRow}>
-            <div className={classes.metaItem}>
-              <span className={classes.metaLabel}>Digest</span>
-              <span className={classes.metaValue}>
-                {entry.digest.startsWith('sha256:') ? `${entry.digest.slice(7, 19)}…` : entry.digest}
-              </span>
-            </div>
-            <div className={classes.metaItem}>
-              <span className={classes.metaLabel}>Pushed</span>
-              <span className={classes.metaValue}>{entry.createdAt ? relativeTime(entry.createdAt) : '—'}</span>
-            </div>
-            <div className={classes.metaItem}>
-              <span className={classes.metaLabel}>Date</span>
-              <span className={classes.metaValue}>{entry.createdAt ? formatDateTime(entry.createdAt) : '—'}</span>
-            </div>
-          </div>
+          <FactGrid row className={classes.metaGap}>
+            <Fact label="Digest">{entry.digest.startsWith('sha256:') ? `${entry.digest.slice(7, 19)}…` : entry.digest}</Fact>
+            <Fact label="Pushed">{entry.createdAt ? relativeTime(entry.createdAt) : '—'}</Fact>
+            <Fact label="Date">{entry.createdAt ? formatDateTime(entry.createdAt) : '—'}</Fact>
+          </FactGrid>
           <div className={classes.hintRow}>
             <StatusChip tone={hasProvenanceHint ? 'ok' : 'neutral'}>provenance {hasProvenanceHint ? 'attached' : 'not found'}</StatusChip>
             <StatusChip tone={hasSbomHint ? 'ok' : 'neutral'}>SBOM {hasSbomHint ? 'attached' : 'not found'}</StatusChip>

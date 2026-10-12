@@ -7,7 +7,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
-import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
+import { Button, EmptyNote, SectionTitle, StatusChip, TextLink, useTableKit } from '../../ui';
 import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
@@ -123,17 +123,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // hook, message") - a real table, not the prior flat pill list, since
   // that's the shape this much real per-resource data actually needs.
   treeScroll: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', fontFamily: fontMono, fontSize: 11 },
-  headCell: {
-    textAlign: 'left',
-    padding: '5px 8px',
-    fontSize: 9,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    fontWeight: 700,
-    color: ({ t }) => t.textFaint,
-    whiteSpace: 'nowrap',
-  },
   bodyRow: { borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   bodyRowHook: { backgroundColor: ({ t }) => t.panelAlt },
   cell: { padding: '6px 8px', color: ({ t }) => t.textHi, verticalAlign: 'top' },
@@ -221,6 +210,7 @@ export function ArgoCommandPanel({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
+  const tc = useTableKit();
   const [detailOpen, setDetailOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmForce, setConfirmForce] = useState(false);
@@ -482,16 +472,16 @@ export function ArgoCommandPanel({
               </EmptyNote>
             ) : (
               <div className={classes.treeScroll}>
-                <table className={classes.table}>
+                <table className={`${tc.table} ${tc.dense}`}>
                   <thead>
                     <tr>
-                      <th className={classes.headCell}>Sync wave</th>
-                      <th className={classes.headCell}>Kind</th>
-                      <th className={classes.headCell}>Name</th>
-                      <th className={classes.headCell}>Status</th>
-                      <th className={classes.headCell}>Health</th>
-                      <th className={classes.headCell}>Hook</th>
-                      <th className={classes.headCell}>Message</th>
+                      <th className={tc.th}>Sync wave</th>
+                      <th className={tc.th}>Kind</th>
+                      <th className={tc.th}>Name</th>
+                      <th className={tc.th}>Status</th>
+                      <th className={tc.th}>Health</th>
+                      <th className={tc.th}>Hook</th>
+                      <th className={tc.th}>Message</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -8,6 +8,7 @@ import { podIssues, warningGroups, type PodIssue, type RawEvent, type RawPod, ty
 import { relativeTime } from '../../shared/format';
 import { NamespaceEvents } from '../../NamespaceEvents';
 import { useState } from 'react';
+import { TextLink } from '../../ui';
 
 // The plain-language ArgoCD/Rollouts troubleshooting banner
 // (HANDOFF-tower-cicd-redesign.md: "the state of the ArgoCD app, and how to
@@ -246,7 +247,6 @@ const useDetailStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5, wordBreak: 'break-word' },
   hint: { fontSize: 12.5, color: ({ t }) => t.textHi, marginTop: 2 },
   warn: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, fontSize: 12, padding: '3px 0' },
-  link: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky, '&:hover': { textDecoration: 'underline' } },
 }));
 
 /** What Kubernetes reports about the pods and the namespace, with a next step for each. */
@@ -290,16 +290,16 @@ function ProblemDetails({ env, issues, warnings }: { env: EnvironmentSummary; is
             </div>
           ))}
           {warnings.length > 5 && (
-            <button type="button" className={classes.link} onClick={() => setShowAllWarnings(v => !v)}>
+            <TextLink expanded={showAllWarnings} onClick={() => setShowAllWarnings(v => !v)}>
               {showAllWarnings ? 'Show fewer warnings' : `Show ${warnings.length - 5} more`}
-            </button>
+            </TextLink>
           )}
         </div>
       )}
       <div>
-        <button type="button" className={classes.link} onClick={() => setAll(v => !v)} aria-expanded={all}>
+        <TextLink expanded={all} onClick={() => setAll(v => !v)}>
           {all ? 'Hide all events' : `Show all events in ${env.namespace}`}
-        </button>
+        </TextLink>
         {all && <NamespaceEvents cluster={env.cluster} namespace={env.namespace} />}
       </div>
     </div>

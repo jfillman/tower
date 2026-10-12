@@ -6,7 +6,7 @@ import DeviceHubIcon from '@material-ui/icons/DeviceHub';
 import LayersIcon from '@material-ui/icons/Layers';
 import AppsIcon from '@material-ui/icons/Apps';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { preventFocusScroll } from '../../preventFocusScroll';
 import { CanaryRampChart } from '../../CanaryRampChart';
 import { YamlView } from './YamlView';
@@ -15,7 +15,7 @@ import { PodsPanel } from './PodsPanel';
 import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView';
 import type { TopoStageKey } from './TopoDag';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef } from '../../types';
-import { EmptyNote, SectionTitle, TextLink } from '../../ui';
+import { EmptyNote, Fact, SectionTitle, TextLink } from '../../ui';
 
 // The per-stage detail panel the DAG drives (item 3: "each stage in the DAG
 // shows details in the attached details section below... be more
@@ -56,17 +56,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 22,
     flexShrink: 0,
   },
-  bigLink: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 14,
-    color: ({ t }) => t.sky,
-    textDecoration: 'none',
-    '&:hover': { textDecoration: 'underline' },
-  },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   // auto-fit (not auto-fill): with few items and a wide container, auto-fill
   // still lays out as many empty minmax(220px,1fr) tracks as fit, so a
@@ -91,20 +80,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   serviceName: { fontFamily: fontMono, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
   serviceMeta: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   fullWidthDetail: { marginTop: 4 },
-  yamlBtn: {
-    alignSelf: 'flex-start',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    color: ({ t }) => t.sky,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-  },
   strategyGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 20px' },
-  kv: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
-  kvLabel: { fontFamily: fontMono, fontSize: 10, lineHeight: 1.4, textTransform: 'uppercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint },
-  kvValue: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   stepsList: { display: 'flex', flexDirection: 'column', gap: 4 },
   stepRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
   stepIndex: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, width: 18, flexShrink: 0 },
@@ -125,9 +101,9 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {env.ingressUrl ? (
-            <a className={classes.bigLink} href={env.ingressUrl} target="_blank" rel="noopener noreferrer">
+            <TextLink href={env.ingressUrl}>
               {env.ingressUrl} <OpenInNewIcon style={{ fontSize: 14 }} />
-            </a>
+            </TextLink>
           ) : (
             <EmptyNote>No external route configured for this environment.</EmptyNote>
           )}
@@ -136,9 +112,9 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
       </div>
       {routeResource && (
         <>
-          <button type="button" className={classes.yamlBtn} onMouseDown={preventFocusScroll} onClick={() => setShowYaml(v => !v)}>
-            {showYaml ? '▾ hide YAML' : '▸ view route YAML'}
-          </button>
+          <TextLink expanded={showYaml} onClick={() => setShowYaml(v => !v)}>
+            Route YAML
+          </TextLink>
           {showYaml && <YamlView resource={routeResource} />}
         </>
       )}
@@ -197,9 +173,9 @@ function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: Ret
               narrow box (2026-09-17 bug report). */}
           {selectedResource && (
             <>
-              <button type="button" className={classes.yamlBtn} onMouseDown={preventFocusScroll} onClick={() => setShowYaml(v => !v)}>
-                {showYaml ? '▾ hide YAML' : '▸ view service YAML'}
-              </button>
+              <TextLink expanded={showYaml} onClick={() => setShowYaml(v => !v)}>
+                Service YAML
+              </TextLink>
               {showYaml && (
                 <div className={classes.fullWidthDetail}>
                   <YamlView resource={selectedResource} />
@@ -230,56 +206,25 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
       ) : (
         <>
           <div className={classes.strategyGrid}>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Strategy</span>
-              <span className={classes.kvValue}>{env.strategy ?? '—'}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Replicas</span>
-              <span className={classes.kvValue}>{env.availableReplicas ?? '—'} / {env.desiredReplicas ?? '—'}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>CPU request / limit</span>
-              <span className={classes.kvValue}>{env.cpuRequest ?? '—'} / {env.cpuLimit ?? '—'}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.kvLabel}>Memory request / limit</span>
-              <span className={classes.kvValue}>{env.memoryRequest ?? '—'} / {env.memoryLimit ?? '—'}</span>
-            </div>
+            <Fact label="Strategy">{env.strategy ?? '—'}</Fact>
+            <Fact label="Replicas">{env.availableReplicas ?? '—'} / {env.desiredReplicas ?? '—'}</Fact>
+            <Fact label="CPU request / limit">{env.cpuRequest ?? '—'} / {env.cpuLimit ?? '—'}</Fact>
+            <Fact label="Memory request / limit">{env.memoryRequest ?? '—'} / {env.memoryLimit ?? '—'}</Fact>
             {workload.canaryServices && (
-              <div className={classes.kv}>
-                <span className={classes.kvLabel}>Canary / Stable service</span>
-                <span className={classes.kvValue}>{workload.canaryServices.canary ?? '—'} / {workload.canaryServices.stable ?? '—'}</span>
-              </div>
+              <Fact label="Canary / Stable service">{workload.canaryServices.canary ?? '—'} / {workload.canaryServices.stable ?? '—'}</Fact>
             )}
             {workload.blueGreen && (
               <>
-                <div className={classes.kv}>
-                  <span className={classes.kvLabel}>Active / Preview service</span>
-                  <span className={classes.kvValue}>{workload.blueGreen.activeService ?? '—'} / {workload.blueGreen.previewService ?? '—'}</span>
-                </div>
-                <div className={classes.kv}>
-                  <span className={classes.kvLabel}>Auto-promote</span>
-                  <span className={classes.kvValue}>{autoPromoteLabel(workload.blueGreen)}</span>
-                </div>
+                <Fact label="Active / Preview service">{workload.blueGreen.activeService ?? '—'} / {workload.blueGreen.previewService ?? '—'}</Fact>
+                <Fact label="Auto-promote">{autoPromoteLabel(workload.blueGreen)}</Fact>
               </>
             )}
             {workload.hpa && (
-              <div className={classes.kv}>
-                <span className={classes.kvLabel}>HPA (min / max / target CPU)</span>
-                <span className={classes.kvValue}>
-                  {workload.hpa.minReplicas ?? '—'} / {workload.hpa.maxReplicas ?? '—'} / {workload.hpa.targetCpuUtilization !== undefined ? `${workload.hpa.targetCpuUtilization}%` : '—'}
-                </span>
-              </div>
+              <Fact label="HPA (min / max / target CPU)">{workload.hpa.minReplicas ?? '—'} / {workload.hpa.maxReplicas ?? '—'} / {workload.hpa.targetCpuUtilization !== undefined ? `${workload.hpa.targetCpuUtilization}%` : '—'}</Fact>
             )}
             {workload.pdb && (
-              <div className={classes.kv}>
-                <span className={classes.kvLabel}>PDB (min avail / max unavail)</span>
-                <span className={classes.kvValue}>
-                  {workload.pdb.minAvailable ?? '—'} / {workload.pdb.maxUnavailable ?? '—'}
-                  {workload.pdb.disruptionsAllowed !== undefined ? ` · ${workload.pdb.disruptionsAllowed} disruption${workload.pdb.disruptionsAllowed === 1 ? '' : 's'} allowed` : ''}
-                </span>
-              </div>
+              <Fact label="PDB (min avail / max unavail)">{workload.pdb.minAvailable ?? '—'} / {workload.pdb.maxUnavailable ?? '—'}
+                  {workload.pdb.disruptionsAllowed !== undefined ? ` · ${workload.pdb.disruptionsAllowed} disruption${workload.pdb.disruptionsAllowed === 1 ? '' : 's'} allowed` : ''}</Fact>
             )}
           </div>
 

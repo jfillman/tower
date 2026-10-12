@@ -6,7 +6,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { confidenceColor, statusPill } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
-import { SectionTitle, StatusChip, type StatusTone, TextLink } from './ui';
+import { Fact, SectionTitle, StatusChip, type StatusTone, TextLink } from './ui';
 
 // Board 4 of the mockup (HANDOFF-tower-release-record.md /
 // idp_session_tower_release_record_spec) - "Compare two records." Records
@@ -72,9 +72,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   colHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 14 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
   kv: { display: 'flex', flexDirection: 'column', gap: 8 },
-  kvRow: { display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 },
-  kvK: { color: ({ t }) => t.textFaint },
-  kvV: { color: ({ t }) => t.textHi, fontFamily: fontMono, fontSize: 11.5 },
   mid: {
     width: 150,
     display: 'flex',
@@ -163,28 +160,15 @@ function RecordColumn({
         </StatusChip>
       </div>
       <div className={classes.kv}>
-        <div className={classes.kvRow}>
-          <span className={classes.kvK}>Deployed</span>
-          <span className={classes.kvV}>{formatDateTime(record.createdAt)}</span>
-        </div>
-        <div className={classes.kvRow}>
-          <span className={classes.kvK}>PRs</span>
-          <span className={classes.kvV}>{record.pullRequests.length}</span>
-        </div>
-        <div className={classes.kvRow}>
-          <span className={classes.kvK}>Lead time (merge→prod)</span>
-          <span className={classes.kvV}>{lead === undefined ? '—' : formatDuration(lead)}</span>
-        </div>
-        <div className={classes.kvRow}>
-          <span className={classes.kvK}>Guardrail checks</span>
-          <span className={classes.kvV}>{record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : '—'}</span>
-        </div>
-        <div className={classes.kvRow}>
-          <span className={classes.kvK}>Confidence</span>
-          <span className={classes.kvV} style={{ color: confidenceColor(t, record.confidence) }}>
+        <Fact inline label="Deployed">{formatDateTime(record.createdAt)}</Fact>
+        <Fact inline label="PRs">{record.pullRequests.length}</Fact>
+        <Fact inline label="Lead time (merge→prod)">{lead === undefined ? '—' : formatDuration(lead)}</Fact>
+        <Fact inline label="Guardrail checks">{record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : '—'}</Fact>
+        <Fact inline label="Confidence">
+          <span style={{ color: confidenceColor(t, record.confidence) }}>
             {record.confidence}
           </span>
-        </div>
+        </Fact>
       </div>
     </div>
   );

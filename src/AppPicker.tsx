@@ -22,7 +22,7 @@ import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
-import { EmptyNote, FilterBar, FilterChips, SearchField, TextLink } from './ui';
+import { EmptyNote, FilterBar, FilterChips, SearchField, TextLink, useTableKit } from './ui';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -276,30 +276,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 5,
     backgroundColor: ({ t }) => t.panel,
   },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: {
-    textAlign: 'left',
-    padding: '8px 12px',
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    fontWeight: 500,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    color: ({ t }) => t.textFaint,
-    borderBottom: ({ t }) => `1px solid ${t.line}`,
-    whiteSpace: 'nowrap',
-  },
-  tr: {
-    cursor: 'pointer',
-    '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
-    '&:last-child td': { borderBottom: 'none' },
-  },
-  td: {
-    padding: '10px 12px',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-    verticalAlign: 'middle',
-    color: ({ t }) => t.textLo,
-  },
   tdDesc: {
     maxWidth: 360,
     overflow: 'hidden',
@@ -323,6 +299,7 @@ export function AppPicker({
   /** A break-glass queue row was chosen: open its session (the link is Tower's own query string). */
   onOpenBreakglass?: (row: BreakglassQueueRow, link: string) => void;
 }) {
+  const tc = useTableKit();
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
@@ -530,30 +507,30 @@ export function AppPicker({
 
   const renderTable = (list: Entity[]) => (
     <div className={classes.tableWrap}>
-      <table className={classes.table}>
+      <table className={tc.table}>
         <thead>
           <tr>
-            <th className={classes.th} style={{ width: 40 }} aria-label="Starred" />
-            <th className={classes.th}>Service</th>
-            <th className={classes.th}>Type</th>
-            <th className={classes.th}>Owner</th>
-            <th className={classes.th}>Description</th>
+            <th className={tc.th} style={{ width: 40 }} aria-label="Starred" />
+            <th className={tc.th}>Service</th>
+            <th className={tc.th}>Type</th>
+            <th className={tc.th}>Owner</th>
+            <th className={tc.th}>Description</th>
           </tr>
         </thead>
         <tbody>
           {list.map(e => {
             const ref = stringifyEntityRef(e);
             return (
-              <tr key={ref} className={classes.tr} {...activate(ref)}>
-                <td className={classes.td}>{renderStar(ref)}</td>
-                <td className={classes.td}>
+              <tr key={ref} className={tc.rowLink} {...activate(ref)}>
+                <td className={tc.td}>{renderStar(ref)}</td>
+                <td className={tc.td}>
                   <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
                 </td>
-                <td className={classes.td}>{renderTypeChip(e)}</td>
-                <td className={`${classes.td} ${classes.meta}`} title={e.spec?.owner as string | undefined}>
+                <td className={tc.td}>{renderTypeChip(e)}</td>
+                <td className={`${tc.td} ${classes.meta}`} title={e.spec?.owner as string | undefined}>
                   {ownerLabel(e.spec?.owner)}
                 </td>
-                <td className={`${classes.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
+                <td className={`${tc.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
               </tr>
             );
           })}
