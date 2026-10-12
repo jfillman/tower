@@ -1,9 +1,9 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
-import { useControls, useData, useSection, useStatus, useUi } from './styles';
+import { useBlocks, useControls, useData, useSection, useStatus, useUi } from './styles';
 
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 
@@ -32,14 +32,16 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
-export function Panel({ accent, className, children, ...rest }: { accent?: boolean; className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
-  const { ui } = useKit();
-  return (
-    <div className={cx(ui.panel, accent && ui.panelAccent, className)} {...rest}>
-      {children}
-    </div>
-  );
-}
+export const Panel = forwardRef<HTMLDivElement, { accent?: boolean; className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>>(
+  function Panel({ accent, className, children, ...rest }, ref) {
+    const { ui } = useKit();
+    return (
+      <div ref={ref} className={cx(ui.panel, accent && ui.panelAccent, className)} {...rest}>
+        {children}
+      </div>
+    );
+  },
+);
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   const { ui } = useKit();
@@ -108,12 +110,12 @@ export function IconButton({ className, type = 'button', ...rest }: ButtonHTMLAt
   return <button type={type} onMouseDown={preventFocusScroll} className={cx(ui.iconButton, className)} {...rest} />;
 }
 
-export type ChipTone = 'neutral' | 'ground' | 'flight' | 'ok' | 'bad';
+export type ChipTone = 'neutral' | 'ground' | 'flight' | 'ok' | 'bad' | 'sky';
 
-export function Chip({ tone = 'neutral', children }: { tone?: ChipTone; children: ReactNode }) {
+export function Chip({ tone = 'neutral', className, children }: { tone?: ChipTone; className?: string; children: ReactNode }) {
   const { ui } = useKit();
-  const toneClass = { neutral: undefined, ground: ui.chipGround, flight: ui.chipFlight, ok: ui.chipOk, bad: ui.chipBad }[tone];
-  return <span className={cx(ui.chip, toneClass)}>{children}</span>;
+  const toneClass = { neutral: undefined, ground: ui.chipGround, flight: ui.chipFlight, ok: ui.chipOk, bad: ui.chipBad, sky: ui.chipSky }[tone];
+  return <span className={cx(ui.chip, toneClass, className)}>{children}</span>;
 }
 
 export function TierChip({ tier }: { tier: 'ground' | 'flight' }) {
@@ -573,4 +575,128 @@ export function FactGrid({ min = 140, row, className, children }: { min?: number
 export function useTableKit() {
   const d = useDataKit();
   return { table: d.table, th: d.th, td: d.td, rowLink: d.rowLink, rowSelected: d.rowSelected, dense: d.dense };
+}
+
+function useBlocksKit() {
+  const t = useHangarTokens();
+  return useBlocks({ t });
+}
+
+/**
+ * A Panel with the kit padding (14px 18px) and an optional head: `title` (a SectionTitle, `level` 2 by default) and
+ * `meta` at the left, `actions` (a status chip, buttons) at the right.
+ */
+export const Card = forwardRef<
+  HTMLDivElement,
+  { title?: ReactNode; meta?: ReactNode; actions?: ReactNode; level?: 1 | 2; className?: string; children?: ReactNode } & Omit<
+    React.HTMLAttributes<HTMLDivElement>,
+    'title'
+  >
+>(function Card({ title, meta, actions, level = 2, className, children, ...rest }, ref) {
+  const b = useBlocksKit();
+  return (
+    <Panel ref={ref} className={cx(b.card, className)} {...rest}>
+      {(title !== undefined || actions) && (
+        <div className={b.cardHead}>
+          <div className={b.cardHeadStart}>
+            {title !== undefined && <SectionTitle level={level}>{title}</SectionTitle>}
+            {meta}
+          </div>
+          {actions && <div className={b.cardHeadEnd}>{actions}</div>}
+        </div>
+      )}
+      {children}
+    </Panel>
+  );
+});
+
+/** An item inside a card (a pod, a resource, a fact box): panelAlt, radius 4. `onClick` makes it a button. */
+export function Tile({ onClick, className, children, ...rest }: { onClick?: () => void; className?: string; children: ReactNode } & Omit<React.HTMLAttributes<HTMLElement>, 'onClick'>) {
+  const b = useBlocksKit();
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onMouseDown={preventFocusScroll}
+        onClick={onClick}
+        className={cx(b.tile, b.tileLink, className)}
+        style={{ textAlign: 'left', font: 'inherit', color: 'inherit', width: '100%' }}
+        {...rest}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <div className={cx(b.tile, className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+export type CalloutTone = 'info' | 'warn' | 'bad' | 'ok' | 'neutral';
+
+/**
+ * A banner in a status tone: `info` (blue, in motion), `warn` (amber, needs someone or may be stale), `bad` (red,
+ * failed), `ok`, `neutral`. Title 13px condensed, body 12.5px; `label` is a mono caps line above the title.
+ * `icon` draws a round glyph before it; `actions` sit at the right.
+ */
+export function Callout({
+  tone,
+  label,
+  title,
+  icon,
+  actions,
+  className,
+  children,
+}: {
+  tone: CalloutTone;
+  label?: ReactNode;
+  title?: ReactNode;
+  icon?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const b = useBlocksKit();
+  return (
+    <div className={cx(b.callout, b[tone], className)} role={tone === 'bad' ? 'alert' : 'status'}>
+      {icon !== undefined && (
+        <span className={b.calloutIcon} aria-hidden>
+          <span className={b.calloutIconGlyph}>{icon}</span>
+        </span>
+      )}
+      <div className={b.calloutBody}>
+        {label !== undefined && <span className={b.calloutLabel}>{label}</span>}
+        {title !== undefined && <p className={b.calloutTitle}>{title}</p>}
+        {children !== undefined && <div className={b.calloutText}>{children}</div>}
+      </div>
+      {actions && <div className={b.calloutActions}>{actions}</div>}
+    </div>
+  );
+}
+
+/** A headline number: label, a 22px value, an optional caption. `tone` colours the value. */
+export function Stat({
+  label,
+  value,
+  caption,
+  tone,
+  title,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  caption?: ReactNode;
+  tone?: 'ok' | 'warn' | 'bad';
+  title?: string;
+}) {
+  const b = useBlocksKit();
+  const toneClass = tone && { ok: b.statValueOk, warn: b.statValueWarn, bad: b.statValueBad }[tone];
+  return (
+    <div className={b.stat} title={title}>
+      <span className={b.statLabel}>{label}</span>
+      <span className={cx(b.statValue, toneClass)}>{value}</span>
+      {caption !== undefined && <span className={b.statCaption}>{caption}</span>}
+    </div>
+  );
 }

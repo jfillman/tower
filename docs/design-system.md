@@ -30,6 +30,13 @@ its own title, chip, table header and button styles with slightly different numb
 - **Links, again.** No hand-rolled sky text: a link is `TextLink`; a show/hide is `TextLink expanded`; anything that
   changes something (Copy, Extend, End session, Restart pod) is a small `Button`; a switch between views (a pod's
   Logs / Metrics / YAML) is a `FilterChip`.
+- **Cards and tiles.** A `Card` is a Panel with the kit padding and an optional head (`title`, `meta`, `actions`). A
+  card is radius 6; an item inside a card (a pod, a resource, a fact box) is a `Tile`, radius 4. No other radii.
+- **Callouts.** A banner is a `Callout` in a status tone: `info` blue (in motion), `warn` amber (needs someone, or may
+  be stale), `bad` red (failed), `ok`, `neutral`; optional `label` (mono caps), `icon` and `actions`. Say a thing once:
+  "Couldn't reach ArgoCD" is one amber callout in the ArgoCD card, and the troubleshoot banner stays out of it.
+- **Headline numbers.** A `Stat`: label, a 22px condensed value (`tone` colours it), an optional caption.
+- **Environment groups** are told apart by name and tier chip (Ground sky, Flight amber), never by an extra hue.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 
   | Kind | Does | Looks like | Kit |
@@ -59,7 +66,7 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Kit
 
-`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
+`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `Card`, `Tile`, `Callout`, `Stat`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
 `FilterBar`, `FilterChips`, `FilterChip`, `FilterGroup`, `FilterSelect`, `SearchField`, `TextLink`, `Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 

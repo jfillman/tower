@@ -91,7 +91,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 8,
     padding: '9px 12px',
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panelAlt,
     cursor: 'pointer',
@@ -106,7 +106,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   detail: {
     marginTop: 12,
     padding: '14px 16px',
-    borderRadius: 8,
+    borderRadius: 6,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panel,
     display: 'flex',

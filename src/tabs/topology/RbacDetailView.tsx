@@ -4,7 +4,7 @@ import PeopleIcon from '@material-ui/icons/People';
 import SecurityIcon from '@material-ui/icons/Security';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { K8sResourceRef } from '../../types';
-import { EmptyNote, SectionTitle } from '../../ui';
+import { EmptyNote, SectionTitle, Stat } from '../../ui';
 
 // Human-friendly rendering for Role/ClusterRole/RoleBinding/
 // ClusterRoleBinding (2026-09-17 follow-up to the "all resources" gallery -
@@ -66,7 +66,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexDirection: 'column',
     gap: 8,
     padding: '12px 14px',
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panelAlt,
   },
@@ -101,15 +101,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   subjectName: { color: ({ t }) => t.sky, fontWeight: 600 },
   subjectNs: { color: ({ t }) => t.textFaint },
   kvRow: { display: 'flex', gap: 20 },
-  kv: { display: 'flex', flexDirection: 'column', gap: 2 },
-  kvLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint },
-  kvValue: { fontFamily: fontMono, fontSize: 15, fontWeight: 700, color: ({ t }) => t.textHi },
   ruleCard: {
     display: 'flex',
     flexDirection: 'column',
     gap: 10,
     padding: '12px 14px',
-    borderRadius: 8,
+    borderRadius: 6,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panel,
   },
@@ -198,10 +195,7 @@ function RulesSection({ rules, classes, t }: { rules: RawPolicyRule[]; classes: 
           <SectionTitle level={2}>Overview</SectionTitle>
         </div>
         <div className={classes.kvRow}>
-          <div className={classes.kv}>
-            <span className={classes.kvLabel}>Rules</span>
-            <span className={classes.kvValue}>{rules.length}</span>
-          </div>
+          <Stat label="Rules" value={rules.length} />
         </div>
       </div>
       <div className={classes.section}>

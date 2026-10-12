@@ -7,7 +7,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
-import { Button, EmptyNote, SectionTitle, StatusChip, TextLink, useTableKit } from '../../ui';
+import { Button, Callout, Card, EmptyNote, Fact, SectionTitle, StatusChip, TextLink, Tile, useTableKit } from '../../ui';
 import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
@@ -43,20 +43,10 @@ function syncWaveFor(node: ArgoResourceNode, k8sResources: K8sResourceRef[]): st
 // link is the thing not yet wired up.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  panel: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 10,
-    padding: '14px 18px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
   headRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   statusChips: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
   revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
   actions: { display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' },
-  argoErr: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.bad },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
   // a sync result message" - operationState.message and status.conditions
@@ -64,29 +54,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // Always visible, not gated behind "show details" - these are exactly
   // the kind of thing that banner exists to hide by default (routine
   // sync/revision facts), not this.
-  opBanner: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: '8px 10px',
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-  },
-  opBannerBadge: { fontFamily: fontMono, fontSize: 9.5, fontWeight: 700, color: ({ t }) => t.sky, flexShrink: 0, marginTop: 1 },
-  opBannerText: { fontSize: 12, color: ({ t }) => t.textHi, lineHeight: 1.5 },
   opBannerMeta: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 2 },
-  condition: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: '8px 10px',
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.badSoft,
-    border: ({ t }) => `1px solid ${t.bad}`,
-  },
-  conditionType: { fontFamily: fontMono, fontSize: 9.5, fontWeight: 700, color: ({ t }) => t.bad, flexShrink: 0, marginTop: 1 },
-  conditionText: { fontSize: 12, color: ({ t }) => t.textHi, lineHeight: 1.5, wordBreak: 'break-word' },
   // The per-action explainer table (2026-09-16: "easy to understand
   // explainers on which sync option to enable depending on the argocd
   // state and what its possible errors are") - a short, always-the-same
@@ -100,7 +68,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 6,
     padding: '10px 12px',
     backgroundColor: ({ t }) => t.panelAlt,
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
   },
   guideRow: { display: 'flex', gap: 10, fontSize: 11.5 },
@@ -109,13 +77,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   detail: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' },
-  kv: { display: 'flex', flexDirection: 'column', gap: 2, padding: '7px 9px', backgroundColor: ({ t }) => t.panelAlt, borderRadius: 6 },
   kvFull: { gridColumn: '1 / -1' },
-  k: { fontFamily: fontMono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, fontWeight: 700 },
-  v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
   flags: { display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 },
-  flag: { fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, backgroundColor: ({ t }) => t.goodSoft, color: ({ t }) => t.good },
-  flagOff: { backgroundColor: ({ t }) => t.lineSoft, color: ({ t }) => t.textFaint },
   subTitleGap: { marginBottom: 2 },
   // The full ArgoCD "Sync Status" panel column set (2026-09-16: "I would
   // like the argocd resource tree section to contain the same info as
@@ -240,10 +203,9 @@ export function ArgoCommandPanel({
 
   if (!env.argoAppName) {
     return (
-      <div className={classes.panel}>
-        <SectionTitle level={2}>ArgoCD application</SectionTitle>
+      <Card title="ArgoCD application">
         <EmptyNote>This environment has no ArgoCD Application resolved yet.</EmptyNote>
-      </div>
+      </Card>
     );
   }
 
@@ -265,7 +227,7 @@ export function ArgoCommandPanel({
   const replaced = forceSyncTargets(resources);
 
   return (
-    <div className={classes.panel}>
+    <Card>
       <div className={classes.headRow}>
         <div>
           <SectionTitle level={2}>{env.argoAppName}</SectionTitle>
@@ -283,8 +245,8 @@ export function ArgoCommandPanel({
           </span>
         )}
         <div className={classes.statusChips}>
-          <StatusChip tone={argoTone(env.argoSyncStatus)}>{env.argoSyncStatus ?? 'unknown'}</StatusChip>
-          <StatusChip tone={argoTone(env.argoHealthStatus)}>{env.argoHealthStatus ?? 'unknown'}</StatusChip>
+          <StatusChip tone={argoTone(env.argoSyncStatus)}>{env.argoSyncStatus ?? 'Sync unknown'}</StatusChip>
+          <StatusChip tone={argoTone(env.argoHealthStatus)}>{env.argoHealthStatus ?? 'Health unknown'}</StatusChip>
           {env.argoRevision && <span className={classes.revision}>@ {env.argoRevision.slice(0, 9)}</span>}
         </div>
         <div className={classes.actions}>
@@ -335,35 +297,30 @@ export function ArgoCommandPanel({
       </div>
 
       {(env.argoOperationMessage || env.argoOperationPhase) && (
-        <div className={classes.opBanner}>
-          <span className={classes.opBannerBadge}>{env.argoOperationPhase ?? 'OPERATION'}</span>
-          <div>
-            {env.argoOperationMessage && <Typography className={classes.opBannerText}>{env.argoOperationMessage}</Typography>}
-            {env.argoReconciledAt && (
-              <Typography className={classes.opBannerMeta} title={formatDateTime(env.argoReconciledAt)}>
-                Last reconcile: {relativeTime(env.argoReconciledAt)}
-              </Typography>
-            )}
-          </div>
-        </div>
+        <Callout tone="info" title={`Last operation: ${env.argoOperationPhase ?? 'unknown'}`}>
+          {env.argoOperationMessage}
+          {env.argoReconciledAt && (
+            <div className={classes.opBannerMeta} title={formatDateTime(env.argoReconciledAt)}>
+              Last reconcile: {relativeTime(env.argoReconciledAt)}
+            </div>
+          )}
+        </Callout>
       )}
 
       {(env.argoConditions ?? []).map((c, i) => (
-        <div key={`${c.type}-${i}`} className={classes.condition}>
-          <span className={classes.conditionType}>{c.type}</span>
-          <Typography className={classes.conditionText}>{c.message}</Typography>
-        </div>
+        <Callout key={`${c.type}-${i}`} tone="bad" title={c.type}>
+          {c.message}
+        </Callout>
       ))}
 
       {confirmForce && (
-        <div className={classes.condition} data-testid="force-sync-confirm">
-          <span className={classes.conditionType}>Force sync</span>
-          <div>
-            <Typography className={classes.conditionText}>
+        <div data-testid="force-sync-confirm">
+          <Callout tone="bad" title="Force sync">
+            <div>
               {replaced.length > 0
                 ? `Delete and recreate what is out of sync in ${env.argoAppName}: ${replaced.join(', ')}. Each is down until it is recreated.`
                 : `Nothing in ${env.argoAppName} is out of sync right now, so a force sync has nothing to replace.`}
-            </Typography>
+            </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               <Button
                 small
@@ -380,15 +337,20 @@ export function ArgoCommandPanel({
                 Cancel
               </Button>
             </div>
-          </div>
+          </Callout>
         </div>
       )}
 
-      {argoActions.error && <Typography className={classes.argoErr}>{argoActions.error}</Typography>}
+      {argoActions.error && (
+        <Callout tone="bad" title="The ArgoCD action failed">
+          {argoActions.error}
+        </Callout>
+      )}
       {!reached && (
-        <EmptyNote>
-          Couldn't reach ArgoCD for {env.argoAppName} - the facts here may be stale, not actually wrong.
-        </EmptyNote>
+        <Callout tone="warn" icon="!" title={`Couldn't reach ArgoCD for ${env.argoAppName}`}>
+          Sync and health on this page may be stale, not wrong. Try Refresh; if it persists, check RBAC or connectivity
+          before treating it as a release problem.
+        </Callout>
       )}
 
       {guideOpen && (
@@ -414,53 +376,40 @@ export function ArgoCommandPanel({
       {detailOpen && (
         <div className={classes.detail}>
           <div className={classes.kvGrid}>
-            <div className={classes.kv}>
-              <span className={classes.k}>Application</span>
-              <span className={classes.v}>{env.argoAppName}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.k}>Target revision</span>
-              <span className={classes.v}>{env.argoSource?.targetRevision ?? '—'}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.k}>Last sync</span>
-              <span
-                className={classes.v}
-                title={env.argoOperationStartedAt ? formatDateTime(env.argoOperationStartedAt) : undefined}
-              >
-                {env.argoOperationStartedAt ? relativeTime(env.argoOperationStartedAt) : '—'}
-              </span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.k}>Last operation</span>
-              <span className={classes.v}>{env.argoOperationPhase ?? '—'}</span>
-            </div>
-            <div className={classes.kv}>
-              <span className={classes.k}>Out of sync</span>
-              <span className={classes.v}>{resources.length > 0 ? `${outOfSync} resource${outOfSync === 1 ? '' : 's'}` : '—'}</span>
-            </div>
+            <Tile>
+              <Fact label="Application">{env.argoAppName}</Fact>
+            </Tile>
+            <Tile>
+              <Fact label="Target revision">{env.argoSource?.targetRevision ?? '—'}</Fact>
+            </Tile>
+            <Tile>
+              <Fact label="Last sync" title={env.argoOperationStartedAt ? formatDateTime(env.argoOperationStartedAt) : undefined}>{env.argoOperationStartedAt ? relativeTime(env.argoOperationStartedAt) : '—'}</Fact>
+            </Tile>
+            <Tile>
+              <Fact label="Last operation">{env.argoOperationPhase ?? '—'}</Fact>
+            </Tile>
+            <Tile>
+              <Fact label="Out of sync">{resources.length > 0 ? `${outOfSync} resource${outOfSync === 1 ? '' : 's'}` : '—'}</Fact>
+            </Tile>
             {env.argoOperationMessage && (
-              <div className={`${classes.kv} ${classes.kvFull}`}>
-                <span className={classes.k}>Last operation message</span>
-                <span className={classes.v}>{env.argoOperationMessage}</span>
-              </div>
+              <Tile className={classes.kvFull}>
+              <Fact label="Last operation message">{env.argoOperationMessage}</Fact>
+            </Tile>
             )}
-            <div className={`${classes.kv} ${classes.kvFull}`}>
-              <span className={classes.k}>Sync policy</span>
-              <div className={classes.flags}>
-                <span className={`${classes.flag} ${env.argoSyncPolicy?.automated ? '' : classes.flagOff}`}>automated</span>
-                <span className={`${classes.flag} ${env.argoSyncPolicy?.selfHeal ? '' : classes.flagOff}`}>self-heal</span>
-                <span className={`${classes.flag} ${env.argoSyncPolicy?.prune ? '' : classes.flagOff}`}>prune</span>
-              </div>
-            </div>
-            {env.argoSource?.repoUrl && (
-              <div className={`${classes.kv} ${classes.kvFull}`}>
-                <span className={classes.k}>Source</span>
-                <span className={classes.v}>
-                  {env.argoSource.repoUrl.replace(/^https?:\/\//, '')}
-                  {env.argoSource.path ? ` · ${env.argoSource.path}` : ''}
+            <Tile className={classes.kvFull}>
+              <Fact label="Sync policy">
+                <span className={classes.flags}>
+                  <StatusChip tone={env.argoSyncPolicy?.automated ? 'ok' : 'neutral'}>automated</StatusChip>
+                  <StatusChip tone={env.argoSyncPolicy?.selfHeal ? 'ok' : 'neutral'}>self-heal</StatusChip>
+                  <StatusChip tone={env.argoSyncPolicy?.prune ? 'ok' : 'neutral'}>prune</StatusChip>
                 </span>
-              </div>
+              </Fact>
+            </Tile>
+            {env.argoSource?.repoUrl && (
+              <Tile className={classes.kvFull}>
+              <Fact label="Source">{env.argoSource.repoUrl.replace(/^https?:\/\//, '')}
+                  {env.argoSource.path ? ` · ${env.argoSource.path}` : ''}</Fact>
+            </Tile>
             )}
           </div>
 
@@ -516,6 +465,6 @@ export function ArgoCommandPanel({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

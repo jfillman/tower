@@ -73,7 +73,7 @@ export function whatGoes(releases: number, cacheLayers: number): string {
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   card: {
     border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 10,
+    borderRadius: 6,
     padding: '12px 14px',
     marginBottom: 14,
     backgroundColor: ({ t }) => t.panel,

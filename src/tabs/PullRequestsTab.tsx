@@ -8,7 +8,7 @@ import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
-import { EmptyNote, Hint, PageHeader, Section, StatusChip, TextLink, useTableKit } from '../ui';
+import { Chip, EmptyNote, Hint, PageHeader, Section, StatusChip, TextLink, useTableKit } from '../ui';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -39,54 +39,12 @@ function curateSourcePrs(prs: PullRequestSummary[]) {
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   body: { display: 'flex', flexDirection: 'column', gap: 16 },
-  chip: {
-    fontFamily: fontMono,
-    fontSize: 10.5,
-    marginLeft: 8,
-    padding: '2px 7px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    backgroundColor: ({ t }) => t.skySoft,
-    color: ({ t }) => t.sky,
-  },
+  chipGap: { marginRight: 8 },
+  chipGapLeft: { marginLeft: 8 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   prNum: { color: ({ t }) => t.sky },
-  targetPill: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    fontFamily: fontMono,
-    fontSize: 11,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.03em',
-    padding: '2px 8px',
-    borderRadius: 3,
-    backgroundColor: ({ t }) => t.skySoft,
-    border: ({ t }) => `1px solid ${t.skyLine}`,
-    color: ({ t }) => t.sky,
-    marginRight: 8,
-  },
   imageTagText: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   stale: { opacity: 0.6 },
-  draftChip: {
-    fontSize: 10.5,
-    marginLeft: 8,
-    padding: '2px 6px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    color: ({ t }) => t.textFaint,
-  },
-  repoBadge: {
-    fontFamily: fontMono,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: '0.03em',
-    padding: '2px 6px',
-    borderRadius: 3,
-    border: ({ t }) => `1px solid ${t.line}`,
-    color: ({ t }) => t.textFaint,
-    marginRight: 8,
-  },
   mergedMark: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -107,7 +65,7 @@ function GitopsTitle({ pr, classes }: { pr: PullRequestSummary; classes: ReturnT
     const tag = pr.title.match(/^Release \S+ (\S+) to /)?.[1] ?? pr.title.match(/ to (\S+)$/)?.[1];
     return (
       <>
-        <span className={classes.targetPill}>{pr.releasePin}</span>
+        <Chip tone="sky" className={classes.chipGap}>{pr.releasePin}</Chip>
         <span className={classes.imageTagText}>
           {pr.title.startsWith('Roll back') ? 'roll back to ' : '@ '}
           {tag ?? pr.title} · pin
@@ -119,7 +77,7 @@ function GitopsTitle({ pr, classes }: { pr: PullRequestSummary; classes: ReturnT
   if (!parsed) return <>{pr.title}</>;
   return (
     <>
-      <span className={classes.targetPill}>{parsed.targetEnv}</span>
+      <Chip tone="sky" className={classes.chipGap}>{parsed.targetEnv}</Chip>
       <span className={classes.imageTagText}>@ {parsed.imageTag}</span>
     </>
   );
@@ -163,7 +121,7 @@ function PrTable({
               <td className={tc.td}>
                 {variant === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
                 {pr.draft && <StatusChip tone="neutral">draft</StatusChip>}
-                {showPreviewChip && hasPreviewLabel(pr) && <span className={classes.draftChip}>preview</span>}
+                {showPreviewChip && hasPreviewLabel(pr) && <Chip className={classes.chipGapLeft}>preview</Chip>}
               </td>
               <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
               <td className={tc.td}>
@@ -206,7 +164,7 @@ function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: R
           >
             <td className={`${tc.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
             <td className={tc.td}>
-              <span className={classes.repoBadge}>{pr.repo}</span>
+              <Chip className={classes.chipGap}>{pr.repo}</Chip>
               {pr.repo === 'gitops' || pr.releasePin ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
             </td>
             <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
@@ -275,7 +233,7 @@ export function PullRequestsTab() {
       <Section
         framed
         title="Release PRs"
-        meta={<span className={classes.chip}>{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</span>}
+        meta={<Chip tone="sky">{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</Chip>}
         count={`${gitopsPrs.length} open`}
       >
         <PrTable prs={gitopsPrs} emptyMessage="No open release PRs." variant="gitops" classes={classes} />
@@ -285,7 +243,7 @@ export function PullRequestsTab() {
         <Section
           framed
           title="Preview PRs"
-          meta={<span className={classes.chip}>ephemeral env</span>}
+          meta={<Chip tone="sky">ephemeral env</Chip>}
           count={`${previewPrs.length} open`}
         >
           <PrTable
@@ -298,7 +256,7 @@ export function PullRequestsTab() {
         </Section>
       )}
 
-      <Section framed title="Source PRs" meta={<span className={classes.chip}>{appName}</span>} count={`${sourcePrsRaw.length} open`}>
+      <Section framed title="Source PRs" meta={<Chip tone="sky">{appName}</Chip>} count={`${sourcePrsRaw.length} open`}>
         <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} />
         {overflowCount > 0 && (
           <Hint inset>

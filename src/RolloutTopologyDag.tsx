@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { dump as dumpYaml } from 'js-yaml';
 import { formatDateTime, relativeTime } from './shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
@@ -16,6 +15,7 @@ import {
   type TopoPod,
   type TopoReplicaSet,
 } from './useRolloutTopology';
+import { EmptyNote, Fact, FactGrid, SectionTitle } from './ui';
 
 // The Deployment tab's "Rollout Starts" Kubernetes topology DAG (2026-09-24):
 // Service -> Rollout -> ReplicaSet(s) -> Pods, plus AnalysisRuns (and their
@@ -272,8 +272,8 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
         </div>
       </div>
       <div className={dag.body}>
-        {loading && !topology && <Typography className={dag.note}>Loading rollout topology…</Typography>}
-        {error && <Typography className={dag.note}>Couldn't refresh topology: {error}</Typography>}
+        {loading && !topology && <EmptyNote>Loading rollout topology…</EmptyNote>}
+        {error && <EmptyNote>Couldn't refresh topology: {error}</EmptyNote>}
         {topology && graph && geom && (
           <>
             <div className={dag.scroll} ref={scrollRef}>
@@ -365,7 +365,11 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
             </div>
             {openNode && (
               <div className={dag.detail}>
-                <Typography className={dag.detailTitle}>{openNode.kind}: {openNode.obj.metadata.name}</Typography>
+                <div className={dag.detailTitleGap}>
+                  <SectionTitle level={2}>
+                    {openNode.kind}: {openNode.obj.metadata.name}
+                  </SectionTitle>
+                </div>
                 <div className={classes.tabs}>
                   {(['info', 'yaml', 'logs'] as DetailTab[]).map(k => (
                     <button key={k} type="button" className={`${classes.tabBtn} ${tab === k ? classes.tabBtnOn : ''}`} onMouseDown={preventFocusScroll} onClick={() => setTab(k)}>
@@ -374,21 +378,20 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                   ))}
                 </div>
                 {tab === 'info' && (
-                  <div className={dag.detailGrid}>
+                  <FactGrid>
                     {kvRows(openNode, topology).map(([k, v]) => (
-                      <div key={k} className={dag.detailGridItem}>
-                        <span className={dag.kvLabel}>{k}</span>
-                        <span className={dag.kvValue}>{v}</span>
-                      </div>
+                      <Fact key={k} label={k}>
+                        {v}
+                      </Fact>
                     ))}
-                  </div>
+                  </FactGrid>
                 )}
                 {tab === 'yaml' && (
                   <pre className={classes.yaml}>
                     {dumpYaml(stripNoise(openNode.obj))}
                   </pre>
                 )}
-                {tab === 'logs' && <NodeLogs node={openNode} cluster={cluster} namespace={namespace} noteClass={dag.note} />}
+                {tab === 'logs' && <NodeLogs node={openNode} cluster={cluster} namespace={namespace} />}
               </div>
             )}
           </>
@@ -404,7 +407,7 @@ function stripNoise(obj: K8sObj): unknown {
   return { ...obj, metadata: meta };
 }
 
-function NodeLogs({ node, cluster, namespace, noteClass }: { node: TNode; cluster: string; namespace: string; noteClass: string }) {
+function NodeLogs({ node, cluster, namespace }: { node: TNode; cluster: string; namespace: string }) {
   const pod = node.pod ?? node.ar?.pods[0];
   if (pod) {
     return (
@@ -419,11 +422,11 @@ function NodeLogs({ node, cluster, namespace, noteClass }: { node: TNode; cluste
   }
   if (node.kind === 'AnalysisRun') {
     return (
-      <Typography className={noteClass}>
+      <EmptyNote>
         This analysis has no Job pod (e.g. a Prometheus/web metric provider queries directly) - see the Info tab for
         its metric results and messages.
-      </Typography>
+      </EmptyNote>
     );
   }
-  return <Typography className={noteClass}>{node.kind}s don't produce logs - select a Pod to see its container logs.</Typography>;
+  return <EmptyNote>{node.kind}s don't produce logs - select a Pod to see its container logs.</EmptyNote>;
 }

@@ -1,14 +1,13 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { CdStep } from '../../useCdDelivery';
 import type { EnvironmentSummary } from '../../types';
 import { podIssues, warningGroups, type PodIssue, type RawEvent, type RawPod, type WarningGroup } from '../../deployment/problems';
 import { relativeTime } from '../../shared/format';
 import { NamespaceEvents } from '../../NamespaceEvents';
 import { useState } from 'react';
-import { TextLink } from '../../ui';
+import { Callout, TextLink, type CalloutTone } from '../../ui';
 
 // The plain-language ArgoCD/Rollouts troubleshooting banner
 // (HANDOFF-tower-cicd-redesign.md: "the state of the ArgoCD app, and how to
@@ -28,6 +27,8 @@ export interface Diagnosis {
   body: string;
   // Real work is in flight right now - the banner pulses amber for it.
   live?: boolean;
+  // ArgoCD could not be read. The ArgoCD card above already says so (one amber callout), so the banner stays out of it.
+  unreachable?: boolean;
 }
 
 function stepByKey(steps: CdStep[] | undefined, key: CdStep['key']): CdStep | undefined {
@@ -169,6 +170,7 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
   if (env.argoHealthStatus === undefined && env.argoSyncStatus === undefined) {
     return {
       tone: 'info',
+      unreachable: true,
       title: "Couldn't reach ArgoCD for this environment",
       body: 'Sync/health facts elsewhere on this page may be stale rather than wrong - try Refresh, and if this persists it may be an RBAC or connectivity issue rather than a release problem.',
     };
@@ -189,54 +191,17 @@ export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undef
   };
 }
 
-function toneColors(t: HangarTokens, tone: BannerTone, live = false): { border: string; bg: string; fg: string; icon: string } {
-  // A live (in-flight) info banner goes amber, matching the DAG's own
-  // current-step color, instead of the calm sky "info" tone.
-  if (live && tone === 'info') return { border: t.amberLine, bg: t.amberSoft, fg: t.amberInk, icon: 'i' };
-  switch (tone) {
-    case 'ok':
-      return { border: '#2c4a37', bg: t.goodSoft, fg: t.good, icon: '✓' };
-    case 'bad':
-      return { border: t.bad, bg: t.badSoft, fg: t.bad, icon: '!' };
-    case 'info':
-    default:
-      return { border: t.skyLine, bg: t.skySoft, fg: t.sky, icon: 'i' };
-  }
+// A live (in-flight) info banner goes amber, matching the DAG's own current-step color, instead of the calm sky info.
+function calloutTone(d: Diagnosis): CalloutTone {
+  if (d.live && d.tone === 'info') return 'warn';
+  return d.tone;
 }
 
-const useStyles = makeStyles<Theme, { t: HangarTokens; tone: BannerTone; live: boolean }>(() => ({
+const ICON: Record<CalloutTone, string> = { ok: '✓', bad: '!', info: 'i', warn: 'i', neutral: 'i' };
+
+const useStyles = makeStyles(() => ({
   '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.55 } },
   livePulse: { animation: '$livePulse 1.6s ease-in-out infinite' },
-  banner: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: '14px 18px',
-    borderRadius: 10,
-    border: ({ t, tone, live }) => `1px solid ${toneColors(t, tone, live).border}`,
-    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).bg,
-  },
-  icon: {
-    width: 22,
-    height: 22,
-    borderRadius: '50%',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 800,
-    fontSize: 12,
-    color: ({ t }) => t.bg,
-    backgroundColor: ({ t, tone, live }) => toneColors(t, tone, live).fg,
-  },
-  title: {
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    fontSize: 13,
-    marginBottom: 3,
-    color: ({ t, tone, live }) => toneColors(t, tone, live).fg,
-  },
-  body: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.55 },
 }));
 
 const useDetailStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -319,23 +284,19 @@ export function TroubleshootBanner({
   /** The namespace's events, or undefined when they could not be read. */
   events?: RawEvent[];
 }) {
-  const t = useHangarTokens();
   const now = Date.now();
   const issues = podIssues(pods ?? [], now);
   const warnings = warningGroups(events ?? [], now);
   const diagnosis = diagnose(env, currentSteps, issues, warnings, now);
-  const classes = useStyles({ t, tone: diagnosis.tone, live: Boolean(diagnosis.live) });
-  const icon = toneColors(t, diagnosis.tone, diagnosis.live).icon;
+  const classes = useStyles();
+  if (diagnosis.unreachable) return null;
+  const tone = calloutTone(diagnosis);
   // Details are for when something is wrong: with a calm "synced and healthy" nothing extra, even if an old warning is still listed.
   const showDetails = issues.length > 0 || (diagnosis.tone !== 'ok' && warnings.length > 0);
   return (
-    <div className={classes.banner}>
-      <span className={classes.icon}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Typography className={`${classes.title} ${diagnosis.live ? classes.livePulse : ''}`}>{diagnosis.title}</Typography>
-        <Typography className={classes.body}>{diagnosis.body}</Typography>
-        {showDetails && <ProblemDetails env={env} issues={issues} warnings={warnings} />}
-      </div>
-    </div>
+    <Callout tone={tone} icon={ICON[tone]} title={<span className={diagnosis.live ? classes.livePulse : undefined}>{diagnosis.title}</span>}>
+      {diagnosis.body}
+      {showDetails && <ProblemDetails env={env} issues={issues} warnings={warnings} />}
+    </Callout>
   );
 }

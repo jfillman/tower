@@ -1,16 +1,15 @@
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { STALE_THRESHOLD_MS, relativeTime } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { useHangarTokens, type HangarTokens } from './brand/tokens';
 import { PrButton } from './PrButton';
 import { gitopsPrForEnv } from './useReleaseContext';
 import { health, type DeployHistoryEntry, type EnvironmentSummary } from './types';
 import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
-import { healthTone, StatusChip, TextLink } from './ui';
+import { Callout, Card, healthTone, Stat, StatusChip, TextLink, Tile, type CalloutTone } from './ui';
 
 // The "permanent, dynamic command panel" from the 2026-09-16 Releases revamp
 // (Command Deck concept, merged with Split Sub-tabs and the Log's Table/
@@ -25,48 +24,14 @@ import { healthTone, StatusChip, TextLink } from './ui';
 // banner it replaces (ReleaseStatusPanel, deleted this pass).
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  deck: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 6,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  deckInner: { padding: '14px 20px 16px' },
+  deck: { marginBottom: 20 },
+  deckBody: { display: 'flex', flexDirection: 'column', gap: 14 },
 
-  envRow: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  envRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
 
-  tasks: { marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 },
-  task: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 5, flexWrap: 'wrap' },
-  taskIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    fontSize: 14,
-    fontWeight: 700,
-    border: '2px solid',
-    backgroundColor: ({ t }) => t.panel,
-  },
-  taskBody: { flex: '1 1 240px', minWidth: 0 },
-  taskEyebrow: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  taskHeadline: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  taskDetail: { fontSize: 11.5, color: ({ t }) => t.textLo, marginTop: 1 },
+  tasks: { display: 'flex', flexDirection: 'column', gap: 6 },
 
-  statsRow: { marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 },
-  stat: {
-    backgroundColor: ({ t }) => t.panelAlt,
-    border: ({ t }) => `1px solid ${t.lineSoft}`,
-    borderRadius: 5,
-    padding: '10px 14px',
-  },
-  statVal: { fontFamily: fontMono, fontSize: 22, fontWeight: 600, color: ({ t }) => t.textHi },
-  statValSm: { fontSize: 14 },
-  statLabel: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 },
 }));
 
 interface DeckTask {
@@ -79,19 +44,7 @@ interface DeckTask {
   action?: { label: string; onClick: () => void };
 }
 
-function toneColors(t: HangarTokens, tone: DeckTask['tone']) {
-  switch (tone) {
-    case 'bad':
-      return { bg: t.badSoft, border: t.bad, fg: t.bad };
-    case 'warn':
-      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk };
-    case 'good':
-      return { bg: t.goodSoft, border: t.good, fg: t.good };
-    case 'neutral':
-    default:
-      return { bg: t.panelAlt, border: t.line, fg: t.textFaint };
-  }
-}
+const CALLOUT_TONE: Record<DeckTask['tone'], CalloutTone> = { bad: 'bad', warn: 'warn', good: 'ok', neutral: 'neutral' };
 
 // Ranked, up to 3 at once - the Command Deck's whole reason for being over
 // the single-task banner it replaces (ReleaseStatusPanel.computeTopTask):
@@ -272,8 +225,8 @@ export function CommandDeck({
   const { verified, total } = verifiedSupplyChainCount(environments, provenanceByImage);
 
   return (
-    <div className={classes.deck}>
-      <div className={classes.deckInner}>
+    <Card className={classes.deck}>
+      <div className={classes.deckBody}>
         <div className={classes.envRow}>
           {environments.map(env => {
             const h = health(env);
@@ -299,48 +252,42 @@ export function CommandDeck({
         </div>
 
         <div className={classes.tasks}>
-          {tasks.map((task, i) => {
-            const colors = toneColors(t, task.tone);
-            return (
-              <div key={i} className={classes.task} style={{ backgroundColor: colors.bg }}>
-                <span className={classes.taskIcon} style={{ borderColor: colors.border, color: colors.fg }}>
-                  {task.icon}
-                </span>
-                <div className={classes.taskBody}>
-                  <Typography className={classes.taskEyebrow} style={{ color: colors.fg }}>{task.eyebrow}</Typography>
-                  <Typography className={classes.taskHeadline}>{task.headline}</Typography>
-                  {task.detail && <Typography className={classes.taskDetail}>{task.detail}</Typography>}
-                </div>
-                {task.pr && <PrButton pr={task.pr} showTarget />}
-                {task.action && (
-                  <TextLink onClick={task.action.onClick}>{task.action.label}</TextLink>
-                )}
-              </div>
-            );
-          })}
+          {tasks.map((task, i) => (
+            <Callout
+              key={i}
+              tone={CALLOUT_TONE[task.tone]}
+              icon={task.icon}
+              label={task.eyebrow}
+              title={task.headline}
+              actions={
+                task.pr || task.action ? (
+                  <>
+                    {task.pr && <PrButton pr={task.pr} showTarget />}
+                    {task.action && <TextLink onClick={task.action.onClick}>{task.action.label}</TextLink>}
+                  </>
+                ) : undefined
+              }
+            >
+              {task.detail}
+            </Callout>
+          ))}
         </div>
 
         <div className={classes.statsRow}>
-          <div className={classes.stat}>
-            <div className={classes.statVal}>{releasesWeek}</div>
-            <div className={classes.statLabel}>releases this week</div>
-          </div>
-          <div className={classes.stat}>
-            <div className={classes.statVal}>{openSourcePrCount}</div>
-            <div className={classes.statLabel}>open source PRs</div>
-          </div>
-          <div className={classes.stat}>
-            <div className={classes.statVal}>{openPromotions}</div>
-            <div className={classes.statLabel}>pending promotion{openPromotions === 1 ? '' : 's'}</div>
-          </div>
-          <div className={classes.stat}>
-            <div className={`${classes.statVal} ${classes.statValSm}`}>
-              {total > 0 ? `${verified}/${total} verified` : 'checking…'}
-            </div>
-            <div className={classes.statLabel}>cosign · SLSA · Rekor</div>
-          </div>
+          <Tile>
+            <Stat label="Releases this week" value={releasesWeek} />
+          </Tile>
+          <Tile>
+            <Stat label="Open source PRs" value={openSourcePrCount} />
+          </Tile>
+          <Tile>
+            <Stat label={`Pending promotion${openPromotions === 1 ? '' : 's'}`} value={openPromotions} />
+          </Tile>
+          <Tile>
+            <Stat label="Supply chain" value={total > 0 ? `${verified}/${total} verified` : 'checking…'} caption="cosign · SLSA · Rekor" />
+          </Tile>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

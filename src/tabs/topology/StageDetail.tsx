@@ -42,7 +42,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 14,
     padding: '16px 18px',
-    borderRadius: 10,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panelAlt,
   },
@@ -66,7 +66,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   serviceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 },
   serviceCard: {
     textAlign: 'left',
-    borderRadius: 8,
+    borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.panelAlt,
     padding: '10px 12px',
