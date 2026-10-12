@@ -8,7 +8,7 @@ import type { Notification } from '@backstage/plugin-notifications-common';
 import { relativeTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { TowerEmptyState } from '../TowerEmptyState';
-import { PageHeader } from '../ui';
+import { EmptyNote, PageHeader, Section } from '../ui';
 import { isRecentNotification, useAppNotifications } from '../useAppNotifications';
 import { renderNotificationDescription } from '../notificationFormatting';
 
@@ -21,13 +21,7 @@ import { renderNotificationDescription } from '../notificationFormatting';
 // interaction at all - a notification just ages from one section to the
 // other on its own.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  section: {
-    backgroundColor: ({ t }) => t.panel,
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
+  stack: { display: 'flex', flexDirection: 'column', gap: 16 },
   row: {
     display: 'flex',
     gap: 12,
@@ -89,16 +83,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textFaint,
     marginRight: 8,
   },
-  sectionHead: {
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    padding: '14px 20px',
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-  },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  sectionSub: { fontSize: 12, color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
 }));
 
 function NotificationRow({
@@ -173,28 +157,22 @@ export function NotificationsTab() {
   return (
     <div>
       <PageHeader title="Notifications" subtitle={`Build, test, deploy and release results Glidepath posted for ${appName}.`} />
-      <div className={classes.section}>
-        <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>New</span>
-          <span className={classes.sectionSub}>last hour</span>
-        </div>
+      <div className={classes.stack}>
+      <Section framed title="New" count="last hour">
         {recent.length === 0 ? (
-          <Typography className={classes.note}>Nothing new in the last hour.</Typography>
+          <EmptyNote inset>Nothing new in the last hour.</EmptyNote>
         ) : (
           recent.map(n => <NotificationRow key={n.id} n={n} isNew classes={classes} t={t} goToImage={goToImage} />)
         )}
-      </div>
+      </Section>
 
-      <div className={classes.section}>
-        <div className={classes.sectionHead}>
-          <span className={classes.sectionTitle}>Earlier</span>
-          <span className={classes.sectionSub}>{earlier.length} shown</span>
-        </div>
+      <Section framed title="Earlier" count={`${earlier.length} shown`}>
         {earlier.length === 0 ? (
-          <Typography className={classes.note}>Nothing older yet.</Typography>
+          <EmptyNote inset>Nothing older yet.</EmptyNote>
         ) : (
           earlier.map(n => <NotificationRow key={n.id} n={n} isNew={false} classes={classes} t={t} goToImage={goToImage} />)
         )}
+      </Section>
       </div>
     </div>
   );

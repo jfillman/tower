@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { useTaskRunLogs } from './tekton/useTaskRunLogs';
 import { useArchivedRunLookup, useArchivedTaskRunLogs } from './tekton/pipelineHistoryApi';
 import type { TaskStepSummary } from './tekton/types';
 import { renderAnsi, type AnsiState } from './ansi';
+import { EmptyNote } from './ui';
 
 // Consolidated multi-step log view for one TaskRun (2026-09-11: "consolidate
 // the logs so all step logs appear in the same window, no container
@@ -39,7 +39,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   at: { color: ({ t }) => t.textFaint },
   step: { color: ({ t }) => t.sky },
   line: { wordBreak: 'break-word' },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
   liveBadge: { color: ({ t }) => t.amberInk },
 }));
 
@@ -111,14 +110,14 @@ export function TaskRunLogConsole({
     if (el && stuckToBottom.current) el.scrollTop = el.scrollHeight;
   }, [blocks]);
 
-  if (loading || (podGone && lookup.loading)) return <Typography className={classes.note}>Loading logs&hellip;</Typography>;
-  if (effectiveArchive && archived.error) return <Typography className={classes.note}>{archived.error}</Typography>;
+  if (loading || (podGone && lookup.loading)) return <EmptyNote>Loading logs&hellip;</EmptyNote>;
+  if (effectiveArchive && archived.error) return <EmptyNote>{archived.error}</EmptyNote>;
   if (podGone && lookup.notFound) {
     return (
-      <Typography className={classes.note}>
+      <EmptyNote>
         This task&apos;s pod is already gone and Tekton Results has not archived the run yet - its logs appear here
         once the run finishes and is archived.
-      </Typography>
+      </EmptyNote>
     );
   }
 

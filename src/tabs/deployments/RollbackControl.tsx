@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
-import { Button } from '../../ui';
+import { Button, Hint } from '../../ui';
 
 // Roll back a Kubernetes Flight environment (glidepath ADR-0021 phase 4). A rollback is a release of an earlier image:
 // the backend (backstage glidepathRollback.ts) starts the app's release Pipeline for it, which opens a gitops PR like
@@ -28,7 +28,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 8, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
   row: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
-  note: { fontSize: 11.5, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   mono: { fontFamily: fontMono, fontSize: 11 },
   input: {
     fontSize: 12,
@@ -117,16 +116,16 @@ export function RollbackControl({
   return (
     <div className={c.wrap}>
       <span className={c.label}>Roll back {env}</span>
-      {!plan && !error && <span className={c.note}>Reading this environment's releases…</span>}
-      {plan && !plan.current && <span className={c.note}>Nothing has been released to {env} yet.</span>}
+      {!plan && !error && <Hint>Reading this environment's releases…</Hint>}
+      {plan && !plan.current && <Hint>Nothing has been released to {env} yet.</Hint>}
       {plan?.current && (
-        <span className={c.note}>
+        <Hint>
           Running: <span className={c.mono}>{tagOf(plan.current.image)}</span> ({plan.current.state}
           {plan.current.stateAt ? `, ${relativeTime(plan.current.stateAt)}` : ''})
-        </span>
+        </Hint>
       )}
       {plan?.current && plan.targets.length === 0 && (
-        <span className={c.note}>No earlier image ran healthy here in the last five releases, so there is nothing to roll back to.</span>
+        <Hint>No earlier image ran healthy here in the last five releases, so there is nothing to roll back to.</Hint>
       )}
       {plan?.current && plan.targets.length > 0 && (
         <div className={c.row}>
@@ -157,10 +156,10 @@ export function RollbackControl({
       )}
       {confirming && chosen && (
         <div className={c.row}>
-          <span className={c.note}>
+          <Hint>
             Open a release PR putting <span className={c.mono}>{tagOf(chosen.image)}</span> back on {env}? It ran healthy here,
             so the content checks report without blocking; integrity checks and approvals apply as always.
-          </span>
+          </Hint>
           <Button small variant="danger" onClick={submit}>
             Open rollback PR
           </Button>

@@ -4,6 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { load as loadYaml } from 'js-yaml';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { Hint } from './ui';
 
 // Item 3/4's "some field values are full k8s resources, need a helper with
 // syntax checking, must validate before a PR is ever opened" - a plain
@@ -26,7 +27,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textTransform: 'uppercase',
     color: ({ t }) => t.textFaint,
   },
-  hint: { fontSize: 11.5, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   textarea: {
     width: '100%',
     boxSizing: 'border-box',
@@ -103,7 +103,7 @@ export function YamlBlockEditor({
           {validation.valid ? '✓ Valid YAML' : `✗ ${validation.error}`}
         </span>
       </div>
-      {hint && <Typography className={classes.hint}>{hint}</Typography>}
+      {hint && <Hint>{hint}</Hint>}
       <textarea
         className={`${classes.textarea} ${validation.valid ? '' : classes.textareaInvalid}`}
         spellCheck={false}

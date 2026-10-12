@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { preventFocusScroll } from './preventFocusScroll';
-import { FilterChip, FilterSelect } from './ui';
+import { EmptyNote, FilterChip, FilterSelect, SectionTitle } from './ui';
 
 // Item 6: "Pod logs". kubernetesProxyApiRef.getPodLogs handles cluster
 // auth/routing the same way NamespaceEvents' proxy() call does - confirmed
@@ -17,7 +16,6 @@ import { FilterChip, FilterSelect } from './ui';
 // full-history log browser.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   refresh: {
     fontFamily: fontMono,
     fontSize: 11,
@@ -63,7 +61,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     overflow: 'auto',
     whiteSpace: 'pre-wrap',
   },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
 }));
 
 // live: auto-poll every 3s in addition to the manual refresh button - for a
@@ -140,7 +137,7 @@ export function PodLogsView({
   return (
     <div>
       <div className={classes.head}>
-        <Typography className={classes.title}>Logs — {podName}</Typography>
+        <SectionTitle level={2}>Logs — {podName}</SectionTitle>
         {containers.length > 1 && (
           <FilterSelect label="Container" value={container} onChange={setContainer} options={containers.map(c => ({ value: c, label: c }))} />
         )}
@@ -158,11 +155,11 @@ export function PodLogsView({
           </button>
         )}
       </div>
-      {state.loading && <Typography className={classes.note}>Loading logs…</Typography>}
+      {state.loading && <EmptyNote>Loading logs…</EmptyNote>}
       {state.error && (
-        <Typography className={classes.note}>
+        <EmptyNote>
           Couldn't load logs{previous ? ' (no previous terminated container found?)' : ''}: {state.error}
-        </Typography>
+        </EmptyNote>
       )}
       {!state.loading && !state.error && (
         <pre className={classes.log}>{state.text || '(empty)'}</pre>

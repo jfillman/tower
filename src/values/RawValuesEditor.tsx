@@ -5,12 +5,12 @@ import Link from '@material-ui/core/Link';
 import { ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { Button } from '../ui';
+import { Button, Hint } from '../ui';
 import { describeChart, type ChartRef } from '../environments/ownChart';
 import type { ValuesSource } from './sources';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>({
-  note: { fontSize: 12.5, color: ({ t }) => t.textFaint, marginBottom: 10, lineHeight: 1.5 },
+  noteGap: { marginBottom: 10 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   bar: { display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 },
 });
@@ -30,11 +30,11 @@ export function RawValuesEditor({ source, chart }: { source: ValuesSource; chart
   const dirty = text !== original;
   return (
     <div>
-      <div className={c.note}>
+      <Hint className={c.noteGap}>
         This environment renders its own chart, <span className={c.mono}>{describeChart(chart)}</span>, not Airframe&apos;s, so its values are
         edited as YAML here. The keys are that chart&apos;s. <span className={c.mono}>release</span> and{' '}
         <span className={c.mono}>releaseTracking</span> belong to the deploy and release flows and are kept as they are.
-      </div>
+      </Hint>
       <YamlBlockEditor label={source.data?.path ?? 'values'} value={text} onChange={setText} rows={16} />
       <div className={c.bar}>
         <Button

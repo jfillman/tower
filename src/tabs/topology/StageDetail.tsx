@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import RouterIcon from '@material-ui/icons/Router';
 import DeviceHubIcon from '@material-ui/icons/DeviceHub';
 import LayersIcon from '@material-ui/icons/Layers';
@@ -16,7 +15,7 @@ import { PodsPanel } from './PodsPanel';
 import { BreakglassEnvironmentCard } from './BreakglassEnvironmentView';
 import type { TopoStageKey } from './TopoDag';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef } from '../../types';
-import { TextLink } from '../../ui';
+import { EmptyNote, SectionTitle, TextLink } from '../../ui';
 
 // The per-stage detail panel the DAG drives (item 3: "each stage in the DAG
 // shows details in the attached details section below... be more
@@ -37,8 +36,6 @@ function autoPromoteLabel(blueGreen: NonNullable<EnvironmentSummary['workload']>
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 9 },
   headIcon: { display: 'flex', color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
   body: { display: 'flex', flexDirection: 'column', gap: 14 },
   bigCard: {
     display: 'flex',
@@ -120,7 +117,7 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><RouterIcon fontSize="small" /></span>
-        <Typography className={classes.title}>Route</Typography>
+        <SectionTitle level={2}>Route</SectionTitle>
       </div>
       <div className={classes.bigCard}>
         <span className={classes.bigIcon} style={{ backgroundColor: env.ingressUrl ? t.skySoft : t.panelAlt, color: env.ingressUrl ? t.sky : t.textFaint }}>
@@ -132,7 +129,7 @@ function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: Re
               {env.ingressUrl} <OpenInNewIcon style={{ fontSize: 14 }} />
             </a>
           ) : (
-            <Typography className={classes.note}>No external route configured for this environment.</Typography>
+            <EmptyNote>No external route configured for this environment.</EmptyNote>
           )}
           {routeResource && <span className={classes.meta}>{routeResource.kind} · {routeResource.name}</span>}
         </div>
@@ -165,10 +162,10 @@ function ServiceDetail({ env, classes }: { env: EnvironmentSummary; classes: Ret
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><DeviceHubIcon fontSize="small" /></span>
-        <Typography className={classes.title}>Service</Typography>
+        <SectionTitle level={2}>Service</SectionTitle>
       </div>
       {env.services.length === 0 ? (
-        <Typography className={classes.note}>No Service resolved for this environment.</Typography>
+        <EmptyNote>No Service resolved for this environment.</EmptyNote>
       ) : (
         <>
           <div className={classes.serviceGrid}>
@@ -226,10 +223,10 @@ function WorkloadDetail({ env, classes }: { env: EnvironmentSummary; classes: Re
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><LayersIcon fontSize="small" /></span>
-        <Typography className={classes.title}>{workload ? `${workload.kind} — ${workload.name}` : 'Workload'}</Typography>
+        <SectionTitle level={2}>{workload ? `${workload.kind} — ${workload.name}` : 'Workload'}</SectionTitle>
       </div>
       {!workload ? (
-        <Typography className={classes.note}>No Rollout or Deployment found for this environment.</Typography>
+        <EmptyNote>No Rollout or Deployment found for this environment.</EmptyNote>
       ) : (
         <>
           <div className={classes.strategyGrid}>
@@ -341,7 +338,7 @@ function PodsDetail({
     <div className={classes.body}>
       <div className={classes.head}>
         <span className={classes.headIcon}><AppsIcon fontSize="small" /></span>
-        <Typography className={classes.title}>Pods</Typography>
+        <SectionTitle level={2}>Pods</SectionTitle>
       </div>
       <PodsPanel env={env} tier={tier} linkedSessionId={linkedSessionId} />
       {/* The environment's break-glass sessions outlive their pods (a live session recycles its pod; a copy is

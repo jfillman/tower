@@ -5,7 +5,7 @@ import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
-import { Button, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink } from './ui';
+import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink } from './ui';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -89,7 +89,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   actionSlot: { width: 104, display: 'flex', justifyContent: 'flex-end', flexShrink: 0, whiteSpace: 'nowrap' },
   chipSlot: { width: 96, display: 'flex', justifyContent: 'center', flexShrink: 0 },
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', width: 70, flexShrink: 0, whiteSpace: 'nowrap' },
-  empty: { padding: '22px 18px', textAlign: 'center', fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textFaint },
   slugChip: {
     fontFamily: fontMono,
     fontSize: 10,
@@ -379,7 +378,7 @@ export function PipelineRunList({
   const [pageSize, setPageSize] = useState<PageSize>(25);
 
   if (runs.length === 0) {
-    return <div className={classes.empty}>No pipeline runs found yet in this app's CI namespace.</div>;
+    return <EmptyNote inset>No pipeline runs found yet in this app's CI namespace.</EmptyNote>;
   }
 
   const query = search.trim().toLowerCase();
@@ -438,7 +437,7 @@ export function PipelineRunList({
         />
       </FilterBar>
       <div className={classes.list} style={truncated ? { borderRadius: 0 } : undefined}>
-        {filtered.length === 0 && <div className={classes.empty}>No pipeline runs match this filter.</div>}
+        {filtered.length === 0 && <EmptyNote inset>No pipeline runs match this filter.</EmptyNote>}
         {visible.map((run, i) => {
           // 'cancelling' (2026-09-24: "when you click on the 'cancel' button, the
           // 'running' chip should change to 'canceling'") - from the moment the

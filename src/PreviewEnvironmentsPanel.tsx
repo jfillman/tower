@@ -2,12 +2,12 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { relativeTime } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TowerEmptyState } from './TowerEmptyState';
 import { PrButton } from './PrButton';
 import { health, imageTag, previewPrNumber, type EnvironmentSummary } from './types';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { healthTone, StatusChip } from './ui';
+import { healthTone, SectionTitle, StatusChip } from './ui';
 
 // Preview/PR environments' own tab - the 2026-09-16 revamp's answer to
 // "preview environments need to be relegated, not given equal billing":
@@ -20,7 +20,6 @@ import { healthTone, StatusChip } from './ui';
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 5, overflow: 'hidden' },
   head: { padding: '14px 20px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   card: {
     margin: '16px 20px',
@@ -64,7 +63,7 @@ export function PreviewEnvironmentsPanel({
   return (
     <div className={classes.wrap}>
       <div className={classes.head}>
-        <Typography className={classes.title}>Preview environments</Typography>
+        <SectionTitle>Preview environments</SectionTitle>
         <Typography className={classes.sub}>
           Spawned per open source PR, not part of the promotion order - {previewEnvironments.length} running.
         </Typography>

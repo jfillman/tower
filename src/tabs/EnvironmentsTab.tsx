@@ -39,7 +39,7 @@ import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
-import { Button, Chip, ColumnLabel, HEALTH_LABEL, FilterBar, FilterChips, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
+import { Button, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
@@ -73,7 +73,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   layout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
   main: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
   side: { display: 'flex', flexDirection: 'column', gap: 12, alignSelf: 'start' },
-  hint: { color: ({ t }) => t.textLo, fontSize: 12.5 },
   headRow: { display: 'grid', gridTemplateColumns: COLUMNS, gap: 10, padding: '9px 14px', borderLeft: '3px solid transparent' },
   row: {
     display: 'grid',
@@ -442,14 +441,14 @@ export function EnvironmentsTab() {
         }
       />
       {!canEdit && (
-        <div className={c.hint} style={{ marginBottom: 12 }}>
+        <Hint style={{ marginBottom: 12 }}>
           Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment
           values are in App Configuration.
-        </div>
+        </Hint>
       )}
       <div className={canEdit ? c.layout : undefined}>
         <div className={c.main}>
-          <FilterBar end={canEdit && <span className={c.hint}>Drag the handle to reorder</span>}>
+          <FilterBar end={canEdit && <Hint>Drag the handle to reorder</Hint>}>
             <FilterChips<Filter>
               label="Tier"
               value={filter}

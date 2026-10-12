@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useArgoActions } from '../useReleaseData';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader } from '../ui';
+import { Count, EmptyNote, PageHeader, Section, SectionTitle, TierChip } from '../ui';
 import { PipelineFlow, buildSupplyChainStages } from '../PipelineFlow';
 import { Rail, deliveryTag, useSignalRailStyles } from '../SignalRail';
 import { EnvPicker, type EnvPickerGroup } from '../EnvPicker';
@@ -61,7 +60,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // which env we're looking at" - the picker above already shows env+
   // cluster+image, and the app name is the entity/page itself, so this is
   // now a single lightweight line, not a second full heading).
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 20, color: ({ t }) => t.textHi },
   // The DAG and its stage-detail panel are one connected unit (2026-09-16:
   // "should the stage details pane actually be connected to the DAG?
   // separated by a horizontal rule or something like that?") - a single
@@ -74,8 +72,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   dagDivider: { border: 'none', borderTop: ({ t }) => `1px solid ${t.lineSoft}`, margin: 0 },
   stageDetailInner: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 },
   panel: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 },
-  panelTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: 'italic', padding: '14px 20px', color: ({ t }) => t.textLo },
 }));
 
 // The pill's own real image state - the currently-live tag normally, or
@@ -274,7 +270,7 @@ export function DeploymentsTab() {
           summary="0 envs"
           groups={TIER_ORDER.map(tier => ({ tier, items: [] }))}
         />
-        <Typography className={classes.note}>No environments configured for this app yet.</Typography>
+        <EmptyNote inset>No environments configured for this app yet.</EmptyNote>
       </div>
     );
   }
@@ -375,7 +371,15 @@ export function DeploymentsTab() {
         groups={pickerGroups}
       />
 
-      <Typography className={classes.title}>{env.env}</Typography>
+      <Section
+        title={env.env}
+        meta={
+          <>
+            {envTierOf(env.env, pipelineOrder) !== 'preview' && <TierChip tier={envTierOf(env.env, pipelineOrder) === 'upper' ? 'flight' : 'ground'} />}
+            {env.cluster && <Count>{env.cluster}</Count>}
+          </>
+        }
+      />
 
       <ArgoCommandPanel env={env} argoActions={argoActions} currentImage={liveImage} incomingImage={incomingImage} />
 
@@ -399,7 +403,7 @@ export function DeploymentsTab() {
               onSelectKey={setSelectedStepKey}
             />
           ) : (
-            <Typography className={classes.note}>No delivery recorded for {env.env} yet.</Typography>
+            <EmptyNote inset>No delivery recorded for {env.env} yet.</EmptyNote>
           )}
         </div>
         {activeDelivery && selectedStepKey ? (
@@ -423,8 +427,8 @@ export function DeploymentsTab() {
           <>
             <hr className={classes.dagDivider} />
             <div className={classes.stageDetailInner}>
-              <Typography className={classes.panelTitle}>Deployment detail</Typography>
-              <Typography className={classes.note}>No release PRs found yet for {env.env}.</Typography>
+              <SectionTitle>Deployment detail</SectionTitle>
+              <EmptyNote inset>No release PRs found yet for {env.env}.</EmptyNote>
             </div>
           </>
         )}
@@ -432,9 +436,9 @@ export function DeploymentsTab() {
 
       {hasSupplyChain && (
         <div className={classes.panel}>
-          <Typography className={classes.panelTitle}>Supply chain security</Typography>
+          <SectionTitle>Supply chain security</SectionTitle>
           <PipelineFlow stages={supplyChainStages} />
-          {provenance?.error && <Typography className={classes.note}>Couldn't load supply-chain data: {provenance.error}</Typography>}
+          {provenance?.error && <EmptyNote inset>Couldn't load supply-chain data: {provenance.error}</EmptyNote>}
         </div>
       )}
     </div>

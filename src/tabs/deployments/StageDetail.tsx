@@ -15,7 +15,7 @@ import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import { imageTag, type ArgoResourceNode, type CanaryProgress, type EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
-import { Button, StatusChip, TextLink } from '../../ui';
+import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
 
 // Rollout controls (RolloutControls.tsx) sit in the "Rollout starts" and "Rollout completes" stage details, next
 // to the canary chart they act on (2026-09-16: "I want the canary panel to be part of the 'Rollout Starts'
@@ -42,8 +42,6 @@ const PR_BODY_TRUNCATE = 700;
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 9 },
   headIcon: { display: 'flex', color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   prLink: {
     display: 'inline-flex',
@@ -123,7 +121,7 @@ function CreatedBody({
             {delivery.pr.body.length > PR_BODY_TRUNCATE ? `${delivery.pr.body.slice(0, PR_BODY_TRUNCATE)}…` : delivery.pr.body}
           </Typography>
         ) : (
-          <Typography className={classes.note}>This PR has no description.</Typography>
+          <EmptyNote>This PR has no description.</EmptyNote>
         )}
       </>
     );
@@ -131,17 +129,17 @@ function CreatedBody({
   if (delivery.commit) {
     return (
       <>
-        <Typography className={classes.note}>
+        <EmptyNote>
           Ground-tier environments promote by pushing a commit straight to the gitops branch - there's no PR to show
           for this delivery.
-        </Typography>
+        </EmptyNote>
         <Typography className={classes.meta}>
           {delivery.commit.sha.slice(0, 7)} · {formatDateTime(delivery.commit.date)} · {delivery.commit.imageTag}
         </Typography>
       </>
     );
   }
-  return <Typography className={classes.note}>No delivery recorded yet.</Typography>;
+  return <EmptyNote>No delivery recorded yet.</EmptyNote>;
 }
 
 function MergedBody({
@@ -215,7 +213,7 @@ function MergedBody({
       </>
     );
   }
-  return <Typography className={classes.note}>Not merged yet.</Typography>;
+  return <EmptyNote>Not merged yet.</EmptyNote>;
 }
 
 /**
@@ -242,19 +240,17 @@ function NotStarted({
   releaseTag,
   runningTag,
   waitingFor,
-  classes,
   children,
 }: {
   releaseTag: string;
   runningTag: string | undefined;
   waitingFor: string;
-  classes: ReturnType<typeof useStyles>;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Typography className={classes.note} data-testid="stage-not-started">
+      <EmptyNote data-testid="stage-not-started">
         Not started for <span style={{ fontFamily: fontMono }}>{releaseTag}</span> yet: waiting for {waitingFor}.
         {runningTag ? (
           <>
@@ -262,7 +258,7 @@ function NotStarted({
             What is shown below is the release running now, <span style={{ fontFamily: fontMono }}>{runningTag}</span>.
           </>
         ) : null}
-      </Typography>
+      </EmptyNote>
       <div>
         <TextLink expanded={open} onClick={() => setOpen(v => !v)}>
           {runningTag ? `Show what is running now (${runningTag})` : 'Show the current Rollout'}
@@ -321,7 +317,7 @@ export function StageDetail({
           <span className={classes.headIcon}>
             <GitPrIcon fontSize={18} />
           </span>
-          <Typography className={classes.title}>{delivery.pr ? 'PR created' : 'Direct commit'}</Typography>
+          <SectionTitle level={2}>{delivery.pr ? 'PR created' : 'Direct commit'}</SectionTitle>
         </div>
         <CreatedBody delivery={delivery} step={step} classes={classes} />
       </>
@@ -335,13 +331,13 @@ export function StageDetail({
           <span className={classes.headIcon}>
             <SecurityIcon fontSize="small" />
           </span>
-          <Typography className={classes.title}>Guardrails</Typography>
+          <SectionTitle level={2}>Guardrails</SectionTitle>
         </div>
         <Typography className={classes.meta}>{timeText(step?.at)}</Typography>
         {gateCi?.checks ? (
           <GateLedger ci={gateCi} classes={railClasses} t={t} />
         ) : (
-          <Typography className={classes.note}>{guardrailsFallbackNote(delivery)}</Typography>
+          <EmptyNote>{guardrailsFallbackNote(delivery)}</EmptyNote>
         )}
       </>
     );
@@ -354,7 +350,7 @@ export function StageDetail({
           <span className={classes.headIcon}>
             <GitPrIcon fontSize={18} />
           </span>
-          <Typography className={classes.title}>PR merged</Typography>
+          <SectionTitle level={2}>PR merged</SectionTitle>
         </div>
         <MergedBody delivery={delivery} step={step} gateCi={gateCi} classes={classes} onSelectStage={onSelectStage} />
       </>
@@ -372,7 +368,7 @@ export function StageDetail({
           <span className={classes.headIcon}>
             <SyncIcon fontSize="small" />
           </span>
-          <Typography className={classes.title}>Application sync</Typography>
+          <SectionTitle level={2}>Application sync</SectionTitle>
         </div>
         {step?.status === 'bad' && (
           <StatusChip tone="bad" className={classes.chipPos}>
@@ -382,9 +378,9 @@ export function StageDetail({
         <Typography className={classes.meta}>{timeText(step?.at)}</Typography>
         {targetImageTag && <Typography className={classes.meta}>target image: {targetImageTag}</Typography>}
         {argoOperationMessage && <Typography className={classes.body}>{argoOperationMessage}</Typography>}
-        {resources.length === 0 && <Typography className={classes.note}>No resource tree reported yet.</Typography>}
+        {resources.length === 0 && <EmptyNote>No resource tree reported yet.</EmptyNote>}
         {resources.length > 0 && outOfSync.length === 0 && (
-          <Typography className={classes.note}>All {resources.length} managed resources synced.</Typography>
+          <EmptyNote>All {resources.length} managed resources synced.</EmptyNote>
         )}
         {resources.length > 0 && outOfSync.length > 0 && (
           <div className={classes.resourceList}>
@@ -408,10 +404,10 @@ export function StageDetail({
                 <span className={classes.resourceStatus}>{r.syncStatus ?? 'Unknown'}</span>
               </div>
             ))}
-            <Typography className={classes.note}>
+            <EmptyNote>
               {outOfSync.length} of {resources.length} resources still out of sync - this list shrinks as ArgoCD
               applies them (refresh above for the latest read).
-            </Typography>
+            </EmptyNote>
           </div>
         )}
       </>
@@ -425,7 +421,7 @@ export function StageDetail({
           <span className={classes.headIcon}>
             <TrendingUpIcon fontSize="small" />
           </span>
-          <Typography className={classes.title}>Rollout starts</Typography>
+          <SectionTitle level={2}>Rollout starts</SectionTitle>
         </div>
         {(() => {
           const runningTag = env.image ? imageTag(env.image) : undefined;
@@ -450,15 +446,15 @@ export function StageDetail({
                   />
                 </>
               ) : (
-                <Typography className={classes.note}>
+                <EmptyNote>
                   This environment's workload isn't a canary Rollout (or has no canary steps configured) - nothing to
                   chart here.
-                </Typography>
+                </EmptyNote>
               )}
             </>
           );
           return waiting && targetImageTag ? (
-            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor} classes={classes}>
+            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor}>
               {live}
             </NotStarted>
           ) : (
@@ -476,21 +472,21 @@ export function StageDetail({
         <span className={classes.headIcon}>
           <CheckCircleIcon fontSize="small" />
         </span>
-        <Typography className={classes.title}>Rollout completes</Typography>
+        <SectionTitle level={2}>Rollout completes</SectionTitle>
       </div>
       {(() => {
         const runningTag = env.image ? imageTag(env.image) : undefined;
         const waiting = notStartedFor(delivery, 'healthy', targetImageTag, runningTag);
         if (waiting && targetImageTag) {
           return (
-            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor} classes={classes}>
+            <NotStarted releaseTag={targetImageTag} runningTag={runningTag} waitingFor={waiting.waitingFor}>
               {rolloutControlsFor(env)}
             </NotStarted>
           );
         }
         return (
           <>
-            <Typography className={classes.note}>{healthyNote(step)}</Typography>
+            <EmptyNote>{healthyNote(step)}</EmptyNote>
             {rolloutControlsFor(env)}
           </>
         );

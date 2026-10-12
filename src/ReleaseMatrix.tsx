@@ -17,7 +17,7 @@ import { slugHue } from './PipelineRunList';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseCell, ReleaseRow } from './useReleaseContext';
 import type { EnvironmentSummary } from './types';
-import { Button, StatusChip, TextLink } from './ui';
+import { Button, SectionTitle, StatusChip, TextLink } from './ui';
 
 // Top-of-tab release matrix: rows are releases (newest first), columns are
 // environments in the app's own real promotionOrder. Reading a column
@@ -40,7 +40,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '14px 20px',
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
   },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   scroll: { overflowX: 'auto', padding: '4px 20px 18px' },
   table: { borderCollapse: 'collapse', width: '100%', minWidth: 480 },
@@ -185,7 +184,7 @@ export function ReleaseMatrix({
     return (
       <div className={classes.wrap}>
         <div className={classes.head}>
-          <Typography className={classes.title}>Release matrix</Typography>
+          <SectionTitle>Release matrix</SectionTitle>
           <Typography className={classes.sub}>
             Rows are recent releases, newest first · columns are environments in promotion order.
             Read a column for what's live right now, a row for one release's full journey.
@@ -238,7 +237,7 @@ export function ReleaseMatrix({
   return (
     <div className={classes.wrap}>
       <div className={classes.head}>
-        <Typography className={classes.title}>Release matrix</Typography>
+        <SectionTitle>Release matrix</SectionTitle>
         <Typography className={classes.sub}>
           Rows are recent releases, newest first · columns are environments in promotion order.
           Read a column for what's live right now, a row for one release's full journey.

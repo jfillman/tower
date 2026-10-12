@@ -13,7 +13,7 @@ import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { applyStaged, validateAddedFlight, validateEnvironments, type CloudBlock, type EnvDef } from '../../environments/stagedChanges';
-import { Button, Field } from '../../ui';
+import { Button, Field, Hint } from '../../ui';
 import { useUi } from '../../ui/styles';
 import { MAIN_FIELD } from './shared';
 
@@ -21,7 +21,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   paper: { backgroundColor: ({ t }) => t.panel, backgroundImage: 'none', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, minWidth: 440 },
   stack: { display: 'flex', flexDirection: 'column', gap: 12 },
   mono: { fontFamily: fontMono, fontSize: 12 },
-  note: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 8 },
+  noteGap: { marginTop: 8 },
   problem: { fontSize: 12.5, color: ({ t }) => t.bad, marginTop: 10 },
 }));
 
@@ -104,9 +104,9 @@ export function AddEnvironmentDialog({
           <Field id="add-env-name" label="Name">
             {p => <input {...p} autoFocus value={name} onChange={e => setName(e.target.value)} />}
           </Field>
-          <div className={c.note} style={{ marginTop: -6 }}>
+          <Hint className={c.noteGap} style={{ marginTop: -6 }}>
             Lowercase letters, digits and &apos;-&apos;, for example qa.
-          </div>
+          </Hint>
           <RadioGroup aria-label="Tier" value={tier} onChange={e => setTier(e.target.value as 'ground' | 'flight')}>
             <FormControlLabel value="ground" disabled={Boolean(duplicateOf)} control={<Radio size="small" />} label="Ground: deploys on every push" />
             <FormControlLabel
@@ -118,10 +118,10 @@ export function AddEnvironmentDialog({
           </RadioGroup>
           {tier === 'flight' && cloudBlock && (
             <>
-              <div className={c.note}>
+              <Hint className={c.noteGap}>
                 Each release to it opens a pull request on this repo that changes its release pin
                 (glidepath/releases/&lt;name&gt;.yaml). Merging the pull request deploys exactly that image.
-              </div>
+              </Hint>
               <FormControlLabel
                 control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
                 label="Also add a release step for it to the pipeline"
@@ -138,21 +138,21 @@ export function AddEnvironmentDialog({
                   <option key={k} value={k} />
                 ))}
               </datalist>
-              <div className={c.note} style={{ marginTop: -6 }}>
+              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 The registered upper cluster it runs on, for example kind-prod.
-              </div>
-              <div className={c.note}>
+              </Hint>
+              <Hint className={c.noteGap}>
                 Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo,
                 then the cicd.yaml change. Merge the request first.
-              </div>
+              </Hint>
               <FormControlLabel
                 control={<Checkbox size="small" checked={releaseStep} onChange={e => setReleaseStep(e.target.checked)} />}
                 label="Also add a release step for it to the pipeline"
               />
-              <div className={c.note} style={{ marginTop: -6 }}>
+              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 Without a release step nothing in CI releases to this environment. It goes right after the step for the
                 environment before it. Untick to edit the pipeline yourself in the Glidepath tab.
-              </div>
+              </Hint>
             </>
           )}
           {cloudBlock && mainField && (
@@ -160,9 +160,9 @@ export function AddEnvironmentDialog({
               <Field id="add-env-override" label={`${targetLabel} ${mainField} (optional)`}>
                 {p => <input {...p} value={override} onChange={e => setOverride(e.target.value)} />}
               </Field>
-              <div className={c.note} style={{ marginTop: -6 }}>
+              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 Leave empty to use the app-level value.
-              </div>
+              </Hint>
             </>
           )}
           {duplicateOf && !cloudBlock && (
@@ -171,17 +171,17 @@ export function AddEnvironmentDialog({
                 control={<Checkbox size="small" checked={copyValues} onChange={e => setCopyValues(e.target.checked)} />}
                 label={`Copy the values of ${duplicateOf.name}`}
               />
-              <div className={c.note} style={{ marginTop: -6 }}>
+              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 {tier === 'ground'
                   ? `The new environment's values file is created in the same pull request, with the values of ${duplicateOf.name} (its own image excluded).`
                   : `A Flight environment's values file is written by Crossplane after its request merges. When it exists, use "Copy values from" in its Values tab.`}
-              </div>
+              </Hint>
             </>
           )}
           {duplicateOf && cloudBlock && mainField && (
-            <div className={c.note}>
+            <Hint className={c.noteGap}>
               Settings are copied except {mainField}: give it its own above, or both environments will deploy to the same resource.
-            </div>
+            </Hint>
           )}
           {fresh.map(p => (
             <div key={p} className={c.problem} style={{ marginTop: 0 }}>
@@ -244,7 +244,7 @@ export function RemoveEnvironmentDialog({
                 <>
                   {files.length > 0 && (
                     <>
-                      <div className={c.note}>The same pull request deletes its release pin and promote flow, so merging it starts no deploy:</div>
+                      <Hint className={c.noteGap}>The same pull request deletes its release pin and promote flow, so merging it starts no deploy:</Hint>
                       <ul className={c.mono}>
                         {files.map(f => (
                           <li key={f}>{f}</li>
@@ -252,17 +252,17 @@ export function RemoveEnvironmentDialog({
                       </ul>
                     </>
                   )}
-                  <div className={c.note}>The cloud resource this environment deployed to is not deleted. Remove it in your cloud account.</div>
+                  <Hint className={c.noteGap}>The cloud resource this environment deployed to is not deleted. Remove it in your cloud account.</Hint>
                 </>
               ) : (
                 <>
-                  <div className={c.note}>The same pull request deletes, where they exist:</div>
+                  <Hint className={c.noteGap}>The same pull request deletes, where they exist:</Hint>
                   <ul className={c.mono}>
                     {files.map(f => (
                       <li key={f}>{f}</li>
                     ))}
                   </ul>
-                  <div className={c.note}>
+                  <Hint className={c.noteGap}>
                     After it merges, Argo CD prunes the Application{' '}
                     <span className={c.mono}>
                       {appName}-{name}
@@ -272,7 +272,7 @@ export function RemoveEnvironmentDialog({
                       app-{appName}-{name}
                     </span>
                     , deleting everything running in it.
-                  </div>
+                  </Hint>
                 </>
               )}
             </DialogContentText>

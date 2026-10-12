@@ -12,7 +12,7 @@ import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef, PodSummary } from '../../types';
 import { BreakglassPanel } from './BreakglassPanel';
-import { StatusChip } from '../../ui';
+import { SectionTitle, StatusChip } from '../../ui';
 
 // Items 6 & 7 of the Topology-tab modernization ("pod logs should be
 // accessible" / "more info/details about each resource, especially pods").
@@ -119,7 +119,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   kv: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
   k: { fontFamily: fontMono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint, fontWeight: 700 },
   v: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, wordBreak: 'break-word' },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
+  titleGap: { marginBottom: 6 },
   containerRow: {
     display: 'flex',
     alignItems: 'center',
@@ -260,7 +260,7 @@ function PodDetail({
       </div>
 
       <div>
-        <Typography className={classes.sectionTitle} style={{ marginBottom: 6 }}>Containers</Typography>
+        <div className={classes.titleGap}><SectionTitle level={2}>Containers</SectionTitle></div>
         {(raw?.spec?.containers ?? []).length === 0 ? (
           <Typography className={classes.none}>No container spec recorded.</Typography>
         ) : (
@@ -286,7 +286,7 @@ function PodDetail({
 
       {(raw?.status?.conditions ?? []).length > 0 && (
         <div>
-          <Typography className={classes.sectionTitle} style={{ marginBottom: 6 }}>Conditions</Typography>
+          <div className={classes.titleGap}><SectionTitle level={2}>Conditions</SectionTitle></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {raw!.status!.conditions!.map(c => (
               <div key={c.type} className={classes.conditionRow}>

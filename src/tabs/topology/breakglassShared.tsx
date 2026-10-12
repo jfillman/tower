@@ -6,6 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { Hint } from '../../ui';
 
 // What the break-glass form (BreakglassPanel, per pod) and the environment view (BreakglassEnvironmentView, per
 // environment) share: the session record as the backend lists it, the API helper, the sessions hook, the terminal
@@ -96,7 +97,6 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   full: { gridColumn: '1 / -1' },
   radios: { display: 'flex', flexDirection: 'column', gap: 6 },
   radio: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: ({ t }) => t.textHi, cursor: 'pointer' },
-  hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
   bad: { fontSize: 11.5, color: ({ t }) => t.bad },
   actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
@@ -376,7 +376,7 @@ export function OpenSession({
       {open.volumeAccess && (
         <div className={classes.history} data-testid="breakglass-volumes">
           {(open.volumes ?? []).length === 0 ? (
-            <span className={classes.hint}>Volume access: {open.container} mounts no volumes besides its service account token.</span>
+            <Hint>Volume access: {open.container} mounts no volumes besides its service account token.</Hint>
           ) : (
             (open.volumes ?? []).map(v => (
               <span key={v.volume} className={classes.row}>
@@ -400,7 +400,7 @@ export function OpenSession({
       />
       {closedNote && (
         <div className={classes.actions}>
-          <span className={classes.hint}>{closedNote}</span>
+          <Hint>{closedNote}</Hint>
           {detached && (
             <button
               type="button"

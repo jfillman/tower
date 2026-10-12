@@ -1,13 +1,13 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime, relativeTime, STALE_THRESHOLD_MS } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { imageTag, type DeployHistoryEntry, type EnvironmentSummary } from './types';
 import { useRepoHead } from './useReleaseData';
 import { extractShortShaFromImageTag } from './types';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
+import { EmptyNote, SectionTitle } from './ui';
 
 // Ported from GlidepathPage.tsx's ReleaseTimelinePanel + LeadTimePanel
 // (2026-09-06, "Add Release Timeline and Lead Time panels, backed by real
@@ -59,7 +59,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 20,
   },
   headRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   range: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   row: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
@@ -104,7 +103,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   legendItem: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: ({ t }) => t.textFaint },
   swatch: { width: 10, height: 10, borderRadius: 2 },
   swatchStale: { backgroundColor: 'transparent', border: '2px dashed' },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo },
   leadGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 },
   leadCard: {
     backgroundColor: ({ t }) => t.panelAlt,
@@ -179,7 +177,7 @@ export function ReleaseTimelinePanel({
   return (
     <div className={classes.card}>
       <div className={classes.headRow}>
-        <Typography className={classes.title}>Release timeline</Typography>
+        <SectionTitle>Release timeline</SectionTitle>
         <span className={classes.range}>
           {withHistory.length > 0
             ? `${formatDateTime(new Date(rangeStart).toISOString())} – ${formatDateTime(new Date(now).toISOString())}`
@@ -245,10 +243,10 @@ export function ReleaseTimelinePanel({
           stale (running &gt;3 days)
         </div>
       </div>
-      <Typography className={classes.note} style={{ marginTop: 10 }}>
+      <EmptyNote style={{ marginTop: 10 }}>
         Showing up to the last 10 tracked promotions per environment, not a fixed date window - an
         environment that promotes rarely may show a much longer span than one that promotes often.
-      </Typography>
+      </EmptyNote>
     </div>
   );
 }
@@ -275,7 +273,7 @@ function LeadTimeCard({
     return (
       <div className={classes.leadCard}>
         <div className={classes.leadEnv}>{env}</div>
-        <Typography className={classes.note}>No recorded promotion yet.</Typography>
+        <EmptyNote>No recorded promotion yet.</EmptyNote>
       </div>
     );
   }
@@ -337,9 +335,9 @@ export function LeadTimePanel({
     return (
       <div className={classes.card}>
         <div className={classes.headRow}>
-          <Typography className={classes.title}>Lead time — commit to deploy</Typography>
+          <SectionTitle>Lead time — commit to deploy</SectionTitle>
         </div>
-        <Typography className={classes.note}>No environments to measure yet.</Typography>
+        <EmptyNote>No environments to measure yet.</EmptyNote>
       </div>
     );
   }
@@ -347,7 +345,7 @@ export function LeadTimePanel({
   return (
     <div className={classes.card}>
       <div className={classes.headRow}>
-        <Typography className={classes.title}>Lead time — commit to deploy</Typography>
+        <SectionTitle>Lead time — commit to deploy</SectionTitle>
       </div>
       <div className={classes.leadGrid}>
         {environments.map(env => {

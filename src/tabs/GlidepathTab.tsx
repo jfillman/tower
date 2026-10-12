@@ -21,7 +21,7 @@ import {
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { PageHeader, Subtabs } from '../ui';
+import { PageHeader, SectionTitle, Subtabs } from '../ui';
 import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
 import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
@@ -291,12 +291,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { paddingBottom: 40, display: 'flex', flexDirection: 'column', gap: 20 },
   headerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerTitle: { display: 'flex', alignItems: 'center', gap: 10 },
-  title: {
-    fontFamily: fontDisplay,
-    fontSize: 20,
-    fontWeight: 600,
-    color: ({ t }) => t.textHi,
-  },
   section: {
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     borderRadius: 6,
@@ -305,12 +299,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexDirection: 'column',
     gap: 12,
     backgroundColor: ({ t }) => t.panel,
-  },
-  sectionTitle: {
-    fontFamily: fontDisplay,
-    fontSize: 14,
-    fontWeight: 600,
-    color: ({ t }) => t.textHi,
   },
   sectionHint: { fontSize: 12, color: ({ t }) => t.textLo },
   row: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
@@ -445,7 +433,7 @@ export function GlidepathTab() {
       {/* --- Build --------------------------------------------------------*/}
       {tab === 'build' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Build</Typography>
+        <SectionTitle>Build</SectionTitle>
         <div className={classes.row}>
           <Select value={form.buildAgent} onChange={e => setForm(f => (f ? { ...f, buildAgent: e.target.value as BuildAgent } : f))}>
             {BUILD_AGENTS.map(a => (
@@ -541,7 +529,7 @@ export function GlidepathTab() {
       {/* --- Test -----------------------------------------------------------*/}
       {tab === 'test' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Test</Typography>
+        <SectionTitle>Test</SectionTitle>
         <div className={classes.switchRow}>
           <Switch checked={form.testEnabled} onChange={e => setForm(f => (f ? { ...f, testEnabled: e.target.checked } : f))} />
           <Typography className={classes.switchLabel}>Enabled</Typography>
@@ -559,7 +547,7 @@ export function GlidepathTab() {
 
       {tab === 'deploy' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Deploy</Typography>
+        <SectionTitle>Deploy</SectionTitle>
         <Typography className={classes.govCaption}>
           The environments are edited in the Environments tab (deploy.environments).
         </Typography>
@@ -577,7 +565,7 @@ export function GlidepathTab() {
       {/* --- Ephemeral Environments ------------------------------------- */}
       {tab === 'preview' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Ephemeral Environments</Typography>
+        <SectionTitle>Ephemeral Environments</SectionTitle>
         <div className={classes.switchRow}>
           <Switch
             checked={form.branchEnabled}
@@ -622,7 +610,7 @@ export function GlidepathTab() {
       {/* --- Governance --------------------------------------------------*/}
       {tab === 'governance' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Governance</Typography>
+        <SectionTitle>Governance</SectionTitle>
         <Typography className={classes.govCaption}>
           Pre-flight checks only. The release-blocking gate on {appName}'s release PR always runs regardless of
           these settings.
@@ -656,7 +644,7 @@ export function GlidepathTab() {
       {/* --- Notifications ------------------------------------------------*/}
       {tab === 'notifications' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Notifications</Typography>
+        <SectionTitle>Notifications</SectionTitle>
         <div className={classes.switchRow}>
           <Switch
             checked={form.slackEnabled}
@@ -694,7 +682,7 @@ export function GlidepathTab() {
       {/* --- Secrets ------------------------------------------------------*/}
       {tab === 'secrets' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Secrets</Typography>
+        <SectionTitle>Secrets</SectionTitle>
         {form.secrets.map((s, i) => (
           <div key={i} className={classes.secretRow}>
             <TextField
@@ -729,7 +717,7 @@ export function GlidepathTab() {
       {/* --- Pipelines (named flows) ---------------------------------------*/}
       {tab === 'pipelines' && (
       <div className={classes.section}>
-        <Typography className={classes.sectionTitle}>Pipelines</Typography>
+        <SectionTitle>Pipelines</SectionTitle>
         <Typography className={classes.sectionHint}>
           Raw YAML - named-flow map (trigger + steps, or the legacy list form).
         </Typography>
@@ -744,7 +732,7 @@ export function GlidepathTab() {
 
       {tab === 'advanced' && (
         <div className={classes.section}>
-          <Typography className={classes.sectionTitle}>Committed cicd.yaml</Typography>
+          <SectionTitle>Committed cicd.yaml</SectionTitle>
           <Typography className={classes.sectionHint}>The file as it is on the default branch, read only. Staged changes are not in it until their pull request merges.</Typography>
           <pre className={classes.rawView}>{cicd.data?.raw || '(no cicd.yaml committed yet)'}</pre>
         </div>

@@ -249,3 +249,26 @@ export const useStatus = makeStyles<Theme, { t: HangarTokens }>(() => ({
   info: { color: ({ t }) => t.sky, backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine },
   neutral: { color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line },
 }));
+
+// Sections and notes inside a tab: one title size (15, or 13 inside a card), the count and actions at the right, and
+// one look for "nothing here" and for an explaining line. Its own hook for the same reason as useControls.
+export const useSection = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  section: { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 },
+  framed: {
+    gap: 0,
+    backgroundColor: ({ t }) => t.panel,
+    border: ({ t }) => `1px solid ${t.line}`,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  head: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '6px 12px', flexWrap: 'wrap', minWidth: 0 },
+  headFramed: { padding: '12px 18px', borderBottom: ({ t }) => `1px solid ${t.lineSoft}` },
+  headStart: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', minWidth: 0 },
+  headEnd: { display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' },
+  title: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, lineHeight: 1.3, color: ({ t }) => t.textHi },
+  title2: { fontSize: 13 },
+  count: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
+  empty: { margin: 0, fontFamily: fontBody, fontSize: 12.5, fontStyle: 'italic', lineHeight: 1.5, color: ({ t }) => t.textLo },
+  hint: { margin: 0, fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textLo },
+  inset: { padding: '12px 18px' },
+}));

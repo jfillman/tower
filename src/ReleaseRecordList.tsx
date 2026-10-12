@@ -1,13 +1,12 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
-import { IconButton, StatusChip, type StatusTone } from './ui';
+import { Count, IconButton, SectionTitle, StatusChip, type StatusTone } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -52,8 +51,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   actions: { display: 'flex', alignItems: 'center', gap: 6 },
   chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 8 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
-  countNote: { fontSize: 12, color: ({ t }) => t.textFaint },
 }));
 
 export function confidenceColor(t: HangarTokens, confidence: number): string {
@@ -94,10 +91,10 @@ export function ReleaseRecordList({
   return (
     <div>
       <div className={classes.head}>
-        <Typography className={classes.title}>Release records</Typography>
-        <Typography className={classes.countNote}>
+        <SectionTitle>Release records</SectionTitle>
+        <Count>
           {records.length} of this app's {totalKnown} recent release{totalKnown === 1 ? '' : 's'} reached Flight
-        </Typography>
+        </Count>
       </div>
       <div className={classes.list}>
         {records.map(record => {

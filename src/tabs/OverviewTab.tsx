@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useSearchParams } from 'react-router-dom';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
@@ -15,9 +14,9 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
-import { healthColor, healthTone, PageHeader, StatusChip } from '../ui';
+import { HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Section, StatusChip } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
-import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary, type Health } from '../types';
+import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
 
 // grafana.{dev,prod}.kiac.local (real Gateway HTTPRoutes - gitops-cluster-dev
 // and gitops-cluster-kind-prod's 60-gateway-routes/50-gateway-routes,
@@ -64,14 +63,6 @@ function computeReleaseTracks(list: EnvironmentSummary[]): ReleaseTrackRun[] {
   return runs;
 }
 
-const HEALTH_LABEL: Record<Health, string> = {
-  healthy: 'Healthy',
-  progressing: 'Scaling',
-  paused: 'Paused',
-  degraded: 'Degraded',
-  unknown: 'Unknown',
-};
-
 // Card basis inside a release track, and the gap between cards - shared by the CSS above and
 // the rows-per-track calculation in OverviewTab so the two can't drift apart.
 const TRACK_CARD_W = 260;
@@ -91,7 +82,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 20,
     alignItems: 'center',
   },
-  monitoringNote: { fontSize: 12.5, color: ({ t }) => t.textLo, flex: '1 1 260px' },
+  monitoringNote: { flex: '1 1 260px' },
   monitoringLinks: { display: 'flex', gap: 14, flexWrap: 'wrap' },
   monitoringLink: {
     fontFamily: fontMono,
@@ -336,7 +327,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textAlign: 'left',
   },
   rolloutLinkPct: { color: ({ t }) => t.amberInk },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, margin: '24px 0 12px' },
+  block: { marginTop: 24 },
   // Restored 2026-09-10 - a real preview/PR-env indicator existed on this
   // card once before and got dropped somewhere along the way; the small
   // "own build" badge inline next to the env name is the fix, distinct from
@@ -806,8 +797,7 @@ export function OverviewTab() {
       )}
 
       {previewEnvs.length > 0 && (
-        <>
-          <Typography className={classes.sectionTitle}>Preview environments</Typography>
+        <Section title="Preview environments" className={classes.block}>
           <div className={classes.previewRow}>
             {previewEnvs.map(env => {
               const h = health(env);
@@ -830,7 +820,7 @@ export function OverviewTab() {
               );
             })}
           </div>
-        </>
+        </Section>
       )}
 
       <RecentActivityPanel
@@ -846,12 +836,12 @@ export function OverviewTab() {
         onViewAll={goToNotifications}
       />
 
-      <Typography className={classes.sectionTitle}>Monitoring</Typography>
+      <Section title="Monitoring" className={classes.block}>
       <div className={classes.monitoringCard}>
-        <Typography className={classes.monitoringNote}>
+        <Hint className={classes.monitoringNote}>
           No per-app dashboards exist yet - this app's live metrics aren't embedded here, but
           each environment's cluster runs a real Grafana instance you can explore directly.
-        </Typography>
+        </Hint>
         <div className={classes.monitoringLinks}>
           {[...new Set(pipelineEnvs.map(env => env.cluster))]
             .map(cluster => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] }))
@@ -869,6 +859,7 @@ export function OverviewTab() {
             ))}
         </div>
       </div>
+      </Section>
     </div>
   );
 }

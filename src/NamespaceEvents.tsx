@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesApiRef } from '@backstage/plugin-kubernetes-react';
 import { relativeTime } from './shared/format';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { EmptyNote, SectionTitle } from './ui';
 
 // Item 5 of the Topology-tab feature request (2026-09-08): "Events!! i want
 // events added." Namespace-wide, not scoped to one object -
@@ -73,8 +73,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   mono: { fontFamily: fontMono, fontSize: 11.5 },
   dot: { width: 7, height: 7, borderRadius: '50%', display: 'inline-block', marginRight: 6 },
   faint: { color: ({ t }) => t.textFaint },
-  note: { fontSize: 12.5, fontStyle: 'italic', color: ({ t }) => t.textLo, padding: '8px 0' },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi, marginBottom: 8 },
+  titleGap: { marginBottom: 8 },
 }));
 
 export function NamespaceEvents({ cluster, namespace }: { cluster: string; namespace: string }) {
@@ -90,11 +89,11 @@ export function NamespaceEvents({ cluster, namespace }: { cluster: string; names
 
   return (
     <div>
-      <Typography className={classes.title}>Events in {namespace}</Typography>
-      {loading && <Typography className={classes.note}>Loading events…</Typography>}
-      {error && <Typography className={classes.note}>Couldn't load events: {error}</Typography>}
+      <div className={classes.titleGap}><SectionTitle level={2}>Events in {namespace}</SectionTitle></div>
+      {loading && <EmptyNote>Loading events…</EmptyNote>}
+      {error && <EmptyNote>Couldn't load events: {error}</EmptyNote>}
       {!loading && !error && sorted.length === 0 && (
-        <Typography className={classes.note}>No events recorded in this namespace.</Typography>
+        <EmptyNote>No events recorded in this namespace.</EmptyNote>
       )}
       {!loading && !error && sorted.length > 0 && (
         <table className={classes.table}>

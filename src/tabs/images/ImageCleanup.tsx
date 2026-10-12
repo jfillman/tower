@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
-import { Button, TextLink } from '../../ui';
+import { Button, Hint, SectionTitle, TextLink } from '../../ui';
 
 // Clean up an app's old images (2026-10-10; backstage imagePrune.ts). Two steps on purpose: the plan says exactly
 // which package versions would be deleted and why every other release is kept, and Prune deletes exactly that plan
@@ -82,8 +82,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 8,
   },
   head: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  title: { fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
-  note: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   pkg: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   row: { display: 'grid', gridTemplateColumns: '64px minmax(140px, 220px) 1fr', gap: 8, fontSize: 12, alignItems: 'baseline' },
   del: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, color: ({ t }) => t.bad },
@@ -203,24 +201,24 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
   return (
     <div className={c.card} data-testid="image-cleanup">
       <div className={c.head}>
-        <span className={c.title}>Clean up old images</span>
+        <SectionTitle level={2}>Clean up old images</SectionTitle>
         <Button small disabled={!!busy} onClick={() => loadPlan(!!plan)}>
           {planLabel}
         </Button>
       </div>
       {!plan && !progress && (
-        <span className={c.note}>
+        <Hint>
           Deletes this app's old images from the registry ({appName}, {appName}-pr and the build cache), never one that is
           running, that an old ReplicaSet could scale back to, that git or an open PR names, or that is in an environment's
           last five healthy releases. You see the plan first.
-        </span>
+        </Hint>
       )}
       {plan && (
         <>
-          <span className={c.note}>
+          <Hint>
             Also kept: anything younger than {plan.rules.minAgeDays} days, and the {plan.rules.keepNewest} newest builds (build
             cache: the {plan.rules.keepNewestCache} newest layers).
-          </span>
+          </Hint>
           {releases.map(p => {
             const del = p.decisions.filter(d => !d.keep);
             const kept = p.decisions.filter(d => d.keep);
@@ -230,11 +228,11 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
                   {p.name}: delete {del.length} of {plural(p.decisions.length, 'release')}
                 </span>
                 {del.length > 0 && (
-                  <span className={c.note}>
+                  <Hint>
                     {' '}
                     ({p.deleteIds.length} registry versions: each release's image, its amd64 and arm64 images, signature and
                     attestation)
-                  </span>
+                  </Hint>
                 )}
                 {del.map(d => (
                   <div key={d.key} className={c.row}>
@@ -252,7 +250,7 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
                     </div>
                   ))}
                 {p.unattributed > 0 && (
-                  <span className={c.note}>{p.unattributed} untagged versions no release claims are kept.</span>
+                  <Hint>{p.unattributed} untagged versions no release claims are kept.</Hint>
                 )}
               </div>
             );
@@ -271,7 +269,7 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
             <Button small variant="danger" disabled={!!busy || !!blocker} title={blocker} onClick={() => setConfirming(true)}>
               {busy === 'prune' ? 'Deleting…' : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}`}
             </Button>
-            {blocker && <span className={c.note}>{blocker}</span>}
+            {blocker && <Hint>{blocker}</Hint>}
           </div>
           {confirming && (
             <div className={c.confirm} data-testid="prune-confirm">
@@ -305,11 +303,11 @@ function PruneProgressView({ progress, c }: { progress: PruneProgress; c: Return
   if (progress.state === 'running') {
     return (
       <div data-testid="prune-progress" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className={c.note}>
+        <Hint>
           Deleting: releases {releases.done} of {releases.total}
           {cacheLayers.total ? `, cache layers ${cacheLayers.done} of ${cacheLayers.total}` : ''}
           {progress.current ? ` (now ${progress.current})` : ''}
-        </span>
+        </Hint>
         <div className={c.bar}>
           <div className={c.barFill} style={{ width: `${pct}%` }} />
         </div>
@@ -326,7 +324,7 @@ function PruneProgressView({ progress, c }: { progress: PruneProgress; c: Return
         {left ? ` ${whatGoes(progress.remaining.releases, progress.remaining.cacheLayers)} remain for another run: plan again.` : ''}
       </span>
       {progress.deletedReleases.length > 0 && (
-        <span className={c.note}>Releases deleted: {progress.deletedReleases.map(r => r.split(':').slice(1).join(':')).join(', ')}</span>
+        <Hint>Releases deleted: {progress.deletedReleases.map(r => r.split(':').slice(1).join(':')).join(', ')}</Hint>
       )}
     </div>
   );

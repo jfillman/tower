@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import LockOpenIcon from '@material-ui/icons/LockOpen';
-import { fontDisplay, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime, relativeTime } from '../../shared/format';
 import type { EnvironmentSummary, EnvTier } from '../../types';
-import { Button, StatusChip } from '../../ui';
+import { Button, SectionTitle, StatusChip } from '../../ui';
 import { RecordingPlayer } from './RecordingPlayer';
 import {
   OpenSession,
@@ -37,7 +36,6 @@ const useCardStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   card: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 },
   head: { display: 'flex', alignItems: 'center', gap: 9 },
   headIcon: { display: 'flex', color: ({ t }) => t.sky, flexShrink: 0 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
 }));
 
 export function BreakglassEnvironmentView({
@@ -444,14 +442,14 @@ export function BreakglassEnvironmentCard({ env, tier, linkedSessionId }: { env:
     <div className={classes.card} data-testid="breakglass-card">
       <div className={classes.head}>
         <span className={classes.headIcon}><LockOpenIcon fontSize="small" /></span>
-        <Typography className={classes.title}>
+        <SectionTitle level={2}>
           Break-glass
           {count > 0 && (
             <span className={shared.badge} data-testid="breakglass-needs-you" title="Requests you can decide, your approved request, or reviews you can do">
               {count}
             </span>
           )}
-        </Typography>
+        </SectionTitle>
       </div>
       <BreakglassEnvironmentView env={env} tier={tier} data={data} linkedSessionId={linkedSessionId} />
     </div>

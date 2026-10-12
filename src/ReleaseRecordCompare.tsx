@@ -1,13 +1,12 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { formatDateTime } from './shared/format';
 import { formatDuration } from './TimelinePanel';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { confidenceColor, statusPill } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { ReleaseRecord } from './useReleaseRecords';
-import { StatusChip, type StatusTone, TextLink } from './ui';
+import { SectionTitle, StatusChip, type StatusTone, TextLink } from './ui';
 
 // Board 4 of the mockup (HANDOFF-tower-release-record.md /
 // idp_session_tower_release_record_spec) - "Compare two records." Records
@@ -59,7 +58,7 @@ function formatSignedPercentPoints(delta: number): string {
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi, marginBottom: 14 },
+  titleGap: { marginBottom: 14 },
   grid: {
     display: 'grid',
     gridTemplateColumns: '1fr auto 1fr',
@@ -223,7 +222,7 @@ export function ReleaseRecordCompare({
   return (
     <div>
       <TextLink onClick={onBack}>← Back to record</TextLink>
-      <Typography className={classes.title}>Compare releases</Typography>
+      <div className={classes.titleGap}><SectionTitle>Compare releases</SectionTitle></div>
       <div className={classes.grid}>
         <RecordColumn record={left} pill={leftPill} side="left" t={t} classes={classes} />
         <div className={classes.mid}>

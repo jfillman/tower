@@ -3,7 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { Button, Chip, TierChip } from '../../ui';
+import { Button, Chip, Hint, TierChip } from '../../ui';
 import { RollbackControl } from './RollbackControl';
 
 // Argo Rollouts controls (glidepath ADR-0021 phase 4; replaces the disabled "Tier 2" placeholder row). The
@@ -78,7 +78,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   row: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  note: { fontSize: 11.5, color: ({ t }) => t.textLo, lineHeight: 1.5 },
   confirm: {
     display: 'flex',
     gap: 8,
@@ -204,7 +203,7 @@ export function RolloutControls({
         {data && <TierChip tier={data.tier} />}
       </div>
       {loadError && !data && <span className={c.bad}>Couldn't read the Rollout's actions: {loadError}</span>}
-      {!loadError && !data && <span className={c.note}>Reading the Rollout's actions…</span>}
+      {!loadError && !data && <Hint>Reading the Rollout's actions…</Hint>}
       {data && (
         <div className={c.row}>
           {actions.map(a => (
@@ -223,7 +222,7 @@ export function RolloutControls({
         </div>
       )}
       {noneAllowed && (
-        <span className={c.note}>Only the app's owning team (or an admin) can run these. Hover a button for what it does.</span>
+        <Hint>Only the app's owning team (or an admin) can run these. Hover a button for what it does.</Hint>
       )}
       {confirming && (
         <div className={c.confirm}>
