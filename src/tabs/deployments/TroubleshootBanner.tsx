@@ -42,7 +42,9 @@ const BLOCKING_RECENT_MS = 10 * 60 * 1000;
 
 export function diagnose(env: EnvironmentSummary, currentSteps: CdStep[] | undefined, issues: PodIssue[] = [], warnings: WarningGroup[] = [], now = Date.now()): Diagnosis {
   const guardrails = stepByKey(currentSteps, 'guardrails');
-  if (guardrails?.status === 'bad') {
+  // Only while the PR is open: a failed guardrail on a PR that was merged anyway (a bypass, drawn red on the DAG and
+  // explained in its Guardrails stage) did not stop this release, so the rules below say how the rollout itself is doing.
+  if (guardrails?.status === 'bad' && stepByKey(currentSteps, 'merged')?.status !== 'good') {
     return {
       tone: 'bad',
       title: 'A required guardrail failed',
