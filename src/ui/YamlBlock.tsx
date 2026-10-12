@@ -71,8 +71,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     backgroundColor: ({ t }) => t.panel,
     color: ({ t }) => t.textHi,
-    width: '100%',
-    maxWidth: 260,
+    // In the header row with the title and Copy (2026-10-12: it sat on its own row under them).
+    flex: '1 1 160px',
+    minWidth: 120,
+    maxWidth: 280,
   },
   codeBox: {
     borderRadius: 4,
@@ -163,15 +165,15 @@ export function YamlBlock({
   const showHead = title !== undefined || actions !== undefined || copy;
   return (
     <div className={`${classes.wrap} ${className ?? ''}`}>
-      {showHead && (
+      {(showHead || filter) && (
         <div className={classes.head}>
           {title !== undefined && <span className={classes.heading}>{title}</span>}
+          {filter && <input className={classes.search} placeholder="filter lines…" value={query} onChange={e => setQuery(e.target.value)} aria-label="Filter lines" />}
           <span className={classes.spacer} />
           {actions}
           {copy && <CopyButton text={text} />}
         </div>
       )}
-      {filter && <input className={classes.search} placeholder="filter lines…" value={query} onChange={e => setQuery(e.target.value)} aria-label="Filter lines" />}
       <div className={classes.codeBox} style={{ maxHeight }} ref={boxRef} aria-label={ariaLabel} role={ariaLabel ? 'region' : undefined}>
         {lines.map((line, i) => {
           const match = q.length > 0 && line.toLowerCase().includes(q);

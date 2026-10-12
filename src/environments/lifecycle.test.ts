@@ -116,6 +116,7 @@ describe('Ground environment lifecycle: what the last step waits for', () => {
   it('says what the deploy waits for when a pipeline does deploy there', () => {
     const steps = deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: true });
     expect(steps[3].detail).toBe("Deploys on the pipeline's next run (a push to the default branch).");
+    expect(deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('open', 26), pipelineStep: true })[3].detail).toMatch(/Starts with the image of the environment before it/);
     expect(deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: true, deployed: true }).every(s => s.state === 'done')).toBe(true);
   });
 });
