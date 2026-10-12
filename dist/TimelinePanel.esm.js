@@ -60,6 +60,8 @@ const useStyles = makeStyles(() => ({
     marginBottom: 20
   },
   headRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 14 },
+  embedded: { padding: "14px 20px 16px" },
+  headRowEmbedded: { display: "flex", justifyContent: "flex-end", marginBottom: 12 },
   range: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   row: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 },
   // 2026-09-15 feedback: env names are always lowercase at the Kubernetes
@@ -117,7 +119,8 @@ const useStyles = makeStyles(() => ({
 }));
 function ReleaseTimelinePanel({
   environments,
-  history
+  history,
+  embedded
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -140,9 +143,9 @@ function ReleaseTimelinePanel({
       legendTags.push(entry.imageTag);
     }
   });
-  return /* @__PURE__ */ jsxs("div", { className: classes.card, children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
-      /* @__PURE__ */ jsx(SectionTitle, { children: "Release timeline" }),
+  return /* @__PURE__ */ jsxs("div", { className: embedded ? classes.embedded : classes.card, children: [
+    /* @__PURE__ */ jsxs("div", { className: embedded ? classes.headRowEmbedded : classes.headRow, children: [
+      !embedded && /* @__PURE__ */ jsx(SectionTitle, { children: "Release timeline" }),
       /* @__PURE__ */ jsx("span", { className: classes.range, children: withHistory.length > 0 ? `${formatDateTime(new Date(rangeStart).toISOString())} \u2013 ${formatDateTime(new Date(now).toISOString())}` : "no promotions recorded" })
     ] }),
     environments.map((env) => {

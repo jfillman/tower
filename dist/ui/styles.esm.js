@@ -272,7 +272,7 @@ const columnLabelLook = {
 };
 const useData = makeStyles(() => ({
   factGrid: { display: "grid", gap: "12px 24px", minWidth: 0 },
-  factRow: { display: "flex", flexWrap: "wrap" },
+  factRow: { display: "flex", flexWrap: "wrap", gap: "12px 32px", "& > *": { flex: "0 1 auto", maxWidth: "100%" } },
   fact: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 },
   factInline: {
     flexDirection: "row",

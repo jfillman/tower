@@ -95,8 +95,7 @@ const useStyles = makeStyles(() => ({
     whiteSpace: "nowrap"
   },
   expandRow: { padding: "2px 20px 14px" },
-  expandFact: { fontSize: 12, color: ({ t }) => t.textLo },
-  timelineWrap: { padding: "4px 0" }
+  expandFact: { fontSize: 12, color: ({ t }) => t.textLo }
 }));
 const STATUS_LABEL = {
   promoted: "promoted",
@@ -190,7 +189,7 @@ function ReleaseLog({
         ] }, entry.id);
       }) })
     ] }) }),
-    view !== "table" && /* @__PURE__ */ jsx("div", { className: classes.timelineWrap, children: /* @__PURE__ */ jsx(ReleaseTimelinePanel, { environments: pipelineEnvironments, history: deployHistory }) })
+    view !== "table" && /* @__PURE__ */ jsx(ReleaseTimelinePanel, { environments: pipelineEnvironments, history: deployHistory, embedded: true })
   ] });
 }
 

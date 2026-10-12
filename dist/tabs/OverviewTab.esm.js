@@ -507,7 +507,7 @@ function OverviewTab() {
         ]
       }
     ),
-    /* @__PURE__ */ jsx(Panel, { className: classes.metaCard, children: /* @__PURE__ */ jsxs(FactGrid, { min: 150, children: [
+    /* @__PURE__ */ jsx(Panel, { className: classes.metaCard, children: /* @__PURE__ */ jsxs(FactGrid, { children: [
       /* @__PURE__ */ jsx(Fact, { label: "Source repo", children: sourceUrl ? /* @__PURE__ */ jsxs(TextLink, { href: sourceUrl, children: [
         sourceRepo.owner,
         "/",

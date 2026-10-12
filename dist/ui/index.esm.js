@@ -368,13 +368,14 @@ function Fact({ label, inline, title, children }) {
     /* @__PURE__ */ jsx("span", { className: cx(d.factValue, inline && d.factValueInline), title, children })
   ] });
 }
-function FactGrid({ min = 140, row, className, children }) {
+function FactGrid({ min, row, className, children }) {
   const d = useDataKit();
+  const columns = min !== void 0 && !row;
   return /* @__PURE__ */ jsx(
     "div",
     {
-      className: cx(d.factGrid, row && d.factRow, className),
-      style: row ? void 0 : { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` },
+      className: cx(d.factGrid, !columns && d.factRow, className),
+      style: columns ? { gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))` } : void 0,
       children
     }
   );

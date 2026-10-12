@@ -4,7 +4,6 @@ import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api
 import { useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { Button, Field } from '../../ui/index.esm.js';
-import { BreakglassEnvironmentView } from './BreakglassEnvironmentView.esm.js';
 import { useBreakglassStyles, useBreakglassSessions, useNow, OpenSession, remaining, shortUser, breakglassApi } from './breakglassShared.esm.js';
 
 function BreakglassPanel({
@@ -300,8 +299,7 @@ function BreakglassPanel({
         busy && /* @__PURE__ */ jsx("span", { className: classes.hint, children: "This can take up to two minutes." })
       ] })
     ] }),
-    error && /* @__PURE__ */ jsx("span", { className: classes.bad, children: error }),
-    /* @__PURE__ */ jsx(BreakglassEnvironmentView, { env, tier, data, linkedSessionId, hostTerminal: false })
+    error && /* @__PURE__ */ jsx("span", { className: classes.bad, children: error })
   ] });
 }
 
