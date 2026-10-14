@@ -29,6 +29,8 @@ const SIGNOFF_TONE = {
 function approvalNote(a, mergedBy) {
   if (!a.beforeMerge) return " \xB7 after the merge";
   if (a.by === mergedBy) return " \xB7 the merger";
+  if (a.notApprover) return " \xB7 not one of this app's owners or an admin, so it doesn't count";
+  if (a.approverUnknown) return " \xB7 couldn't check that this reviewer may sign off, so it doesn't count";
   return "";
 }
 function ReleaseSignoffPanel({
