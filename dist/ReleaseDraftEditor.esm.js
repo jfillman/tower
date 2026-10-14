@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime } from './shared/format.esm.js';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { NOTE_CATEGORIES, NOTE_LABEL } from './releaseFlow.esm.js';
-import { TextLink, Field, Button, Hint } from './ui/index.esm.js';
+import { TextLink, Hint, Field, Button } from './ui/index.esm.js';
 
 const MAIN = ["added", "changed", "fixed", "security"];
 const useStyles = makeStyles(() => ({
@@ -61,6 +61,8 @@ function ReleaseDraftEditor({
   saving,
   error,
   commitUrl,
+  belongsTo,
+  nextName,
   onSave
 }) {
   const t = useHangarTokens();
@@ -75,7 +77,7 @@ function ReleaseDraftEditor({
   const shown = showAll ? [...NOTE_CATEGORIES] : NOTE_CATEGORIES.filter((c) => MAIN.includes(c) || form.notes[c].trim());
   return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
     /* @__PURE__ */ jsxs("div", { className: classes.summary, children: [
-      /* @__PURE__ */ jsx(TextLink, { expanded: open, onClick: () => setOpen((v) => !v), children: "Notes and owner" }),
+      /* @__PURE__ */ jsx(TextLink, { expanded: open, onClick: () => setOpen((v) => !v), children: belongsTo ? `${belongsTo}'s notes and owner` : "Notes and owner" }),
       /* @__PURE__ */ jsxs("span", { children: [
         noteCount > 0 ? `${noteCount} note${noteCount === 1 ? "" : "s"}` : "No notes yet",
         " \xB7 owner",
@@ -85,6 +87,7 @@ function ReleaseDraftEditor({
         saved?.updatedAt && ` \xB7 saved ${relativeTime(saved.updatedAt)}${saved.updatedBy ? ` by ${saved.updatedBy.replace(/^user:default\//, "")}` : ""}`
       ] })
     ] }),
+    belongsTo && /* @__PURE__ */ jsx(Hint, { children: `${belongsTo} reached Flight with these notes. Tower copies them into its record within a few minutes, then this draft starts over for ${nextName ?? "the next release"}. A save before then still goes into ${belongsTo}'s record.` }),
     open && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx(Field, { id: "rd-summary", label: "Summary: what this release does, in plain words", children: (props) => /* @__PURE__ */ jsx(
         "textarea",

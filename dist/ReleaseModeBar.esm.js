@@ -18,6 +18,7 @@ function ReleaseModeBar({
   submitting,
   error,
   prUrl,
+  waitingForMerge,
   onChange
 }) {
   const t = useHangarTokens();
@@ -56,7 +57,8 @@ function ReleaseModeBar({
     ] }),
     prUrl && /* @__PURE__ */ jsxs("span", { className: classes.caption, children: [
       "Mode change PR opened \xB7 ",
-      /* @__PURE__ */ jsx(TextLink, { href: prUrl, children: "review \u2197" })
+      /* @__PURE__ */ jsx(TextLink, { href: prUrl, children: "review \u2197" }),
+      waitingForMerge && " \xB7 the mode updates here once it merges"
     ] }),
     error && /* @__PURE__ */ jsx("span", { className: classes.error, children: error })
   ] });

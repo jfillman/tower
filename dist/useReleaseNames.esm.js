@@ -42,6 +42,13 @@ function namesFromHistory(index, records) {
   ]);
   return { byTag, next: releaseNameFor(byTag.size), index };
 }
+function draftStillBelongsTo(names, hasDraft, recordPrTitles) {
+  if (!names || !hasDraft) return void 0;
+  const committed = new Set(names.index.map((e) => e.imageTag));
+  const withPr = new Set(recordPrTitles.map((t) => t.match(/^Release Record: \S+ @ (\S+)$/)?.[1]).filter(Boolean));
+  const pending = [...names.byTag.entries()].filter(([tag]) => !committed.has(tag) && !withPr.has(tag));
+  return pending.length > 0 ? pending[pending.length - 1][1] : void 0;
+}
 
-export { namesFromHistory, useReleaseNames };
+export { draftStillBelongsTo, namesFromHistory, useReleaseNames };
 //# sourceMappingURL=useReleaseNames.esm.js.map

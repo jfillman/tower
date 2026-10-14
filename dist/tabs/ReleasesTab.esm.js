@@ -1,5 +1,5 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
@@ -20,7 +20,7 @@ import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
 import { useReleaseRecords } from '../useReleaseRecords.esm.js';
 import { buildNextRelease } from '../nextRelease.esm.js';
-import { useReleaseNames } from '../useReleaseNames.esm.js';
+import { useReleaseNames, draftStillBelongsTo } from '../useReleaseNames.esm.js';
 import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, useReleasePlanned, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
 import { ReleaseModeBar } from '../ReleaseModeBar.esm.js';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
@@ -48,10 +48,32 @@ function ReleasesTab() {
   );
   const flowTarget = owner && appName ? { owner, appName } : void 0;
   const [flowNonce, setFlowNonce] = useState(0);
-  const releaseMode = useReleaseMode(flowTarget, flowNonce);
+  const [modeNonce, setModeNonce] = useState(0);
+  const [requestedMode, setRequestedMode] = useState(void 0);
+  const releaseMode = useReleaseMode(flowTarget, flowNonce + modeNonce);
   const savedDraft = useReleaseDraft(flowTarget, flowNonce);
   const saveDraft = useSaveReleaseDraft();
   const submitMode = useSubmitReleaseMode();
+  const modePending = Boolean(requestedMode && submitMode.result && releaseMode.data?.mode !== requestedMode);
+  useEffect(() => {
+    if (!modePending) return void 0;
+    const reread = () => setModeNonce((n) => n + 1);
+    const timer = window.setInterval(reread, 2e4);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 15 * 6e4);
+    window.addEventListener("focus", reread);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+      window.removeEventListener("focus", reread);
+    };
+  }, [modePending]);
+  const resetSubmitMode = submitMode.reset;
+  useEffect(() => {
+    if (requestedMode && releaseMode.data?.mode === requestedMode) {
+      setRequestedMode(void 0);
+      resetSubmitMode();
+    }
+  }, [requestedMode, releaseMode.data?.mode, resetSubmitMode]);
   const planned = useReleasePlanned(savedDraft.data?.milestone ? flowTarget : void 0, flowNonce);
   const flow = useMemo(
     () => releaseMode.data || savedDraft.data || savedDraft.notFound ? {
@@ -196,7 +218,11 @@ function ReleasesTab() {
               submitting: submitMode.loading,
               error: submitMode.error,
               prUrl: submitMode.result?.prUrl,
-              onChange: (mode) => submitMode.submit({ owner, appName, mode })
+              waitingForMerge: modePending,
+              onChange: (mode) => {
+                setRequestedMode(mode);
+                submitMode.submit({ owner, appName, mode });
+              }
             }
           ) : void 0,
           draftEditor: owner && appName && (savedDraft.data || savedDraft.notFound) ? /* @__PURE__ */ jsx(
@@ -208,6 +234,12 @@ function ReleasesTab() {
               saving: saveDraft.loading,
               error: saveDraft.error,
               commitUrl: saveDraft.result?.commitUrl,
+              belongsTo: draftStillBelongsTo(
+                releaseNames,
+                Boolean(savedDraft.data),
+                gitopsPrs.map((pr) => pr.title)
+              ),
+              nextName: releaseNames?.next,
               onSave: async (draft) => {
                 if (await saveDraft.submit({ owner, appName, draft })) setFlowNonce((n) => n + 1);
               }
