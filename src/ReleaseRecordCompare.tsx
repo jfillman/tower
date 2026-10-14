@@ -5,7 +5,7 @@ import { formatDuration } from './TimelinePanel';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { confidenceColor, statusPill } from './ReleaseRecordList';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
-import type { ReleaseRecord } from './useReleaseRecords';
+import { displayScore, type ReleaseRecord } from './useReleaseRecords';
 import { Fact, SectionTitle, StatusChip, type StatusTone, TextLink } from './ui';
 
 // Board 4 of the mockup (HANDOFF-tower-release-record.md /
@@ -165,8 +165,8 @@ function RecordColumn({
         <Fact inline label="Lead time (merge→prod)">{lead === undefined ? '—' : formatDuration(lead)}</Fact>
         <Fact inline label="Guardrail checks">{record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : '—'}</Fact>
         <Fact inline label="Confidence">
-          <span style={{ color: confidenceColor(t, record.confidence) }}>
-            {record.confidence}
+          <span style={{ color: confidenceColor(t, displayScore(record)) }}>
+            {displayScore(record)}
           </span>
         </Fact>
       </div>
@@ -198,7 +198,7 @@ export function ReleaseRecordCompare({
   const prDelta = right.pullRequests.length - left.pullRequests.length;
   const leadDelta = leftLead !== undefined && rightLead !== undefined ? rightLead - leftLead : undefined;
   const ratioDelta = leftRatio !== undefined && rightRatio !== undefined ? rightRatio - leftRatio : undefined;
-  const confidenceDelta = right.confidence - left.confidence;
+  const confidenceDelta = displayScore(right) - displayScore(left);
 
   const leftPill = { label: 'baseline', tone: 'neutral' as StatusTone };
   const rightPill = statusPill(right);

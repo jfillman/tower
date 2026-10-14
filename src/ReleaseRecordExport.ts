@@ -78,6 +78,8 @@ function humanContextHtml(humanContext: ReleaseRecordHumanContext | undefined): 
 export interface ReleaseExtras {
   release?: SealedRelease;
   signoff?: SignoffEvaluation;
+  /** Recorded sign-offs that counted: the score's bonus, the same number the record shows. */
+  signoffs?: number;
 }
 
 function releaseHtml(extras: ReleaseExtras | undefined): string {
@@ -109,7 +111,7 @@ function releaseHtml(extras: ReleaseExtras | undefined): string {
 export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): string {
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
   const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
-  const signoffs = countedSignoffs(extras?.signoff);
+  const signoffs = extras?.signoffs ?? countedSignoffs(extras?.release?.signoff);
   const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
 
   let changedItems: string;
