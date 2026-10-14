@@ -35,7 +35,8 @@ function ReleaseSignoffPanel({
   signoff,
   signoffEnv,
   mode,
-  loading
+  loading,
+  live
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -95,7 +96,8 @@ function ReleaseSignoffPanel({
               signoff.env,
               " without an approval from someone other than the person who merged it."
             ] }),
-            missing && !requiresSignoff && /* @__PURE__ */ jsx(Hint, { children: "Assisted: a sign-off is recorded, not required." })
+            missing && !requiresSignoff && /* @__PURE__ */ jsx(Hint, { children: "Assisted: a sign-off is recorded, not required." }),
+            live && signoff.approvals.some((a) => a.counts) && /* @__PURE__ */ jsx(Hint, { children: "Read live from the PR. It counts toward the score once the record carries it." })
           ] })
         ] })
       ] })

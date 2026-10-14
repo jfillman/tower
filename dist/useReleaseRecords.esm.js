@@ -109,6 +109,14 @@ function withPersistedGuardrails(record, doc) {
     confidence: computeConfidence({ guardrails: doc.guardrails.ci, provenance: record.provenance })
   };
 }
+function displayScore(record) {
+  return applyApprovalBonus(record.confidence, record.signoffs ?? 0);
+}
+function withRecordedEvidence(record, recorded) {
+  if (!recorded) return record;
+  const withGuardrails = recorded.guardrails ? withPersistedGuardrails(record, { guardrails: recorded.guardrails }) : record;
+  return recorded.signoffs === void 0 ? withGuardrails : { ...withGuardrails, signoffs: recorded.signoffs };
+}
 function confidenceBreakdown(record, approvalsCount) {
   const g = record.guardrails;
   let guardPoints = 0;
@@ -262,5 +270,5 @@ function useReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs, s
   );
 }
 
-export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, classifyPr, confidenceBreakdown, dedupeCommits, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails };
+export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, classifyPr, confidenceBreakdown, dedupeCommits, displayScore, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails, withRecordedEvidence };
 //# sourceMappingURL=useReleaseRecords.esm.js.map

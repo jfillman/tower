@@ -66,7 +66,7 @@ function releaseHtml(extras) {
 function buildReleaseRecordHtml(record, humanContext, extras) {
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
   const verified = record.provenance?.attestations.some((a) => a.verified) ?? false;
-  const signoffs = countedSignoffs(extras?.signoff);
+  const signoffs = extras?.signoffs ?? countedSignoffs(extras?.release?.signoff);
   const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
   let changedItems;
   if (record.pullRequests.length > 0) {

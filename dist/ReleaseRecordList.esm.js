@@ -5,6 +5,7 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
+import { displayScore } from './useReleaseRecords.esm.js';
 import { SectionTitle, Count, StatusChip, IconButton } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -105,7 +106,7 @@ function ReleaseRecordList({
           onClick: () => onOpen(record.id),
           children: [
             /* @__PURE__ */ jsxs("div", { className: classes.score, children: [
-              /* @__PURE__ */ jsx("span", { className: classes.scoreNum, style: { color: confidenceColor(t, record.confidence) }, children: record.confidence }),
+              /* @__PURE__ */ jsx("span", { className: classes.scoreNum, style: { color: confidenceColor(t, displayScore(record)) }, children: displayScore(record) }),
               /* @__PURE__ */ jsx("span", { className: classes.scoreLbl, children: "confidence" })
             ] }),
             /* @__PURE__ */ jsxs("div", { children: [

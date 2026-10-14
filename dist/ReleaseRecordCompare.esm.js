@@ -5,6 +5,7 @@ import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
+import { displayScore } from './useReleaseRecords.esm.js';
 import { TextLink, SectionTitle, StatusChip, Fact } from './ui/index.esm.js';
 
 function leadTimeMs(record) {
@@ -105,7 +106,7 @@ function RecordColumn({
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "PRs", children: record.pullRequests.length }),
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "Lead time (merge\u2192prod)", children: lead === void 0 ? "\u2014" : formatDuration(lead) }),
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "Guardrail checks", children: record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : "\u2014" }),
-      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Confidence", children: /* @__PURE__ */ jsx("span", { style: { color: confidenceColor(t, record.confidence) }, children: record.confidence }) })
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Confidence", children: /* @__PURE__ */ jsx("span", { style: { color: confidenceColor(t, displayScore(record)) }, children: displayScore(record) }) })
     ] })
   ] });
 }
@@ -123,7 +124,7 @@ function ReleaseRecordCompare({
   const prDelta = right.pullRequests.length - left.pullRequests.length;
   const leadDelta = leftLead !== void 0 && rightLead !== void 0 ? rightLead - leftLead : void 0;
   const ratioDelta = leftRatio !== void 0 && rightRatio !== void 0 ? rightRatio - leftRatio : void 0;
-  const confidenceDelta = right.confidence - left.confidence;
+  const confidenceDelta = displayScore(right) - displayScore(left);
   const leftPill = { label: "baseline", tone: "neutral" };
   const rightPill = statusPill(right);
   return /* @__PURE__ */ jsxs("div", { children: [

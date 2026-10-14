@@ -274,7 +274,7 @@ function ReleaseRecordDetail({
     persistTarget && signoffEnv && !sealedRelease?.signoff ? persistTarget : void 0
   );
   const signoff = sealedRelease?.signoff ?? liveSignoff.data;
-  const signoffCount = countedSignoffs(signoff);
+  const signoffCount = persisted.data ? countedSignoffs(sealedRelease?.signoff) : record.signoffs ?? 0;
   const displayConfidence = applyApprovalBonus(record.confidence, signoffCount);
   const [showScoreExplainer, setShowScoreExplainer] = useState(false);
   const scoreLines = confidenceBreakdown(record, signoffCount);
@@ -330,7 +330,7 @@ function ReleaseRecordDetail({
     });
   };
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to records" }),
+    /* @__PURE__ */ jsx("div", { style: { marginBottom: 14 }, children: /* @__PURE__ */ jsx(TextLink, { onClick: onBack, children: "\u2190 Back to records" }) }),
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
         /* @__PURE__ */ jsx("div", { className: classes.mark, children: /* @__PURE__ */ jsx(HangarMark, { glyph: "hangar", size: 52 }) }),
@@ -386,8 +386,8 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.actionsBar, children: [
-          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff }), children: "\u2913 PDF" }),
-          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff }), children: "\u2913 HTML" }),
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff, signoffs: signoffCount }), children: "\u2913 PDF" }),
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff, signoffs: signoffCount }), children: "\u2913 HTML" }),
           otherRecords.length > 0 && /* @__PURE__ */ jsx(
             ActionSelect,
             {
@@ -573,7 +573,8 @@ function ReleaseRecordDetail({
         signoff,
         signoffEnv: signoff?.env ?? signoffEnv,
         mode: sealedRelease?.mode,
-        loading: liveSignoff.loading
+        loading: liveSignoff.loading,
+        live: !sealedRelease?.signoff
       }
     ) }),
     /* @__PURE__ */ jsxs("div", { className: classes.human, children: [

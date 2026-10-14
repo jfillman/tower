@@ -1,12 +1,13 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ReleaseRecordList } from './ReleaseRecordList.esm.js';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail.esm.js';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare.esm.js';
 import { NextReleaseCard } from './NextReleaseCard.esm.js';
+import { withRecordedEvidence } from './useReleaseRecords.esm.js';
 
 function ReleaseRecordPanel({
-  records,
+  records: liveRecords,
   totalKnown,
   appName,
   owner,
@@ -21,6 +22,10 @@ function ReleaseRecordPanel({
   modeLabel,
   signoffEnv
 }) {
+  const records = useMemo(() => {
+    const byTag = new Map((names?.index ?? []).map((e) => [e.imageTag, e]));
+    return liveRecords.map((r) => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  }, [liveRecords, names]);
   const [openId, setOpenId] = useState(null);
   const [compareId, setCompareId] = useState(null);
   const open = openId ? records.find((r) => r.id === openId) : void 0;

@@ -40,7 +40,7 @@ function namesFromHistory(index, records) {
     ...index.map((e) => ({ imageTag: e.imageTag, at: e.generatedAt })),
     ...pending.map((r) => ({ imageTag: r.imageTag, at: r.createdAt }))
   ]);
-  return { byTag, next: releaseNameFor(byTag.size) };
+  return { byTag, next: releaseNameFor(byTag.size), index };
 }
 
 export { namesFromHistory, useReleaseNames };
