@@ -141,6 +141,9 @@ integration credential ([Release records](release-records/index.md#where-it-live
   only once a person merges the PR. The sign-off status is a commit status on the release PR.
 - **A GitHub Release is opt-in per release**, set by an owner in the draft, and published only once the release is
   healthy in production. It never creates a tag at a commit other than the image's, and never moves or replaces a tag.
+- **Only owners and admins sign off.** An approval on a Hand-flown release PR counts only from a member of the app's
+  owning team or an admin (matched by GitHub login to the Backstage User), and never from whoever merges or opened it.
+  A collaborator with access to the gitops repository can review, but that review is not a sign-off.
 - **The sign-off is a soft gate.** The status cannot block a merge (see Known gaps); a merge without a sign-off that
   counts is announced at high severity and stays on the record.
 - **Announcements go to everyone** through Backstage notifications, with the app, the release name, the PR and who

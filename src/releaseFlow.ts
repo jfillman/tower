@@ -73,7 +73,16 @@ export interface SignoffEvaluation {
   author?: string;
   mergedBy?: string;
   mergedAt?: string;
-  approvals: Array<{ by: string; at: string; beforeMerge: boolean; counts: boolean }>;
+  approvals: Array<{
+    by: string;
+    at: string;
+    beforeMerge: boolean;
+    counts: boolean;
+    /** Not in the app's owning team, and not an admin: only they may sign off (backend releaseApprovers.ts). */
+    notApprover?: boolean;
+    /** Who may sign off couldn't be read, so the approval doesn't count. */
+    approverUnknown?: boolean;
+  }>;
   status: SignoffStatus;
 }
 

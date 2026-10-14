@@ -55,7 +55,7 @@ An app releases in one of three modes:
 
 | Mode | What it means |
 |---|---|
-| **Hand-flown** | A release PR to the sign-off environment needs an approving review from someone other than the person who merges it. |
+| **Hand-flown** | A release PR to the sign-off environment needs an approving review from one of the app's owners or an admin, other than the person who merges it. |
 | **Assisted** (the default) | A person merges each Flight release PR. Tower records who merged and who reviewed; no sign-off is required. |
 | **Autoland** | Releases land in production with no human. Not available yet: it needs real test results and canary metrics to decide on its own. |
 
@@ -80,8 +80,11 @@ GitHub Free cannot require a check on a private repository, so Hand-flown is a s
   without a sign-off" notification, and the record says so.
 
 A **sign-off counts** when it is an approving review (each reviewer's latest review decides), submitted before the
-merge, by someone who neither merged nor opened the PR. Release PRs are opened by the Glidepath app, so with one
-GitHub account a sign-off always needs a second account.
+merge, by someone who neither merged nor opened the PR, and who may sign off this app: a member of its owning team
+(the Component's `spec.owner`) or of `group:default/admins`. A GitHub login is matched to the Backstage User of the
+same name. Anyone else's approval is shown on the record as "not one of this app's owners or an admin" and doesn't
+count; when the catalog can't be read, no approval counts. Release PRs are opened by the Glidepath app, so with one
+GitHub account a sign-off always needs a second account in the owning team.
 
 ![A Hand-flown release: Glidepath opens the release PR; every two minutes the Tower backend sets the sign-off status to pending and announces the release is ready; a second account approves and the status turns to success; you merge and the backend announces the release; within minutes it commits the record, and once the outcome is final it opens the outcome PR](diagrams/03-hand-flown.png)
 
