@@ -2,8 +2,9 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { formatDateTime } from './shared/format';
 import { useHangarTokens, type HangarTokens } from './brand/tokens';
+import { RecordColumn } from './RecordColumn';
 import { OUTCOME_LABEL, type OutcomeResult, type RecordOutcome } from './releaseFlow';
-import { Card, EmptyNote, Fact, FactGrid, Hint, StatusChip, TextLink, type StatusTone } from './ui';
+import { EmptyNote, Fact, FactGrid, Hint, StatusChip, TextLink, type StatusTone } from './ui';
 
 // What happened after a release shipped (Release Record R3). Tower's backend writes it back into the
 // record once it is final (backstage releaseOutcome.ts), from Glidepath's release-tracking records:
@@ -28,6 +29,15 @@ export function outcomeChip(outcome: RecordOutcome | undefined, now = Date.now()
     return { label: `baking · day ${day} of ${outcome.bakeDays}`, tone: 'info' };
   }
   return { label: outcome.state.replace(/-/g, ' '), tone: 'info' };
+}
+
+// The strip says how it ended: green clean, red rolled back, amber replaced before healthy, blue still baking.
+function toneColour(t: HangarTokens, tone: StatusTone): string {
+  if (tone === 'ok') return t.good;
+  if (tone === 'bad') return t.bad;
+  if (tone === 'warn') return t.amber;
+  if (tone === 'info') return t.sky;
+  return t.textFaint;
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -56,7 +66,11 @@ export function ReleaseOutcomePanel({
   else if (outcome?.closedBy === 'moved-on') closedBy = `Never reached production; ${outcome.env ?? 'its last environment'} moved on`;
 
   return (
-    <Card title="Outcome" meta={chip ? <StatusChip tone={chip.tone} dot>{chip.label}</StatusChip> : undefined}>
+    <RecordColumn
+      title="Outcome"
+      strip={chip ? toneColour(t, chip.tone) : t.line}
+      meta={chip ? <StatusChip tone={chip.tone} dot>{chip.label}</StatusChip> : undefined}
+    >
       {!outcome && (
         <EmptyNote>
           No outcome recorded. Tower writes it back once a release is final; releases older than Glidepath's
@@ -84,6 +98,6 @@ export function ReleaseOutcomePanel({
           metric to read.
         </Hint>
       )}
-    </Card>
+    </RecordColumn>
   );
 }

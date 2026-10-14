@@ -2,6 +2,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { formatDateTime } from './shared/format';
 import { useHangarTokens, type HangarTokens } from './brand/tokens';
+import { RecordColumn } from './RecordColumn';
 import {
   NOTE_CATEGORIES,
   NOTE_LABEL,
@@ -11,7 +12,7 @@ import {
   type ReleaseMode,
   type SignoffEvaluation,
 } from './releaseFlow';
-import { Card, EmptyNote, Fact, FactGrid, Hint, SectionTitle, StatusChip, TextLink, Tile, type StatusTone } from './ui';
+import { EmptyNote, Fact, FactGrid, Hint, SectionTitle, StatusChip, TextLink, Tile, type StatusTone } from './ui';
 
 // A record's release notes and sign-off (Release Record R2). The notes are what the team wrote in
 // the draft before the release shipped, copied in when the record was written. The sign-off is
@@ -76,8 +77,9 @@ export function ReleaseSignoffPanel({
   const missing = signoff && (signoff.status === 'shipped-without' || signoff.status === 'self-approved');
 
   return (
-    <Card
+    <RecordColumn
       title="Release notes and sign-off"
+      strip={t.amber}
       meta={
         mode ? (
           <StatusChip tone={requiresSignoff ? 'warn' : 'info'} dot>
@@ -170,6 +172,6 @@ export function ReleaseSignoffPanel({
           )}
         </Tile>
       </div>
-    </Card>
+    </RecordColumn>
   );
 }
