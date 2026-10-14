@@ -92,7 +92,7 @@ One environment at a time (the same tiered picker as Deployments): the Kubernete
 how they relate.
 
 ### Images
-The artifact catalog: the app's images and versions from the registry, with supply-chain chips.
+The artifact catalog: the app's images and versions from the registry, with supply-chain chips. What the steps and colours mean: [Supply chain](supply-chain.md).
 
 ### SLOs
 Sloth-backed SLO burn rate, queried from Prometheus, for every environment of an app (Ground and Flight).
