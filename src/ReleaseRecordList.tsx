@@ -5,7 +5,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
-import type { ReleaseRecord } from './useReleaseRecords';
+import { displayScore, type ReleaseRecord } from './useReleaseRecords';
 import { Count, IconButton, SectionTitle, StatusChip, type StatusTone } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
@@ -119,8 +119,8 @@ export function ReleaseRecordList({
               onClick={() => onOpen(record.id)}
             >
               <div className={classes.score}>
-                <span className={classes.scoreNum} style={{ color: confidenceColor(t, record.confidence) }}>
-                  {record.confidence}
+                <span className={classes.scoreNum} style={{ color: confidenceColor(t, displayScore(record)) }}>
+                  {displayScore(record)}
                 </span>
                 <span className={classes.scoreLbl}>confidence</span>
               </div>

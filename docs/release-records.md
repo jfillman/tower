@@ -68,7 +68,10 @@ GitHub account a sign-off always needs a second account.
 
 The record's **Release notes and sign-off** panel shows the notes the draft carried and the sign-off: from the
 record when it was written after the production PR merged, otherwise read live from the PR. The confidence score's
-approval points now come from sign-offs that count (+5 each, up to +10). Approvals added to a record's human context
+approval points now come from sign-offs that count (+5 each, up to +10), and only from sign-offs the record
+carries: one read live from the PR is shown but does not move the score, so a record scores the same in the list,
+in Compare and when opened. The list also uses the guardrail results frozen in each committed record, the same ones
+the opened record falls back to. Approvals added to a record's human context
 after release are shown as acknowledgements and earn nothing.
 
 ## Release names

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { assignReleaseNames, releaseNameFor } from './releaseNames';
 import type { ReleaseRecord } from './useReleaseRecords';
+import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
 
 // One committed Release Record, as the backend's /release-records listing returns it.
 export interface ReleaseRecordIndexEntry {
@@ -9,6 +10,9 @@ export interface ReleaseRecordIndexEntry {
   env: string;
   generatedAt: string;
   store: 'gitops' | 'source';
+  /** The record's frozen guardrails and counted sign-offs: what its score is built from beyond live data. */
+  guardrails?: ReleaseRecordDoc['guardrails'];
+  signoffs?: number;
 }
 
 export interface ReleaseNames {
@@ -16,6 +20,8 @@ export interface ReleaseNames {
   byTag: Map<string, string>;
   /** The name the next release gets. */
   next: string;
+  /** The committed history itself, for each record's recorded evidence (withRecordedEvidence). */
+  index: ReleaseRecordIndexEntry[];
 }
 
 // Names need the app's whole release history, not just the releases Tower's matrix
@@ -76,5 +82,5 @@ export function namesFromHistory(index: ReleaseRecordIndexEntry[], records: Rele
     ...index.map(e => ({ imageTag: e.imageTag, at: e.generatedAt })),
     ...pending.map(r => ({ imageTag: r.imageTag, at: r.createdAt })),
   ]);
-  return { byTag, next: releaseNameFor(byTag.size) };
+  return { byTag, next: releaseNameFor(byTag.size), index };
 }

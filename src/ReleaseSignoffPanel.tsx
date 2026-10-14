@@ -57,6 +57,7 @@ export function ReleaseSignoffPanel({
   signoffEnv,
   mode,
   loading,
+  live,
 }: {
   /** The release block of a v2 record; absent on records written before R2. */
   release?: SealedRelease;
@@ -65,6 +66,8 @@ export function ReleaseSignoffPanel({
   /** The mode the release shipped under (from the record), else the app's mode now. */
   mode?: ReleaseMode;
   loading: boolean;
+  /** Read live from the PR rather than from the record: shown, but not part of the score. */
+  live?: boolean;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -160,6 +163,9 @@ export function ReleaseSignoffPanel({
                 </Hint>
               )}
               {missing && !requiresSignoff && <Hint>Assisted: a sign-off is recorded, not required.</Hint>}
+              {live && signoff.approvals.some(a => a.counts) && (
+                <Hint>Read live from the PR. It counts toward the score once the record carries it.</Hint>
+              )}
             </>
           )}
         </Tile>

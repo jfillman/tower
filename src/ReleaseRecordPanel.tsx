@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
 import { NextReleaseCard } from './NextReleaseCard';
 import type { NextRelease, NextReleaseCandidate } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import type { ReleaseRecord } from './useReleaseRecords';
+import { withRecordedEvidence, type ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseNames } from './useReleaseNames';
 
 // The Record sub-tab's own list<->detail<->compare state (ReleasesTab.tsx
@@ -18,7 +18,7 @@ import type { ReleaseNames } from './useReleaseNames';
 // record no longer open, so `onBack` on the list is the only place that
 // needs to reset both.
 export function ReleaseRecordPanel({
-  records,
+  records: liveRecords,
   totalKnown,
   appName,
   owner,
@@ -52,6 +52,12 @@ export function ReleaseRecordPanel({
   /** The environment whose release PR carries the sign-off. */
   signoffEnv?: string;
 }) {
+  // Every view of a record (row, Compare, the open record) scores it from the same data: live, plus what its
+  // committed file adds (frozen guardrails, counted sign-offs).
+  const records = useMemo(() => {
+    const byTag = new Map((names?.index ?? []).map(e => [e.imageTag, e]));
+    return liveRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  }, [liveRecords, names]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
   const open = openId ? records.find(r => r.id === openId) : undefined;

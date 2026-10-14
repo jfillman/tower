@@ -303,15 +303,15 @@ export function ReleaseRecordDetail({
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
 
   // R2: the sign-off is the approving reviews on the release PR to the sign-off environment. The
-  // record's own copy (sealed after that PR merged) wins; otherwise it is read live. Only counted
-  // sign-offs move the score: approvals added to the human context after release are
-  // acknowledgements, not approvals.
+  // record's own copy (sealed after that PR merged) wins; otherwise it is read live and shown, but
+  // only recorded sign-offs move the score, so this record scores the same here as in the list and
+  // in Compare. Approvals added to the human context after release are acknowledgements.
   const sealedRelease = persisted.data?.release;
   const liveSignoff = useReleaseSignoff(
     persistTarget && signoffEnv && !sealedRelease?.signoff ? persistTarget : undefined,
   );
   const signoff = sealedRelease?.signoff ?? liveSignoff.data;
-  const signoffCount = countedSignoffs(signoff);
+  const signoffCount = persisted.data ? countedSignoffs(sealedRelease?.signoff) : record.signoffs ?? 0;
   const displayConfidence = applyApprovalBonus(record.confidence, signoffCount);
   const [showScoreExplainer, setShowScoreExplainer] = useState(false);
   const scoreLines = confidenceBreakdown(record, signoffCount);
@@ -389,7 +389,9 @@ export function ReleaseRecordDetail({
 
   return (
     <div>
-      <TextLink onClick={onBack}>← Back to records</TextLink>
+      <div style={{ marginBottom: 14 }}>
+        <TextLink onClick={onBack}>← Back to records</TextLink>
+      </div>
 
       <div className={classes.head}>
         <div className={classes.headLeft}>
@@ -451,10 +453,10 @@ export function ReleaseRecordDetail({
             </span>
           </div>
           <div className={classes.actionsBar}>
-            <Button small onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff })}>
+            <Button small onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff, signoffs: signoffCount })}>
               ⤓ PDF
             </Button>
-            <Button small onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff })}>
+            <Button small onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff, signoffs: signoffCount })}>
               ⤓ HTML
             </Button>
             {otherRecords.length > 0 && (
@@ -696,6 +698,7 @@ export function ReleaseRecordDetail({
           signoffEnv={signoff?.env ?? signoffEnv}
           mode={sealedRelease?.mode}
           loading={liveSignoff.loading}
+          live={!sealedRelease?.signoff}
         />
       </div>
 

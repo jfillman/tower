@@ -151,6 +151,11 @@ export interface ReleaseRecord {
   // v1 heuristic, deliberately simple - see computeConfidence below. Phase 2
   // folds in real human approvals once humanContext exists.
   confidence: number;
+  /**
+   * Sign-offs that counted, as the committed record carries them (R2; from the /release-records listing). Only
+   * recorded evidence moves the score, so the list, Compare and the open record always agree.
+   */
+  signoffs?: number;
 }
 
 // This platform's real image-tagging convention is "<version>-<7-char-sha>"
@@ -414,6 +419,27 @@ export function withPersistedGuardrails(record: ReleaseRecord, doc: ReleaseRecor
     guardrailsPrNumber: doc.guardrails.prNumber,
     confidence: computeConfidence({ guardrails: doc.guardrails.ci, provenance: record.provenance }),
   };
+}
+
+/** The score Tower shows anywhere: the technical score plus the recorded sign-off bonus. */
+export function displayScore(record: ReleaseRecord): number {
+  return applyApprovalBonus(record.confidence, record.signoffs ?? 0);
+}
+
+/**
+ * A record with what its committed file adds to the live data: the guardrails frozen at generation (when the live
+ * lookup no longer has them) and its counted sign-offs. The Record tab applies this to every record from the
+ * /release-records listing, so a row and the opened record show the same score.
+ */
+export function withRecordedEvidence(
+  record: ReleaseRecord,
+  recorded: { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number } | undefined,
+): ReleaseRecord {
+  if (!recorded) return record;
+  const withGuardrails = recorded.guardrails
+    ? withPersistedGuardrails(record, { guardrails: recorded.guardrails } as ReleaseRecordDoc)
+    : record;
+  return recorded.signoffs === undefined ? withGuardrails : { ...withGuardrails, signoffs: recorded.signoffs };
 }
 
 export interface ConfidenceLine {
