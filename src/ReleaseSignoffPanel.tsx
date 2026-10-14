@@ -44,6 +44,8 @@ const SIGNOFF_TONE: Record<SignoffEvaluation['status'], StatusTone> = {
 function approvalNote(a: SignoffEvaluation['approvals'][number], mergedBy?: string): string {
   if (!a.beforeMerge) return ' · after the merge';
   if (a.by === mergedBy) return ' · the merger';
+  if (a.notApprover) return " · not one of this app's owners or an admin, so it doesn't count";
+  if (a.approverUnknown) return " · couldn't check that this reviewer may sign off, so it doesn't count";
   return '';
 }
 
