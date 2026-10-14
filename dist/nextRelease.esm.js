@@ -1,3 +1,4 @@
+import { RELEASE_MODE_LABEL } from './releaseFlow.esm.js';
 import { extractShortShaFromImageTag, imageTag, envTierOf } from './types.esm.js';
 import { landedAtMs, buildChangeCategories, findPipelineRunForTag, buildSecurityScans, findRelatedPipelineRuns, versionFromImageTag } from './useReleaseRecords.esm.js';
 
@@ -101,7 +102,7 @@ function buildNextRelease(input) {
     leading,
     previousVersion,
     suggestedVersion,
-    readiness: buildReadiness({ scope, leading, previous, previousVersion, now })
+    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow)]
   };
 }
 function buildReadiness(input) {
@@ -156,6 +157,26 @@ function buildReadiness(input) {
     items.push(
       previous.current && previous.status === "healthy" ? { id: "rollback", label: "Rollback target", state: "ok", detail: `The last release (${previous.version ?? previous.imageTag}) is healthy on Flight` } : { id: "rollback", label: "Rollback target", state: "todo", detail: "The last release is not running healthy on Flight" }
     );
+  }
+  return items;
+}
+function flowReadiness(flow) {
+  if (!flow) return [];
+  const items = [];
+  const noteCount = Object.values(flow.draft?.notes ?? {}).reduce((n, l) => n + (l?.length ?? 0), 0);
+  items.push(
+    noteCount > 0 ? { id: "notes", label: "Release notes", state: "ok", detail: `${noteCount} entr${noteCount === 1 ? "y" : "ies"} in the draft` } : { id: "notes", label: "Release notes", state: "todo", detail: "Not written yet" }
+  );
+  items.push(
+    flow.draft?.owner ? { id: "owner", label: "Release owner", state: "ok", detail: flow.draft.owner } : { id: "owner", label: "Release owner", state: "todo", detail: "Nobody named yet" }
+  );
+  if (flow.mode === "hand-flown") {
+    items.push({
+      id: "signoff",
+      label: "Sign-off",
+      state: "todo",
+      detail: `${RELEASE_MODE_LABEL["hand-flown"]}: the ${flow.signoffEnv ?? "production"} release PR needs an approving review from someone other than whoever merges it`
+    });
   }
   return items;
 }

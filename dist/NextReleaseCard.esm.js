@@ -54,7 +54,9 @@ function NextReleaseCard({
   name,
   previousName,
   promoteTo,
-  onPromote
+  onPromote,
+  modeLabel,
+  children
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -80,6 +82,10 @@ function NextReleaseCard({
         previousLabel && /* @__PURE__ */ jsxs("span", { className: classes.after, children: [
           "after ",
           previousLabel
+        ] }),
+        modeLabel && /* @__PURE__ */ jsxs("span", { className: classes.after, children: [
+          "\xB7 ",
+          modeLabel
         ] })
       ] }),
       actions: promote,
@@ -161,7 +167,8 @@ function NextReleaseCard({
             ] }, item.id))
           ] })
         ] }),
-        /* @__PURE__ */ jsx(Hint, { children: "Built from merged PRs and images. Nothing is saved until this release reaches Flight and its record is written." })
+        children,
+        /* @__PURE__ */ jsx(Hint, { children: "Scope, candidates and readiness are computed from merged PRs and images. Only the notes and owner below are saved; the record is written when this release reaches Flight." })
       ]
     }
   );

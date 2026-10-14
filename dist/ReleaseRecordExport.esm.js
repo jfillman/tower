@@ -1,6 +1,7 @@
 import { formatDateTime } from './shared/format.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { applyApprovalBonus, dedupeCommits, confidenceBreakdown } from './useReleaseRecords.esm.js';
+import { countedSignoffs, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL } from './releaseFlow.esm.js';
 
 const TEST_RESULTS_CAP = 8;
 function esc(s) {
@@ -31,16 +32,42 @@ function humanContextHtml(humanContext) {
   if (humanContext.verificationNotes) lines.push(`<div><b>Verification:</b> ${esc(humanContext.verificationNotes)}</div>`);
   if (humanContext.approvals.length > 0) {
     lines.push(
-      `<div><b>Approvals:</b> ${humanContext.approvals.map((a) => esc(a.by) + (a.role ? ` (${esc(a.role)})` : "")).join(", ")}</div>`
+      `<div><b>Acknowledged after release:</b> ${humanContext.approvals.map((a) => esc(a.by) + (a.role ? ` (${esc(a.role)})` : "")).join(", ")}</div>`
     );
   }
   if (humanContext.authoredBy) lines.push(`<div style="margin-top:6px; opacity:0.75;">\u2014 ${esc(humanContext.authoredBy)}</div>`);
   return lines.join("");
 }
-function buildReleaseRecordHtml(record, humanContext) {
+function releaseHtml(extras) {
+  const release = extras?.release;
+  const signoff = extras?.signoff;
+  const parts = [];
+  NOTE_CATEGORIES.forEach((c) => {
+    const l = release?.notes?.[c];
+    if (l && l.length > 0) parts.push(`<div><b>${NOTE_LABEL[c]}</b><ul>${l.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`);
+  });
+  if (release?.knownIssues?.length) {
+    parts.push(`<div><b>Known issues</b><ul>${release.knownIssues.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`);
+  }
+  const facts = [];
+  if (release?.mode) facts.push(`<b>Mode:</b> ${esc(RELEASE_MODE_LABEL[release.mode])}`);
+  if (release?.owner) facts.push(`<b>Owner:</b> ${esc(release.owner)}`);
+  if (release?.risk?.level) facts.push(`<b>Risk:</b> ${esc(release.risk.level)}`);
+  if (signoff) {
+    const by = signoff.approvals.filter((a) => a.counts).map((a) => esc(a.by));
+    facts.push(
+      `<b>Sign-off (${esc(signoff.env)}):</b> ${esc(SIGNOFF_LABEL[signoff.status])}${by.length ? ` by ${by.join(", ")}` : ""}${signoff.mergedBy ? `, merged by ${esc(signoff.mergedBy)}` : ""}`
+    );
+  }
+  if (facts.length) parts.push(`<div>${facts.join(" \xB7 ")}</div>`);
+  if (release?.risk?.rollback) parts.push(`<div><b>Rollback notes:</b> ${esc(release.risk.rollback)}</div>`);
+  return parts.length > 0 ? `<div class="human"><h5>Release notes and sign-off</h5>${parts.join("")}</div>` : "";
+}
+function buildReleaseRecordHtml(record, humanContext, extras) {
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
   const verified = record.provenance?.attestations.some((a) => a.verified) ?? false;
-  const displayConfidence = applyApprovalBonus(record.confidence, humanContext?.approvals.length ?? 0);
+  const signoffs = countedSignoffs(extras?.signoff);
+  const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
   let changedItems;
   if (record.pullRequests.length > 0) {
     changedItems = record.pullRequests.map((pr) => `<li>#${pr.number} ${esc(pr.title)}${pr.author ? ` \u2014 ${esc(pr.author)}` : ""}</li>`).join("");
@@ -158,10 +185,11 @@ function buildReleaseRecordHtml(record, humanContext) {
         <ul>${happenedItems.join("")}</ul>
       </div>
     </div>
+    ${releaseHtml(extras)}
     <div class="human">${humanContextHtml(humanContext)}</div>
     <div class="cats" style="margin-top:18px;">
       <b>How the confidence score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
-      ${confidenceBreakdown(record, humanContext?.approvals.length ?? 0).map((l) => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`).join(" \xB7 ")}
+      ${confidenceBreakdown(record, signoffs).map((l) => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`).join(" \xB7 ")}
     </div>
     <div class="foot">
       <span class="mono">tower/release-record@1 \xB7 ${esc(record.id)}</span>
@@ -176,8 +204,8 @@ function fileNameFor(record) {
   const safeVer = (record.version ?? record.imageTag).replace(/[^a-z0-9-]/gi, "-");
   return `release-record-${safeApp}-${safeVer}.html`;
 }
-function downloadReleaseRecordHtml(record, humanContext) {
-  const html = buildReleaseRecordHtml(record, humanContext);
+function downloadReleaseRecordHtml(record, humanContext, extras) {
+  const html = buildReleaseRecordHtml(record, humanContext, extras);
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -188,8 +216,8 @@ function downloadReleaseRecordHtml(record, humanContext) {
   a.remove();
   URL.revokeObjectURL(url);
 }
-function printReleaseRecordPdf(record, humanContext) {
-  const html = buildReleaseRecordHtml(record, humanContext);
+function printReleaseRecordPdf(record, humanContext, extras) {
+  const html = buildReleaseRecordHtml(record, humanContext, extras);
   const win = window.open("", "_blank");
   if (!win) return;
   win.document.open();

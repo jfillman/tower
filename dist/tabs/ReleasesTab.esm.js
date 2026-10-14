@@ -1,5 +1,5 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
@@ -21,6 +21,9 @@ import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
 import { useReleaseRecords } from '../useReleaseRecords.esm.js';
 import { buildNextRelease } from '../nextRelease.esm.js';
 import { useReleaseNames } from '../useReleaseNames.esm.js';
+import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
+import { ReleaseModeBar } from '../ReleaseModeBar.esm.js';
+import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -43,6 +46,16 @@ function ReleasesTab() {
     pipelineOrder.lower,
     pipelineOrder.upper
   );
+  const flowTarget = owner && appName ? { owner, appName } : void 0;
+  const [flowNonce, setFlowNonce] = useState(0);
+  const releaseMode = useReleaseMode(flowTarget, flowNonce);
+  const savedDraft = useReleaseDraft(flowTarget, flowNonce);
+  const saveDraft = useSaveReleaseDraft();
+  const submitMode = useSubmitReleaseMode();
+  const flow = useMemo(
+    () => releaseMode.data || savedDraft.data || savedDraft.notFound ? { draft: savedDraft.data, mode: releaseMode.data?.mode, signoffEnv: releaseMode.data?.signoffEnv } : void 0,
+    [releaseMode.data, savedDraft.data, savedDraft.notFound]
+  );
   const nextRelease = useMemo(
     () => buildNextRelease({
       records: releaseRecords,
@@ -51,11 +64,12 @@ function ReleasesTab() {
       pipelineRuns,
       provenanceByImage,
       pipelineEnvironments: pipelineEnvironmentsForRecords,
-      pipelineOrder
+      pipelineOrder,
+      flow
     }),
     // pipelineEnvironmentsForRecords is a fresh array every render; environments is its stable source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder]
+    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder, flow]
   );
   const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : void 0, releaseRecords);
   const [activeTab, setActiveTab] = useState("matrix");
@@ -165,6 +179,32 @@ function ReleasesTab() {
           names: releaseNames,
           flightEnvs: pipelineOrder.upper,
           promoteTo: pipelineOrder.upper?.[0],
+          modeLabel: releaseMode.data ? `${RELEASE_MODE_LABEL[releaseMode.data.mode]} release` : void 0,
+          signoffEnv: releaseMode.data?.signoffEnv,
+          modeBar: releaseMode.data && owner && appName ? /* @__PURE__ */ jsx(
+            ReleaseModeBar,
+            {
+              info: releaseMode.data,
+              submitting: submitMode.loading,
+              error: submitMode.error,
+              prUrl: submitMode.result?.prUrl,
+              onChange: (mode) => submitMode.submit({ owner, appName, mode })
+            }
+          ) : void 0,
+          draftEditor: owner && appName && (savedDraft.data || savedDraft.notFound) ? /* @__PURE__ */ jsx(
+            ReleaseDraftEditor,
+            {
+              saved: saveDraft.result?.draft ?? savedDraft.data,
+              suggested: suggestNotes(nextRelease.scope),
+              canEdit: releaseMode.data?.canEditDraft ?? false,
+              saving: saveDraft.loading,
+              error: saveDraft.error,
+              commitUrl: saveDraft.result?.commitUrl,
+              onSave: async (draft) => {
+                if (await saveDraft.submit({ owner, appName, draft })) setFlowNonce((n) => n + 1);
+              }
+            }
+          ) : void 0,
           onPromote: (candidate) => {
             const lower = pipelineOrder.lower ?? [];
             const source = [...candidate.liveOn].sort(

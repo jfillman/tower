@@ -15,6 +15,8 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { withPersistedGuardrails, applyApprovalBonus, confidenceBreakdown, dedupeCommits } from './useReleaseRecords.esm.js';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions.esm.js';
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
+import { useReleaseSignoff, countedSignoffs } from './releaseFlow.esm.js';
+import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -41,9 +43,9 @@ const useStyles = makeStyles(() => ({
     marginBottom: 4
   },
   h3: { fontSize: 24, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
-  app: { color: ({ t }) => t.textFaint, fontWeight: 500, fontSize: 16, marginLeft: 8 },
   facts: { display: "flex", gap: 22, flexWrap: "wrap", marginTop: 10, fontSize: 12.5, color: ({ t }) => t.textLo },
   factsB: { color: ({ t }) => t.textHi, fontWeight: 600 },
+  imageRef: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: "break-all" },
   scoreBox: {
     display: "flex",
     alignItems: "center",
@@ -254,7 +256,8 @@ function ReleaseRecordDetail({
   otherRecords,
   onCompare,
   onBack,
-  name
+  name,
+  signoffEnv
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -266,9 +269,15 @@ function ReleaseRecordDetail({
   const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
   const liveDeployment = record.deployments.find((d) => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
-  const displayConfidence = applyApprovalBonus(record.confidence, persisted.data?.humanContext.approvals.length ?? 0);
+  const sealedRelease = persisted.data?.release;
+  const liveSignoff = useReleaseSignoff(
+    persistTarget && signoffEnv && !sealedRelease?.signoff ? persistTarget : void 0
+  );
+  const signoff = sealedRelease?.signoff ?? liveSignoff.data;
+  const signoffCount = countedSignoffs(signoff);
+  const displayConfidence = applyApprovalBonus(record.confidence, signoffCount);
   const [showScoreExplainer, setShowScoreExplainer] = useState(false);
-  const scoreLines = confidenceBreakdown(record, persisted.data?.humanContext.approvals.length ?? 0);
+  const scoreLines = confidenceBreakdown(record, signoffCount);
   const recordPr = (gitopsPrs ?? []).filter((pr) => {
     const m = pr.title.match(/^Release Record: (\S+) @ (\S+)$/);
     return m && m[2].toLowerCase() === record.imageTag.toLowerCase();
@@ -326,15 +335,14 @@ function ReleaseRecordDetail({
       /* @__PURE__ */ jsxs("div", { className: classes.headLeft, children: [
         /* @__PURE__ */ jsx("div", { className: classes.mark, children: /* @__PURE__ */ jsx(HangarMark, { glyph: "hangar", size: 52 }) }),
         /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx("div", { className: classes.kicker, children: "Release Record" }),
+          /* @__PURE__ */ jsxs("div", { className: classes.kicker, children: [
+            "Release Record",
+            appName ? ` \xB7 ${appName}` : ""
+          ] }),
           /* @__PURE__ */ jsxs(Typography, { className: classes.h3, children: [
             name && /* @__PURE__ */ jsx("span", { style: { letterSpacing: "0.06em", marginRight: 10 }, children: name }),
             record.version ?? record.imageTag,
-            record.nickname && /* @__PURE__ */ jsx("span", { style: { marginLeft: 8 }, children: /* @__PURE__ */ jsx(NicknameChip, { nickname: record.nickname }) }),
-            appName && /* @__PURE__ */ jsxs("span", { className: classes.app, children: [
-              "\u2014 ",
-              appName
-            ] })
+            record.nickname && /* @__PURE__ */ jsx("span", { style: { marginLeft: 8 }, children: /* @__PURE__ */ jsx(NicknameChip, { nickname: record.nickname }) })
           ] }),
           /* @__PURE__ */ jsxs("div", { className: classes.facts, children: [
             /* @__PURE__ */ jsxs("span", { children: [
@@ -352,6 +360,17 @@ function ReleaseRecordDetail({
               "Build ",
               /* @__PURE__ */ jsx("span", { className: classes.factsB, children: record.nickname ?? record.pipelineRun.name })
             ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: classes.facts, style: { marginTop: 4 }, children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Image",
+              " ",
+              /* @__PURE__ */ jsx("span", { className: classes.imageRef, children: record.image ?? (persisted.data?.imageRepo ? `${persisted.data.imageRepo}:${record.imageTag}` : record.imageTag) })
+            ] }),
+            record.imageDigest && /* @__PURE__ */ jsxs("span", { title: record.imageDigest, children: [
+              "Digest ",
+              /* @__PURE__ */ jsx("span", { className: classes.imageRef, children: `${record.imageDigest.slice(0, 19)}\u2026` })
+            ] })
           ] })
         ] })
       ] }),
@@ -367,8 +386,8 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.actionsBar, children: [
-          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext), children: "\u2913 PDF" }),
-          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext), children: "\u2913 HTML" }),
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff }), children: "\u2913 PDF" }),
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff }), children: "\u2913 HTML" }),
           otherRecords.length > 0 && /* @__PURE__ */ jsx(
             ActionSelect,
             {
@@ -385,7 +404,7 @@ function ReleaseRecordDetail({
     ] }),
     showScoreExplainer && /* @__PURE__ */ jsxs("div", { className: classes.explainer, children: [
       /* @__PURE__ */ jsx(Typography, { style: { fontWeight: 700, color: t.textHi, marginBottom: 6 }, children: "How the confidence score works" }),
-      /* @__PURE__ */ jsx(Typography, { style: { fontSize: 12, marginBottom: 8 }, children: "A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for recorded human approvals; it moves if any of that evidence changes." }),
+      /* @__PURE__ */ jsx(Typography, { style: { fontSize: 12, marginBottom: 8 }, children: "A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for sign-offs on the production release PR before it merged; it moves if any of that evidence changes." }),
       scoreLines.map((line) => /* @__PURE__ */ jsxs("div", { className: classes.explainRow, children: [
         /* @__PURE__ */ jsx("span", { style: { color: t.textHi }, children: line.label }),
         /* @__PURE__ */ jsxs("span", { className: classes.explainPts, children: [
@@ -547,6 +566,16 @@ function ReleaseRecordDetail({
         }
       ) })
     ] }),
+    /* @__PURE__ */ jsx("div", { style: { marginTop: 18 }, children: /* @__PURE__ */ jsx(
+      ReleaseSignoffPanel,
+      {
+        release: sealedRelease,
+        signoff,
+        signoffEnv: signoff?.env ?? signoffEnv,
+        mode: sealedRelease?.mode,
+        loading: liveSignoff.loading
+      }
+    ) }),
     /* @__PURE__ */ jsxs("div", { className: classes.human, children: [
       /* @__PURE__ */ jsx("div", { className: classes.humanHead, children: /* @__PURE__ */ jsx("span", { className: classes.humanTitle, children: "Human context" }) }),
       !persistTarget && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "Human context can't be added without knowing this app's GitHub owner - reopen this record from the Releases tab rather than a direct link." }),
@@ -626,7 +655,7 @@ function ReleaseRecordDetail({
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.humanLabel, children: "Approvals" }),
+          /* @__PURE__ */ jsx("span", { className: classes.humanLabel, title: "Added after release. They don't change the score: sign-off happens on the release PR before it merges.", children: "Acknowledgements (after release)" }),
           form.approvals.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "No approvals on record yet." }),
           form.approvals.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.approvalList, children: form.approvals.map((a, i) => /* @__PURE__ */ jsxs("div", { className: classes.approvalRow, children: [
             /* @__PURE__ */ jsxs("span", { className: classes.approvalWho, children: [
@@ -647,7 +676,7 @@ function ReleaseRecordDetail({
                 onChange: (e) => setApprovalRole(e.target.value)
               }
             ),
-            /* @__PURE__ */ jsx(Button, { small: true, onClick: addMyApproval, children: "+ Add my approval" })
+            /* @__PURE__ */ jsx(Button, { small: true, onClick: addMyApproval, children: "+ Acknowledge" })
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanActions, children: [
@@ -679,8 +708,10 @@ function ReleaseRecordDetail({
         rekor.logIndex
       ] }),
       /* @__PURE__ */ jsxs("span", { className: classes.certItem, children: [
-        /* @__PURE__ */ jsx("span", { className: classes.certB, children: persisted.data?.humanContext.approvals.length ?? 0 }),
-        " approvals on record"
+        /* @__PURE__ */ jsx("span", { className: classes.certB, children: signoffCount }),
+        " sign-off",
+        signoffCount === 1 ? "" : "s",
+        " before merge"
       ] }),
       /* @__PURE__ */ jsxs("span", { className: classes.certItem, children: [
         /* @__PURE__ */ jsx("span", { className: classes.certB, children: record.incidents.length }),

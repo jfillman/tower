@@ -129,10 +129,10 @@ function confidenceBreakdown(record, approvalsCount) {
     },
     { label: "No incidents", points: 5, max: 5, note: "No incidents are recorded against this release (Tower does not track incidents yet, so this is always awarded)." },
     {
-      label: "Human approvals",
+      label: "Sign-off before merge",
       points: Math.min(10, approvalsCount * 5),
       max: 10,
-      note: `${approvalsCount} approval${approvalsCount === 1 ? "" : "s"} recorded in the Human Context - +5 each, up to +10.`
+      note: `${approvalsCount} approving review${approvalsCount === 1 ? "" : "s"} on the production release PR, before it merged and from someone other than the person who merged it - +5 each, up to +10. Approvals added to the human context after release are acknowledgements and earn nothing.`
     }
   ];
 }
@@ -262,5 +262,5 @@ function useReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs, s
   );
 }
 
-export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, confidenceBreakdown, dedupeCommits, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails };
+export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, classifyPr, confidenceBreakdown, dedupeCommits, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails };
 //# sourceMappingURL=useReleaseRecords.esm.js.map

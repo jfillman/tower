@@ -15,7 +15,11 @@ function ReleaseRecordPanel({
   names,
   flightEnvs,
   promoteTo,
-  onPromote
+  onPromote,
+  modeBar,
+  draftEditor,
+  modeLabel,
+  signoffEnv
 }) {
   const [openId, setOpenId] = useState(null);
   const [compareId, setCompareId] = useState(null);
@@ -30,6 +34,7 @@ function ReleaseRecordPanel({
       {
         record: open,
         name: names?.byTag.get(open.imageTag),
+        signoffEnv,
         appName,
         owner,
         gitopsPrs,
@@ -40,6 +45,7 @@ function ReleaseRecordPanel({
     );
   }
   return /* @__PURE__ */ jsxs(Fragment, { children: [
+    modeBar,
     next && /* @__PURE__ */ jsx(
       NextReleaseCard,
       {
@@ -47,7 +53,9 @@ function ReleaseRecordPanel({
         name: names?.next,
         previousName: next.previous ? names?.byTag.get(next.previous.imageTag) : void 0,
         promoteTo,
-        onPromote
+        onPromote,
+        modeLabel,
+        children: draftEditor
       }
     ),
     /* @__PURE__ */ jsx(
