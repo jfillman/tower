@@ -513,6 +513,51 @@ function ActivityPanel({
     ] }, n.id);
   }) });
 }
+function ReleaseCalendarPanel({
+  entries,
+  now,
+  towerHref,
+  limit,
+  error
+}) {
+  const { t, c } = useKit();
+  const shown = entries.filter((e) => !e.error).slice(0, limit);
+  return /* @__PURE__ */ jsx(OpsPanel, { id: "ops-releases", title: "Release calendar", count: entries.length, children: shown.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: error ? `Release calendar unavailable (${error}).` : "No app releases to Flight yet." }) : shown.map((e) => {
+    let due;
+    let edge = "transparent";
+    if (e.next.targetDate) {
+      const days = Math.round((Date.parse(`${e.next.targetDate}T00:00:00Z`) - now) / 864e5);
+      due = `in ${days}d`;
+      if (days === 0) due = "due today";
+      if (days < 0) {
+        due = `${-days}d late`;
+        edge = t.bad;
+      } else if (days <= 2) edge = t.amber;
+    }
+    const href = towerHref(e.appName, "releases");
+    const detail = [
+      e.next.releaseOwner ? `owner ${e.next.releaseOwner}` : void 0,
+      `${e.next.noteCount} note${e.next.noteCount === 1 ? "" : "s"}`,
+      e.inFlight.length ? `\u2192 ${e.inFlight.map((f) => f.env).join(", ")}` : void 0,
+      e.last ? `last ${e.last.name}${e.last.outcome ? ` (${e.last.outcome.replace(/-/g, " ")})` : ""}` : void 0
+    ].filter(Boolean).join(" \xB7 ");
+    return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: edge }, children: [
+      /* @__PURE__ */ jsxs("div", { className: c.rowMain, children: [
+        /* @__PURE__ */ jsxs("div", { className: c.rowTitle, children: [
+          e.appName,
+          " \xB7 ",
+          e.next.name,
+          e.mode === "hand-flown" ? " \xB7 Hand-flown" : ""
+        ] }),
+        /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: detail, children: detail })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
+        e.next.targetDate && /* @__PURE__ */ jsx("span", { className: c.age, title: e.next.targetDate, children: due }),
+        href && /* @__PURE__ */ jsx(Links, { links: [{ label: "Open", href }] })
+      ] })
+    ] }, e.appName);
+  }) });
+}
 
-export { ActivityPanel, AttentionPanel, DeploymentsPanel, DoraPanel, FitContext, Links, OpsPanel, PipelinesPanel };
+export { ActivityPanel, AttentionPanel, DeploymentsPanel, DoraPanel, FitContext, Links, OpsPanel, PipelinesPanel, ReleaseCalendarPanel };
 //# sourceMappingURL=panels.esm.js.map

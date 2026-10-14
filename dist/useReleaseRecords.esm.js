@@ -93,7 +93,6 @@ function computeConfidence(input) {
     score += input.guardrails.totalChecks > 0 ? Math.round(input.guardrails.passedChecks / input.guardrails.totalChecks * 30) : 15;
   }
   if (input.provenance?.attestations.some((a) => a.verified)) score += 15;
-  score += 5;
   return Math.min(100, Math.max(0, score));
 }
 function applyApprovalBonus(baseConfidence, approvalsCount) {
@@ -114,8 +113,13 @@ function displayScore(record) {
 }
 function withRecordedEvidence(record, recorded) {
   if (!recorded) return record;
-  const withGuardrails = recorded.guardrails ? withPersistedGuardrails(record, { guardrails: recorded.guardrails }) : record;
-  return recorded.signoffs === void 0 ? withGuardrails : { ...withGuardrails, signoffs: recorded.signoffs };
+  let out = recorded.guardrails ? withPersistedGuardrails(record, { guardrails: recorded.guardrails }) : record;
+  if (recorded.signoffs !== void 0) out = { ...out, signoffs: recorded.signoffs };
+  if (recorded.outcome) {
+    out = { ...out, outcome: recorded.outcome };
+    if (recorded.outcome.result === "rolled-back" && !out.current) out = { ...out, status: "rolled-back" };
+  }
+  return out;
 }
 function confidenceBreakdown(record, approvalsCount) {
   const g = record.guardrails;
@@ -135,7 +139,6 @@ function confidenceBreakdown(record, approvalsCount) {
       max: 15,
       note: verified ? "The image has a cosign/SLSA attestation that verified." : "No verified cosign/SLSA attestation found for this image."
     },
-    { label: "No incidents", points: 5, max: 5, note: "No incidents are recorded against this release (Tower does not track incidents yet, so this is always awarded)." },
     {
       label: "Sign-off before merge",
       points: Math.min(10, approvalsCount * 5),

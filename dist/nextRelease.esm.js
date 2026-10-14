@@ -4,7 +4,7 @@ import { landedAtMs, buildChangeCategories, findPipelineRunForTag, buildSecurity
 
 const GROUND_SOAK_TARGET_HOURS = 24;
 const CLOSING_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/gi;
-function closingIssueRefs(pr) {
+function closingIssueRefs(pr, jiraBaseUrl) {
   const repoUrl = pr.url.replace(/\/pull\/\d+.*$/, "");
   const seen = /* @__PURE__ */ new Map();
   const text = `${pr.title}
@@ -12,10 +12,18 @@ ${pr.body ?? ""}`;
   for (const m of text.matchAll(CLOSING_REF)) {
     const number = Number(m[2]);
     const url = m[1] ? `https://github.com/${m[1]}/issues/${number}` : `${repoUrl}/issues/${number}`;
-    seen.set(url, { number, url });
+    seen.set(url, { label: m[1] ? `${m[1]}#${number}` : `#${number}`, url });
+  }
+  if (jiraBaseUrl) {
+    for (const m of `${text}
+${pr.headRef ?? ""}`.matchAll(JIRA_KEY)) {
+      const url = `${jiraBaseUrl}/browse/${m[1]}`;
+      seen.set(url, { label: m[1], url });
+    }
   }
   return [...seen.values()];
 }
+const JIRA_KEY = /\b([A-Z][A-Z0-9]{1,9}-\d+)\b/g;
 function isBreaking(pr) {
   return /^\w+(?:\([^)]*\))?!:/.test(pr.title) || /BREAKING[ -]CHANGE/.test(pr.body ?? "") || pr.labels.some((l) => /breaking/i.test(l));
 }
@@ -49,7 +57,7 @@ function buildNextRelease(input) {
   const incoming = sourcePrs.filter((pr) => pr.repo === "source" && pr.state === "open" && !pr.releasePin).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const issueMap = /* @__PURE__ */ new Map();
   [...scope, ...incoming].forEach(
-    (pr) => closingIssueRefs(pr).forEach((ref) => {
+    (pr) => closingIssueRefs(pr, input.flow?.jiraBaseUrl).forEach((ref) => {
       if (!issueMap.has(ref.url)) issueMap.set(ref.url, { ...ref, prNumber: pr.number, merged: pr.state === "merged" });
     })
   );
@@ -102,7 +110,8 @@ function buildNextRelease(input) {
     leading,
     previousVersion,
     suggestedVersion,
-    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow)]
+    planned: input.flow?.planned,
+    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow, now)]
   };
 }
 function buildReadiness(input) {
@@ -160,9 +169,27 @@ function buildReadiness(input) {
   }
   return items;
 }
-function flowReadiness(flow) {
+function flowReadiness(flow, now) {
   if (!flow) return [];
   const items = [];
+  if (flow.draft?.targetDate) {
+    const days = Math.round((Date.parse(`${flow.draft.targetDate}T00:00:00Z`) - now) / 864e5);
+    let when = `in ${days} days`;
+    if (days === 0) when = "today";
+    else if (days === 1) when = "tomorrow";
+    else if (days < 0) when = `${-days} day${days === -1 ? "" : "s"} late`;
+    items.push({ id: "target", label: "Target date", state: days < 0 ? "todo" : "ok", detail: `${flow.draft.targetDate} (${when})` });
+  }
+  if (flow.planned?.milestone) {
+    const total = flow.planned.issues.length;
+    const closed = flow.planned.issues.filter((i) => i.state === "closed").length;
+    items.push({
+      id: "planned",
+      label: "Planned issues closed",
+      state: total > 0 && closed === total ? "ok" : "todo",
+      detail: `${closed} of ${total} on ${flow.planned.milestone.title}`
+    });
+  }
   const noteCount = Object.values(flow.draft?.notes ?? {}).reduce((n, l) => n + (l?.length ?? 0), 0);
   items.push(
     noteCount > 0 ? { id: "notes", label: "Release notes", state: "ok", detail: `${noteCount} entr${noteCount === 1 ? "y" : "ies"} in the draft` } : { id: "notes", label: "Release notes", state: "todo", detail: "Not written yet" }

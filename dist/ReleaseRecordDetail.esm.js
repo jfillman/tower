@@ -17,6 +17,7 @@ import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSession
 import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPersistence.esm.js';
 import { useReleaseSignoff, countedSignoffs } from './releaseFlow.esm.js';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
+import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -257,7 +258,8 @@ function ReleaseRecordDetail({
   onCompare,
   onBack,
   name,
-  signoffEnv
+  signoffEnv,
+  allNames
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -378,7 +380,7 @@ function ReleaseRecordDetail({
         /* @__PURE__ */ jsxs("div", { className: classes.scoreBox, children: [
           /* @__PURE__ */ jsx("span", { className: classes.scoreNum, style: { color: confidenceColor(t, displayConfidence) }, children: displayConfidence }),
           /* @__PURE__ */ jsxs("span", { className: classes.scoreLbl, children: [
-            "confidence",
+            "readiness",
             /* @__PURE__ */ jsx("br", {}),
             "score",
             /* @__PURE__ */ jsx("br", {}),
@@ -403,8 +405,8 @@ function ReleaseRecordDetail({
       ] })
     ] }),
     showScoreExplainer && /* @__PURE__ */ jsxs("div", { className: classes.explainer, children: [
-      /* @__PURE__ */ jsx(Typography, { style: { fontWeight: 700, color: t.textHi, marginBottom: 6 }, children: "How the confidence score works" }),
-      /* @__PURE__ */ jsx(Typography, { style: { fontSize: 12, marginBottom: 8 }, children: "A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for sign-offs on the production release PR before it merged; it moves if any of that evidence changes." }),
+      /* @__PURE__ */ jsx(Typography, { style: { fontWeight: 700, color: t.textHi, marginBottom: 6 }, children: "How the readiness score works" }),
+      /* @__PURE__ */ jsx(Typography, { style: { fontSize: 12, marginBottom: 8 }, children: "A 0-100 heuristic built only from evidence Tower can see - not a prediction. It says how ready the release was when it shipped: a technical score plus a small bonus for sign-offs on the production release PR before it merged. What happened after it shipped is its outcome, shown separately." }),
       scoreLines.map((line) => /* @__PURE__ */ jsxs("div", { className: classes.explainRow, children: [
         /* @__PURE__ */ jsx("span", { style: { color: t.textHi }, children: line.label }),
         /* @__PURE__ */ jsxs("span", { className: classes.explainPts, children: [
@@ -566,6 +568,14 @@ function ReleaseRecordDetail({
         }
       ) })
     ] }),
+    /* @__PURE__ */ jsx("div", { style: { marginTop: 18 }, children: /* @__PURE__ */ jsx(
+      ReleaseOutcomePanel,
+      {
+        outcome: record.outcome ?? persisted.data?.outcome,
+        names: allNames,
+        githubRelease: persisted.data?.release?.githubRelease
+      }
+    ) }),
     /* @__PURE__ */ jsx("div", { style: { marginTop: 18 }, children: /* @__PURE__ */ jsx(
       ReleaseSignoffPanel,
       {

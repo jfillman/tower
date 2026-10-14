@@ -15,6 +15,7 @@ import { useFleetPipelineRuns } from '../../fleet/useFleetPipelineRuns.esm.js';
 import { useFleetPipelineHistory } from '../../fleet/useFleetPipelineHistory.esm.js';
 import { parseCategories, formatCategories } from '../../fleet/pipelineHistory.esm.js';
 import { useFleetReleaseRecords, useFleetReleaseEvents } from '../../fleet/useFleetReleases.esm.js';
+import { useReleaseCalendar } from '../../releaseFlow.esm.js';
 import { usePolled, isStale } from '../../fleet/usePolled.esm.js';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip.esm.js';
 import { BreakglassQueueStrip } from '../../breakglass/BreakglassQueueStrip.esm.js';
@@ -23,7 +24,7 @@ import { useProvisioning } from '../../provisioning/useProvisioning.esm.js';
 import { useFleetEnvironments } from '../../useFleetEnvironments.esm.js';
 import { useFleetRoster } from '../../useFleetRoster.esm.js';
 import { useFleetSlos } from '../../useFleetSlos.esm.js';
-import { ActivityPanel, DoraPanel, DeploymentsPanel, PipelinesPanel, AttentionPanel, FitContext } from './opswall/panels.esm.js';
+import { ActivityPanel, ReleaseCalendarPanel, DoraPanel, DeploymentsPanel, PipelinesPanel, AttentionPanel, FitContext } from './opswall/panels.esm.js';
 import { useOpsStyles } from './opswall/styles.esm.js';
 import { FilterSelect, FilterChips } from '../../ui/index.esm.js';
 
@@ -126,6 +127,7 @@ function OpsWallDashboard({ fit = false }) {
     },
     [refByApp, location.pathname]
   );
+  const calendar = useReleaseCalendar();
   const runs = useFleetPipelineRuns();
   const history = useFleetPipelineHistory(WINDOWS[opsWindow]);
   const records = useFleetReleaseRecords();
@@ -369,6 +371,17 @@ function OpsWallDashboard({ fit = false }) {
       },
       "dora"
     ),
+    releases: /* @__PURE__ */ jsx(
+      ReleaseCalendarPanel,
+      {
+        entries: calendar.data ?? [],
+        now,
+        towerHref,
+        limit: 10,
+        error: calendar.error
+      },
+      "releases"
+    ),
     activity: /* @__PURE__ */ jsx(
       ActivityPanel,
       {
@@ -384,14 +397,14 @@ function OpsWallDashboard({ fit = false }) {
   const n = columnCount(width);
   let columns;
   if (n === 3) {
-    columns = [[panels.attention, panels.activity], [panels.pipelines], [panels.deployments, panels.dora]];
+    columns = [[panels.attention, panels.activity], [panels.pipelines], [panels.deployments, panels.releases, panels.dora]];
   } else if (n === 2) {
     columns = [
       [panels.attention, panels.pipelines, panels.activity],
-      [panels.deployments, panels.dora]
+      [panels.deployments, panels.releases, panels.dora]
     ];
   } else {
-    columns = [[panels.attention, panels.pipelines, panels.deployments, panels.dora, panels.activity]];
+    columns = [[panels.attention, panels.pipelines, panels.deployments, panels.releases, panels.dora, panels.activity]];
   }
   return /* @__PURE__ */ jsxs("div", { className: fit ? `${c.root} ${c.rootFit}` : c.root, ref: rootRef, children: [
     probes,

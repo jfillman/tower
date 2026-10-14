@@ -21,7 +21,7 @@ import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
 import { useReleaseRecords } from '../useReleaseRecords.esm.js';
 import { buildNextRelease } from '../nextRelease.esm.js';
 import { useReleaseNames } from '../useReleaseNames.esm.js';
-import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
+import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, useReleasePlanned, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
 import { ReleaseModeBar } from '../ReleaseModeBar.esm.js';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
@@ -52,9 +52,16 @@ function ReleasesTab() {
   const savedDraft = useReleaseDraft(flowTarget, flowNonce);
   const saveDraft = useSaveReleaseDraft();
   const submitMode = useSubmitReleaseMode();
+  const planned = useReleasePlanned(savedDraft.data?.milestone ? flowTarget : void 0, flowNonce);
   const flow = useMemo(
-    () => releaseMode.data || savedDraft.data || savedDraft.notFound ? { draft: savedDraft.data, mode: releaseMode.data?.mode, signoffEnv: releaseMode.data?.signoffEnv } : void 0,
-    [releaseMode.data, savedDraft.data, savedDraft.notFound]
+    () => releaseMode.data || savedDraft.data || savedDraft.notFound ? {
+      draft: savedDraft.data,
+      mode: releaseMode.data?.mode,
+      signoffEnv: releaseMode.data?.signoffEnv,
+      jiraBaseUrl: releaseMode.data?.jiraBaseUrl,
+      planned: planned.data
+    } : void 0,
+    [releaseMode.data, savedDraft.data, savedDraft.notFound, planned.data]
   );
   const nextRelease = useMemo(
     () => buildNextRelease({

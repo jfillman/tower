@@ -3,10 +3,11 @@ import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
-import { Button, Card, Tile, SectionTitle, EmptyNote, TextLink, Hint, StatusChip } from './ui/index.esm.js';
+import { Button, Card, Tile, SectionTitle, TextLink, EmptyNote, Hint, StatusChip } from './ui/index.esm.js';
 
 const SCOPE_SHOWN = 6;
 const INCOMING_SHOWN = 3;
+const PLANNED_SHOWN = 4;
 const useStyles = makeStyles(() => ({
   // The kit Card, in the dashed amber of the record's Human context band.
   draft: {
@@ -29,6 +30,7 @@ const useStyles = makeStyles(() => ({
   item: { display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "2px 0", minWidth: 0 },
   prTitle: { color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   faint: { color: ({ t }) => t.textFaint, fontSize: 12 },
+  planned: { borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, paddingBottom: 8, marginBottom: 4, display: "flex", flexDirection: "column", gap: 4 },
   sub: { borderTop: ({ t }) => `1px solid ${t.lineSoft}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 },
   issues: { display: "flex", flexWrap: "wrap", gap: 8, fontFamily: fontMono, fontSize: 11, marginTop: 4 },
   tag: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi },
@@ -92,6 +94,22 @@ function NextReleaseCard({
       children: [
         /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
           /* @__PURE__ */ jsxs(Tile, { className: classes.column, children: [
+            next.planned?.milestone && /* @__PURE__ */ jsxs("div", { className: classes.planned, children: [
+              /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: `Planned \xB7 ${next.planned.milestone.title} \xB7 ${next.planned.issues.filter((i) => i.state === "closed").length} of ${next.planned.issues.length} closed` }),
+              next.planned.issues.filter((i) => i.state === "open").slice(0, PLANNED_SHOWN).map((i) => /* @__PURE__ */ jsxs("div", { className: classes.item, children: [
+                /* @__PURE__ */ jsxs(TextLink, { href: i.url, children: [
+                  "#",
+                  i.number
+                ] }),
+                /* @__PURE__ */ jsx("span", { className: classes.prTitle, title: i.title, children: i.title }),
+                i.assignee && /* @__PURE__ */ jsx("span", { className: classes.faint, children: i.assignee })
+              ] }, i.number)),
+              next.planned.issues.filter((i) => i.state === "open").length > PLANNED_SHOWN && /* @__PURE__ */ jsxs("span", { className: classes.faint, children: [
+                "+ ",
+                next.planned.issues.filter((i) => i.state === "open").length - PLANNED_SHOWN,
+                " more open"
+              ] })
+            ] }),
             /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
               `Scope \xB7 ${scope.length} PR${scope.length === 1 ? "" : "s"}`,
               next.changeCategories.features + next.changeCategories.fixes > 0 && ` \xB7 ${next.changeCategories.features} feat / ${next.changeCategories.fixes} fix`
@@ -112,10 +130,7 @@ function NextReleaseCard({
             next.scopeMayBeIncomplete && /* @__PURE__ */ jsx(Hint, { children: "Tower only sees the 20 newest merged PRs; older ones in this release aren't listed." }),
             scopeIssues.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.issues, children: [
               /* @__PURE__ */ jsx("span", { className: classes.faint, children: "Closes" }),
-              scopeIssues.map((i) => /* @__PURE__ */ jsxs(TextLink, { href: i.url, children: [
-                "#",
-                i.number
-              ] }, i.url))
+              scopeIssues.map((i) => /* @__PURE__ */ jsx(TextLink, { href: i.url, children: i.label }, i.url))
             ] }),
             /* @__PURE__ */ jsxs("div", { className: classes.sub, children: [
               /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: `Incoming \xB7 ${incoming.length} open` }),
@@ -135,10 +150,7 @@ function NextReleaseCard({
               ] }),
               incomingIssues.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.issues, children: [
                 /* @__PURE__ */ jsx("span", { className: classes.faint, children: "Would close" }),
-                incomingIssues.map((i) => /* @__PURE__ */ jsxs(TextLink, { href: i.url, children: [
-                  "#",
-                  i.number
-                ] }, i.url))
+                incomingIssues.map((i) => /* @__PURE__ */ jsx(TextLink, { href: i.url, children: i.label }, i.url))
               ] })
             ] })
           ] }),

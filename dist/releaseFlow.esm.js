@@ -132,6 +132,24 @@ function useSaveReleaseDraft() {
 function useReleaseSignoff(target) {
   return useGet("/release-signoff", target, 0);
 }
+const OUTCOME_LABEL = {
+  clean: "clean",
+  "rolled-back": "rolled back",
+  "replaced-before-healthy": "replaced before healthy",
+  "stopped-before-production": "stopped before production"
+};
+function useReleasePlanned(target, refreshNonce = 0) {
+  return useGet("/release-planned", target, refreshNonce);
+}
+function useReleaseCalendar() {
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNonce((n) => n + 1), 5 * 6e4);
+    return () => clearInterval(id);
+  }, []);
+  return useGet("/release-calendar", EMPTY_PARAMS, nonce);
+}
+const EMPTY_PARAMS = {};
 
-export { NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODES, RELEASE_MODE_HELP, RELEASE_MODE_LABEL, SIGNOFF_LABEL, countedSignoffs, suggestNotes, useReleaseDraft, useReleaseMode, useReleaseSignoff, useSaveReleaseDraft, useSubmitReleaseMode };
+export { NOTE_CATEGORIES, NOTE_LABEL, OUTCOME_LABEL, RELEASE_MODES, RELEASE_MODE_HELP, RELEASE_MODE_LABEL, SIGNOFF_LABEL, countedSignoffs, suggestNotes, useReleaseCalendar, useReleaseDraft, useReleaseMode, useReleasePlanned, useReleaseSignoff, useSaveReleaseDraft, useSubmitReleaseMode };
 //# sourceMappingURL=releaseFlow.esm.js.map

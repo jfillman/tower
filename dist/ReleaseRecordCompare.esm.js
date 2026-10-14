@@ -4,6 +4,7 @@ import { formatDateTime } from './shared/format.esm.js';
 import { formatDuration } from './TimelinePanel.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { statusPill, confidenceColor } from './ReleaseRecordList.esm.js';
+import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
 import { TextLink, SectionTitle, StatusChip, Fact } from './ui/index.esm.js';
@@ -106,7 +107,8 @@ function RecordColumn({
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "PRs", children: record.pullRequests.length }),
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "Lead time (merge\u2192prod)", children: lead === void 0 ? "\u2014" : formatDuration(lead) }),
       /* @__PURE__ */ jsx(Fact, { inline: true, label: "Guardrail checks", children: record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : "\u2014" }),
-      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Confidence", children: /* @__PURE__ */ jsx("span", { style: { color: confidenceColor(t, displayScore(record)) }, children: displayScore(record) }) })
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Outcome", children: outcomeChip(record.outcome)?.label ?? "not recorded" }),
+      /* @__PURE__ */ jsx(Fact, { inline: true, label: "Readiness", children: /* @__PURE__ */ jsx("span", { style: { color: confidenceColor(t, displayScore(record)) }, children: displayScore(record) }) })
     ] })
   ] });
 }
@@ -157,7 +159,7 @@ function ReleaseRecordCompare({
         /* @__PURE__ */ jsx(
           Metric,
           {
-            label: "Confidence",
+            label: "Readiness",
             value: formatSignedInt(confidenceDelta),
             tone: toneForHigherIsBetter(confidenceDelta),
             t,

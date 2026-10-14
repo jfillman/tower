@@ -5,8 +5,9 @@ import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
+import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
-import { SectionTitle, Count, StatusChip, IconButton } from './ui/index.esm.js';
+import { SectionTitle, TextLink, Count, StatusChip, IconButton } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 10 },
@@ -42,6 +43,7 @@ const useStyles = makeStyles(() => ({
   scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", color: ({ t }) => t.textHi, marginRight: 10 },
+  chips: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 },
   ladder: { display: "flex", flexWrap: "wrap", gap: 10, marginTop: 4, fontFamily: fontMono, fontSize: 11 },
   rungDone: { color: ({ t }) => t.textLo },
   rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
@@ -59,6 +61,7 @@ function confidenceColor(t, confidence) {
   return t.bad;
 }
 function statusPill(record) {
+  if (record.status === "rolled-back") return { label: "rolled back", tone: "bad" };
   if (record.current) {
     if (record.status === "degraded") return { label: "degraded", tone: "bad" };
     return { label: "current", tone: "warn" };
@@ -70,7 +73,8 @@ function ReleaseRecordList({
   totalKnown,
   names,
   flightEnvs,
-  onOpen
+  onOpen,
+  onChangelog
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -85,7 +89,10 @@ function ReleaseRecordList({
   }
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
-      /* @__PURE__ */ jsx(SectionTitle, { children: "Release records" }),
+      /* @__PURE__ */ jsxs("span", { style: { display: "flex", alignItems: "baseline", gap: 12 }, children: [
+        /* @__PURE__ */ jsx(SectionTitle, { children: "Release records" }),
+        onChangelog && /* @__PURE__ */ jsx(TextLink, { onClick: onChangelog, children: "Changelog" })
+      ] }),
       /* @__PURE__ */ jsxs(Count, { children: [
         records.length,
         " of this app's ",
@@ -97,6 +104,7 @@ function ReleaseRecordList({
     ] }),
     /* @__PURE__ */ jsx("div", { className: classes.list, children: records.map((record) => {
       const pill = statusPill(record);
+      const outcome = outcomeChip(record.outcome);
       const prAuthor = record.pullRequests[0]?.author;
       return /* @__PURE__ */ jsxs(
         "button",
@@ -107,7 +115,7 @@ function ReleaseRecordList({
           children: [
             /* @__PURE__ */ jsxs("div", { className: classes.score, children: [
               /* @__PURE__ */ jsx("span", { className: classes.scoreNum, style: { color: confidenceColor(t, displayScore(record)) }, children: displayScore(record) }),
-              /* @__PURE__ */ jsx("span", { className: classes.scoreLbl, children: "confidence" })
+              /* @__PURE__ */ jsx("span", { className: classes.scoreLbl, children: "readiness" })
             ] }),
             /* @__PURE__ */ jsxs("div", { children: [
               /* @__PURE__ */ jsxs("span", { className: classes.ver, children: [
@@ -139,7 +147,10 @@ function ReleaseRecordList({
                 ] }, env);
               }) })
             ] }),
-            /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
+            /* @__PURE__ */ jsxs("span", { className: classes.chips, children: [
+              /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
+              outcome && pill.label !== outcome.label && /* @__PURE__ */ jsx(StatusChip, { tone: outcome.tone, dot: true, children: outcome.label })
+            ] }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),
             /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
               /* @__PURE__ */ jsx(

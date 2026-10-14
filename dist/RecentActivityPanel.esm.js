@@ -23,7 +23,9 @@ const CATEGORY_TOPICS = {
   // before this fix, silently filtered out by the old known-topics list.
   // 'rolled-back' (a rollback release went healthy, ADR-0021 phase 4) and 'rollout' (Rollout actions, a skipped
   // canary analysis, pod restarts) joined 2026-10-11: they were sent but never shown here.
-  releases: ["deploy", "release", "deploying", "release-outcome", "rolled-back", "rollout"],
+  // 'release-record' (a release ready for / released to production) and 'release-signoff' (a Hand-flown release
+  // that shipped without a sign-off) joined 2026-10-14 (Release Record R2/R4, backstage releaseSignoffPoll.ts).
+  releases: ["deploy", "release", "deploying", "release-outcome", "rolled-back", "rollout", "release-record", "release-signoff"],
   environments: ["env", "preview-env"],
   config: ["config"],
   slos: ["slo"]
@@ -79,6 +81,8 @@ const TOPIC_META = {
   images: { label: "Cleanup", icon: ImageIcon },
   "rolled-back": { label: "Rollback", icon: ReleaseIcon },
   rollout: { label: "Rollout", icon: SyncIcon },
+  "release-record": { label: "Release", icon: ReleaseIcon },
+  "release-signoff": { label: "Sign-off", icon: ReleaseIcon },
   // Break-glass debug sessions (phase C, G12): requests, approvals, opens, ends, glass broken, reviews.
   breakglass: { label: "Break-glass", icon: BreakglassIcon }
 };

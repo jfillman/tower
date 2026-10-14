@@ -1,7 +1,7 @@
 import { formatDateTime } from './shared/format.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { applyApprovalBonus, dedupeCommits, confidenceBreakdown } from './useReleaseRecords.esm.js';
-import { countedSignoffs, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL } from './releaseFlow.esm.js';
+import { countedSignoffs, OUTCOME_LABEL, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL } from './releaseFlow.esm.js';
 
 const TEST_RESULTS_CAP = 8;
 function esc(s) {
@@ -169,7 +169,7 @@ function buildReleaseRecordHtml(record, humanContext, extras) {
       <div class="meta">RELEASE RECORD<br/>${esc(record.appName)} \xB7 ${esc(record.version ?? record.imageTag)}${nicknameBadgeHtml(record.nickname)}<br/>Generated ${formatDateTime((/* @__PURE__ */ new Date()).toISOString())}</div>
     </div>
     <h1>${esc(record.appName)} ${esc(record.version ?? record.imageTag)}${nicknameBadgeHtml(record.nickname)}</h1>
-    <div class="sub">Deployed ${formatDateTime(record.createdAt)} \xB7 Confidence ${displayConfidence}/100 \xB7 ${record.status}</div>
+    <div class="sub">Deployed ${formatDateTime(record.createdAt)} \xB7 Readiness ${displayConfidence}/100 \xB7 ${record.status}${record.outcome?.result ? ` \xB7 Outcome: ${OUTCOME_LABEL[record.outcome.result]}` : ""}</div>
     <div class="cols">
       <div>
         <h5>What changed</h5>
@@ -188,7 +188,7 @@ function buildReleaseRecordHtml(record, humanContext, extras) {
     ${releaseHtml(extras)}
     <div class="human">${humanContextHtml(humanContext)}</div>
     <div class="cats" style="margin-top:18px;">
-      <b>How the confidence score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
+      <b>How the readiness score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
       ${confidenceBreakdown(record, signoffs).map((l) => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`).join(" \xB7 ")}
     </div>
     <div class="foot">

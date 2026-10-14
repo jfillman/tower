@@ -30,7 +30,10 @@ function formOf(d) {
     knownIssues: toText(d?.knownIssues),
     riskLevel: d?.risk?.level ?? "",
     riskNotes: d?.risk?.notes ?? "",
-    rollback: d?.risk?.rollback ?? ""
+    rollback: d?.risk?.rollback ?? "",
+    targetDate: d?.targetDate ?? "",
+    milestone: d?.milestone ?? "",
+    publishGithubRelease: d?.publishGithubRelease ?? false
   };
 }
 function draftOf(f) {
@@ -43,7 +46,10 @@ function draftOf(f) {
     owner: f.owner.trim() || void 0,
     notes,
     knownIssues: toLines(f.knownIssues),
-    risk: { level: f.riskLevel || void 0, notes: f.riskNotes.trim() || void 0, rollback: f.rollback.trim() || void 0 }
+    risk: { level: f.riskLevel || void 0, notes: f.riskNotes.trim() || void 0, rollback: f.rollback.trim() || void 0 },
+    targetDate: f.targetDate || void 0,
+    milestone: f.milestone.trim() || void 0,
+    publishGithubRelease: f.publishGithubRelease || void 0
   };
 }
 function ReleaseDraftEditor({
@@ -73,6 +79,7 @@ function ReleaseDraftEditor({
         " \xB7 owner",
         " ",
         saved?.owner ?? "not named",
+        saved?.targetDate && ` \xB7 target ${saved.targetDate}`,
         saved?.updatedAt && ` \xB7 saved ${relativeTime(saved.updatedAt)}${saved.updatedBy ? ` by ${saved.updatedBy.replace(/^user:default\//, "")}` : ""}`
       ] })
     ] }),
@@ -123,6 +130,26 @@ function ReleaseDraftEditor({
             onChange: (e) => setForm((f) => ({ ...f, rollback: e.target.value }))
           }
         ) }),
+        /* @__PURE__ */ jsx(Field, { id: "rd-target", label: "Target date (optional)", children: (props) => /* @__PURE__ */ jsx(
+          "input",
+          {
+            ...props,
+            type: "date",
+            value: form.targetDate,
+            disabled: !canEdit,
+            onChange: (e) => setForm((f) => ({ ...f, targetDate: e.target.value }))
+          }
+        ) }),
+        /* @__PURE__ */ jsx(Field, { id: "rd-milestone", label: "GitHub milestone (planned scope, optional)", children: (props) => /* @__PURE__ */ jsx(
+          "input",
+          {
+            ...props,
+            value: form.milestone,
+            disabled: !canEdit,
+            placeholder: "Its title or number",
+            onChange: (e) => setForm((f) => ({ ...f, milestone: e.target.value }))
+          }
+        ) }),
         /* @__PURE__ */ jsx(Field, { id: "rd-owner", label: "Release owner", children: (props) => /* @__PURE__ */ jsx(
           "input",
           {
@@ -158,6 +185,19 @@ function ReleaseDraftEditor({
             onChange: (e) => setForm((f) => ({ ...f, riskNotes: e.target.value }))
           }
         ) })
+      ] }),
+      /* @__PURE__ */ jsxs("label", { className: classes.line, htmlFor: "rd-gh-release", children: [
+        /* @__PURE__ */ jsx(
+          "input",
+          {
+            id: "rd-gh-release",
+            type: "checkbox",
+            checked: form.publishGithubRelease,
+            disabled: !canEdit,
+            onChange: (e) => setForm((f) => ({ ...f, publishGithubRelease: e.target.checked }))
+          }
+        ),
+        "Publish a GitHub Release (tag v<version>, these notes) when this release is healthy in production"
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.line, children: [
         canEdit ? /* @__PURE__ */ jsx(Button, { small: true, disabled: !dirty || saving, onClick: () => onSave(draftOf(form)), children: saving ? "Saving\u2026" : "Save draft" }) : /* @__PURE__ */ jsx(Hint, { children: "Only the app's owners and admins can edit the draft." }),
