@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
+import { NextReleaseCard } from './NextReleaseCard';
+import type { NextRelease, NextReleaseCandidate } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleaseRecord } from './useReleaseRecords';
+import type { ReleaseNames } from './useReleaseNames';
 
 // The Record sub-tab's own list<->detail<->compare state (ReleasesTab.tsx
 // just renders this for `activeTab === 'record'`, same as every other
@@ -20,12 +23,24 @@ export function ReleaseRecordPanel({
   appName,
   owner,
   gitopsPrs,
+  next,
+  names,
+  flightEnvs,
+  promoteTo,
+  onPromote,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
   appName?: string;
   owner?: string;
   gitopsPrs?: PullRequestSummary[];
+  /** The release in progress (R1 draft), shown above the records. */
+  next?: NextRelease;
+  names?: ReleaseNames;
+  /** Flight environments in promotion order, for each record's progress through them. */
+  flightEnvs?: string[];
+  promoteTo?: string;
+  onPromote?: (candidate: NextReleaseCandidate) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -39,6 +54,7 @@ export function ReleaseRecordPanel({
     return (
       <ReleaseRecordDetail
         record={open}
+        name={names?.byTag.get(open.imageTag)}
         appName={appName}
         owner={owner}
         gitopsPrs={gitopsPrs}
@@ -49,13 +65,26 @@ export function ReleaseRecordPanel({
     );
   }
   return (
-    <ReleaseRecordList
-      records={records}
-      totalKnown={totalKnown}
-      onOpen={id => {
-        setCompareId(null);
-        setOpenId(id);
-      }}
-    />
+    <>
+      {next && (
+        <NextReleaseCard
+          next={next}
+          name={names?.next}
+          previousName={next.previous ? names?.byTag.get(next.previous.imageTag) : undefined}
+          promoteTo={promoteTo}
+          onPromote={onPromote}
+        />
+      )}
+      <ReleaseRecordList
+        records={records}
+        totalKnown={totalKnown}
+        names={names?.byTag}
+        flightEnvs={flightEnvs}
+        onOpen={id => {
+          setCompareId(null);
+          setOpenId(id);
+        }}
+      />
+    </>
   );
 }

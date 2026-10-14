@@ -9,6 +9,7 @@ theme:
 nav:
   - Home: index.md
   - Deployments: deployments.md
+  - Release records: release-records.md
   - Security model: security.md
   - Cluster credentials: credentials/index.md
   - Break-glass debugging:

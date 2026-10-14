@@ -272,8 +272,11 @@ export function ReleaseRecordDetail({
   otherRecords,
   onCompare,
   onBack,
+  name,
 }: {
   record: ReleaseRecord;
+  /** The release's name (ASPEN, BIRCH...), once the app's release history has loaded. */
+  name?: string;
   appName?: string;
   owner?: string;
   gitopsPrs?: PullRequestSummary[];
@@ -383,6 +386,7 @@ export function ReleaseRecordDetail({
           <div>
             <div className={classes.kicker}>Release Record</div>
             <Typography className={classes.h3}>
+              {name && <span style={{ letterSpacing: '0.06em', marginRight: 10 }}>{name}</span>}
               {record.version ?? record.imageTag}
               {record.nickname && (
                 <span style={{ marginLeft: 8 }}>

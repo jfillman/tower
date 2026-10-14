@@ -19,6 +19,8 @@ import { deployTargetOf } from '../serviceClass';
 import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPromoteDialog';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel';
 import { useReleaseRecords } from '../useReleaseRecords';
+import { buildNextRelease } from '../nextRelease';
+import { useReleaseNames } from '../useReleaseNames';
 import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
 
 // Tower's Releases tab, revamped 2026-09-16 (Command Deck + Split Sub-tabs +
@@ -76,6 +78,25 @@ export function ReleasesTab() {
     pipelineOrder.lower,
     pipelineOrder.upper,
   );
+
+  // The release in progress, shown above the records (Release Record R1). Computed here,
+  // beside the records it follows, from the same data.
+  const nextRelease = useMemo(
+    () =>
+      buildNextRelease({
+        records: releaseRecords,
+        releases,
+        sourcePrs,
+        pipelineRuns,
+        provenanceByImage,
+        pipelineEnvironments: pipelineEnvironmentsForRecords,
+        pipelineOrder,
+      }),
+    // pipelineEnvironmentsForRecords is a fresh array every render; environments is its stable source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder],
+  );
+  const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : undefined, releaseRecords);
 
   const [activeTab, setActiveTab] = useState<ReleasesSubTab>('matrix');
   // source is a real EnvironmentSummary when promoting an already-deployed
@@ -213,6 +234,18 @@ export function ReleasesTab() {
             appName={appName}
             owner={owner}
             gitopsPrs={gitopsPrs}
+            next={nextRelease}
+            names={releaseNames}
+            flightEnvs={pipelineOrder.upper}
+            promoteTo={pipelineOrder.upper?.[0]}
+            onPromote={candidate => {
+              // From the highest Ground environment running it; an image on none is promoted as an image.
+              const lower = pipelineOrder.lower ?? [];
+              const source = [...candidate.liveOn].sort(
+                (a, b) => lower.indexOf(b) - lower.indexOf(a),
+              )[0];
+              handlePromote({ env: source, image: candidate.image }, pipelineOrder.upper![0]);
+            }}
           />
         )}
       </div>

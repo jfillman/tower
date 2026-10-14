@@ -45,6 +45,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },
   scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
+  relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.06em', color: ({ t }) => t.textHi, marginRight: 10 },
+  ladder: { display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4, fontFamily: fontMono, fontSize: 11 },
+  rungDone: { color: ({ t }) => t.textLo },
+  rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
+  rungTodo: { color: ({ t }) => t.textFaint },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
@@ -70,10 +75,16 @@ export function statusPill(record: ReleaseRecord): { label: string; tone: Status
 export function ReleaseRecordList({
   records,
   totalKnown,
+  names,
+  flightEnvs,
   onOpen,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
+  /** imageTag -> release name (ASPEN, BIRCH...), once the app's release history has loaded. */
+  names?: Map<string, string>;
+  /** Flight environments in promotion order. Each record shows how far it got when there's more than one. */
+  flightEnvs?: string[];
   onOpen: (id: string) => void;
 }) {
   const t = useHangarTokens();
@@ -115,6 +126,7 @@ export function ReleaseRecordList({
               </div>
               <div>
                 <span className={classes.ver}>
+                  {names?.get(record.imageTag) && <span className={classes.relName}>{names.get(record.imageTag)}</span>}
                   {record.version ?? record.imageTag}
                   {record.nickname && (
                     <span style={{ marginLeft: 8 }}>
@@ -128,6 +140,16 @@ export function ReleaseRecordList({
                   {prAuthor ? ` · ${prAuthor}` : ''}
                   {record.status === 'degraded' && record.current ? ' · currently degraded' : ''}
                 </div>
+                {flightEnvs && flightEnvs.length > 1 && (
+                  <div className={classes.ladder} aria-label="Flight environments">
+                    {flightEnvs.map(env => {
+                      const d = record.deployments.find(x => x.env.toLowerCase() === env.toLowerCase());
+                      if (d?.isLive) return <span key={env} className={classes.rungLive}>● {env}</span>;
+                      if (d) return <span key={env} className={classes.rungDone}>✓ {env}</span>;
+                      return <span key={env} className={classes.rungTodo}>○ {env}</span>;
+                    })}
+                  </div>
+                )}
               </div>
               <StatusChip tone={pill.tone} dot>
                 {pill.label}
