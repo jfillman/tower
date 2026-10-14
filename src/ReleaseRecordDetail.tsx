@@ -17,6 +17,8 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSessions';
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
+import { countedSignoffs, useReleaseSignoff } from './releaseFlow';
+import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
@@ -58,9 +60,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 4,
   },
   h3: { fontSize: 24, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
-  app: { color: ({ t }) => t.textFaint, fontWeight: 500, fontSize: 16, marginLeft: 8 },
   facts: { display: 'flex', gap: 22, flexWrap: 'wrap', marginTop: 10, fontSize: 12.5, color: ({ t }) => t.textLo },
   factsB: { color: ({ t }) => t.textHi, fontWeight: 600 },
+  imageRef: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: 'break-all' },
   scoreBox: {
     display: 'flex',
     alignItems: 'center',
@@ -273,10 +275,13 @@ export function ReleaseRecordDetail({
   onCompare,
   onBack,
   name,
+  signoffEnv,
 }: {
   record: ReleaseRecord;
   /** The release's name (ASPEN, BIRCH...), once the app's release history has loaded. */
   name?: string;
+  /** The environment whose release PR carries the sign-off (R2). */
+  signoffEnv?: string;
   appName?: string;
   owner?: string;
   gitopsPrs?: PullRequestSummary[];
@@ -297,11 +302,19 @@ export function ReleaseRecordDetail({
   const liveDeployment = record.deployments.find(d => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
 
-  // Committed approvals only, never the pending/unsaved form state below -
-  // same reasoning as the cert strip's own "N approvals on record" count.
-  const displayConfidence = applyApprovalBonus(record.confidence, persisted.data?.humanContext.approvals.length ?? 0);
+  // R2: the sign-off is the approving reviews on the release PR to the sign-off environment. The
+  // record's own copy (sealed after that PR merged) wins; otherwise it is read live. Only counted
+  // sign-offs move the score: approvals added to the human context after release are
+  // acknowledgements, not approvals.
+  const sealedRelease = persisted.data?.release;
+  const liveSignoff = useReleaseSignoff(
+    persistTarget && signoffEnv && !sealedRelease?.signoff ? persistTarget : undefined,
+  );
+  const signoff = sealedRelease?.signoff ?? liveSignoff.data;
+  const signoffCount = countedSignoffs(signoff);
+  const displayConfidence = applyApprovalBonus(record.confidence, signoffCount);
   const [showScoreExplainer, setShowScoreExplainer] = useState(false);
-  const scoreLines = confidenceBreakdown(record, persisted.data?.humanContext.approvals.length ?? 0);
+  const scoreLines = confidenceBreakdown(record, signoffCount);
   // The auto-generated record's own PR (releaseRecordPoll -> generateReleaseRecord,
   // title `Release Record: <app> @ <tag>`, NOT the `... - human context` edit PRs)
   // - shown in the Human context panel while it's open or just merged (2026-09-24:
@@ -384,7 +397,7 @@ export function ReleaseRecordDetail({
             <HangarMark glyph="hangar" size={52} />
           </div>
           <div>
-            <div className={classes.kicker}>Release Record</div>
+            <div className={classes.kicker}>Release Record{appName ? ` · ${appName}` : ''}</div>
             <Typography className={classes.h3}>
               {name && <span style={{ letterSpacing: '0.06em', marginRight: 10 }}>{name}</span>}
               {record.version ?? record.imageTag}
@@ -393,7 +406,6 @@ export function ReleaseRecordDetail({
                   <NicknameChip nickname={record.nickname} />
                 </span>
               )}
-              {appName && <span className={classes.app}>— {appName}</span>}
             </Typography>
             <div className={classes.facts}>
               <span>
@@ -405,6 +417,19 @@ export function ReleaseRecordDetail({
               {record.pipelineRun && (
                 <span>
                   Build <span className={classes.factsB}>{record.nickname ?? record.pipelineRun.name}</span>
+                </span>
+              )}
+            </div>
+            <div className={classes.facts} style={{ marginTop: 4 }}>
+              <span>
+                Image{' '}
+                <span className={classes.imageRef}>
+                  {record.image ?? (persisted.data?.imageRepo ? `${persisted.data.imageRepo}:${record.imageTag}` : record.imageTag)}
+                </span>
+              </span>
+              {record.imageDigest && (
+                <span title={record.imageDigest}>
+                  Digest <span className={classes.imageRef}>{`${record.imageDigest.slice(0, 19)}…`}</span>
                 </span>
               )}
             </div>
@@ -426,10 +451,10 @@ export function ReleaseRecordDetail({
             </span>
           </div>
           <div className={classes.actionsBar}>
-            <Button small onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext)}>
+            <Button small onClick={() => printReleaseRecordPdf(record, persisted.data?.humanContext, { release: sealedRelease, signoff })}>
               ⤓ PDF
             </Button>
-            <Button small onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext)}>
+            <Button small onClick={() => downloadReleaseRecordHtml(record, persisted.data?.humanContext, { release: sealedRelease, signoff })}>
               ⤓ HTML
             </Button>
             {otherRecords.length > 0 && (
@@ -450,7 +475,7 @@ export function ReleaseRecordDetail({
         <div className={classes.explainer}>
           <Typography style={{ fontWeight: 700, color: t.textHi, marginBottom: 6 }}>How the confidence score works</Typography>
           <Typography style={{ fontSize: 12, marginBottom: 8 }}>
-            A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for recorded human approvals; it moves if any of that evidence changes.
+            A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for sign-offs on the production release PR before it merged; it moves if any of that evidence changes.
           </Typography>
           {scoreLines.map(line => (
             <div key={line.label} className={classes.explainRow}>
@@ -664,6 +689,16 @@ export function ReleaseRecordDetail({
         </div>
       </div>
 
+      <div style={{ marginTop: 18 }}>
+        <ReleaseSignoffPanel
+          release={sealedRelease}
+          signoff={signoff}
+          signoffEnv={signoff?.env ?? signoffEnv}
+          mode={sealedRelease?.mode}
+          loading={liveSignoff.loading}
+        />
+      </div>
+
       <div className={classes.human}>
         <div className={classes.humanHead}>
           <span className={classes.humanTitle}>Human context</span>
@@ -752,7 +787,9 @@ export function ReleaseRecordDetail({
               {/* A section heading for the group below, not a control's label - a
                   plain span avoids jsx-a11y's label/control-association rule, which
                   doesn't apply here (nothing single here for it to label). */}
-              <span className={classes.humanLabel}>Approvals</span>
+              <span className={classes.humanLabel} title="Added after release. They don't change the score: sign-off happens on the release PR before it merges.">
+                Acknowledgements (after release)
+              </span>
               {form.approvals.length === 0 && <Typography className={classes.humanNote}>No approvals on record yet.</Typography>}
               {form.approvals.length > 0 && (
                 <div className={classes.approvalList}>
@@ -779,7 +816,7 @@ export function ReleaseRecordDetail({
                   onChange={e => setApprovalRole(e.target.value)}
                 />
                 <Button small onClick={addMyApproval}>
-                  + Add my approval
+                  + Acknowledge
                 </Button>
               </div>
             </div>
@@ -825,7 +862,7 @@ export function ReleaseRecordDetail({
           </span>
         )}
         <span className={classes.certItem}>
-          <span className={classes.certB}>{persisted.data?.humanContext.approvals.length ?? 0}</span> approvals on record
+          <span className={classes.certB}>{signoffCount}</span> sign-off{signoffCount === 1 ? '' : 's'} before merge
         </span>
         <span className={classes.certItem}>
           <span className={classes.certB}>{record.incidents.length}</span> incidents since deploy

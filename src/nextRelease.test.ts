@@ -195,3 +195,35 @@ describe('suggestVersion', () => {
     expect(suggestVersion('main', c(1), false)).toBeUndefined();
   });
 });
+
+describe('readiness from the saved draft and release mode (R2)', () => {
+  const withFlow = (flow: Parameters<typeof buildNextRelease>[0]['flow']) =>
+    buildNextRelease({
+      records,
+      releases,
+      sourcePrs,
+      pipelineRuns: [],
+      provenanceByImage: {},
+      pipelineEnvironments: environments,
+      pipelineOrder,
+      flow,
+      now: NOW,
+    }).readiness.filter(i => ['notes', 'owner', 'signoff'].includes(i.id));
+
+  it('asks for notes and an owner, and for a sign-off only when Hand-flown', () => {
+    expect(withFlow({ mode: 'assisted' }).map(i => [i.id, i.state])).toEqual([
+      ['notes', 'todo'],
+      ['owner', 'todo'],
+    ]);
+    const handFlown = withFlow({ mode: 'hand-flown', signoffEnv: 'prod', draft: { owner: 'jfillman', notes: { added: ['a', 'b'] } } });
+    expect(handFlown.map(i => [i.id, i.state, i.detail])).toEqual([
+      ['notes', 'ok', '2 entries in the draft'],
+      ['owner', 'ok', 'jfillman'],
+      ['signoff', 'todo', 'Hand-flown: the prod release PR needs an approving review from someone other than whoever merges it'],
+    ]);
+  });
+
+  it('adds nothing before the draft and mode have loaded', () => {
+    expect(withFlow(undefined)).toEqual([]);
+  });
+});

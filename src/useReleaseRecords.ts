@@ -339,7 +339,7 @@ const FIX_LABEL = /^(bug|bugfix|fix)$/i;
 const CHORE_LABEL = /^(chore|dependencies|deps|docs?|documentation|refactor|maintenance)$/i;
 const CHORE_PREFIXES = new Set(['chore', 'docs', 'doc', 'refactor', 'test', 'tests', 'ci', 'build', 'style']);
 
-function classifyPr(pr: PullRequestSummary): keyof ChangeCategoryCounts | undefined {
+export function classifyPr(pr: PullRequestSummary): keyof ChangeCategoryCounts | undefined {
   if (pr.labels.some(l => FEATURE_LABEL.test(l))) return 'features';
   if (pr.labels.some(l => FIX_LABEL.test(l))) return 'fixes';
   if (pr.labels.some(l => CHORE_LABEL.test(l))) return 'chores';
@@ -454,10 +454,10 @@ export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: numbe
     },
     { label: 'No incidents', points: 5, max: 5, note: 'No incidents are recorded against this release (Tower does not track incidents yet, so this is always awarded).' },
     {
-      label: 'Human approvals',
+      label: 'Sign-off before merge',
       points: Math.min(10, approvalsCount * 5),
       max: 10,
-      note: `${approvalsCount} approval${approvalsCount === 1 ? '' : 's'} recorded in the Human Context - +5 each, up to +10.`,
+      note: `${approvalsCount} approving review${approvalsCount === 1 ? '' : 's'} on the production release PR, before it merged and from someone other than the person who merged it - +5 each, up to +10. Approvals added to the human context after release are acknowledgements and earn nothing.`,
     },
   ];
 }

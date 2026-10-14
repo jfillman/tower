@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { relativeTime } from './shared/format';
@@ -66,8 +67,14 @@ export function NextReleaseCard({
   previousName,
   promoteTo,
   onPromote,
+  modeLabel,
+  children,
 }: {
   next: NextRelease;
+  /** The app's release mode, shown beside the draft chip (R2). */
+  modeLabel?: string;
+  /** The draft editor (R2), under the three columns. */
+  children?: ReactNode;
   /** The draft's release name; undefined until the app's release history has loaded. */
   name?: string;
   previousName?: string;
@@ -106,6 +113,7 @@ export function NextReleaseCard({
             </span>
           )}
           {previousLabel && <span className={classes.after}>after {previousLabel}</span>}
+          {modeLabel && <span className={classes.after}>· {modeLabel}</span>}
         </span>
       }
       actions={promote}
@@ -197,7 +205,11 @@ export function NextReleaseCard({
           ))}
         </Tile>
       </div>
-      <Hint>Built from merged PRs and images. Nothing is saved until this release reaches Flight and its record is written.</Hint>
+      {children}
+      <Hint>
+        Scope, candidates and readiness are computed from merged PRs and images. Only the notes and owner below are
+        saved; the record is written when this release reaches Flight.
+      </Hint>
     </Card>
   );
 }

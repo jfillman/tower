@@ -1,6 +1,8 @@
 import { formatDateTime } from './shared/format';
 import { slugHue } from './PipelineRunList';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
+import { countedSignoffs, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
+import type { SealedRelease } from './ReleaseSignoffPanel';
 import type { ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 
 // Test-results cap matches ReleaseRecordDetail.tsx's own live-page cap - kept in
@@ -64,17 +66,51 @@ function humanContextHtml(humanContext: ReleaseRecordHumanContext | undefined): 
   if (humanContext.verificationNotes) lines.push(`<div><b>Verification:</b> ${esc(humanContext.verificationNotes)}</div>`);
   if (humanContext.approvals.length > 0) {
     lines.push(
-      `<div><b>Approvals:</b> ${humanContext.approvals.map(a => esc(a.by) + (a.role ? ` (${esc(a.role)})` : '')).join(', ')}</div>`,
+      `<div><b>Acknowledged after release:</b> ${humanContext.approvals.map(a => esc(a.by) + (a.role ? ` (${esc(a.role)})` : '')).join(', ')}</div>`,
     );
   }
   if (humanContext.authoredBy) lines.push(`<div style="margin-top:6px; opacity:0.75;">— ${esc(humanContext.authoredBy)}</div>`);
   return lines.join('');
 }
 
-export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext): string {
+// R2: what the record carries about the release itself - its notes, known issues and owner from the
+// draft, and the sign-off on the production release PR.
+export interface ReleaseExtras {
+  release?: SealedRelease;
+  signoff?: SignoffEvaluation;
+}
+
+function releaseHtml(extras: ReleaseExtras | undefined): string {
+  const release = extras?.release;
+  const signoff = extras?.signoff;
+  const parts: string[] = [];
+  NOTE_CATEGORIES.forEach(c => {
+    const l = release?.notes?.[c];
+    if (l && l.length > 0) parts.push(`<div><b>${NOTE_LABEL[c]}</b><ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
+  });
+  if (release?.knownIssues?.length) {
+    parts.push(`<div><b>Known issues</b><ul>${release.knownIssues.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
+  }
+  const facts: string[] = [];
+  if (release?.mode) facts.push(`<b>Mode:</b> ${esc(RELEASE_MODE_LABEL[release.mode])}`);
+  if (release?.owner) facts.push(`<b>Owner:</b> ${esc(release.owner)}`);
+  if (release?.risk?.level) facts.push(`<b>Risk:</b> ${esc(release.risk.level)}`);
+  if (signoff) {
+    const by = signoff.approvals.filter(a => a.counts).map(a => esc(a.by));
+    facts.push(
+      `<b>Sign-off (${esc(signoff.env)}):</b> ${esc(SIGNOFF_LABEL[signoff.status])}${by.length ? ` by ${by.join(', ')}` : ''}${signoff.mergedBy ? `, merged by ${esc(signoff.mergedBy)}` : ''}`,
+    );
+  }
+  if (facts.length) parts.push(`<div>${facts.join(' · ')}</div>`);
+  if (release?.risk?.rollback) parts.push(`<div><b>Rollback notes:</b> ${esc(release.risk.rollback)}</div>`);
+  return parts.length > 0 ? `<div class="human"><h5>Release notes and sign-off</h5>${parts.join('')}</div>` : '';
+}
+
+export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): string {
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
   const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
-  const displayConfidence = applyApprovalBonus(record.confidence, humanContext?.approvals.length ?? 0);
+  const signoffs = countedSignoffs(extras?.signoff);
+  const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
 
   let changedItems: string;
   if (record.pullRequests.length > 0) {
@@ -204,10 +240,11 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
         <ul>${happenedItems.join('')}</ul>
       </div>
     </div>
+    ${releaseHtml(extras)}
     <div class="human">${humanContextHtml(humanContext)}</div>
     <div class="cats" style="margin-top:18px;">
       <b>How the confidence score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
-      ${confidenceBreakdown(record, humanContext?.approvals.length ?? 0)
+      ${confidenceBreakdown(record, signoffs)
         .map(l => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`)
         .join(' · ')}
     </div>
@@ -228,8 +265,8 @@ function fileNameFor(record: ReleaseRecord): string {
 
 // Standard blob+temporary-anchor download - a real web app (this isn't a
 // sandboxed artifact preview), so this works the ordinary way.
-export function downloadReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext): void {
-  const html = buildReleaseRecordHtml(record, humanContext);
+export function downloadReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): void {
+  const html = buildReleaseRecordHtml(record, humanContext, extras);
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -249,8 +286,8 @@ export function downloadReleaseRecordHtml(record: ReleaseRecord, humanContext?: 
 // browser's own print dialog offers "Save as PDF" - no server-side
 // rendering needed for this v1 (see the handoff's own "v2 PDF" note for
 // what a real one-click download would need instead).
-export function printReleaseRecordPdf(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext): void {
-  const html = buildReleaseRecordHtml(record, humanContext);
+export function printReleaseRecordPdf(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): void {
+  const html = buildReleaseRecordHtml(record, humanContext, extras);
   const win = window.open('', '_blank');
   if (!win) return;
   win.document.open();
