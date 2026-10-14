@@ -38,6 +38,18 @@ export interface Attestation {
   transparencyLog?: TransparencyLogEntry;
   verified: boolean;
   verificationError?: string;
+  /** Why it did or didn't verify (backend rekorEntries.ts); src/supplyChain.ts turns it into words and a colour. */
+  verificationCode?:
+    | 'verified'
+    | 'no-log-entry'
+    | 'log-entry-mismatch'
+    | 'stale-receipt'
+    | 'digest-mismatch'
+    | 'signature-invalid'
+    | 'trust-root-unavailable'
+    | 'incomplete';
+  /** Where the log entry it was checked against came from: read fresh from Rekor, the image's own copy, or none. */
+  logSource?: 'rekor' | 'embedded' | 'none';
 }
 
 export interface ProvenanceResponse {

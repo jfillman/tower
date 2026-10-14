@@ -36,6 +36,7 @@ const toLines = (s: string) =>
 
 interface Form {
   owner: string;
+  summary: string;
   notes: Record<NoteCategory, string>;
   knownIssues: string;
   riskLevel: '' | 'low' | 'medium' | 'high';
@@ -49,6 +50,7 @@ interface Form {
 function formOf(d: ReleaseDraft | undefined): Form {
   return {
     owner: d?.owner ?? '',
+    summary: d?.summary ?? '',
     notes: Object.fromEntries(NOTE_CATEGORIES.map(c => [c, toText(d?.notes?.[c])])) as Record<NoteCategory, string>,
     knownIssues: toText(d?.knownIssues),
     riskLevel: d?.risk?.level ?? '',
@@ -68,6 +70,7 @@ export function draftOf(f: Form): ReleaseDraft {
   });
   return {
     owner: f.owner.trim() || undefined,
+    summary: f.summary.trim() || undefined,
     notes,
     knownIssues: toLines(f.knownIssues),
     risk: { level: f.riskLevel || undefined, notes: f.riskNotes.trim() || undefined, rollback: f.rollback.trim() || undefined },
@@ -121,6 +124,18 @@ export function ReleaseDraftEditor({
       </div>
       {open && (
         <>
+          <Field id="rd-summary" label="Summary: what this release does, in plain words">
+            {props => (
+              <textarea
+                {...props}
+                className={`${props.className} ${classes.textarea}`}
+                value={form.summary}
+                disabled={!canEdit}
+                placeholder="Gate agents can reprint a bag tag without starting over."
+                onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
+              />
+            )}
+          </Field>
           <div className={classes.grid}>
             {shown.map(c => (
               <Field key={c} id={`rd-notes-${c}`} label={`${NOTE_LABEL[c]} (one per line)`}>

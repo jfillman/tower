@@ -25,6 +25,8 @@ export interface ReleaseRecordHumanContext {
   risk?: 'low' | 'medium' | 'high';
   riskNotes?: string;
   verificationNotes?: string;
+  /** After release: incidents, fixes owed, anything learned. */
+  followUps?: string;
   approvals: ReleaseRecordApproval[];
   authoredBy?: string;
   tags?: string[];

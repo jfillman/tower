@@ -16,6 +16,7 @@ import { formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { JsonDocumentView } from './ResourceInspector';
 import type { Attestation, ProvenanceResponse } from './types';
+import { explain, findSbom, findSignature, findSlsa, SIMPLE_SIGNING, verdictOf, worstVerdict, type Verdict } from './supplyChain';
 
 // The graphical, process-flowing supply-chain visualization the user asked
 // for in place of the mockup's compact segmented progress bar (see
@@ -35,6 +36,8 @@ export interface SupplyChainStage {
   label: string;
   status: StageStatus;
   attestation?: Attestation;
+  /** Every signature and attestation on the image, for the roll-up steps' "n of m verified". */
+  all?: Attestation[];
 }
 
 export interface EnvStage {
@@ -46,86 +49,52 @@ export interface EnvStage {
 
 export type Stage = SupplyChainStage | EnvStage;
 
-// Derives the five fixed supply-chain stages from one image's real
-// provenance response. 'warn' (not 'fail') for a missing SBOM/signature/
-// transparency-log entry - those gates are informational on this platform,
-// not blocking (see GlidepathPage.tsx's SupplyChainPanel: "may predate the
-// provenance/sbom gates, or those gates are disabled for this app").
+// Derives the five fixed supply-chain stages from one image's real provenance response. A step is green only when
+// what it stands for verified, amber when it is there but unverified for a reason that isn't evidence of tampering,
+// red when something contradicts the image, grey when it is missing or loading (src/supplyChain.ts). Missing items
+// stay grey, not red: those gates are informational on this platform, and an image may predate them.
 export function buildSupplyChainStages(
   provenance: ProvenanceResponse | undefined,
   loading: boolean,
 ): SupplyChainStage[] {
-  const slsa = provenance?.attestations.find(
-    a => a.predicateType === 'https://slsa.dev/provenance/v0.2',
-  );
-  const sbom = provenance?.attestations.find(a =>
-    a.predicateType.toLowerCase().includes('cyclonedx'),
-  );
-  // The classic `cosign sign` image signature (glidepathProvenance.ts's
-  // fetchImageSignature) - a distinct artifact from the SLSA/SBOM
-  // attestations above (it signs the image manifest itself, not a
-  // statement about it), so it gets its own stage rather than being folded
-  // into 'sign-attest' (which stays the general "anything on this image
-  // verified" overview - this attestation still counts toward that via
-  // anyVerified below, same as any other).
-  const signature = provenance?.attestations.find(
-    a => a.predicateType === 'cosign.sigstore.dev/signature/simple-signing',
-  );
-  const anyVerified = provenance?.attestations.some(a => a.verified) ?? false;
-  const anyTlog = provenance?.attestations.some(a => a.transparencyLog) ?? false;
+  const slsa = findSlsa(provenance);
+  const sbom = findSbom(provenance);
+  // The classic `cosign sign` image signature: it signs the image manifest itself, not a statement about it.
+  const signature = findSignature(provenance);
+  const all = provenance?.attestations ?? [];
+  const logged = all.filter(a => a.transparencyLog);
 
-  // foundOrPending: 'done' if the gate's own evidence is present, 'warn' if
-  // provenance loaded but that evidence is absent (informational, not
-  // blocking - see this function's own top comment), 'pending' while still
-  // loading. Written as explicit if/else rather than a nested ternary chain
-  // (lint: no-nested-ternary) - same three-way logic, just spelled out.
-  function foundOrPending(found: boolean): StageStatus {
-    if (loading) return 'pending';
-    if (found) return 'done';
-    return provenance ? 'warn' : 'pending';
+  function statusOf(verdict: Verdict): StageStatus {
+    if (loading || !provenance) return 'pending';
+    if (verdict === 'verified') return 'done';
+    if (verdict === 'contradicted') return 'fail';
+    if (verdict === 'unverified') return 'warn';
+    return 'pending';
   }
 
-  function verifiedOrFailed(): StageStatus {
-    if (loading) return 'pending';
-    if (anyVerified) return 'done';
-    return (provenance?.attestations.length ?? 0) > 0 ? 'fail' : 'pending';
-  }
+  // The step's own detail shows the weakest item it stands for, so the colour and the words agree.
+  const weakest = (atts: Attestation[]) =>
+    atts.find(a => verdictOf(a) === 'contradicted') ?? atts.find(a => verdictOf(a) === 'unverified') ?? atts[0];
 
   return [
-    {
-      kind: 'supply-chain',
-      id: 'build',
-      label: 'Build',
-      status: foundOrPending(Boolean(slsa)),
-      attestation: slsa,
-    },
-    {
-      kind: 'supply-chain',
-      id: 'sast-sbom',
-      label: 'SAST / SBOM',
-      status: foundOrPending(Boolean(sbom)),
-      attestation: sbom,
-    },
-    {
-      kind: 'supply-chain',
-      id: 'signature',
-      label: 'Signature',
-      status: foundOrPending(Boolean(signature)),
-      attestation: signature,
-    },
+    { kind: 'supply-chain', id: 'build', label: 'Build', status: statusOf(verdictOf(slsa)), attestation: slsa },
+    { kind: 'supply-chain', id: 'sast-sbom', label: 'SAST / SBOM', status: statusOf(verdictOf(sbom)), attestation: sbom },
+    { kind: 'supply-chain', id: 'signature', label: 'Signature', status: statusOf(verdictOf(signature)), attestation: signature },
     {
       kind: 'supply-chain',
       id: 'sign-attest',
       label: 'Sign + Attest',
-      status: verifiedOrFailed(),
-      attestation: slsa ?? signature ?? provenance?.attestations[0],
+      status: statusOf(worstVerdict(all)),
+      attestation: weakest(all),
+      all,
     },
     {
       kind: 'supply-chain',
       id: 'rekor',
       label: 'Rekor',
-      status: foundOrPending(anyTlog),
-      attestation: (slsa?.transparencyLog ? slsa : provenance?.attestations.find(a => a.transparencyLog)),
+      status: statusOf(worstVerdict(logged)),
+      attestation: weakest(logged),
+      all,
     },
   ];
 }
@@ -427,82 +396,61 @@ function envStageNote(status: StageStatus): string {
 // today (glidepathProvenance.ts returns attestations generically, unlike
 // SLSA/SBOM which it can name) - so the SAST/SBOM stage's friendly copy
 // only asserts what's independently verifiable here: the SBOM.
+const STAGE_WHAT: Record<string, string> = {
+  build: 'build provenance',
+  'sast-sbom': 'SBOM',
+  signature: 'image signature',
+};
+
 function friendlySummary(
   stageId: string,
   att: Attestation | undefined,
-): { headline: string; body: string; pill?: { tone: 'good' | 'warn' | 'bad'; label: string } } {
-  switch (stageId) {
-    case 'build':
-      if (!att) {
+  all: Attestation[],
+): { headline: string; body: string; consequence?: string; pill?: { tone: 'good' | 'warn' | 'bad'; label: string } } {
+  if (!att) {
+    switch (stageId) {
+      case 'build':
+        return { headline: 'No build provenance', body: "This image has no SLSA provenance, so nothing records which pipeline built it." };
+      case 'sast-sbom':
         return {
-          headline: 'Not built through the verified pipeline yet',
-          body: 'No SLSA build provenance found for this image.',
+          headline: 'No SBOM attached',
+          body: 'This image has no software bill of materials. It may predate this gate, or the gate is off for this app. SAST and policy checks run in the pipeline but aren’t shown here yet.',
         };
-      }
-      return {
-        headline: 'Build complete',
-        body: 'This image was built and published from a real pipeline run, with recorded provenance of exactly where it came from.',
-        pill: { tone: 'good', label: 'provenance ✓' },
-      };
-    case 'sast-sbom':
-      if (!att) {
-        return {
-          headline: 'No SBOM attached yet',
-          body: 'This image has no software bill of materials recorded - it may predate this gate, or the gate is disabled for this app. Other CI gates (SAST, policy checks) run as part of this platform’s pipeline but aren’t independently surfaced here yet.',
-        };
-      }
-      return {
-        headline: att.verified ? 'SBOM produced, signed, and verified' : 'SBOM produced',
-        body: att.verified
-          ? 'Every dependency in this image is catalogued, and the catalogue itself is signed and independently verified.'
-          : 'A software bill of materials was found for this image, but its signature could not be independently verified.',
-        pill: att.verified
-          ? { tone: 'good', label: 'SBOM ✓' }
-          : { tone: 'warn', label: 'unverified' },
-      };
-    case 'signature':
-      if (!att) {
-        return {
-          headline: 'No image signature found',
-          body: 'This image has no classic cosign image-signing artifact (`cosign sign`) recorded - distinct from the SLSA/SBOM attestations above, which cover `cosign attest`. It may never have been directly signed, or that step is disabled for this app.',
-        };
-      }
-      return {
-        headline: att.verified ? 'Image signature verified' : 'Signature did not verify',
-        body: att.verified
-          ? 'The image manifest itself was signed with cosign, and that signature has been independently re-verified against this platform’s own root of trust.'
-          : (att.verificationError ?? 'This signature exists but could not be independently verified.'),
-        pill: att.verified ? { tone: 'good', label: 'signed ✓' } : { tone: 'bad', label: 'unverified' },
-      };
-    case 'sign-attest':
-      if (!att) {
-        return {
-          headline: 'No signature found',
-          body: 'This image carries no cosign attestations yet.',
-        };
-      }
-      return {
-        headline: att.verified ? 'Image signature verified' : 'Signature did not verify',
-        body: att.verified
-          ? 'This image was signed with cosign and that signature has been independently re-verified against this platform’s own root of trust.'
-          : (att.verificationError ?? 'This attestation exists but its signature failed verification.'),
-        pill: att.verified ? { tone: 'good', label: 'cosign ✓' } : { tone: 'bad', label: 'unverified' },
-      };
-    case 'rekor':
-      if (!att?.transparencyLog) {
-        return {
-          headline: 'Not logged to Rekor',
-          body: 'No public transparency-log entry recorded for this attestation yet.',
-        };
-      }
-      return {
-        headline: 'Logged to the transparency log',
-        body: `Recorded in this platform's own internal Rekor transparency log at entry #${att.transparencyLog.logIndex} - a permanent, tamper-evident record this platform can independently re-verify.`,
-        pill: { tone: 'good', label: `Rekor #${att.transparencyLog.logIndex}` },
-      };
-    default:
-      return { headline: '', body: '' };
+      case 'signature':
+        return { headline: 'No image signature', body: 'This image has no `cosign sign` signature on its manifest. The attestations are separate.' };
+      case 'rekor':
+        return { headline: 'Not in the transparency log', body: 'Nothing on this image has a Rekor entry.' };
+      default:
+        return { headline: 'Nothing signed', body: 'This image carries no signatures or attestations yet.' };
+    }
   }
+  if (stageId === 'sign-attest' || stageId === 'rekor') {
+    // A roll-up: say how many verified, then explain the weakest one.
+    const set = stageId === 'rekor' ? all.filter(a => a.transparencyLog) : all;
+    const ok = set.filter(a => verdictOf(a) === 'verified').length;
+    let what = 'build provenance';
+    if (att.predicateType === SIMPLE_SIGNING) what = 'image signature';
+    else if (/cyclonedx|spdx/i.test(att.predicateType)) what = 'SBOM';
+    if (ok === set.length) {
+      return {
+        headline: stageId === 'rekor' ? `All ${set.length} log entries check out` : `All ${set.length} signatures verified`,
+        body:
+          stageId === 'rekor'
+            ? "Each one is in this platform's own Rekor log, with a receipt signed by Rekor's current key."
+            : "The build provenance, SBOM and image signature all check out against this platform's signing root.",
+        pill: { tone: 'good', label: `${ok} of ${set.length} ✓` },
+      };
+    }
+    const e = explain(att, what);
+    return {
+      headline: `${ok} of ${set.length} verified. ${e.headline}.`,
+      body: e.body,
+      consequence: e.consequence,
+      pill: { tone: e.tone, label: `${ok} of ${set.length}` },
+    };
+  }
+  const e = explain(att, STAGE_WHAT[stageId] ?? 'attestation');
+  return { headline: e.headline, body: e.body, consequence: e.consequence, pill: { tone: e.tone, label: e.label } };
 }
 
 // The three stages whose attestation.predicate is a real document someone
@@ -577,7 +525,7 @@ function StageDrawer({
   }
 
   const att = stage.attestation;
-  const summary = friendlySummary(stage.id, att);
+  const summary = friendlySummary(stage.id, att, stage.all ?? []);
 
   return (
     <div className={classes.drawer}>
@@ -591,6 +539,7 @@ function StageDrawer({
         </div>
       )}
       <Typography className={classes.friendlyBody}>{summary.body}</Typography>
+      {summary.consequence && <Typography className={classes.friendlyBody}>{summary.consequence}</Typography>}
       {att && (
         <>
           {/* Both toggles sit side by side, independently of each other -
@@ -641,6 +590,8 @@ function StageDrawer({
                   <span className={classes.kvLabel}>Verified</span>
                   <span className={classes.kvValue}>
                     {att.verified ? 'signature verified ✓' : (att.verificationError ?? 'unverified')}
+                    {att.logSource === 'rekor' ? ' · log entry read from Rekor' : ''}
+                    {att.logSource === 'embedded' ? " · log entry from the image's own copy" : ''}
                   </span>
                 </div>
                 {att.transparencyLog && (

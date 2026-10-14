@@ -2,7 +2,8 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { useHangarTokens, type HangarTokens } from './brand/tokens';
 import type { ProvenanceResponse } from './types';
-import { StatusChip } from './ui';
+import { StatusChip, type StatusTone } from './ui';
+import { explain, findSlsa, isSignedAndAttested, verdictOf, worstVerdict, type Verdict } from './supplyChain';
 
 // One canonical rendering of "is this release's supply chain verified" -
 // cosign + SLSA + a real Rekor transparency-log link. Previously duplicated
@@ -16,23 +17,27 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   row: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' },
 }));
 
+const VERDICT_TONE: Record<Verdict, StatusTone> = { verified: 'ok', unverified: 'warn', contradicted: 'bad', missing: 'neutral' };
+
 export function SupplyChainChips({ provenance }: { provenance?: ProvenanceResponse }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   if (!provenance) return null;
 
-  const slsa = provenance.attestations.find(a => a.predicateType === 'https://slsa.dev/provenance/v0.2');
-  const anyVerified = provenance.attestations.some(a => a.verified);
+  const slsa = findSlsa(provenance);
+  const signedAndAttested = isSignedAndAttested(provenance);
   const rekor = provenance.attestations.find(a => a.transparencyLog)?.transparencyLog;
-  if (!slsa && !anyVerified) return null;
+  const logged = worstVerdict(provenance.attestations.filter(a => a.transparencyLog));
+  if (!slsa && provenance.attestations.length === 0) return null;
+  const slsaVerdict = verdictOf(slsa);
 
   return (
     <div className={classes.row}>
-      {anyVerified && (
-        <StatusChip tone="ok">cosign verified</StatusChip>
-      )}
+      {signedAndAttested && <StatusChip tone="ok">cosign verified</StatusChip>}
       {slsa && (
-        <StatusChip tone={slsa.verified ? 'ok' : 'warn'}>SLSA {slsa.verified ? 'provenance' : 'unverified'}</StatusChip>
+        <StatusChip tone={VERDICT_TONE[slsaVerdict]}>
+          SLSA {slsaVerdict === 'verified' ? 'provenance' : explain(slsa, 'build provenance').label}
+        </StatusChip>
       )}
       {rekor && (
         // Not a link: this platform runs its own internal Rekor
@@ -41,7 +46,7 @@ export function SupplyChainChips({ provenance }: { provenance?: ProvenanceRespon
         // that internal log, so linking out to sigstore's public
         // search.sigstore.dev would either 404 or, worse, silently resolve
         // to an unrelated public entry that happens to share the index.
-        <StatusChip tone="info">Rekor entry #{rekor.logIndex}</StatusChip>
+        <StatusChip tone={logged === 'verified' ? 'ok' : 'warn'}>Rekor entry #{rekor.logIndex}</StatusChip>
       )}
     </div>
   );

@@ -11,6 +11,7 @@ nav:
   - Deployments: deployments.md
   - Release records: release-records/index.md
   - Security model: security.md
+  - Supply chain: supply-chain.md
   - Cluster credentials: credentials/index.md
   - Break-glass debugging:
       - Overview: break-glass/index.md

@@ -31,7 +31,7 @@ apron (`docs/cluster-identity.md`, `components.clusterIdentity`).
 | **kiac-dev username** | `hangar:kind-prod:backstage-ingestor` | `hangar:kind-prod:tower-actor` |
 | **Group** | `hangar:kind-prod` | `hangar:kind-prod` |
 | **kind-prod ServiceAccount** | `backstage/backstage-ingestor` (the Backstage pod's own) | `backstage/tower-actor` (no pod runs as it, no RBAC on kind-prod, automount off) |
-| **Token** | projected volume at `/var/run/secrets/hangar/kiac-dev/token`: audience `kiac-dev`, 600 s, bound to the pod, refreshed by the kubelet at 80% | `TokenRequest` per write action: audience `kiac-dev`, 600 s, bound to the pod (`POD_NAME`/`POD_UID`), held in memory for that action only |
+| **Token** | projected volume at `/var/run/secrets/hangar/kiac-dev/token`: audience `kiac-dev`, 600 s, bound to the pod, refreshed by the kubelet at 80% | `TokenRequest` per write action: audience `kiac-dev`, 600 s, held in memory for that action only. Not bound to the pod: Kubernetes binds a token only to a pod running as the same ServiceAccount, and none runs as `tower-actor` |
 | **Used by** | the Kubernetes proxy (Tower's reads, the catalog ingestor), the pollers (recent activity, SLO transitions, release records, pipeline history), the provenance trust reads (Fulcio root, Rekor key) | Tekton Re-run and Cancel, release and rollback runs, break-glass (grant, debug container, attach, cleanup) |
 | **kiac-dev RBAC** | 13 read bindings in gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/rbac.yaml`: `view`, CRDs, Crossplane, Rollouts, Gateway API, GitHub MRs, Infisical projects, RBAC objects, topology resources, Argo CD Applications, and the Rekor, Prometheus and Tekton Results service proxies. No write verb. | `tower-actor-rbac.yaml`: `view`, `backstage-tekton-rerun` (create/patch PipelineRuns) and `tower-breakglass-binder` (create/delete `tower-breakglass-*` RoleBindings, bind the two debug roles) |
 
@@ -119,7 +119,6 @@ kubernetes:
 - **`deployment.yaml`:**
   - the `kiac-dev-token` projected volume (audience `kiac-dev`, `expirationSeconds: 600`), mounted at
     `/var/run/secrets/hangar/kiac-dev`;
-  - `POD_NAME`/`POD_UID` from the downward API;
   - the `kiac-dev-control-plane` hostAlias.
 - **`tower-actor.yaml`:** the `tower-actor` ServiceAccount and the minter Role and RoleBinding.
 - **kind-prod's API server** signs tokens as `https://hangarplatform.dev/oidc/kind-prod`. Its first

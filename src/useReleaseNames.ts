@@ -16,6 +16,7 @@ export interface ReleaseRecordIndexEntry {
   signoffs?: number;
   /** R3: the written-back outcome; what the changelog shows. */
   outcome?: RecordOutcome;
+  summary?: string;
   notes?: ReleaseDraft['notes'];
   knownIssues?: string[];
   owner?: string;

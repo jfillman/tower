@@ -15,6 +15,7 @@ import {
   type ReleaseRecord,
   type ReleaseRecordSecurityScan,
 } from './useReleaseRecords';
+import { isSignedAndAttested } from './supplyChain';
 
 // The next release, before any of it reaches Flight (the Release Record proposal's R1,
 // 2026-10-13). Read-only and computed: nothing here is stored. The draft opens the
@@ -223,7 +224,7 @@ export function buildNextRelease(input: {
         firstGroundAt: groundDates[0],
         build,
         scans: buildSecurityScans(findRelatedPipelineRuns(build, pipelineRuns)),
-        provenanceVerified: provenance ? provenance.attestations.some(a => a.verified) : undefined,
+        provenanceVerified: provenance ? isSignedAndAttested(provenance) : undefined,
         prCount: scope.filter(pr => new Date(pr.mergedAt!).getTime() <= landed!).length,
       };
     })

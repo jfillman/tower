@@ -10,6 +10,7 @@ import type { ProvenanceState } from './useReleaseData';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
 import { Callout, Card, healthTone, Stat, StatusChip, TextLink, Tile, type CalloutTone } from './ui';
+import { isSignedAndAttested } from './supplyChain';
 
 // The "permanent, dynamic command panel" from the 2026-09-16 Releases revamp
 // (Command Deck concept, merged with Split Sub-tabs and the Log's Table/
@@ -150,9 +151,7 @@ function verifiedSupplyChainCount(
     const state = provenanceByImage[env.image];
     if (!state || state.loading || !state.data) return;
     total += 1;
-    const slsa = state.data.attestations.find(a => a.predicateType === 'https://slsa.dev/provenance/v0.2');
-    const anyVerified = state.data.attestations.some(a => a.verified);
-    if (anyVerified && slsa?.verified) verified += 1;
+    if (isSignedAndAttested(state.data)) verified += 1;
   });
   return { verified, total };
 }

@@ -55,7 +55,7 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
 | Tekton Re-run a PipelineRun | `tower.pipeline.rerun` | owners | owners | medium |
 | Tekton Cancel a running PipelineRun | `tower.pipeline.cancel` | owners | owners | medium |
-| Edit a release record's human context, or the next release's draft (notes, owner, risk) | `tower.release-record.edit` | owners | owners | medium |
+| Edit a release record's after-release notes, or the next release's draft (summary, notes, owner, risk) | `tower.release-record.edit` | owners | owners | medium |
 | Change an app's release mode (Hand-flown / Assisted): opens a PR to the platform's release-modes file | `tower.release.mode` | admins only | admins only | medium |
 | Delete old images (Images tab → Clean up old images) | `tower.images.prune` | owners | owners | high |
 | Break-glass debug session (Topology → a pod → Debug) | `tower.breakglass.request` | owners | owners, **after a second person approves** | high (Flight request: medium) |

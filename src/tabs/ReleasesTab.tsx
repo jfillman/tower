@@ -235,6 +235,7 @@ export function ReleasesTab() {
             environments={pipelineEnvironments}
             provenanceByImage={provenanceByImage}
             onPromote={handlePromote}
+            names={releaseNames?.byTag}
           />
         )}
 
@@ -327,6 +328,7 @@ export function ReleasesTab() {
         onClose={() => setPromoteTarget(null)}
         promote={promote}
         targetIsLower={targetIsLower}
+        names={releaseNames}
         onConfirm={() => {
           if (!promoteTarget || !repoRef) return;
           const { source, target } = promoteTarget;

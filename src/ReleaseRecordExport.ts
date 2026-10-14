@@ -4,6 +4,7 @@ import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRec
 import { countedSignoffs, NOTE_CATEGORIES, OUTCOME_LABEL, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
 import type { SealedRelease } from './ReleaseSignoffPanel';
 import type { ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
+import { isSignedAndAttested } from './supplyChain';
 
 // Test-results cap matches ReleaseRecordDetail.tsx's own live-page cap - kept in
 // sync deliberately so the downloadable copy doesn't diverge from what's on screen.
@@ -53,17 +54,21 @@ function nicknameBadgeHtml(nickname: string | undefined): string {
 // copy below reflects that instead of a stale "Phase 2 isn't built yet"
 // claim.
 function humanContextHtml(humanContext: ReleaseRecordHumanContext | undefined): string {
-  if (!humanContext || (!humanContext.summary && !humanContext.risk && !humanContext.riskNotes && !humanContext.verificationNotes)) {
-    return 'No developer summary, risk notes, or verification notes have been added to this release\'s Record yet - see the Record tab\'s Human Context band.';
+  if (
+    !humanContext ||
+    (!humanContext.summary && !humanContext.risk && !humanContext.riskNotes && !humanContext.verificationNotes && !humanContext.followUps && humanContext.approvals.length === 0)
+  ) {
+    return '<h5>After release</h5>No notes have been added since this release shipped.';
   }
-  const lines: string[] = [];
+  const lines: string[] = ['<h5>After release</h5>'];
   if (humanContext.summary) lines.push(`<div><b>Summary:</b> ${esc(humanContext.summary)}</div>`);
   if (humanContext.risk) {
     lines.push(`<div><b>Risk:</b> ${esc(humanContext.risk)}${humanContext.riskNotes ? ` — ${esc(humanContext.riskNotes)}` : ''}</div>`);
   } else if (humanContext.riskNotes) {
     lines.push(`<div><b>Risk notes:</b> ${esc(humanContext.riskNotes)}</div>`);
   }
-  if (humanContext.verificationNotes) lines.push(`<div><b>Verification:</b> ${esc(humanContext.verificationNotes)}</div>`);
+  if (humanContext.verificationNotes) lines.push(`<div><b>Checked in production:</b> ${esc(humanContext.verificationNotes)}</div>`);
+  if (humanContext.followUps) lines.push(`<div><b>Follow-ups:</b> ${esc(humanContext.followUps)}</div>`);
   if (humanContext.approvals.length > 0) {
     lines.push(
       `<div><b>Acknowledged after release:</b> ${humanContext.approvals.map(a => esc(a.by) + (a.role ? ` (${esc(a.role)})` : '')).join(', ')}</div>`,
@@ -86,6 +91,7 @@ function releaseHtml(extras: ReleaseExtras | undefined): string {
   const release = extras?.release;
   const signoff = extras?.signoff;
   const parts: string[] = [];
+  if (release?.summary) parts.push(`<p>${esc(release.summary)}</p>`);
   NOTE_CATEGORIES.forEach(c => {
     const l = release?.notes?.[c];
     if (l && l.length > 0) parts.push(`<div><b>${NOTE_LABEL[c]}</b><ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
@@ -110,7 +116,7 @@ function releaseHtml(extras: ReleaseExtras | undefined): string {
 
 export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): string {
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
-  const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   const signoffs = extras?.signoffs ?? countedSignoffs(extras?.release?.signoff);
   const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
 

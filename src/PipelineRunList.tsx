@@ -47,6 +47,16 @@ const FLOW_FILTERS: Array<{ key: 'all' | 'ci' | 'pr-build' | 'guardrail'; label:
   { key: 'guardrail', label: 'Guardrails' },
 ];
 
+// Which filter chip a run's flow falls under. A release is more than the 'ci' flow: Tower's Promote and Roll back run
+// the release Pipeline as flow 'promote' / 'rollback', and a cicd.yaml can name its own flows (2026-10-14 bug: Release
+// flows showed none of boarding-api's promote runs). Everything labeled with a flow that isn't a preview build or a
+// guardrail is a release flow; a run with no flow at all shows only under All flows.
+export function flowBucket(flow?: string): 'ci' | 'pr-build' | 'guardrail' | undefined {
+  if (!flow) return undefined;
+  if (flow === 'pr-build' || flow === 'guardrail') return flow;
+  return 'ci';
+}
+
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number] | 'all';
 
@@ -385,7 +395,7 @@ export function PipelineRunList({
   const filtered = runs.filter(run => {
     const matchesStatus = statusFilter === 'all' || run.phase === statusFilter;
     if (!matchesStatus) return false;
-    const matchesFlow = flowFilter === 'all' || run.flow === flowFilter;
+    const matchesFlow = flowFilter === 'all' || flowBucket(run.flow) === flowFilter;
     if (!matchesFlow) return false;
     if (!query) return true;
     const haystack = [run.branch, run.pipelineName, run.sha, run.triggerName, run.eventType, run.flowSlug, run.name]

@@ -11,6 +11,7 @@ import { Progress } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { imageTag, type EnvironmentSummary } from './types';
 import type { usePromote } from './useReleaseData';
+import type { ReleaseNames } from './useReleaseNames';
 import { Button, TextLink } from './ui';
 
 // Ported from GlidepathPage.tsx's inline promote dialog - same tier-aware
@@ -37,8 +38,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
   },
+  lead: { color: ({ t }) => t.textHi, marginBottom: 6 },
   text: { color: ({ t }) => t.textLo },
-  error: { color: ({ t }) => t.bad },
+  error: { color: ({ t }) => t.bad, marginBottom: 6 },
+  details: { color: ({ t }) => t.textFaint, fontSize: 12, '& summary': { cursor: 'pointer' } },
+  detailsBody: { fontFamily: fontMono, fontSize: 11.5, marginTop: 6, maxHeight: 160, overflow: 'auto', overflowWrap: 'anywhere' },
   link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky },
 }));
 
@@ -50,6 +54,7 @@ export function PromoteDialog({
   promote,
   targetIsLower,
   onConfirm,
+  names,
 }: {
   // source is a real EnvironmentSummary when promoting an already-deployed
   // release forward, or just its image for a first deploy of a release
@@ -60,6 +65,8 @@ export function PromoteDialog({
   promote: ReturnType<typeof usePromote>;
   targetIsLower: boolean;
   onConfirm: () => void;
+  /** Release names: a build that already shipped to Flight is named; one that hasn't gets the next name there. */
+  names?: ReleaseNames;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -67,6 +74,8 @@ export function PromoteDialog({
   const source = target && 'env' in target.source ? target.source : undefined;
   const sourceImage = target && !source ? (target.source as { image: string }).image : undefined;
   const appName = source?.appName ?? target?.target.appName ?? 'this app';
+  const tag = imageTag(source ? source.image : sourceImage ?? '');
+  const releaseName = names?.byTag.get(tag);
 
   // Same tab=deployments&env=<env> deep link OverviewTab's own goToEnv/
   // goToRollout use (2026-09-16: "when you promote to an env and the PR
@@ -109,45 +118,35 @@ export function PromoteDialog({
           </DialogTitle>
           <DialogContent>
             {!promote.result && !promote.error && (
-              <DialogContentText className={classes.text}>
-                {targetIsLower ? (
-                  <>
-                    Commits directly to{' '}
-                    <span style={mono}>
-                      envs/{target.target.env}.yaml
-                    </span>{' '}
-                    in {appName}&apos;s glidepath/ folder{' '}
-                    - no PR, no review. ArgoCD syncs it as soon as this commit lands.
-                  </>
-                ) : (
-                  <>
-                    Runs {appName}&apos;s release pipeline, which opens a PR against{' '}
-                    <span style={mono}>gitops-{appName}</span> bumping{' '}
-                    <span style={mono}>
-                      {target.target.cluster}/{target.target.env}/release.yaml
-                    </span>{' '}
-                    and starts tracking the release. ArgoCD won&apos;t sync anything until that PR is reviewed and
-                    merged. Opening the PR takes about a minute.
-                  </>
-                )}{' '}
-                {source ? (
-                  <>
-                    Image: <span style={mono}>{imageTag(source.image)}</span> - currently promoted to{' '}
-                    {source.env}.
-                  </>
-                ) : (
-                  <>
-                    Image: <span style={mono}>{imageTag(sourceImage)}</span> - not yet deployed anywhere.
-                    This is its first deploy.
-                  </>
-                )}
-              </DialogContentText>
+              <>
+                <DialogContentText className={classes.lead}>
+                  {targetIsLower ? 'Deploys ' : 'Opens a release PR for '}
+                  {releaseName && <b>{`${releaseName} `}</b>}
+                  <span style={mono}>{tag}</span>
+                  {source ? `, now in ${source.env}` : ', its first deploy'}
+                  {targetIsLower ? `, to ${target.target.env} straight away.` : '.'}
+                </DialogContentText>
+                <DialogContentText className={classes.text}>
+                  {targetIsLower
+                    ? `${target.target.env} is a Ground environment, so there's no PR to review.`
+                    : `${target.target.env} changes only when you merge the PR. It takes about a minute to appear.`}
+                  {!targetIsLower && !releaseName && names
+                    ? ` Once it's healthy there, this build becomes the release ${names.next}.`
+                    : ''}
+                </DialogContentText>
+              </>
             )}
             {promote.loading && <Progress />}
             {promote.error && (
-              <DialogContentText className={classes.error} style={{ fontStyle: 'italic' }}>
-                Couldn't promote: {promote.error}
-              </DialogContentText>
+              <>
+                <DialogContentText className={classes.error}>
+                  {targetIsLower ? "Couldn't deploy." : "Couldn't start the release."}
+                </DialogContentText>
+                <details className={classes.details}>
+                  <summary>Details</summary>
+                  <div className={classes.detailsBody}>{promote.error}</div>
+                </details>
+              </>
             )}
             {promote.result?.mode === 'pr' && (
               <DialogContentText className={classes.text}>
