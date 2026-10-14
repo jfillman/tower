@@ -24,7 +24,7 @@ release being put together; see [Release records](release-records/index.md):
 - **Record list** (`ReleaseRecordList.tsx`): one row per record, with its tree name (`releaseNames.ts`), Flight ladder,
   readiness score and outcome chip; Compare; **Changelog** (`ReleaseChangelog.tsx`).
 - **Record detail** (`ReleaseRecordDetail.tsx`): masthead, **Release notes and sign-off** (`ReleaseSignoffPanel.tsx`),
-  **Outcome** (`ReleaseOutcome.tsx`), what changed, what was built, what happened, human context, export.
+  **Outcome** (`ReleaseOutcome.tsx`), what changed, what was built, what happened, After release, export.
 
 **Key components:** `ReleasesTab`, `ReleaseRecordPanel`, `ReleaseRecordDetail`
 
@@ -153,7 +153,7 @@ DAG rendering for Tekton pipelines and task dependency visualization.
 
 ### ReleaseRecordDetail
 
-One release record: masthead, sign-off, outcome, evidence, human context, export.
+One release record: masthead, sign-off, outcome, evidence, after-release notes, export.
 
 **Props:**
 ```typescript

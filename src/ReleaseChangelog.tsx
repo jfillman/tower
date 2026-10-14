@@ -53,7 +53,8 @@ export function ReleaseChangelog({ names, onBack }: { names?: ReleaseNames; onBa
                   {e.owner ? ` · ${e.owner}` : ''}
                 </span>
               </div>
-              {notes.length === 0 && !e.knownIssues?.length && <EmptyNote>No notes were written for this release.</EmptyNote>}
+              {e.summary && <div className={classes.section}>{e.summary}</div>}
+              {notes.length === 0 && !e.knownIssues?.length && !e.summary && <EmptyNote>No notes were written for this release.</EmptyNote>}
               {notes.map(c => (
                 <div key={c} className={classes.section}>
                   <b>{NOTE_LABEL[c]}</b>

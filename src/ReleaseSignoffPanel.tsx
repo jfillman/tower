@@ -59,6 +59,7 @@ export function ReleaseSignoffPanel({
   mode,
   loading,
   live,
+  addedAfter,
 }: {
   /** The release block of a v2 record; absent on records written before R2. */
   release?: SealedRelease;
@@ -69,6 +70,11 @@ export function ReleaseSignoffPanel({
   loading: boolean;
   /** Read live from the PR rather than from the record: shown, but not part of the score. */
   live?: boolean;
+  /**
+   * A summary or risk written into the record's human context after it shipped, before the draft carried them.
+   * Shown here, beside the release's own, so a record has one place for what the release was.
+   */
+  addedAfter?: { summary?: string; risk?: string; riskNotes?: string };
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -91,8 +97,9 @@ export function ReleaseSignoffPanel({
       <div className={classes.grid}>
         <Tile className={classes.column}>
           <SectionTitle level={2}>Release notes</SectionTitle>
-          {!release && <EmptyNote>Written before release notes were part of the record.</EmptyNote>}
-          {release && notes.length === 0 && <EmptyNote>No notes were written for this release.</EmptyNote>}
+          {release?.summary && <div className={classes.section}>{release.summary}</div>}
+          {!release && !addedAfter?.summary && <EmptyNote>Written before release notes were part of the record.</EmptyNote>}
+          {release && notes.length === 0 && !release.summary && <EmptyNote>No notes were written for this release.</EmptyNote>}
           {notes.map(c => (
             <div key={c} className={classes.section}>
               <b>{NOTE_LABEL[c]}</b>
@@ -112,6 +119,13 @@ export function ReleaseSignoffPanel({
                 ))}
               </ul>
             </div>
+          )}
+          {(addedAfter?.summary || addedAfter?.risk || addedAfter?.riskNotes) && (
+            <FactGrid>
+              {addedAfter.summary && <Fact label="Summary (added after release)">{addedAfter.summary}</Fact>}
+              {addedAfter.risk && <Fact label="Risk (added after release)">{addedAfter.risk}</Fact>}
+              {addedAfter.riskNotes && <Fact label="Risk notes (added after release)">{addedAfter.riskNotes}</Fact>}
+            </FactGrid>
           )}
           {release && (release.owner || release.risk) && (
             <FactGrid>

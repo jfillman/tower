@@ -331,9 +331,9 @@ export function ReleaseRecordDetail({
     })
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
   let recordNote =
-    'No Release Record has been committed yet for this image - Tower generates one automatically once a release like this reaches a Flight-tier environment and goes Healthy (usually within a few minutes). Human context can be added once that record exists.';
+    'No Release Record has been committed yet for this image - Tower writes one automatically once a release like this is healthy in its first Flight environment (within the hour). After-release notes can be added once that record exists.';
   if (recordPr?.state === 'open') {
-    recordNote = "Tower has opened this release's Release Record PR - human context can be added once it's merged.";
+    recordNote = "Tower has opened this release's Release Record PR. After-release notes can be added once it's merged.";
   } else if (recordPr) {
     recordNote = 'The Release Record PR has merged - refresh in a moment for the committed record.';
   }
@@ -350,6 +350,7 @@ export function ReleaseRecordDetail({
       form.risk !== persisted.data.humanContext.risk ||
       form.riskNotes !== (persisted.data.humanContext.riskNotes ?? '') ||
       form.verificationNotes !== (persisted.data.humanContext.verificationNotes ?? '') ||
+      (form.followUps ?? '') !== (persisted.data.humanContext.followUps ?? '') ||
       approvalsChanged);
   // A pending "add my approval" click appends a `by: ''` placeholder (see the
   // Approvals block below) - the backend (glidepathReleaseRecord.ts's
@@ -369,6 +370,7 @@ export function ReleaseRecordDetail({
     if (form.risk !== persisted.data?.humanContext.risk) summary.push(`set risk to ${form.risk ?? '(cleared)'}`);
     if (form.riskNotes !== (persisted.data?.humanContext.riskNotes ?? '')) summary.push('updated risk notes');
     if (form.verificationNotes !== (persisted.data?.humanContext.verificationNotes ?? '')) summary.push('updated verification notes');
+    if ((form.followUps ?? '') !== (persisted.data?.humanContext.followUps ?? '')) summary.push('updated follow-ups');
     if (approvalsChanged) {
       const before = persisted.data?.humanContext.approvals.length ?? 0;
       const after = form.approvals.length;
@@ -385,6 +387,7 @@ export function ReleaseRecordDetail({
         risk: form.risk,
         riskNotes: form.riskNotes,
         verificationNotes: form.verificationNotes,
+        followUps: form.followUps,
         approvals: form.approvals,
       },
       summary,
@@ -711,17 +714,26 @@ export function ReleaseRecordDetail({
           mode={sealedRelease?.mode}
           loading={liveSignoff.loading}
           live={!sealedRelease?.signoff}
+          addedAfter={
+            sealedRelease
+              ? {
+                  summary: persisted.data?.humanContext.summary,
+                  risk: persisted.data?.humanContext.risk,
+                  riskNotes: persisted.data?.humanContext.riskNotes,
+                }
+              : undefined
+          }
         />
       </div>
 
       <div className={classes.human}>
         <div className={classes.humanHead}>
-          <span className={classes.humanTitle}>Human context</span>
+          <span className={classes.humanTitle}>After release</span>
         </div>
         {!persistTarget && (
           <Typography className={classes.humanNote}>
-            Human context can't be added without knowing this app's GitHub owner - reopen this record from the
-            Releases tab rather than a direct link.
+            Notes can't be added without knowing this app's GitHub owner. Reopen this record from the Releases tab
+            rather than a direct link.
           </Typography>
         )}
         {persistTarget && persisted.loading && <Typography className={classes.humanNote}>Checking for a committed Release Record…</Typography>}
@@ -744,58 +756,76 @@ export function ReleaseRecordDetail({
         )}
         {persistTarget && persisted.data && (
           <div className={classes.humanForm}>
-            <div className={classes.humanField}>
-              <label className={classes.humanLabel} htmlFor="rr-summary">
-                Developer summary
-              </label>
-              <textarea
-                id="rr-summary"
-                className={classes.humanTextarea}
-                placeholder="What does this release actually change, in plain language?"
-                value={form.summary ?? ''}
-                onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
-              />
-            </div>
-            <div className={classes.humanRow}>
-              <div className={classes.humanField} style={{ maxWidth: 160 }}>
-                <label className={classes.humanLabel} htmlFor="rr-risk">
-                  Risk
-                </label>
-                <select
-                  id="rr-risk"
-                  className={classes.humanInput}
-                  value={form.risk ?? ''}
-                  onChange={e => setForm(f => ({ ...f, risk: (e.target.value || undefined) as ReleaseRecordHumanContext['risk'] }))}
-                >
-                  <option value="">— not set —</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
+            {/* Summary and risk are written in the draft now, before the release ships, and shown in Release notes.
+                Records written before the draft carried them can still be given them here. */}
+            {!sealedRelease && (
+              <>
               <div className={classes.humanField}>
-                <label className={classes.humanLabel} htmlFor="rr-risk-notes">
-                  Risk notes
+                <label className={classes.humanLabel} htmlFor="rr-summary">
+                  Summary (this record predates release notes)
                 </label>
-                <input
-                  id="rr-risk-notes"
-                  className={classes.humanInput}
-                  placeholder="Why that risk level?"
-                  value={form.riskNotes ?? ''}
-                  onChange={e => setForm(f => ({ ...f, riskNotes: e.target.value }))}
+                <textarea
+                  id="rr-summary"
+                  className={classes.humanTextarea}
+                  placeholder="What does this release actually change, in plain language?"
+                  value={form.summary ?? ''}
+                  onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
                 />
               </div>
-            </div>
+              <div className={classes.humanRow}>
+                <div className={classes.humanField} style={{ maxWidth: 160 }}>
+                  <label className={classes.humanLabel} htmlFor="rr-risk">
+                    Risk
+                  </label>
+                  <select
+                    id="rr-risk"
+                    className={classes.humanInput}
+                    value={form.risk ?? ''}
+                    onChange={e => setForm(f => ({ ...f, risk: (e.target.value || undefined) as ReleaseRecordHumanContext['risk'] }))}
+                  >
+                    <option value="">— not set —</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div className={classes.humanField}>
+                  <label className={classes.humanLabel} htmlFor="rr-risk-notes">
+                    Risk notes
+                  </label>
+                  <input
+                    id="rr-risk-notes"
+                    className={classes.humanInput}
+                    placeholder="Why that risk level?"
+                    value={form.riskNotes ?? ''}
+                    onChange={e => setForm(f => ({ ...f, riskNotes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              </>
+            )}
             <div className={classes.humanField}>
               <label className={classes.humanLabel} htmlFor="rr-verification">
-                Verification notes
+                How it was checked in production
               </label>
               <textarea
                 id="rr-verification"
                 className={classes.humanTextarea}
-                placeholder="What did you check before/after this went out?"
+                placeholder="What did you check once it was live?"
                 value={form.verificationNotes ?? ''}
                 onChange={e => setForm(f => ({ ...f, verificationNotes: e.target.value }))}
+              />
+            </div>
+            <div className={classes.humanField}>
+              <label className={classes.humanLabel} htmlFor="rr-follow-ups">
+                Follow-ups
+              </label>
+              <textarea
+                id="rr-follow-ups"
+                className={classes.humanTextarea}
+                placeholder="Incidents, fixes owed, anything you learned."
+                value={form.followUps ?? ''}
+                onChange={e => setForm(f => ({ ...f, followUps: e.target.value }))}
               />
             </div>
             <div className={classes.humanField}>
@@ -803,9 +833,9 @@ export function ReleaseRecordDetail({
                   plain span avoids jsx-a11y's label/control-association rule, which
                   doesn't apply here (nothing single here for it to label). */}
               <span className={classes.humanLabel} title="Added after release. They don't change the score: sign-off happens on the release PR before it merges.">
-                Acknowledgements (after release)
+                Acknowledgements
               </span>
-              {form.approvals.length === 0 && <Typography className={classes.humanNote}>No approvals on record yet.</Typography>}
+              {form.approvals.length === 0 && <Typography className={classes.humanNote}>No acknowledgements yet.</Typography>}
               {form.approvals.length > 0 && (
                 <div className={classes.approvalList}>
                   {form.approvals.map((a, i) => (
@@ -842,7 +872,7 @@ export function ReleaseRecordDetail({
                 </Button>
               ) : (
                 <Button small variant="primary" disabled={!dirty || submitContext.loading} onClick={onSubmitContext}>
-                  {submitContext.loading ? 'Opening PR…' : 'Open PR for human context'}
+                  {submitContext.loading ? 'Opening PR…' : 'Open PR for these notes'}
                 </Button>
               )}
               {persisted.data.humanContext.authoredBy && (

@@ -71,6 +71,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     '&:hover': { color: ({ t }) => t.sky, textDecoration: 'underline' },
   },
+  releaseName: { fontFamily: fontDisplay, letterSpacing: '0.06em', marginRight: 8, color: ({ t }) => t.amberInk },
   nicknameChip: {
     display: 'inline-block',
     marginLeft: 8,
@@ -153,6 +154,7 @@ export function ReleaseMatrix({
   environments,
   provenanceByImage,
   onPromote,
+  names,
 }: {
   releases: ReleaseRow[];
   totalCount: number;
@@ -167,6 +169,8 @@ export function ReleaseMatrix({
   // never been deployed anywhere (2026-09-16: "trigger a promotion to the
   // first env" for a build-only release).
   onPromote: (source: { env?: string; image?: string }, targetEnv: string) => void;
+  /** Image tag -> release name. A build that shipped to Flight is a release, and shows its name. */
+  names?: Map<string, string>;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -186,8 +190,9 @@ export function ReleaseMatrix({
         <div className={classes.head}>
           <SectionTitle>Release matrix</SectionTitle>
           <Typography className={classes.sub}>
-            Rows are recent releases, newest first · columns are environments in promotion order.
-            Read a column for what's live right now, a row for one release's full journey.
+            Rows are builds from main, newest first; a build that shipped to Flight shows its release name.
+            Columns are environments in promotion order. Read a column for what's live now, a row for one build's
+            journey.
           </Typography>
         </div>
         <div className={classes.scroll}>
@@ -205,7 +210,7 @@ export function ReleaseMatrix({
             <tbody>
               <tr>
                 <td colSpan={environments.length + 1} style={{ padding: '20px 0', textAlign: 'center' }}>
-                  <Typography className={classes.sub}>No releases recorded yet.</Typography>
+                  <Typography className={classes.sub}>No builds deployed yet.</Typography>
                 </td>
               </tr>
             </tbody>
@@ -239,11 +244,10 @@ export function ReleaseMatrix({
       <div className={classes.head}>
         <SectionTitle>Release matrix</SectionTitle>
         <Typography className={classes.sub}>
-          Rows are recent releases, newest first · columns are environments in promotion order.
-          Read a column for what's live right now, a row for one release's full journey.
-          {totalCount > releases.length
-            ? ` Showing the latest ${releases.length} of ${totalCount} known releases.`
-            : ''}
+          Rows are builds from main, newest first; a build that shipped to Flight shows its release name.
+          Columns are environments in promotion order. Read a column for what's live now, a row for one build's
+          journey.
+          {totalCount > releases.length ? ` Showing the latest ${releases.length} of ${totalCount} builds.` : ''}
         </Typography>
       </div>
       <div className={classes.scroll}>
@@ -268,6 +272,7 @@ export function ReleaseMatrix({
                     onClick={() => goToImage(row.imageTag)}
                     title={`View ${row.imageTag} in the Images tab`}
                   >
+                    {names?.get(row.imageTag) && <span className={classes.releaseName}>{names.get(row.imageTag)}</span>}
                     {row.imageTag}
                   </button>
                   {row.nickname && (
@@ -278,7 +283,7 @@ export function ReleaseMatrix({
                         borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
                         backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`,
                       }}
-                      title="This release's build flow, from the CI/CD tab"
+                      title="This build's flow, from the CI/CD tab"
                     >
                       {row.nickname}
                     </span>
@@ -416,8 +421,8 @@ export function ReleaseMatrix({
             )}
             {!openProvenance && openCell.status === 'deployed' && !openRow.image && (
               <Typography className={classes.fact} style={{ fontStyle: 'italic' }}>
-                This release is no longer live in any environment, so its supply-chain record isn't
-                held in memory here - only what deploy history recorded above.
+                This build is no longer live in any environment, so its supply-chain record isn't held in
+                memory here, only what deploy history recorded above.
               </Typography>
             )}
           </div>

@@ -47,7 +47,7 @@ useReleaseRecords.ts, releaseFlow.ts (draft, mode, sign-off, planned), useReleas
   ↓
 ReleaseRecordPanel: mode bar, Next release card + draft editor, record list, Compare, Changelog
   ↓
-ReleaseRecordDetail: masthead, sign-off, outcome, evidence, human context (saved as a PR)
+ReleaseRecordDetail: masthead, sign-off, outcome, evidence, after-release notes (saved as a PR)
 ```
 
 The backend owns every write and two scheduled tasks (sign-off poll every 2 minutes, record poll hourly) that open

@@ -1,8 +1,13 @@
 # Release records
 
-Releases → **Record** is an app's release history: one record per image that reached a Flight environment, with
-what changed, what was built and what happened, plus the human context people add. Above the records sits the
-release that is still being put together.
+Releases → **Record** is an app's release history: one record per release, with what changed, what was built and
+what happened, the notes written before it shipped and the notes added after. Above the records sits the release
+that is still being put together.
+
+**Builds and releases.** Every merge to main produces a *build*: an image such as `1.1.4-9d3dcde`, with a two-word
+slug for its pipeline flow. A build that ships to a Flight environment becomes a *release* and gets a name (HAZEL).
+The Matrix has a row per build and shows the name on the ones that became releases; Promote says which release an
+unnamed build becomes once it is healthy in Flight.
 
 A release is followed from the moment the previous one ships until its outcome is known:
 
@@ -29,8 +34,9 @@ It is computed from data Tower already reads and nothing is saved.
 | **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, version bumped, and a healthy previous release to roll back to. Display only: nothing is blocked. |
 | **Version** | A suggestion: the previous release's version plus the bump the merged PRs call for (a breaking change: major, or minor before 1.0; a feature: minor; otherwise patch). The real version is whatever the promoted image's tag carries. |
 
-**Notes and owner** is the one part of the draft people write: release notes in Keep a Changelog sections (Added,
-Changed, Fixed, Security, Deprecated, Removed), known issues, rollback notes, an owner and a risk level. "Fill empty
+**Notes and owner** is the one part of the draft people write: a one-paragraph summary of what the release does,
+release notes in Keep a Changelog sections (Added, Changed, Fixed, Security, Deprecated, Removed), known issues,
+rollback notes, an owner and a risk level. "Fill empty
 sections from the merged PRs" pre-fills the notes from the scope's PR titles. Saving makes a direct commit to
 `glidepath/releases/next.yaml` in the app's repo, which builds nothing. When the release reaches Flight, Tower copies
 the draft into its record (schema v2, under `release`) and clears the file for the next release. App owners and
@@ -97,8 +103,13 @@ record when it was written after the production PR merged, otherwise read live f
 approval points come from sign-offs that count (+5 each, up to +10), and only from sign-offs the record
 carries: one read live from the PR is shown but does not move the score, so a record scores the same in the list,
 in Compare and when opened. The list also uses the guardrail results frozen in each committed record, the same ones
-the opened record falls back to. Approvals added to a record's human context
-after release are shown as acknowledgements and earn nothing.
+the opened record falls back to.
+
+**After release** is what people add once a release has shipped, through a PR to the record: how it was checked in
+production, follow-ups (incidents, fixes owed, anything learned) and acknowledgements, which earn nothing. The
+summary and risk are written in the draft, before the release ships, and shown in Release notes and sign-off. A
+record written before the draft carried them (schema v1) can still be given a summary and risk under After release;
+a summary or risk added that way to a newer record is shown in Release notes, marked "added after release".
 
 ## Outcome (what happened after it shipped)
 

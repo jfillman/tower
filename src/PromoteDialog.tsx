@@ -11,6 +11,7 @@ import { Progress } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { imageTag, type EnvironmentSummary } from './types';
 import type { usePromote } from './useReleaseData';
+import type { ReleaseNames } from './useReleaseNames';
 import { Button, TextLink } from './ui';
 
 // Ported from GlidepathPage.tsx's inline promote dialog - same tier-aware
@@ -53,6 +54,7 @@ export function PromoteDialog({
   promote,
   targetIsLower,
   onConfirm,
+  names,
 }: {
   // source is a real EnvironmentSummary when promoting an already-deployed
   // release forward, or just its image for a first deploy of a release
@@ -63,6 +65,8 @@ export function PromoteDialog({
   promote: ReturnType<typeof usePromote>;
   targetIsLower: boolean;
   onConfirm: () => void;
+  /** Release names: a build that already shipped to Flight is named; one that hasn't gets the next name there. */
+  names?: ReleaseNames;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -70,6 +74,8 @@ export function PromoteDialog({
   const source = target && 'env' in target.source ? target.source : undefined;
   const sourceImage = target && !source ? (target.source as { image: string }).image : undefined;
   const appName = source?.appName ?? target?.target.appName ?? 'this app';
+  const tag = imageTag(source ? source.image : sourceImage ?? '');
+  const releaseName = names?.byTag.get(tag);
 
   // Same tab=deployments&env=<env> deep link OverviewTab's own goToEnv/
   // goToRollout use (2026-09-16: "when you promote to an env and the PR
@@ -115,7 +121,8 @@ export function PromoteDialog({
               <>
                 <DialogContentText className={classes.lead}>
                   {targetIsLower ? 'Deploys ' : 'Opens a release PR for '}
-                  <span style={mono}>{imageTag(source ? source.image : sourceImage)}</span>
+                  {releaseName && <b>{`${releaseName} `}</b>}
+                  <span style={mono}>{tag}</span>
                   {source ? `, now in ${source.env}` : ', its first deploy'}
                   {targetIsLower ? `, to ${target.target.env} straight away.` : '.'}
                 </DialogContentText>
@@ -123,6 +130,9 @@ export function PromoteDialog({
                   {targetIsLower
                     ? `${target.target.env} is a Ground environment, so there's no PR to review.`
                     : `${target.target.env} changes only when you merge the PR. It takes about a minute to appear.`}
+                  {!targetIsLower && !releaseName && names
+                    ? ` Once it's healthy there, this build becomes the release ${names.next}.`
+                    : ''}
                 </DialogContentText>
               </>
             )}

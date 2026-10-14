@@ -53,17 +53,21 @@ function nicknameBadgeHtml(nickname: string | undefined): string {
 // copy below reflects that instead of a stale "Phase 2 isn't built yet"
 // claim.
 function humanContextHtml(humanContext: ReleaseRecordHumanContext | undefined): string {
-  if (!humanContext || (!humanContext.summary && !humanContext.risk && !humanContext.riskNotes && !humanContext.verificationNotes)) {
-    return 'No developer summary, risk notes, or verification notes have been added to this release\'s Record yet - see the Record tab\'s Human Context band.';
+  if (
+    !humanContext ||
+    (!humanContext.summary && !humanContext.risk && !humanContext.riskNotes && !humanContext.verificationNotes && !humanContext.followUps && humanContext.approvals.length === 0)
+  ) {
+    return '<h5>After release</h5>No notes have been added since this release shipped.';
   }
-  const lines: string[] = [];
+  const lines: string[] = ['<h5>After release</h5>'];
   if (humanContext.summary) lines.push(`<div><b>Summary:</b> ${esc(humanContext.summary)}</div>`);
   if (humanContext.risk) {
     lines.push(`<div><b>Risk:</b> ${esc(humanContext.risk)}${humanContext.riskNotes ? ` — ${esc(humanContext.riskNotes)}` : ''}</div>`);
   } else if (humanContext.riskNotes) {
     lines.push(`<div><b>Risk notes:</b> ${esc(humanContext.riskNotes)}</div>`);
   }
-  if (humanContext.verificationNotes) lines.push(`<div><b>Verification:</b> ${esc(humanContext.verificationNotes)}</div>`);
+  if (humanContext.verificationNotes) lines.push(`<div><b>Checked in production:</b> ${esc(humanContext.verificationNotes)}</div>`);
+  if (humanContext.followUps) lines.push(`<div><b>Follow-ups:</b> ${esc(humanContext.followUps)}</div>`);
   if (humanContext.approvals.length > 0) {
     lines.push(
       `<div><b>Acknowledged after release:</b> ${humanContext.approvals.map(a => esc(a.by) + (a.role ? ` (${esc(a.role)})` : '')).join(', ')}</div>`,
@@ -86,6 +90,7 @@ function releaseHtml(extras: ReleaseExtras | undefined): string {
   const release = extras?.release;
   const signoff = extras?.signoff;
   const parts: string[] = [];
+  if (release?.summary) parts.push(`<p>${esc(release.summary)}</p>`);
   NOTE_CATEGORIES.forEach(c => {
     const l = release?.notes?.[c];
     if (l && l.length > 0) parts.push(`<div><b>${NOTE_LABEL[c]}</b><ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);

@@ -49,6 +49,8 @@ export const NOTE_LABEL: Record<NoteCategory, string> = {
 
 export interface ReleaseDraft {
   owner?: string;
+  /** One paragraph, in plain words: what this release does. (It was the human context's "developer summary".) */
+  summary?: string;
   notes?: Partial<Record<NoteCategory, string[]>>;
   knownIssues?: string[];
   risk?: { level?: 'low' | 'medium' | 'high'; notes?: string; rollback?: string };
