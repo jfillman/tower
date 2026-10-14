@@ -18,11 +18,58 @@ It is computed from data Tower already reads and nothing is saved.
 | **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, version bumped, and a healthy previous release to roll back to. Display only: nothing is blocked. |
 | **Version** | A suggestion: the previous release's version plus the bump the merged PRs call for (a breaking change: major, or minor before 1.0; a feature: minor; otherwise patch). The real version is whatever the promoted image's tag carries. |
 
+**Notes and owner** is the one part of the draft people write: release notes in Keep a Changelog sections (Added,
+Changed, Fixed, Security, Deprecated, Removed), known issues, rollback notes, an owner and a risk level. "Fill empty
+sections from the merged PRs" pre-fills the notes from the scope's PR titles. Saving makes a direct commit to
+`glidepath/releases/next.yaml` in the app's repo, which builds nothing. When the release reaches Flight, Tower copies
+the draft into its record (schema v2, under `release`) and clears the file for the next release. App owners and
+admins can edit it. Once loaded, the draft adds three readiness checks: release notes, release owner and, for
+Hand-flown apps, sign-off.
+
 **Promote** sends the leading candidate to the first Flight environment through the same promote flow as the
 Matrix. Tower only sees the 20 newest merged PRs, so the draft says when older scope may be missing.
 
 Merges that only touch `cicd.yaml`, `glidepath/` or `.tekton/` are in scope but build no image, so a draft can have
 scope and no candidate.
+
+## Release modes and sign-off
+
+An app releases in one of three modes:
+
+| Mode | What it means |
+|---|---|
+| **Hand-flown** | A release PR to the sign-off environment needs an approving review from someone other than the person who merges it. |
+| **Assisted** (the default) | A person merges each Flight release PR. Tower records who merged and who reviewed; no sign-off is required. |
+| **Autoland** | Releases land in production with no human. Not available yet: it needs real test results and canary metrics to decide on its own. |
+
+The **sign-off environment** is the Flight environment `cicd.yaml` marks `production: true`, else the last Flight
+environment. Staging and pre-prod never need a sign-off.
+
+Modes live in one platform-owned file, `release-modes.yaml` in `gitops-cluster-dev-tenants` (`tower.releaseModes` in
+app-config moves it). Only admins can change a mode: **Change** in the Record tab's mode bar opens a PR to that file,
+and the mode takes effect when the PR merges.
+
+```yaml
+defaultMode: assisted
+apps:
+  boarding-api: hand-flown
+```
+
+GitHub Free cannot require a check on a private repository, so Hand-flown is a soft gate:
+
+- Every two minutes Tower sets a `hangar/release-signoff` commit status on each open release PR to the sign-off
+  environment: pending until a sign-off counts, then success with who signed.
+- A release PR that merges without one (no approval, or only the merger's own) raises a high-severity "Shipped
+  without a sign-off" notification, and the record says so.
+
+A **sign-off counts** when it is an approving review (each reviewer's latest review decides), submitted before the
+merge, by someone other than the person who merged the PR. Release PRs are opened by the Glidepath app, so with one
+GitHub account a sign-off always needs a second account.
+
+The record's **Release notes and sign-off** panel shows the notes the draft carried and the sign-off: from the
+record when it was written after the production PR merged, otherwise read live from the PR. The confidence score's
+approval points now come from sign-offs that count (+5 each, up to +10). Approvals added to a record's human context
+after release are shown as acknowledgements and earn nothing.
 
 ## Release names
 

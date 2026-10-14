@@ -21,6 +21,16 @@ import { ReleaseRecordPanel } from '../ReleaseRecordPanel';
 import { useReleaseRecords } from '../useReleaseRecords';
 import { buildNextRelease } from '../nextRelease';
 import { useReleaseNames } from '../useReleaseNames';
+import {
+  RELEASE_MODE_LABEL,
+  suggestNotes,
+  useReleaseDraft,
+  useReleaseMode,
+  useSaveReleaseDraft,
+  useSubmitReleaseMode,
+} from '../releaseFlow';
+import { ReleaseModeBar } from '../ReleaseModeBar';
+import { ReleaseDraftEditor } from '../ReleaseDraftEditor';
 import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
 
 // Tower's Releases tab, revamped 2026-09-16 (Command Deck + Split Sub-tabs +
@@ -79,6 +89,21 @@ export function ReleasesTab() {
     pipelineOrder.upper,
   );
 
+  // R2: the app's release mode and the saved draft (notes, owner, risk), refetched after a save.
+  const flowTarget = owner && appName ? { owner, appName } : undefined;
+  const [flowNonce, setFlowNonce] = useState(0);
+  const releaseMode = useReleaseMode(flowTarget, flowNonce);
+  const savedDraft = useReleaseDraft(flowTarget, flowNonce);
+  const saveDraft = useSaveReleaseDraft();
+  const submitMode = useSubmitReleaseMode();
+  const flow = useMemo(
+    () =>
+      releaseMode.data || savedDraft.data || savedDraft.notFound
+        ? { draft: savedDraft.data, mode: releaseMode.data?.mode, signoffEnv: releaseMode.data?.signoffEnv }
+        : undefined,
+    [releaseMode.data, savedDraft.data, savedDraft.notFound],
+  );
+
   // The release in progress, shown above the records (Release Record R1). Computed here,
   // beside the records it follows, from the same data.
   const nextRelease = useMemo(
@@ -91,10 +116,11 @@ export function ReleasesTab() {
         provenanceByImage,
         pipelineEnvironments: pipelineEnvironmentsForRecords,
         pipelineOrder,
+        flow,
       }),
     // pipelineEnvironmentsForRecords is a fresh array every render; environments is its stable source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder],
+    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder, flow],
   );
   const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : undefined, releaseRecords);
 
@@ -238,6 +264,34 @@ export function ReleasesTab() {
             names={releaseNames}
             flightEnvs={pipelineOrder.upper}
             promoteTo={pipelineOrder.upper?.[0]}
+            modeLabel={releaseMode.data ? `${RELEASE_MODE_LABEL[releaseMode.data.mode]} release` : undefined}
+            signoffEnv={releaseMode.data?.signoffEnv}
+            modeBar={
+              releaseMode.data && owner && appName ? (
+                <ReleaseModeBar
+                  info={releaseMode.data}
+                  submitting={submitMode.loading}
+                  error={submitMode.error}
+                  prUrl={submitMode.result?.prUrl}
+                  onChange={mode => submitMode.submit({ owner, appName, mode })}
+                />
+              ) : undefined
+            }
+            draftEditor={
+              owner && appName && (savedDraft.data || savedDraft.notFound) ? (
+                <ReleaseDraftEditor
+                  saved={saveDraft.result?.draft ?? savedDraft.data}
+                  suggested={suggestNotes(nextRelease.scope)}
+                  canEdit={releaseMode.data?.canEditDraft ?? false}
+                  saving={saveDraft.loading}
+                  error={saveDraft.error}
+                  commitUrl={saveDraft.result?.commitUrl}
+                  onSave={async draft => {
+                    if (await saveDraft.submit({ owner, appName, draft })) setFlowNonce(n => n + 1);
+                  }}
+                />
+              ) : undefined
+            }
             onPromote={candidate => {
               // From the highest Ground environment running it; an image on none is promoted as an image.
               const lower = pipelineOrder.lower ?? [];

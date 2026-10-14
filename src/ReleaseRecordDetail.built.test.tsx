@@ -2,6 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import type { ReleaseRecord } from './useReleaseRecords';
 
+jest.mock('./releaseFlow', () => ({
+  ...jest.requireActual('./releaseFlow'),
+  useReleaseSignoff: () => ({ loading: false, notFound: true }),
+}));
+
 jest.mock('./useReleaseRecordPersistence', () => ({
   useReleaseRecordDoc: () => ({ loading: false, notFound: true }),
   useSubmitHumanContext: () => ({ loading: false, submit: jest.fn(), reset: jest.fn() }),

@@ -2,6 +2,7 @@ import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseRow } from './useReleaseContext';
+import { RELEASE_MODE_LABEL, type ReleaseDraft, type ReleaseMode } from './releaseFlow';
 import { envTierOf, extractShortShaFromImageTag, imageTag, type EnvironmentSummary } from './types';
 import {
   buildChangeCategories,
@@ -144,6 +145,8 @@ export function buildNextRelease(input: {
   provenanceByImage: Record<string, ProvenanceState>;
   pipelineEnvironments: EnvironmentSummary[];
   pipelineOrder: { lower?: string[]; upper?: string[] };
+  /** The saved draft and the app's release mode (R2), once loaded. Adds the notes, owner and sign-off checks. */
+  flow?: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string };
   now?: number;
 }): NextRelease {
   const { records, releases, sourcePrs, pipelineRuns, provenanceByImage, pipelineEnvironments, pipelineOrder } = input;
@@ -235,7 +238,7 @@ export function buildNextRelease(input: {
     leading,
     previousVersion,
     suggestedVersion,
-    readiness: buildReadiness({ scope, leading, previous, previousVersion, now }),
+    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow)],
   };
 }
 
@@ -319,5 +322,32 @@ function buildReadiness(input: {
     );
   }
 
+  return items;
+}
+
+// The checks the saved draft and the release mode add (R2). Notes and an owner are what a person
+// writes; the sign-off only applies to Hand-flown, where the production release PR needs it.
+function flowReadiness(flow: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string } | undefined): ReadinessItem[] {
+  if (!flow) return [];
+  const items: ReadinessItem[] = [];
+  const noteCount = Object.values(flow.draft?.notes ?? {}).reduce((n, l) => n + (l?.length ?? 0), 0);
+  items.push(
+    noteCount > 0
+      ? { id: 'notes', label: 'Release notes', state: 'ok', detail: `${noteCount} entr${noteCount === 1 ? 'y' : 'ies'} in the draft` }
+      : { id: 'notes', label: 'Release notes', state: 'todo', detail: 'Not written yet' },
+  );
+  items.push(
+    flow.draft?.owner
+      ? { id: 'owner', label: 'Release owner', state: 'ok', detail: flow.draft.owner }
+      : { id: 'owner', label: 'Release owner', state: 'todo', detail: 'Nobody named yet' },
+  );
+  if (flow.mode === 'hand-flown') {
+    items.push({
+      id: 'signoff',
+      label: 'Sign-off',
+      state: 'todo',
+      detail: `${RELEASE_MODE_LABEL['hand-flown']}: the ${flow.signoffEnv ?? 'production'} release PR needs an approving review from someone other than whoever merges it`,
+    });
+  }
   return items;
 }

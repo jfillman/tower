@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
@@ -28,6 +28,10 @@ export function ReleaseRecordPanel({
   flightEnvs,
   promoteTo,
   onPromote,
+  modeBar,
+  draftEditor,
+  modeLabel,
+  signoffEnv,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
@@ -41,6 +45,12 @@ export function ReleaseRecordPanel({
   flightEnvs?: string[];
   promoteTo?: string;
   onPromote?: (candidate: NextReleaseCandidate) => void;
+  /** R2: the release-mode bar above the draft, and the draft editor inside it. */
+  modeBar?: ReactNode;
+  draftEditor?: ReactNode;
+  modeLabel?: string;
+  /** The environment whose release PR carries the sign-off. */
+  signoffEnv?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -55,6 +65,7 @@ export function ReleaseRecordPanel({
       <ReleaseRecordDetail
         record={open}
         name={names?.byTag.get(open.imageTag)}
+        signoffEnv={signoffEnv}
         appName={appName}
         owner={owner}
         gitopsPrs={gitopsPrs}
@@ -66,6 +77,7 @@ export function ReleaseRecordPanel({
   }
   return (
     <>
+      {modeBar}
       {next && (
         <NextReleaseCard
           next={next}
@@ -73,7 +85,10 @@ export function ReleaseRecordPanel({
           previousName={next.previous ? names?.byTag.get(next.previous.imageTag) : undefined}
           promoteTo={promoteTo}
           onPromote={onPromote}
-        />
+          modeLabel={modeLabel}
+        >
+          {draftEditor}
+        </NextReleaseCard>
       )}
       <ReleaseRecordList
         records={records}

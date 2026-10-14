@@ -42,7 +42,7 @@ Tabs, in the order of a change's lifecycle: **Overview**, **Pull Requests**, **P
 **Releases**, **Topology**, **Images**, **SLOs**, **Notifications**, **App Configuration**, **Glidepath**. Plus a
 fleet-wide dashboard.
 
-- **Release Records**: structured release history, persisted as git commits, with compare and export; every release gets a tree name (ASPEN, BIRCH...), and a live **Next release** draft shows scope, open PRs, linked issues, candidate images and readiness before anything reaches Flight
+- **Release Records**: structured release history, persisted as git commits, with compare and export; every release gets a tree name (ASPEN, BIRCH...), and a live **Next release** draft shows scope, open PRs, linked issues, candidate images and readiness before anything reaches Flight, with release notes the team writes; release modes (Hand-flown, Assisted) with a sign-off on the production release PR
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
 - **Deployments ("Ground Control")**: plain-language troubleshooting, the six-step delivery path per environment, Argo CD Refresh, Sync, Force sync and Terminate, Rollout controls (resume, pause, abort, retry, restart, promote), Roll back
 - **Pull requests and checks**: the PRs in flight and their gates
