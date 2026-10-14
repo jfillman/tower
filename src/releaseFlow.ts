@@ -32,6 +32,8 @@ export interface ReleaseModeInfo {
   settable: ReleaseMode[];
   canSetMode: boolean;
   canEditDraft: boolean;
+  /** R4: where Jira keys in PRs link; absent turns Jira links off. */
+  jiraBaseUrl?: string;
 }
 
 export const NOTE_CATEGORIES = ['added', 'changed', 'fixed', 'security', 'deprecated', 'removed'] as const;
@@ -50,6 +52,11 @@ export interface ReleaseDraft {
   notes?: Partial<Record<NoteCategory, string[]>>;
   knownIssues?: string[];
   risk?: { level?: 'low' | 'medium' | 'high'; notes?: string; rollback?: string };
+  /** R4: the date the team is aiming for (YYYY-MM-DD), and the GitHub milestone holding the planned scope. */
+  targetDate?: string;
+  milestone?: string;
+  /** R3: publish a GitHub Release (tag v<version>) once this release is healthy in production. */
+  publishGithubRelease?: boolean;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -193,3 +200,70 @@ export function useSaveReleaseDraft() {
 export function useReleaseSignoff(target: { owner: string; appName: string; imageTag: string } | undefined) {
   return useGet<SignoffEvaluation>('/release-signoff', target, 0);
 }
+
+// --- R3: outcomes -------------------------------------------------------------------------
+
+export type OutcomeResult = 'clean' | 'rolled-back' | 'replaced-before-healthy' | 'stopped-before-production';
+
+/** What happened after a release shipped (backstage releaseOutcome.ts), written back into its record once final. */
+export interface RecordOutcome {
+  result?: OutcomeResult;
+  state: string;
+  env?: string;
+  healthyAt?: string;
+  closedAt?: string;
+  closedBy?: 'superseded' | 'rolled-back' | 'bake-complete' | 'moved-on';
+  supersededBy?: string;
+  rolledBackBy?: string;
+  rollbackReason?: string;
+  bakeDays: number;
+  sloMeasured: false;
+}
+
+export const OUTCOME_LABEL: Record<OutcomeResult, string> = {
+  clean: 'clean',
+  'rolled-back': 'rolled back',
+  'replaced-before-healthy': 'replaced before healthy',
+  'stopped-before-production': 'stopped before production',
+};
+
+// --- R4: planned scope and the fleet calendar ----------------------------------------------
+
+export interface PlannedIssue {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  url: string;
+  assignee?: string;
+}
+
+export interface PlannedScope {
+  milestone?: { number: number; title: string; url: string; dueOn?: string };
+  issues: PlannedIssue[];
+}
+
+export function useReleasePlanned(target: Target, refreshNonce = 0) {
+  return useGet<PlannedScope>('/release-planned', target, refreshNonce);
+}
+
+export interface CalendarEntry {
+  appName: string;
+  owner: string;
+  mode: ReleaseMode;
+  signoffEnv?: string;
+  next: { name: string; targetDate?: string; releaseOwner?: string; milestone?: string; noteCount: number };
+  inFlight: Array<{ env: string; imageTag: string; prUrl: string }>;
+  last?: { name: string; imageTag: string; at: string; outcome?: OutcomeResult };
+  error?: string;
+}
+
+/** The fleet's releases (Ops Wall). Refetched every five minutes, the backend's own cache window. */
+export function useReleaseCalendar() {
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNonce(n => n + 1), 5 * 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return useGet<CalendarEntry[]>('/release-calendar', EMPTY_PARAMS, nonce);
+}
+const EMPTY_PARAMS: Record<string, string> = {};

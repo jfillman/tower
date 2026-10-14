@@ -4,6 +4,7 @@ import { formatDateTime } from './shared/format';
 import { formatDuration } from './TimelinePanel';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { confidenceColor, statusPill } from './ReleaseRecordList';
+import { outcomeChip } from './ReleaseOutcome';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
 import { Fact, SectionTitle, StatusChip, type StatusTone, TextLink } from './ui';
@@ -164,7 +165,8 @@ function RecordColumn({
         <Fact inline label="PRs">{record.pullRequests.length}</Fact>
         <Fact inline label="Lead time (merge→prod)">{lead === undefined ? '—' : formatDuration(lead)}</Fact>
         <Fact inline label="Guardrail checks">{record.guardrails ? `${record.guardrails.passedChecks}/${record.guardrails.totalChecks}` : '—'}</Fact>
-        <Fact inline label="Confidence">
+        <Fact inline label="Outcome">{outcomeChip(record.outcome)?.label ?? 'not recorded'}</Fact>
+        <Fact inline label="Readiness">
           <span style={{ color: confidenceColor(t, displayScore(record)) }}>
             {displayScore(record)}
           </span>
@@ -226,7 +228,7 @@ export function ReleaseRecordCompare({
             classes={classes}
           />
           <Metric
-            label="Confidence"
+            label="Readiness"
             value={formatSignedInt(confidenceDelta)}
             tone={toneForHigherIsBetter(confidenceDelta)}
             t={t}

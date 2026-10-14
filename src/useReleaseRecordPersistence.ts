@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import type { SealedRelease } from './ReleaseSignoffPanel';
+import type { RecordOutcome } from './releaseFlow';
 
 // Phase 2 of HANDOFF-tower-release-record.md - the persisted counterpart to
 // Phase 1's client-only useReleaseRecords.ts. This talks to the two new
@@ -45,7 +46,9 @@ export interface ReleaseRecordDoc {
   humanContext: ReleaseRecordHumanContext;
   // v2 (Release Record R2): the draft the team wrote, the mode the release shipped under, and the
   // sign-off when the production release PR had already merged at sealing time.
-  release?: SealedRelease;
+  release?: SealedRelease & { githubRelease?: { tag?: string; url?: string; skipped?: string } };
+  /** R3: written back once final. */
+  outcome?: RecordOutcome;
 }
 
 export interface HumanContextChangeRequest {

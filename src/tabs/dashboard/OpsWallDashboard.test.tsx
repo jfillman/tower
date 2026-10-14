@@ -27,6 +27,11 @@ jest.mock('@backstage/core-plugin-api', () => ({
   }),
 }));
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
+// The release calendar (R4) fetches through useApi, which this file stubs with a fresh object per call.
+jest.mock('../../releaseFlow', () => ({
+  ...jest.requireActual('../../releaseFlow'),
+  useReleaseCalendar: () => ({ loading: false, data: [] }),
+}));
 jest.mock('../../breakglass/useBreakglassQueue', () => ({
   ...jest.requireActual('../../breakglass/useBreakglassQueue'),
   useBreakglassQueue: () => ({ data: { toApprove: [], toStart: [], toReview: [] }, failures: 0, loading: false, intervalMs: 30000 }),

@@ -19,6 +19,7 @@ import { BreakglassReleaseSessions } from './breakglass/BreakglassReleaseSession
 import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 import { countedSignoffs, useReleaseSignoff } from './releaseFlow';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
+import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
@@ -276,8 +277,11 @@ export function ReleaseRecordDetail({
   onBack,
   name,
   signoffEnv,
+  allNames,
 }: {
   record: ReleaseRecord;
+  /** Every release's name by image tag, to name the release that replaced or rolled back this one (R3). */
+  allNames?: Map<string, string>;
   /** The release's name (ASPEN, BIRCH...), once the app's release history has loaded. */
   name?: string;
   /** The environment whose release PR carries the sign-off (R2). */
@@ -443,7 +447,7 @@ export function ReleaseRecordDetail({
               {displayConfidence}
             </span>
             <span className={classes.scoreLbl}>
-              confidence
+              readiness
               <br />
               score
               <br />
@@ -475,9 +479,9 @@ export function ReleaseRecordDetail({
 
       {showScoreExplainer && (
         <div className={classes.explainer}>
-          <Typography style={{ fontWeight: 700, color: t.textHi, marginBottom: 6 }}>How the confidence score works</Typography>
+          <Typography style={{ fontWeight: 700, color: t.textHi, marginBottom: 6 }}>How the readiness score works</Typography>
           <Typography style={{ fontSize: 12, marginBottom: 8 }}>
-            A 0-100 heuristic built only from evidence Tower can see - not a prediction. It's a technical score plus a small bonus for sign-offs on the production release PR before it merged; it moves if any of that evidence changes.
+            A 0-100 heuristic built only from evidence Tower can see - not a prediction. It says how ready the release was when it shipped: a technical score plus a small bonus for sign-offs on the production release PR before it merged. What happened after it shipped is its outcome, shown separately.
           </Typography>
           {scoreLines.map(line => (
             <div key={line.label} className={classes.explainRow}>
@@ -689,6 +693,14 @@ export function ReleaseRecordDetail({
             onOpen={s => window.open(`${window.location.pathname}?${new URLSearchParams({ entity: new URLSearchParams(window.location.search).get('entity') ?? '', tab: 'topology', env: s.env, breakglass: s.id })}`, '_blank')}
           />
         </div>
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <ReleaseOutcomePanel
+          outcome={record.outcome ?? persisted.data?.outcome}
+          names={allNames}
+          githubRelease={persisted.data?.release?.githubRelease}
+        />
       </div>
 
       <div style={{ marginTop: 18 }}>

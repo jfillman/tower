@@ -74,6 +74,51 @@ in Compare and when opened. The list also uses the guardrail results frozen in e
 the opened record falls back to. Approvals added to a record's human context
 after release are shown as acknowledgements and earn nothing.
 
+## Outcome (what happened after it shipped)
+
+Each record gets an **outcome**, decided in its sign-off environment from Glidepath's release-tracking records:
+
+| Outcome | When |
+|---|---|
+| **clean** | It ran healthy there and a newer release replaced it, or it stayed healthy for the whole 7-day bake window. |
+| **rolled back** | A rollback release replaced it. The record names the release it rolled back to and the reason. |
+| **replaced before healthy** | A newer release replaced it there before it ever went healthy. |
+| **stopped before production** | It never reached production, and every environment it did reach moved on. |
+
+Until it is final, a record shows its live state (rolling out, or *baking · day 3 of 7*). Once final, Tower's
+backend writes the outcome into the record with one PR per release (branch `release-record-outcome-<app>-*`,
+excluded from the release gates like the record PRs themselves), together with the production sign-off when the
+record was written before that PR merged (an app with staging before production). Glidepath sweeps its tracking
+records after 14 days, so releases older than that, and cloud targets, have no outcome. SLO burn during the bake
+window is not measured yet: kind-prod's Prometheus is off, so there is no production metric to read.
+
+The record's score is now called **readiness**: how ready the release was when it shipped (guardrails, signed
+and attested, sign-offs). The old "+5, no incidents" points are gone; Tower never tracked incidents, so every
+release got them. What happened afterwards is the outcome, shown beside the score, not folded into it.
+
+**GitHub Release (opt-in per release).** Tick "Publish a GitHub Release" in the draft, and once the release is
+healthy in production Tower creates `v<version>` at the image's commit in the app repo, named after the release
+(`CEDAR · v1.9.0`), with the draft's notes as the body. It never moves a tag: if `v<version>` already tags another
+commit (the version was not bumped), it publishes nothing and the record says why.
+
+**Changelog.** "Changelog" beside the Release records title lists every committed release's notes, newest first.
+
+## Planning a release
+
+- **Target date** and **milestone** in the draft make it a scheduled release. The draft card then lists the
+  milestone's open issues as **Planned**, and readiness gains *Target date* (late shows as a to-do) and *Planned
+  issues closed*.
+- **Jira**: set `tower.jira.baseUrl` in app-config and Jira keys (`BAG-12`) in PR titles, bodies and branch names
+  link to it, next to the GitHub issues.
+- **Release calendar** on the Ops Wall: every app's next release by name, target date (late ones marked), owner,
+  note count, what is on its way to production, and how its last release ended.
+- **Announcements**: when a release PR to an app's sign-off environment opens ("CEDAR is ready for prod") and when
+  it merges ("CEDAR released to prod", with who signed off). They are Backstage notifications, in Tower's Activity
+  feed under Releases; no Slack integration is configured.
+- **Autoland eligibility** under the mode bar: what an app would need before Autoland could land releases on its
+  own (tests that report results, a canary rollout in production, production metrics, at least five recorded
+  outcomes with under 15% rolled back, and an average readiness of 80). Display only; Autoland is not available yet.
+
 ## Release names
 
 Every release gets a tree name, in order per app, the way hurricanes are named: ASPEN, BIRCH, CEDAR, DOGWOOD...

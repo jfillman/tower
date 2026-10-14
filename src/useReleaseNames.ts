@@ -3,6 +3,7 @@ import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api
 import { assignReleaseNames, releaseNameFor } from './releaseNames';
 import type { ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
+import type { RecordOutcome, ReleaseDraft } from './releaseFlow';
 
 // One committed Release Record, as the backend's /release-records listing returns it.
 export interface ReleaseRecordIndexEntry {
@@ -13,6 +14,12 @@ export interface ReleaseRecordIndexEntry {
   /** The record's frozen guardrails and counted sign-offs: what its score is built from beyond live data. */
   guardrails?: ReleaseRecordDoc['guardrails'];
   signoffs?: number;
+  /** R3: the written-back outcome; what the changelog shows. */
+  outcome?: RecordOutcome;
+  notes?: ReleaseDraft['notes'];
+  knownIssues?: string[];
+  owner?: string;
+  githubRelease?: { tag?: string; url?: string; skipped?: string };
 }
 
 export interface ReleaseNames {

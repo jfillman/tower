@@ -3,6 +3,8 @@ import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
 import { NextReleaseCard } from './NextReleaseCard';
+import { ReleaseChangelog } from './ReleaseChangelog';
+import { AutolandEligibility } from './AutolandEligibility';
 import type { NextRelease, NextReleaseCandidate } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { withRecordedEvidence, type ReleaseRecord } from './useReleaseRecords';
@@ -59,10 +61,12 @@ export function ReleaseRecordPanel({
     return liveRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
   }, [liveRecords, names]);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [compareId, setCompareId] = useState<string | null>(null);
   const open = openId ? records.find(r => r.id === openId) : undefined;
   const compareTarget = compareId ? records.find(r => r.id === compareId) : undefined;
 
+  if (showChangelog) return <ReleaseChangelog names={names} onBack={() => setShowChangelog(false)} />;
   if (open && compareTarget) {
     return <ReleaseRecordCompare left={compareTarget} right={open} onBack={() => setCompareId(null)} />;
   }
@@ -71,6 +75,7 @@ export function ReleaseRecordPanel({
       <ReleaseRecordDetail
         record={open}
         name={names?.byTag.get(open.imageTag)}
+        allNames={names?.byTag}
         signoffEnv={signoffEnv}
         appName={appName}
         owner={owner}
@@ -84,6 +89,7 @@ export function ReleaseRecordPanel({
   return (
     <>
       {modeBar}
+      {modeBar && records.length > 0 && <AutolandEligibility records={records} signoffEnv={signoffEnv} />}
       {next && (
         <NextReleaseCard
           next={next}
@@ -101,6 +107,7 @@ export function ReleaseRecordPanel({
         totalKnown={totalKnown}
         names={names?.byTag}
         flightEnvs={flightEnvs}
+        onChangelog={names ? () => setShowChangelog(true) : undefined}
         onOpen={id => {
           setCompareId(null);
           setOpenId(id);

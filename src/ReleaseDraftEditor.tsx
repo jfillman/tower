@@ -41,6 +41,9 @@ interface Form {
   riskLevel: '' | 'low' | 'medium' | 'high';
   riskNotes: string;
   rollback: string;
+  targetDate: string;
+  milestone: string;
+  publishGithubRelease: boolean;
 }
 
 function formOf(d: ReleaseDraft | undefined): Form {
@@ -51,6 +54,9 @@ function formOf(d: ReleaseDraft | undefined): Form {
     riskLevel: d?.risk?.level ?? '',
     riskNotes: d?.risk?.notes ?? '',
     rollback: d?.risk?.rollback ?? '',
+    targetDate: d?.targetDate ?? '',
+    milestone: d?.milestone ?? '',
+    publishGithubRelease: d?.publishGithubRelease ?? false,
   };
 }
 
@@ -65,6 +71,9 @@ export function draftOf(f: Form): ReleaseDraft {
     notes,
     knownIssues: toLines(f.knownIssues),
     risk: { level: f.riskLevel || undefined, notes: f.riskNotes.trim() || undefined, rollback: f.rollback.trim() || undefined },
+    targetDate: f.targetDate || undefined,
+    milestone: f.milestone.trim() || undefined,
+    publishGithubRelease: f.publishGithubRelease || undefined,
   };
 }
 
@@ -106,6 +115,7 @@ export function ReleaseDraftEditor({
         <span>
           {noteCount > 0 ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'No notes yet'} · owner{' '}
           {saved?.owner ?? 'not named'}
+          {saved?.targetDate && ` · target ${saved.targetDate}`}
           {saved?.updatedAt && ` · saved ${relativeTime(saved.updatedAt)}${saved.updatedBy ? ` by ${saved.updatedBy.replace(/^user:default\//, '')}` : ''}`}
         </span>
       </div>
@@ -168,6 +178,28 @@ export function ReleaseDraftEditor({
                 />
               )}
             </Field>
+            <Field id="rd-target" label="Target date (optional)">
+              {props => (
+                <input
+                  {...props}
+                  type="date"
+                  value={form.targetDate}
+                  disabled={!canEdit}
+                  onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))}
+                />
+              )}
+            </Field>
+            <Field id="rd-milestone" label="GitHub milestone (planned scope, optional)">
+              {props => (
+                <input
+                  {...props}
+                  value={form.milestone}
+                  disabled={!canEdit}
+                  placeholder="Its title or number"
+                  onChange={e => setForm(f => ({ ...f, milestone: e.target.value }))}
+                />
+              )}
+            </Field>
             <Field id="rd-owner" label="Release owner">
               {props => (
                 <input
@@ -206,6 +238,16 @@ export function ReleaseDraftEditor({
               )}
             </Field>
           </div>
+          <label className={classes.line} htmlFor="rd-gh-release">
+            <input
+              id="rd-gh-release"
+              type="checkbox"
+              checked={form.publishGithubRelease}
+              disabled={!canEdit}
+              onChange={e => setForm(f => ({ ...f, publishGithubRelease: e.target.checked }))}
+            />
+            Publish a GitHub Release (tag v&lt;version&gt;, these notes) when this release is healthy in production
+          </label>
           <div className={classes.line}>
             {canEdit ? (
               <Button small disabled={!dirty || saving} onClick={() => onSave(draftOf(form))}>

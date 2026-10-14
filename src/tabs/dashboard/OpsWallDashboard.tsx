@@ -14,6 +14,7 @@ import { useFleetPipelineRuns } from '../../fleet/useFleetPipelineRuns';
 import { useFleetPipelineHistory } from '../../fleet/useFleetPipelineHistory';
 import { formatCategories, parseCategories, type PipelineCategory } from '../../fleet/pipelineHistory';
 import { useFleetReleaseEvents, useFleetReleaseRecords } from '../../fleet/useFleetReleases';
+import { useReleaseCalendar } from '../../releaseFlow';
 import { isStale, usePolled, type Polled } from '../../fleet/usePolled';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip';
 import { BreakglassQueueStrip } from '../../breakglass/BreakglassQueueStrip';
@@ -30,6 +31,7 @@ import {
   DoraPanel,
   FitContext,
   PipelinesPanel,
+  ReleaseCalendarPanel,
 } from './opswall/panels';
 import { useOpsStyles } from './opswall/styles';
 import { FilterChips, FilterSelect } from '../../ui';
@@ -163,6 +165,7 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
   );
 
   // ---- polled sources
+  const calendar = useReleaseCalendar();
   const runs = useFleetPipelineRuns();
   const history = useFleetPipelineHistory(WINDOWS[opsWindow]);
   const records = useFleetReleaseRecords();
@@ -428,6 +431,16 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
         onWindow={d => setParam('dora', d === DEFAULT_DORA_WINDOW ? undefined : String(d))}
       />
     ),
+    releases: (
+      <ReleaseCalendarPanel
+        key="releases"
+        entries={calendar.data ?? []}
+        now={now}
+        towerHref={towerHref}
+        limit={10}
+        error={calendar.error}
+      />
+    ),
     activity: (
       <ActivityPanel
         key="activity"
@@ -443,14 +456,14 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
   const n = columnCount(width);
   let columns: ReactNode[][];
   if (n === 3) {
-    columns = [[panels.attention, panels.activity], [panels.pipelines], [panels.deployments, panels.dora]];
+    columns = [[panels.attention, panels.activity], [panels.pipelines], [panels.deployments, panels.releases, panels.dora]];
   } else if (n === 2) {
     columns = [
       [panels.attention, panels.pipelines, panels.activity],
-      [panels.deployments, panels.dora],
+      [panels.deployments, panels.releases, panels.dora],
     ];
   } else {
-    columns = [[panels.attention, panels.pipelines, panels.deployments, panels.dora, panels.activity]];
+    columns = [[panels.attention, panels.pipelines, panels.deployments, panels.releases, panels.dora, panels.activity]];
   }
 
   return (

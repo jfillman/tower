@@ -101,9 +101,9 @@ describe('buildNextRelease', () => {
 
   it('links the issues the scope and incoming PRs close', () => {
     expect(next.issues).toEqual([
-      { number: 198, url: 'https://github.com/o/bags/issues/198', prNumber: 11, merged: true },
-      { number: 5, url: 'https://github.com/o/other/issues/5', prNumber: 13, merged: true },
-      { number: 203, url: 'https://github.com/o/bags/issues/203', prNumber: 221, merged: false },
+      { label: '#198', url: 'https://github.com/o/bags/issues/198', prNumber: 11, merged: true },
+      { label: 'o/other#5', url: 'https://github.com/o/other/issues/5', prNumber: 13, merged: true },
+      { label: '#203', url: 'https://github.com/o/bags/issues/203', prNumber: 221, merged: false },
     ]);
   });
 
@@ -225,5 +225,44 @@ describe('readiness from the saved draft and release mode (R2)', () => {
 
   it('adds nothing before the draft and mode have loaded', () => {
     expect(withFlow(undefined)).toEqual([]);
+  });
+});
+
+describe('R4: Jira links, planned scope and the target date', () => {
+  it('links Jira keys from the title, body and branch when a Jira site is configured', () => {
+    const refs = closingIssueRefs(
+      pr({ number: 3, title: 'BAG-12: reprint', body: 'Also touches OPS-7', headRef: 'feature/BAG-99-x' }),
+      'https://acme.atlassian.net',
+    );
+    expect(refs.map(r => r.label)).toEqual(['BAG-12', 'OPS-7', 'BAG-99']);
+    expect(refs[0].url).toBe('https://acme.atlassian.net/browse/BAG-12');
+    expect(closingIssueRefs(pr({ number: 3, title: 'BAG-12: reprint' }))).toEqual([]);
+  });
+
+  it('checks the target date and the planned issues', () => {
+    const items = buildNextRelease({
+      records,
+      releases,
+      sourcePrs,
+      pipelineRuns: [],
+      provenanceByImage: {},
+      pipelineEnvironments: environments,
+      pipelineOrder,
+      flow: {
+        draft: { targetDate: '2026-10-11' },
+        planned: {
+          milestone: { number: 3, title: 'Oct bag-tag', url: 'm3' },
+          issues: [
+            { number: 1, title: 'a', state: 'closed', url: 'i1' },
+            { number: 2, title: 'b', state: 'open', url: 'i2' },
+          ],
+        },
+      },
+      now: NOW,
+    }).readiness.filter(i => ['target', 'planned'].includes(i.id));
+    expect(items.map(i => [i.id, i.state, i.detail])).toEqual([
+      ['target', 'todo', '2026-10-11 (3 days late)'],
+      ['planned', 'todo', '1 of 2 on Oct bag-tag'],
+    ]);
   });
 });

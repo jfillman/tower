@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
 import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
+import type { RecordOutcome } from './releaseFlow';
 import type { ProvenanceState } from './useReleaseData';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
 import type { ReleaseRow } from './useReleaseContext';
@@ -95,7 +96,8 @@ export interface ReleaseRecordSecurityScan {
   findingsSummary?: string;
 }
 
-export type ReleaseRecordStatus = 'healthy' | 'degraded' | 'superseded';
+// 'rolled-back' comes only from a record's written-back outcome (R3, withRecordedEvidence).
+export type ReleaseRecordStatus = 'healthy' | 'degraded' | 'superseded' | 'rolled-back';
 
 export interface ReleaseRecord {
   id: string;
@@ -156,6 +158,8 @@ export interface ReleaseRecord {
    * recorded evidence moves the score, so the list, Compare and the open record always agree.
    */
   signoffs?: number;
+  /** What happened after it shipped (R3), once written back into the committed record. */
+  outcome?: RecordOutcome;
 }
 
 // This platform's real image-tagging convention is "<version>-<7-char-sha>"
@@ -381,7 +385,8 @@ function computeConfidence(input: {
         : 15;
   }
   if (input.provenance?.attestations.some(a => a.verified)) score += 15;
-  score += 5; // incidents.length is always 0 in Phase 1 - see this file's header comment.
+  // R3: no "+5, no incidents" any more. Tower never tracked incidents, so every release got it; what
+  // happened after release is now the record's outcome, shown beside this score, not folded into it.
   return Math.min(100, Math.max(0, score));
 }
 
@@ -433,13 +438,19 @@ export function displayScore(record: ReleaseRecord): number {
  */
 export function withRecordedEvidence(
   record: ReleaseRecord,
-  recorded: { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number } | undefined,
+  recorded: { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number; outcome?: RecordOutcome } | undefined,
 ): ReleaseRecord {
   if (!recorded) return record;
-  const withGuardrails = recorded.guardrails
+  let out = recorded.guardrails
     ? withPersistedGuardrails(record, { guardrails: recorded.guardrails } as ReleaseRecordDoc)
     : record;
-  return recorded.signoffs === undefined ? withGuardrails : { ...withGuardrails, signoffs: recorded.signoffs };
+  if (recorded.signoffs !== undefined) out = { ...out, signoffs: recorded.signoffs };
+  if (recorded.outcome) {
+    out = { ...out, outcome: recorded.outcome };
+    // A release rolled back in production stays rolled back even if its image runs again later.
+    if (recorded.outcome.result === 'rolled-back' && !out.current) out = { ...out, status: 'rolled-back' };
+  }
+  return out;
 }
 
 export interface ConfidenceLine {
@@ -478,7 +489,6 @@ export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: numbe
         ? 'The image has a cosign/SLSA attestation that verified.'
         : 'No verified cosign/SLSA attestation found for this image.',
     },
-    { label: 'No incidents', points: 5, max: 5, note: 'No incidents are recorded against this release (Tower does not track incidents yet, so this is always awarded).' },
     {
       label: 'Sign-off before merge',
       points: Math.min(10, approvalsCount * 5),
