@@ -87,6 +87,8 @@ export function ReleaseDraftEditor({
   saving,
   error,
   commitUrl,
+  belongsTo,
+  nextName,
   onSave,
 }: {
   saved?: ReleaseDraft;
@@ -96,6 +98,9 @@ export function ReleaseDraftEditor({
   saving: boolean;
   error?: string;
   commitUrl?: string;
+  /** A release that reached Flight before its record was written: this saved draft is still its (useReleaseNames). */
+  belongsTo?: string;
+  nextName?: string;
   onSave: (draft: ReleaseDraft) => void;
 }) {
   const t = useHangarTokens();
@@ -113,7 +118,7 @@ export function ReleaseDraftEditor({
     <div className={classes.wrap}>
       <div className={classes.summary}>
         <TextLink expanded={open} onClick={() => setOpen(v => !v)}>
-          Notes and owner
+          {belongsTo ? `${belongsTo}'s notes and owner` : 'Notes and owner'}
         </TextLink>
         <span>
           {noteCount > 0 ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'No notes yet'} · owner{' '}
@@ -122,6 +127,11 @@ export function ReleaseDraftEditor({
           {saved?.updatedAt && ` · saved ${relativeTime(saved.updatedAt)}${saved.updatedBy ? ` by ${saved.updatedBy.replace(/^user:default\//, '')}` : ''}`}
         </span>
       </div>
+      {belongsTo && (
+        <Hint>
+          {`${belongsTo} reached Flight with these notes. Tower copies them into its record within a few minutes, then this draft starts over for ${nextName ?? 'the next release'}. A save before then still goes into ${belongsTo}'s record.`}
+        </Hint>
+      )}
       {open && (
         <>
           <Field id="rd-summary" label="Summary: what this release does, in plain words">

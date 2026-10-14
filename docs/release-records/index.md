@@ -83,7 +83,11 @@ A **sign-off counts** when it is an approving review (each reviewer's latest rev
 merge, by someone who neither merged nor opened the PR. Release PRs are opened by the Glidepath app, so with one
 GitHub account a sign-off always needs a second account.
 
-![A Hand-flown release: Glidepath opens the release PR; every two minutes the Tower backend sets the sign-off status to pending and announces the release is ready; a second account approves and the status turns to success; you merge and the backend announces the release; within the hour it commits the record, and once the outcome is final it opens the outcome PR](diagrams/03-hand-flown.png)
+![A Hand-flown release: Glidepath opens the release PR; every two minutes the Tower backend sets the sign-off status to pending and announces the release is ready; a second account approves and the status turns to success; you merge and the backend announces the release; within minutes it commits the record, and once the outcome is final it opens the outcome PR](diagrams/03-hand-flown.png)
+
+The record PR, which seals the draft, comes within a few minutes of the release being healthy in its first Flight
+environment; the outcome PR is hourly. Until the record PR is open, the draft editor says whose notes it holds ("IRONWOOD's notes and owner"): the release has its name, but its
+notes have not moved yet.
 
 A release PR to the sign-off environment ends in one of these sign-off states, shown in the record's **Release notes
 and sign-off** panel:
@@ -171,12 +175,13 @@ for that tag at the same commit is linked, not recreated. The link reaches the r
 | GitHub Release | `v<version>` in the app repo | The record poll, once the release is healthy in production |
 | Rollout state | `release-tracking-*` ConfigMaps in `app-<app>-cicd` on the dev cluster | Glidepath (read only here); swept after 14 days |
 
-The backend runs two scheduled tasks, one replica at a time:
+The backend runs three scheduled tasks, one replica at a time:
 
 | Task | Every | Does |
 |---|---|---|
 | `release-signoff-poll` | 2 minutes | Sets the sign-off status on each open Hand-flown release PR to the sign-off environment; announces "ready" when such a PR opens and "released" when it merges, for every app; raises "Shipped without a sign-off". A restart does not announce history: each app's PRs are snapshotted the first time the poll sees the app. |
 | `release-record-poll` | hour | Opens the record PR once the first Flight environment is healthy; publishes the opted-in GitHub Release; opens the outcome PR once the outcome is final. An open PR is reused, never duplicated. |
+| `release-record-seal-poll` | 2 minutes | The record PR alone, so a release's draft is sealed into its record (and `next.yaml` cleared) within a few minutes of it being healthy in its first Flight environment. Plans are cached for an hour and recorded releases remembered, so a quiet tick makes no GitHub calls. |
 
 The Release calendar is computed on request and cached for five minutes.
 
