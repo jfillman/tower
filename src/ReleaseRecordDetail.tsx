@@ -21,6 +21,7 @@ import { countedSignoffs, useReleaseSignoff } from './releaseFlow';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
+import { isSignedAndAttested } from './supplyChain';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -300,7 +301,7 @@ export function ReleaseRecordDetail({
   const persisted = useReleaseRecordDoc(persistTarget);
   // Guardrails frozen into the committed record win over nothing, never over live data - see withPersistedGuardrails.
   const record = withPersistedGuardrails(liveRecord, persisted.data);
-  const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
   const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
   const liveDeployment = record.deployments.find(d => d.isLive);

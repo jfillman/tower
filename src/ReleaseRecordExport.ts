@@ -4,6 +4,7 @@ import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRec
 import { countedSignoffs, NOTE_CATEGORIES, OUTCOME_LABEL, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
 import type { SealedRelease } from './ReleaseSignoffPanel';
 import type { ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
+import { isSignedAndAttested } from './supplyChain';
 
 // Test-results cap matches ReleaseRecordDetail.tsx's own live-page cap - kept in
 // sync deliberately so the downloadable copy doesn't diverge from what's on screen.
@@ -115,7 +116,7 @@ function releaseHtml(extras: ReleaseExtras | undefined): string {
 
 export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: ReleaseRecordHumanContext, extras?: ReleaseExtras): string {
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
-  const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   const signoffs = extras?.signoffs ?? countedSignoffs(extras?.release?.signoff);
   const displayConfidence = applyApprovalBonus(record.confidence, signoffs);
 

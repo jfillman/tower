@@ -16,6 +16,7 @@ import {
   type ProvenanceResponse,
   type WorkloadDetail,
 } from './types';
+import { isSignedAndAttested } from './supplyChain';
 
 // The Release Record - HANDOFF-tower-release-record.md's design, Phase 1
 // ("read-only, no new infra"). That handoff sketched a ReleaseRecord shape
@@ -384,7 +385,7 @@ function computeConfidence(input: {
         ? Math.round((input.guardrails.passedChecks / input.guardrails.totalChecks) * 30)
         : 15;
   }
-  if (input.provenance?.attestations.some(a => a.verified)) score += 15;
+  if (isSignedAndAttested(input.provenance)) score += 15;
   // R3: no "+5, no incidents" any more. Tower never tracked incidents, so every release got it; what
   // happened after release is now the record's outcome, shown beside this score, not folded into it.
   return Math.min(100, Math.max(0, score));
@@ -477,7 +478,7 @@ export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: numbe
         ? `${g.passedChecks} of ${g.totalChecks} required release guardrails passed (scaled to 30).`
         : 'The release PR reported no required checks (half credit).';
   }
-  const verified = record.provenance?.attestations.some(a => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   return [
     { label: 'Baseline', points: 50, max: 50, note: 'Every release that reached a Flight-tier environment starts here.' },
     { label: 'Release guardrails', points: guardPoints, max: 30, note: guardNote },
