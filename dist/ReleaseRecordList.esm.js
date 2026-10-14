@@ -40,6 +40,11 @@ const useStyles = makeStyles(() => ({
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },
   scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
+  relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", color: ({ t }) => t.textHi, marginRight: 10 },
+  ladder: { display: "flex", flexWrap: "wrap", gap: 10, marginTop: 4, fontFamily: fontMono, fontSize: 11 },
+  rungDone: { color: ({ t }) => t.textLo },
+  rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
+  rungTodo: { color: ({ t }) => t.textFaint },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
   sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
@@ -62,6 +67,8 @@ function statusPill(record) {
 function ReleaseRecordList({
   records,
   totalKnown,
+  names,
+  flightEnvs,
   onOpen
 }) {
   const t = useHangarTokens();
@@ -103,6 +110,7 @@ function ReleaseRecordList({
             ] }),
             /* @__PURE__ */ jsxs("div", { children: [
               /* @__PURE__ */ jsxs("span", { className: classes.ver, children: [
+                names?.get(record.imageTag) && /* @__PURE__ */ jsx("span", { className: classes.relName, children: names.get(record.imageTag) }),
                 record.version ?? record.imageTag,
                 record.nickname && /* @__PURE__ */ jsx("span", { style: { marginLeft: 8 }, children: /* @__PURE__ */ jsx(NicknameChip, { nickname: record.nickname }) }),
                 /* @__PURE__ */ jsx("span", { className: classes.tagMono, children: record.imageDigest ? record.imageDigest.slice(0, 19) : record.imageTag })
@@ -113,7 +121,22 @@ function ReleaseRecordList({
                 record.pullRequests.length === 1 ? "" : "s",
                 prAuthor ? ` \xB7 ${prAuthor}` : "",
                 record.status === "degraded" && record.current ? " \xB7 currently degraded" : ""
-              ] })
+              ] }),
+              flightEnvs && flightEnvs.length > 1 && /* @__PURE__ */ jsx("div", { className: classes.ladder, "aria-label": "Flight environments", children: flightEnvs.map((env) => {
+                const d = record.deployments.find((x) => x.env.toLowerCase() === env.toLowerCase());
+                if (d?.isLive) return /* @__PURE__ */ jsxs("span", { className: classes.rungLive, children: [
+                  "\u25CF ",
+                  env
+                ] }, env);
+                if (d) return /* @__PURE__ */ jsxs("span", { className: classes.rungDone, children: [
+                  "\u2713 ",
+                  env
+                ] }, env);
+                return /* @__PURE__ */ jsxs("span", { className: classes.rungTodo, children: [
+                  "\u25CB ",
+                  env
+                ] }, env);
+              }) })
             ] }),
             /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),

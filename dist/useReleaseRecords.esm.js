@@ -19,6 +19,23 @@ function findRelatedPipelineRuns(buildRun, pipelineRuns) {
   if (!buildRun.flowSlug) return [buildRun];
   return pipelineRuns.filter((r) => r.flowSlug === buildRun.flowSlug).sort((a, b) => new Date(a.startTime ?? 0).getTime() - new Date(b.startTime ?? 0).getTime());
 }
+function landedAtMs(tag, sourcePrs, pipelineRuns, row) {
+  const toMs = (iso) => {
+    const t = iso ? new Date(iso).getTime() : Number.NaN;
+    return Number.isNaN(t) ? void 0 : t;
+  };
+  const shortSha = extractShortShaFromImageTag(tag)?.toLowerCase();
+  if (shortSha) {
+    const pr = sourcePrs.find(
+      (p) => p.state === "merged" && p.mergedAt && p.mergeCommitSha?.toLowerCase().startsWith(shortSha)
+    );
+    const fromPr = toMs(pr?.mergedAt);
+    if (fromPr !== void 0) return fromPr;
+    const fromBuild = toMs(findPipelineRunForTag(tag, pipelineRuns)?.startTime);
+    if (fromBuild !== void 0) return fromBuild;
+  }
+  return toMs(row?.introducedAt);
+}
 const NON_TEST_RESULT_NAMES = /* @__PURE__ */ new Set(["span-start-time", "span-end-time"]);
 function buildTestResults(relatedRuns) {
   const results = [];
@@ -128,10 +145,12 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
     const deployedUpperEnvs = upperEnvs.filter((e) => row.cells[e.env]?.status === "deployed");
     if (deployedUpperEnvs.length === 0) return void 0;
     const createdAt = deployedUpperEnvs.map((e) => row.cells[e.env].date).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
-    return { row, createdAt, createdAtMs: new Date(createdAt).getTime() };
+    const createdAtMs = new Date(createdAt).getTime();
+    const landedMs = landedAtMs(row.imageTag, sourcePrs, pipelineRuns, row) ?? createdAtMs;
+    return { row, createdAt, createdAtMs, landedMs };
   }).filter((x) => Boolean(x)).sort((a, b) => a.createdAtMs - b.createdAtMs);
   const releasePrFor = (env, tag) => gitopsPrForEnvAndImage(gitopsPrs, env, tag) ?? sourcePrs.find((pr) => pr.releasePin === env && pr.title.includes(tag));
-  const records = qualifying.map(({ row, createdAt, createdAtMs }, i) => {
+  const records = qualifying.map(({ row, createdAt, landedMs }, i) => {
     const previous = qualifying[i - 1];
     const liveUpperEnvs = upperEnvs.filter((e) => e.image && imageTag(e.image) === row.imageTag);
     const isLive = liveUpperEnvs.length > 0;
@@ -141,8 +160,8 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
     const pullRequests = sourcePrs.filter((pr) => {
       if (pr.state !== "merged" || !pr.mergedAt || pr.releasePin) return false;
       const mergedMs = new Date(pr.mergedAt).getTime();
-      if (mergedMs > createdAtMs) return false;
-      return previous ? mergedMs > previous.createdAtMs : true;
+      if (mergedMs > landedMs) return false;
+      return previous ? mergedMs > previous.landedMs : true;
     }).sort((a, b) => new Date(a.mergedAt).getTime() - new Date(b.mergedAt).getTime());
     const deployedEnvs = pipelineEnvironments.filter((e) => row.cells[e.env]?.status === "deployed");
     const commits = deployedEnvs.map((e) => ({
@@ -243,5 +262,5 @@ function useReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs, s
   );
 }
 
-export { applyApprovalBonus, buildReleaseRecords, confidenceBreakdown, dedupeCommits, useReleaseRecords, withPersistedGuardrails };
+export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, confidenceBreakdown, dedupeCommits, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails };
 //# sourceMappingURL=useReleaseRecords.esm.js.map

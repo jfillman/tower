@@ -253,7 +253,8 @@ function ReleaseRecordDetail({
   gitopsPrs,
   otherRecords,
   onCompare,
-  onBack
+  onBack,
+  name
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -327,6 +328,7 @@ function ReleaseRecordDetail({
         /* @__PURE__ */ jsxs("div", { children: [
           /* @__PURE__ */ jsx("div", { className: classes.kicker, children: "Release Record" }),
           /* @__PURE__ */ jsxs(Typography, { className: classes.h3, children: [
+            name && /* @__PURE__ */ jsx("span", { style: { letterSpacing: "0.06em", marginRight: 10 }, children: name }),
             record.version ?? record.imageTag,
             record.nickname && /* @__PURE__ */ jsx("span", { style: { marginLeft: 8 }, children: /* @__PURE__ */ jsx(NicknameChip, { nickname: record.nickname }) }),
             appName && /* @__PURE__ */ jsxs("span", { className: classes.app, children: [

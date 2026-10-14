@@ -1,5 +1,5 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
@@ -19,6 +19,8 @@ import { deployTargetOf } from '../serviceClass.esm.js';
 import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
 import { useReleaseRecords } from '../useReleaseRecords.esm.js';
+import { buildNextRelease } from '../nextRelease.esm.js';
+import { useReleaseNames } from '../useReleaseNames.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -41,6 +43,21 @@ function ReleasesTab() {
     pipelineOrder.lower,
     pipelineOrder.upper
   );
+  const nextRelease = useMemo(
+    () => buildNextRelease({
+      records: releaseRecords,
+      releases,
+      sourcePrs,
+      pipelineRuns,
+      provenanceByImage,
+      pipelineEnvironments: pipelineEnvironmentsForRecords,
+      pipelineOrder
+    }),
+    // pipelineEnvironmentsForRecords is a fresh array every render; environments is its stable source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder]
+  );
+  const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : void 0, releaseRecords);
   const [activeTab, setActiveTab] = useState("matrix");
   const [promoteTarget, setPromoteTarget] = useState(null);
   const promote = usePromote();
@@ -143,7 +160,18 @@ function ReleasesTab() {
           totalKnown: releases.length,
           appName,
           owner,
-          gitopsPrs
+          gitopsPrs,
+          next: nextRelease,
+          names: releaseNames,
+          flightEnvs: pipelineOrder.upper,
+          promoteTo: pipelineOrder.upper?.[0],
+          onPromote: (candidate) => {
+            const lower = pipelineOrder.lower ?? [];
+            const source = [...candidate.liveOn].sort(
+              (a, b) => lower.indexOf(b) - lower.indexOf(a)
+            )[0];
+            handlePromote({ env: source, image: candidate.image }, pipelineOrder.upper[0]);
+          }
         }
       )
     ] }),
