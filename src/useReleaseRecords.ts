@@ -158,7 +158,7 @@ export interface ReleaseRecord {
 // used for the record's own display version. A bare-sha tag (pull_request
 // builds) has no separate version to show, so this returns undefined rather
 // than the sha itself - imageTag/nickname already cover that display.
-function versionFromImageTag(tag: string): string | undefined {
+export function versionFromImageTag(tag: string): string | undefined {
   return tag.match(/^(.+)-[0-9a-f]{7,40}$/i)?.[1];
 }
 
@@ -180,7 +180,7 @@ function versionFromImageTag(tag: string): string | undefined {
 // watcher deletes the live object (now within ~1h of completion). This
 // function itself needed no change - the fix lives entirely in what list
 // gets passed in.
-function findPipelineRunForTag(tag: string, pipelineRuns: PipelineRunSummary[]): PipelineRunSummary | undefined {
+export function findPipelineRunForTag(tag: string, pipelineRuns: PipelineRunSummary[]): PipelineRunSummary | undefined {
   const shortSha = extractShortShaFromImageTag(tag);
   if (!shortSha) return undefined;
   return pipelineRuns.find(r => r.sha?.toLowerCase().startsWith(shortSha.toLowerCase()));
@@ -195,7 +195,7 @@ function findPipelineRunForTag(tag: string, pipelineRuns: PipelineRunSummary[]):
 // run with no flowSlug at all (a chain this platform's own chain-slug
 // TaskResult predates, or a genuinely standalone build) just returns itself
 // - no flow to correlate against, not an error.
-function findRelatedPipelineRuns(
+export function findRelatedPipelineRuns(
   buildRun: PipelineRunSummary | undefined,
   pipelineRuns: PipelineRunSummary[],
 ): PipelineRunSummary[] {
@@ -204,6 +204,35 @@ function findRelatedPipelineRuns(
   return pipelineRuns
     .filter(r => r.flowSlug === buildRun.flowSlug)
     .sort((a, b) => new Date(a.startTime ?? 0).getTime() - new Date(b.startTime ?? 0).getTime());
+}
+
+// When an image's commit landed on main: the merge time of the PR whose merge commit it
+// was built from, else its build run's start, else its first deploy anywhere. A release's
+// PRs are the ones merged after the previous release's commit landed and up to its own -
+// not up to when it reached Flight, which would hand a PR merged after the image was
+// built to a release that doesn't contain it. The next release's draft (nextRelease.ts)
+// uses the same boundary, so a PR is never in both.
+export function landedAtMs(
+  tag: string,
+  sourcePrs: PullRequestSummary[],
+  pipelineRuns: PipelineRunSummary[],
+  row?: Pick<ReleaseRow, 'introducedAt'>,
+): number | undefined {
+  const toMs = (iso: string | undefined) => {
+    const t = iso ? new Date(iso).getTime() : Number.NaN;
+    return Number.isNaN(t) ? undefined : t;
+  };
+  const shortSha = extractShortShaFromImageTag(tag)?.toLowerCase();
+  if (shortSha) {
+    const pr = sourcePrs.find(
+      p => p.state === 'merged' && p.mergedAt && p.mergeCommitSha?.toLowerCase().startsWith(shortSha),
+    );
+    const fromPr = toMs(pr?.mergedAt);
+    if (fromPr !== undefined) return fromPr;
+    const fromBuild = toMs(findPipelineRunForTag(tag, pipelineRuns)?.startTime);
+    if (fromBuild !== undefined) return fromBuild;
+  }
+  return toMs(row?.introducedAt);
 }
 
 // Every Task in this platform's catalog writes these two span-timing results
@@ -274,7 +303,7 @@ function buildTestResults(relatedRuns: PipelineRunSummary[]): ReleaseRecordTestR
 // happens to have a PR-comment path today.
 const SECURITY_SCAN_TASK_NAMES = ['sast-scan', 'image-scan'] as const;
 
-function buildSecurityScans(relatedRuns: PipelineRunSummary[]): ReleaseRecordSecurityScan[] {
+export function buildSecurityScans(relatedRuns: PipelineRunSummary[]): ReleaseRecordSecurityScan[] {
   const buildRun = relatedRuns.find(r => r.pipelineName === 'build');
   if (!buildRun) return [];
   const scans: ReleaseRecordSecurityScan[] = [];
@@ -322,7 +351,7 @@ function classifyPr(pr: PullRequestSummary): keyof ChangeCategoryCounts | undefi
   return undefined;
 }
 
-function buildChangeCategories(prs: PullRequestSummary[]): ChangeCategoryCounts {
+export function buildChangeCategories(prs: PullRequestSummary[]): ChangeCategoryCounts {
   const counts: ChangeCategoryCounts = { features: 0, fixes: 0, chores: 0 };
   prs.forEach(pr => {
     const bucket = classifyPr(pr);
@@ -467,9 +496,11 @@ export function buildReleaseRecords(
       const createdAt = deployedUpperEnvs
         .map(e => row.cells[e.env].date!)
         .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
-      return { row, createdAt, createdAtMs: new Date(createdAt).getTime() };
+      const createdAtMs = new Date(createdAt).getTime();
+      const landedMs = landedAtMs(row.imageTag, sourcePrs, pipelineRuns, row) ?? createdAtMs;
+      return { row, createdAt, createdAtMs, landedMs };
     })
-    .filter((x): x is { row: ReleaseRow; createdAt: string; createdAtMs: number } => Boolean(x))
+    .filter((x): x is { row: ReleaseRow; createdAt: string; createdAtMs: number; landedMs: number } => Boolean(x))
     .sort((a, b) => a.createdAtMs - b.createdAtMs);
 
   // A Flight release's approval: its gitops release PR (Kubernetes) or its release pin PR on the source repo
@@ -478,7 +509,7 @@ export function buildReleaseRecords(
     gitopsPrForEnvAndImage(gitopsPrs, env, tag) ??
     sourcePrs.find(pr => pr.releasePin === env && pr.title.includes(tag));
 
-  const records = qualifying.map(({ row, createdAt, createdAtMs }, i) => {
+  const records = qualifying.map(({ row, createdAt, landedMs }, i) => {
     const previous = qualifying[i - 1];
     const liveUpperEnvs = upperEnvs.filter(e => e.image && imageTag(e.image) === row.imageTag);
     const isLive = liveUpperEnvs.length > 0;
@@ -491,8 +522,8 @@ export function buildReleaseRecords(
       .filter(pr => {
         if (pr.state !== 'merged' || !pr.mergedAt || pr.releasePin) return false;
         const mergedMs = new Date(pr.mergedAt).getTime();
-        if (mergedMs > createdAtMs) return false;
-        return previous ? mergedMs > previous.createdAtMs : true;
+        if (mergedMs > landedMs) return false;
+        return previous ? mergedMs > previous.landedMs : true;
       })
       .sort((a, b) => new Date(a.mergedAt!).getTime() - new Date(b.mergedAt!).getTime());
 

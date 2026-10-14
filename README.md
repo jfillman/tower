@@ -39,7 +39,7 @@ Part of the [Hangar](https://github.com/jfillman/hangar) platform. Brand files: 
 Tabs, in the order of a change's lifecycle: Overview, Pull Requests, Pipelines, Deployments, Releases, Topology,
 Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards (Ops Wall, Fleet Grid).
 
-- **Release Records**: structured release history, persisted as git commits, with compare and export
+- **Release Records**: structured release history, persisted as git commits, with compare and export; every release gets a tree name (ASPEN, BIRCH...), and a live **Next release** draft shows scope, open PRs, linked issues, candidate images and readiness before anything reaches Flight
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
 - **Deployments ("Ground Control")**: plain-language troubleshooting, the six-step delivery path per environment, Argo CD Refresh, Sync, Force sync and Terminate, Rollout controls (resume, pause, abort, retry, restart, promote), Roll back
 - **App Configuration and Glidepath**: edit environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
