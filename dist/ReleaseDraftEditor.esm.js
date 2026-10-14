@@ -26,6 +26,7 @@ const toLines = (s) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 function formOf(d) {
   return {
     owner: d?.owner ?? "",
+    summary: d?.summary ?? "",
     notes: Object.fromEntries(NOTE_CATEGORIES.map((c) => [c, toText(d?.notes?.[c])])),
     knownIssues: toText(d?.knownIssues),
     riskLevel: d?.risk?.level ?? "",
@@ -44,6 +45,7 @@ function draftOf(f) {
   });
   return {
     owner: f.owner.trim() || void 0,
+    summary: f.summary.trim() || void 0,
     notes,
     knownIssues: toLines(f.knownIssues),
     risk: { level: f.riskLevel || void 0, notes: f.riskNotes.trim() || void 0, rollback: f.rollback.trim() || void 0 },
@@ -84,6 +86,17 @@ function ReleaseDraftEditor({
       ] })
     ] }),
     open && /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx(Field, { id: "rd-summary", label: "Summary: what this release does, in plain words", children: (props) => /* @__PURE__ */ jsx(
+        "textarea",
+        {
+          ...props,
+          className: `${props.className} ${classes.textarea}`,
+          value: form.summary,
+          disabled: !canEdit,
+          placeholder: "Gate agents can reprint a bag tag without starting over.",
+          onChange: (e) => setForm((f) => ({ ...f, summary: e.target.value }))
+        }
+      ) }),
       /* @__PURE__ */ jsx("div", { className: classes.grid, children: shown.map((c) => /* @__PURE__ */ jsx(Field, { id: `rd-notes-${c}`, label: `${NOTE_LABEL[c]} (one per line)`, children: (props) => /* @__PURE__ */ jsx(
         "textarea",
         {

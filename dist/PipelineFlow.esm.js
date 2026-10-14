@@ -15,64 +15,41 @@ import LockIcon from '@material-ui/icons/Lock';
 import { formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { JsonDocumentView } from './ResourceInspector.esm.js';
+import { findSlsa, findSbom, findSignature, verdictOf, worstVerdict, SIMPLE_SIGNING, explain } from './supplyChain.esm.js';
 
 function buildSupplyChainStages(provenance, loading) {
-  const slsa = provenance?.attestations.find(
-    (a) => a.predicateType === "https://slsa.dev/provenance/v0.2"
-  );
-  const sbom = provenance?.attestations.find(
-    (a) => a.predicateType.toLowerCase().includes("cyclonedx")
-  );
-  const signature = provenance?.attestations.find(
-    (a) => a.predicateType === "cosign.sigstore.dev/signature/simple-signing"
-  );
-  const anyVerified = provenance?.attestations.some((a) => a.verified) ?? false;
-  const anyTlog = provenance?.attestations.some((a) => a.transparencyLog) ?? false;
-  function foundOrPending(found) {
-    if (loading) return "pending";
-    if (found) return "done";
-    return provenance ? "warn" : "pending";
+  const slsa = findSlsa(provenance);
+  const sbom = findSbom(provenance);
+  const signature = findSignature(provenance);
+  const all = provenance?.attestations ?? [];
+  const logged = all.filter((a) => a.transparencyLog);
+  function statusOf(verdict) {
+    if (loading || !provenance) return "pending";
+    if (verdict === "verified") return "done";
+    if (verdict === "contradicted") return "fail";
+    if (verdict === "unverified") return "warn";
+    return "pending";
   }
-  function verifiedOrFailed() {
-    if (loading) return "pending";
-    if (anyVerified) return "done";
-    return (provenance?.attestations.length ?? 0) > 0 ? "fail" : "pending";
-  }
+  const weakest = (atts) => atts.find((a) => verdictOf(a) === "contradicted") ?? atts.find((a) => verdictOf(a) === "unverified") ?? atts[0];
   return [
-    {
-      kind: "supply-chain",
-      id: "build",
-      label: "Build",
-      status: foundOrPending(Boolean(slsa)),
-      attestation: slsa
-    },
-    {
-      kind: "supply-chain",
-      id: "sast-sbom",
-      label: "SAST / SBOM",
-      status: foundOrPending(Boolean(sbom)),
-      attestation: sbom
-    },
-    {
-      kind: "supply-chain",
-      id: "signature",
-      label: "Signature",
-      status: foundOrPending(Boolean(signature)),
-      attestation: signature
-    },
+    { kind: "supply-chain", id: "build", label: "Build", status: statusOf(verdictOf(slsa)), attestation: slsa },
+    { kind: "supply-chain", id: "sast-sbom", label: "SAST / SBOM", status: statusOf(verdictOf(sbom)), attestation: sbom },
+    { kind: "supply-chain", id: "signature", label: "Signature", status: statusOf(verdictOf(signature)), attestation: signature },
     {
       kind: "supply-chain",
       id: "sign-attest",
       label: "Sign + Attest",
-      status: verifiedOrFailed(),
-      attestation: slsa ?? signature ?? provenance?.attestations[0]
+      status: statusOf(worstVerdict(all)),
+      attestation: weakest(all),
+      all
     },
     {
       kind: "supply-chain",
       id: "rekor",
       label: "Rekor",
-      status: foundOrPending(anyTlog),
-      attestation: slsa?.transparencyLog ? slsa : provenance?.attestations.find((a) => a.transparencyLog)
+      status: statusOf(worstVerdict(logged)),
+      attestation: weakest(logged),
+      all
     }
   ];
 }
@@ -325,71 +302,52 @@ function envStageNote(status) {
   if (status === "done") return "This release has already passed through this environment.";
   return "Not reached by this release yet.";
 }
-function friendlySummary(stageId, att) {
-  switch (stageId) {
-    case "build":
-      if (!att) {
+const STAGE_WHAT = {
+  build: "build provenance",
+  "sast-sbom": "SBOM",
+  signature: "image signature"
+};
+function friendlySummary(stageId, att, all) {
+  if (!att) {
+    switch (stageId) {
+      case "build":
+        return { headline: "No build provenance", body: "This image has no SLSA provenance, so nothing records which pipeline built it." };
+      case "sast-sbom":
         return {
-          headline: "Not built through the verified pipeline yet",
-          body: "No SLSA build provenance found for this image."
+          headline: "No SBOM attached",
+          body: "This image has no software bill of materials. It may predate this gate, or the gate is off for this app. SAST and policy checks run in the pipeline but aren\u2019t shown here yet."
         };
-      }
-      return {
-        headline: "Build complete",
-        body: "This image was built and published from a real pipeline run, with recorded provenance of exactly where it came from.",
-        pill: { tone: "good", label: "provenance \u2713" }
-      };
-    case "sast-sbom":
-      if (!att) {
-        return {
-          headline: "No SBOM attached yet",
-          body: "This image has no software bill of materials recorded - it may predate this gate, or the gate is disabled for this app. Other CI gates (SAST, policy checks) run as part of this platform\u2019s pipeline but aren\u2019t independently surfaced here yet."
-        };
-      }
-      return {
-        headline: att.verified ? "SBOM produced, signed, and verified" : "SBOM produced",
-        body: att.verified ? "Every dependency in this image is catalogued, and the catalogue itself is signed and independently verified." : "A software bill of materials was found for this image, but its signature could not be independently verified.",
-        pill: att.verified ? { tone: "good", label: "SBOM \u2713" } : { tone: "warn", label: "unverified" }
-      };
-    case "signature":
-      if (!att) {
-        return {
-          headline: "No image signature found",
-          body: "This image has no classic cosign image-signing artifact (`cosign sign`) recorded - distinct from the SLSA/SBOM attestations above, which cover `cosign attest`. It may never have been directly signed, or that step is disabled for this app."
-        };
-      }
-      return {
-        headline: att.verified ? "Image signature verified" : "Signature did not verify",
-        body: att.verified ? "The image manifest itself was signed with cosign, and that signature has been independently re-verified against this platform\u2019s own root of trust." : att.verificationError ?? "This signature exists but could not be independently verified.",
-        pill: att.verified ? { tone: "good", label: "signed \u2713" } : { tone: "bad", label: "unverified" }
-      };
-    case "sign-attest":
-      if (!att) {
-        return {
-          headline: "No signature found",
-          body: "This image carries no cosign attestations yet."
-        };
-      }
-      return {
-        headline: att.verified ? "Image signature verified" : "Signature did not verify",
-        body: att.verified ? "This image was signed with cosign and that signature has been independently re-verified against this platform\u2019s own root of trust." : att.verificationError ?? "This attestation exists but its signature failed verification.",
-        pill: att.verified ? { tone: "good", label: "cosign \u2713" } : { tone: "bad", label: "unverified" }
-      };
-    case "rekor":
-      if (!att?.transparencyLog) {
-        return {
-          headline: "Not logged to Rekor",
-          body: "No public transparency-log entry recorded for this attestation yet."
-        };
-      }
-      return {
-        headline: "Logged to the transparency log",
-        body: `Recorded in this platform's own internal Rekor transparency log at entry #${att.transparencyLog.logIndex} - a permanent, tamper-evident record this platform can independently re-verify.`,
-        pill: { tone: "good", label: `Rekor #${att.transparencyLog.logIndex}` }
-      };
-    default:
-      return { headline: "", body: "" };
+      case "signature":
+        return { headline: "No image signature", body: "This image has no `cosign sign` signature on its manifest. The attestations are separate." };
+      case "rekor":
+        return { headline: "Not in the transparency log", body: "Nothing on this image has a Rekor entry." };
+      default:
+        return { headline: "Nothing signed", body: "This image carries no signatures or attestations yet." };
+    }
   }
+  if (stageId === "sign-attest" || stageId === "rekor") {
+    const set = stageId === "rekor" ? all.filter((a) => a.transparencyLog) : all;
+    const ok = set.filter((a) => verdictOf(a) === "verified").length;
+    let what = "build provenance";
+    if (att.predicateType === SIMPLE_SIGNING) what = "image signature";
+    else if (/cyclonedx|spdx/i.test(att.predicateType)) what = "SBOM";
+    if (ok === set.length) {
+      return {
+        headline: stageId === "rekor" ? `All ${set.length} log entries check out` : `All ${set.length} signatures verified`,
+        body: stageId === "rekor" ? "Each one is in this platform's own Rekor log, with a receipt signed by Rekor's current key." : "The build provenance, SBOM and image signature all check out against this platform's signing root.",
+        pill: { tone: "good", label: `${ok} of ${set.length} \u2713` }
+      };
+    }
+    const e2 = explain(att, what);
+    return {
+      headline: `${ok} of ${set.length} verified. ${e2.headline}.`,
+      body: e2.body,
+      consequence: e2.consequence,
+      pill: { tone: e2.tone, label: `${ok} of ${set.length}` }
+    };
+  }
+  const e = explain(att, STAGE_WHAT[stageId] ?? "attestation");
+  return { headline: e.headline, body: e.body, consequence: e.consequence, pill: { tone: e.tone, label: e.label } };
 }
 const RAW_DOCUMENT_LABEL = {
   build: "SLSA provenance document",
@@ -433,12 +391,13 @@ function StageDrawer({
     ] });
   }
   const att = stage.attestation;
-  const summary = friendlySummary(stage.id, att);
+  const summary = friendlySummary(stage.id, att, stage.all ?? []);
   return /* @__PURE__ */ jsxs("div", { className: classes.drawer, children: [
     /* @__PURE__ */ jsx(Typography, { className: classes.drawerTitle, children: stage.label }),
     /* @__PURE__ */ jsx(Typography, { className: classes.friendlyHeadline, children: summary.headline }),
     summary.pill && /* @__PURE__ */ jsx("div", { className: classes.pillRow, children: /* @__PURE__ */ jsx(Pill, { tone: summary.pill.tone, classes, t, children: summary.pill.label }) }),
     /* @__PURE__ */ jsx(Typography, { className: classes.friendlyBody, children: summary.body }),
+    summary.consequence && /* @__PURE__ */ jsx(Typography, { className: classes.friendlyBody, children: summary.consequence }),
     att && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 16, flexWrap: "wrap" }, children: [
         /* @__PURE__ */ jsx(
@@ -485,7 +444,11 @@ function StageDrawer({
           ] }),
           /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
             /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Verified" }),
-            /* @__PURE__ */ jsx("span", { className: classes.kvValue, children: att.verified ? "signature verified \u2713" : att.verificationError ?? "unverified" })
+            /* @__PURE__ */ jsxs("span", { className: classes.kvValue, children: [
+              att.verified ? "signature verified \u2713" : att.verificationError ?? "unverified",
+              att.logSource === "rekor" ? " \xB7 log entry read from Rekor" : "",
+              att.logSource === "embedded" ? " \xB7 log entry from the image's own copy" : ""
+            ] })
           ] }),
           att.transparencyLog && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
             /* @__PURE__ */ jsx("span", { className: classes.kvLabel, children: "Rekor entry" }),

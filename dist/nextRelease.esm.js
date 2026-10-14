@@ -1,6 +1,7 @@
 import { RELEASE_MODE_LABEL } from './releaseFlow.esm.js';
 import { extractShortShaFromImageTag, imageTag, envTierOf } from './types.esm.js';
 import { landedAtMs, buildChangeCategories, findPipelineRunForTag, buildSecurityScans, findRelatedPipelineRuns, versionFromImageTag } from './useReleaseRecords.esm.js';
+import { isSignedAndAttested } from './supplyChain.esm.js';
 
 const GROUND_SOAK_TARGET_HOURS = 24;
 const CLOSING_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/gi;
@@ -86,7 +87,7 @@ function buildNextRelease(input) {
       firstGroundAt: groundDates[0],
       build,
       scans: buildSecurityScans(findRelatedPipelineRuns(build, pipelineRuns)),
-      provenanceVerified: provenance ? provenance.attestations.some((a) => a.verified) : void 0,
+      provenanceVerified: provenance ? isSignedAndAttested(provenance) : void 0,
       prCount: scope.filter((pr) => new Date(pr.mergedAt).getTime() <= landed).length
     };
   }).sort((a, b) => new Date(b.landedAt).getTime() - new Date(a.landedAt).getTime());

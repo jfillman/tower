@@ -7,6 +7,7 @@ import { PrButton } from './PrButton.esm.js';
 import { gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
 import { Card, StatusChip, healthTone, Callout, TextLink, Tile, Stat } from './ui/index.esm.js';
+import { isSignedAndAttested } from './supplyChain.esm.js';
 
 const useStyles = makeStyles(() => ({
   deck: { marginBottom: 20 },
@@ -90,9 +91,7 @@ function verifiedSupplyChainCount(environments, provenanceByImage) {
     const state = provenanceByImage[env.image];
     if (!state || state.loading || !state.data) return;
     total += 1;
-    const slsa = state.data.attestations.find((a) => a.predicateType === "https://slsa.dev/provenance/v0.2");
-    const anyVerified = state.data.attestations.some((a) => a.verified);
-    if (anyVerified && slsa?.verified) verified += 1;
+    if (isSignedAndAttested(state.data)) verified += 1;
   });
   return { verified, total };
 }

@@ -160,7 +160,8 @@ function ReleasesTab() {
           totalCount: releaseTotalCount,
           environments: pipelineEnvironments,
           provenanceByImage,
-          onPromote: handlePromote
+          onPromote: handlePromote,
+          names: releaseNames?.byTag
         }
       ),
       activeTab === "log" && (deployHistory.loading ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsx(
@@ -242,6 +243,7 @@ function ReleasesTab() {
         onClose: () => setPromoteTarget(null),
         promote,
         targetIsLower,
+        names: releaseNames,
         onConfirm: () => {
           if (!promoteTarget || !repoRef) return;
           const { source, target: target2 } = promoteTarget;

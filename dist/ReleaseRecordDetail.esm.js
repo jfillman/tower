@@ -19,6 +19,7 @@ import { useReleaseSignoff, countedSignoffs } from './releaseFlow.esm.js';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
+import { isSignedAndAttested } from './supplyChain.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -266,7 +267,7 @@ function ReleaseRecordDetail({
   const persistTarget = owner && appName ? { owner, appName, imageTag: liveRecord.imageTag } : void 0;
   const persisted = useReleaseRecordDoc(persistTarget);
   const record = withPersistedGuardrails(liveRecord, persisted.data);
-  const verified = record.provenance?.attestations.some((a) => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
   const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
   const liveDeployment = record.deployments.find((d) => d.isLive);
@@ -284,9 +285,9 @@ function ReleaseRecordDetail({
     const m = pr.title.match(/^Release Record: (\S+) @ (\S+)$/);
     return m && m[2].toLowerCase() === record.imageTag.toLowerCase();
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
-  let recordNote = "No Release Record has been committed yet for this image - Tower generates one automatically once a release like this reaches a Flight-tier environment and goes Healthy (usually within a few minutes). Human context can be added once that record exists.";
+  let recordNote = "No Release Record has been committed yet for this image - Tower writes one automatically once a release like this is healthy in its first Flight environment (within the hour). After-release notes can be added once that record exists.";
   if (recordPr?.state === "open") {
-    recordNote = "Tower has opened this release's Release Record PR - human context can be added once it's merged.";
+    recordNote = "Tower has opened this release's Release Record PR. After-release notes can be added once it's merged.";
   } else if (recordPr) {
     recordNote = "The Release Record PR has merged - refresh in a moment for the committed record.";
   }
@@ -297,7 +298,7 @@ function ReleaseRecordDetail({
     if (persisted.data) setForm(persisted.data.humanContext);
   }, [persisted.data]);
   const approvalsChanged = persisted.data && JSON.stringify(form.approvals) !== JSON.stringify(persisted.data.humanContext.approvals);
-  const dirty = persisted.data && (form.summary !== (persisted.data.humanContext.summary ?? "") || form.risk !== persisted.data.humanContext.risk || form.riskNotes !== (persisted.data.humanContext.riskNotes ?? "") || form.verificationNotes !== (persisted.data.humanContext.verificationNotes ?? "") || approvalsChanged);
+  const dirty = persisted.data && (form.summary !== (persisted.data.humanContext.summary ?? "") || form.risk !== persisted.data.humanContext.risk || form.riskNotes !== (persisted.data.humanContext.riskNotes ?? "") || form.verificationNotes !== (persisted.data.humanContext.verificationNotes ?? "") || (form.followUps ?? "") !== (persisted.data.humanContext.followUps ?? "") || approvalsChanged);
   const addMyApproval = () => {
     setForm((f) => ({ ...f, approvals: [...f.approvals, { by: "", at: "", role: approvalRole || void 0 }] }));
     setApprovalRole("");
@@ -310,6 +311,7 @@ function ReleaseRecordDetail({
     if (form.risk !== persisted.data?.humanContext.risk) summary.push(`set risk to ${form.risk ?? "(cleared)"}`);
     if (form.riskNotes !== (persisted.data?.humanContext.riskNotes ?? "")) summary.push("updated risk notes");
     if (form.verificationNotes !== (persisted.data?.humanContext.verificationNotes ?? "")) summary.push("updated verification notes");
+    if ((form.followUps ?? "") !== (persisted.data?.humanContext.followUps ?? "")) summary.push("updated follow-ups");
     if (approvalsChanged) {
       const before = persisted.data?.humanContext.approvals.length ?? 0;
       const after = form.approvals.length;
@@ -326,6 +328,7 @@ function ReleaseRecordDetail({
         risk: form.risk,
         riskNotes: form.riskNotes,
         verificationNotes: form.verificationNotes,
+        followUps: form.followUps,
         approvals: form.approvals
       },
       summary
@@ -584,12 +587,17 @@ function ReleaseRecordDetail({
         signoffEnv: signoff?.env ?? signoffEnv,
         mode: sealedRelease?.mode,
         loading: liveSignoff.loading,
-        live: !sealedRelease?.signoff
+        live: !sealedRelease?.signoff,
+        addedAfter: sealedRelease ? {
+          summary: persisted.data?.humanContext.summary,
+          risk: persisted.data?.humanContext.risk,
+          riskNotes: persisted.data?.humanContext.riskNotes
+        } : void 0
       }
     ) }),
     /* @__PURE__ */ jsxs("div", { className: classes.human, children: [
-      /* @__PURE__ */ jsx("div", { className: classes.humanHead, children: /* @__PURE__ */ jsx("span", { className: classes.humanTitle, children: "Human context" }) }),
-      !persistTarget && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "Human context can't be added without knowing this app's GitHub owner - reopen this record from the Releases tab rather than a direct link." }),
+      /* @__PURE__ */ jsx("div", { className: classes.humanHead, children: /* @__PURE__ */ jsx("span", { className: classes.humanTitle, children: "After release" }) }),
+      !persistTarget && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "Notes can't be added without knowing this app's GitHub owner. Reopen this record from the Releases tab rather than a direct link." }),
       persistTarget && persisted.loading && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "Checking for a committed Release Record\u2026" }),
       persistTarget && persisted.notFound && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: recordNote }),
@@ -606,68 +614,83 @@ function ReleaseRecordDetail({
         persisted.error
       ] }),
       persistTarget && persisted.data && /* @__PURE__ */ jsxs("div", { className: classes.humanForm, children: [
-        /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-          /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-summary", children: "Developer summary" }),
-          /* @__PURE__ */ jsx(
-            "textarea",
-            {
-              id: "rr-summary",
-              className: classes.humanTextarea,
-              placeholder: "What does this release actually change, in plain language?",
-              value: form.summary ?? "",
-              onChange: (e) => setForm((f) => ({ ...f, summary: e.target.value }))
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: classes.humanRow, children: [
-          /* @__PURE__ */ jsxs("div", { className: classes.humanField, style: { maxWidth: 160 }, children: [
-            /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-risk", children: "Risk" }),
-            /* @__PURE__ */ jsxs(
-              "select",
+        !sealedRelease && /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
+            /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-summary", children: "Summary (this record predates release notes)" }),
+            /* @__PURE__ */ jsx(
+              "textarea",
               {
-                id: "rr-risk",
-                className: classes.humanInput,
-                value: form.risk ?? "",
-                onChange: (e) => setForm((f) => ({ ...f, risk: e.target.value || void 0 })),
-                children: [
-                  /* @__PURE__ */ jsx("option", { value: "", children: "\u2014 not set \u2014" }),
-                  /* @__PURE__ */ jsx("option", { value: "low", children: "Low" }),
-                  /* @__PURE__ */ jsx("option", { value: "medium", children: "Medium" }),
-                  /* @__PURE__ */ jsx("option", { value: "high", children: "High" })
-                ]
+                id: "rr-summary",
+                className: classes.humanTextarea,
+                placeholder: "What does this release actually change, in plain language?",
+                value: form.summary ?? "",
+                onChange: (e) => setForm((f) => ({ ...f, summary: e.target.value }))
               }
             )
           ] }),
-          /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-            /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-risk-notes", children: "Risk notes" }),
-            /* @__PURE__ */ jsx(
-              "input",
-              {
-                id: "rr-risk-notes",
-                className: classes.humanInput,
-                placeholder: "Why that risk level?",
-                value: form.riskNotes ?? "",
-                onChange: (e) => setForm((f) => ({ ...f, riskNotes: e.target.value }))
-              }
-            )
+          /* @__PURE__ */ jsxs("div", { className: classes.humanRow, children: [
+            /* @__PURE__ */ jsxs("div", { className: classes.humanField, style: { maxWidth: 160 }, children: [
+              /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-risk", children: "Risk" }),
+              /* @__PURE__ */ jsxs(
+                "select",
+                {
+                  id: "rr-risk",
+                  className: classes.humanInput,
+                  value: form.risk ?? "",
+                  onChange: (e) => setForm((f) => ({ ...f, risk: e.target.value || void 0 })),
+                  children: [
+                    /* @__PURE__ */ jsx("option", { value: "", children: "\u2014 not set \u2014" }),
+                    /* @__PURE__ */ jsx("option", { value: "low", children: "Low" }),
+                    /* @__PURE__ */ jsx("option", { value: "medium", children: "Medium" }),
+                    /* @__PURE__ */ jsx("option", { value: "high", children: "High" })
+                  ]
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
+              /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-risk-notes", children: "Risk notes" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  id: "rr-risk-notes",
+                  className: classes.humanInput,
+                  placeholder: "Why that risk level?",
+                  value: form.riskNotes ?? "",
+                  onChange: (e) => setForm((f) => ({ ...f, riskNotes: e.target.value }))
+                }
+              )
+            ] })
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-          /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-verification", children: "Verification notes" }),
+          /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-verification", children: "How it was checked in production" }),
           /* @__PURE__ */ jsx(
             "textarea",
             {
               id: "rr-verification",
               className: classes.humanTextarea,
-              placeholder: "What did you check before/after this went out?",
+              placeholder: "What did you check once it was live?",
               value: form.verificationNotes ?? "",
               onChange: (e) => setForm((f) => ({ ...f, verificationNotes: e.target.value }))
             }
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.humanLabel, title: "Added after release. They don't change the score: sign-off happens on the release PR before it merges.", children: "Acknowledgements (after release)" }),
-          form.approvals.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "No approvals on record yet." }),
+          /* @__PURE__ */ jsx("label", { className: classes.humanLabel, htmlFor: "rr-follow-ups", children: "Follow-ups" }),
+          /* @__PURE__ */ jsx(
+            "textarea",
+            {
+              id: "rr-follow-ups",
+              className: classes.humanTextarea,
+              placeholder: "Incidents, fixes owed, anything you learned.",
+              value: form.followUps ?? "",
+              onChange: (e) => setForm((f) => ({ ...f, followUps: e.target.value }))
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.humanLabel, title: "Added after release. They don't change the score: sign-off happens on the release PR before it merges.", children: "Acknowledgements" }),
+          form.approvals.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "No acknowledgements yet." }),
           form.approvals.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.approvalList, children: form.approvals.map((a, i) => /* @__PURE__ */ jsxs("div", { className: classes.approvalRow, children: [
             /* @__PURE__ */ jsxs("span", { className: classes.approvalWho, children: [
               a.by || "you (pending submit)",
@@ -691,7 +714,7 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanActions, children: [
-          submitContext.result ? /* @__PURE__ */ jsx(Button, { small: true, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { small: true, variant: "primary", disabled: !dirty || submitContext.loading, onClick: onSubmitContext, children: submitContext.loading ? "Opening PR\u2026" : "Open PR for human context" }),
+          submitContext.result ? /* @__PURE__ */ jsx(Button, { small: true, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { small: true, variant: "primary", disabled: !dirty || submitContext.loading, onClick: onSubmitContext, children: submitContext.loading ? "Opening PR\u2026" : "Open PR for these notes" }),
           persisted.data.humanContext.authoredBy && /* @__PURE__ */ jsxs(Typography, { className: classes.humanNote, style: { marginBottom: 0 }, children: [
             "last authored by ",
             persisted.data.humanContext.authoredBy

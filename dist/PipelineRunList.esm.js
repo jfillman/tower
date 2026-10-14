@@ -19,6 +19,11 @@ const FLOW_FILTERS = [
   { key: "pr-build", label: "Preview flows" },
   { key: "guardrail", label: "Guardrails" }
 ];
+function flowBucket(flow) {
+  if (!flow) return void 0;
+  if (flow === "pr-build" || flow === "guardrail") return flow;
+  return "ci";
+}
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const useStyles = makeStyles(() => ({
   list: { maxHeight: 380, overflowY: "auto", border: ({ t }) => `1px solid ${t.line}`, borderTop: "none", borderRadius: "0 0 5px 5px" },
@@ -258,7 +263,7 @@ function PipelineRunList({
   const filtered = runs.filter((run) => {
     const matchesStatus = statusFilter === "all" || run.phase === statusFilter;
     if (!matchesStatus) return false;
-    const matchesFlow = flowFilter === "all" || run.flow === flowFilter;
+    const matchesFlow = flowFilter === "all" || flowBucket(run.flow) === flowFilter;
     if (!matchesFlow) return false;
     if (!query) return true;
     const haystack = [run.branch, run.pipelineName, run.sha, run.triggerName, run.eventType, run.flowSlug, run.name].filter(Boolean).join(" ").toLowerCase();
@@ -390,5 +395,5 @@ function PipelineRunList({
   ] });
 }
 
-export { PipelineRunList, phaseTone, pipelineTitle, slugHue };
+export { PipelineRunList, flowBucket, phaseTone, pipelineTitle, slugHue };
 //# sourceMappingURL=PipelineRunList.esm.js.map

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
 import { envTierOf, imageTag, health, extractShortShaFromImageTag } from './types.esm.js';
+import { isSignedAndAttested } from './supplyChain.esm.js';
 
 function dedupeCommits(commits) {
   const seen = /* @__PURE__ */ new Set();
@@ -92,7 +93,7 @@ function computeConfidence(input) {
   if (input.guardrails) {
     score += input.guardrails.totalChecks > 0 ? Math.round(input.guardrails.passedChecks / input.guardrails.totalChecks * 30) : 15;
   }
-  if (input.provenance?.attestations.some((a) => a.verified)) score += 15;
+  if (isSignedAndAttested(input.provenance)) score += 15;
   return Math.min(100, Math.max(0, score));
 }
 function applyApprovalBonus(baseConfidence, approvalsCount) {
@@ -129,7 +130,7 @@ function confidenceBreakdown(record, approvalsCount) {
     guardPoints = g.totalChecks > 0 ? Math.round(g.passedChecks / g.totalChecks * 30) : 15;
     guardNote = g.totalChecks > 0 ? `${g.passedChecks} of ${g.totalChecks} required release guardrails passed (scaled to 30).` : "The release PR reported no required checks (half credit).";
   }
-  const verified = record.provenance?.attestations.some((a) => a.verified) ?? false;
+  const verified = isSignedAndAttested(record.provenance);
   return [
     { label: "Baseline", points: 50, max: 50, note: "Every release that reached a Flight-tier environment starts here." },
     { label: "Release guardrails", points: guardPoints, max: 30, note: guardNote },

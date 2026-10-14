@@ -2,23 +2,27 @@ import { jsxs, jsx } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { useHangarTokens } from './brand/tokens.esm.js';
 import { StatusChip } from './ui/index.esm.js';
+import { findSlsa, isSignedAndAttested, worstVerdict, verdictOf, explain } from './supplyChain.esm.js';
 
 const useStyles = makeStyles(() => ({
   row: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }
 }));
+const VERDICT_TONE = { verified: "ok", unverified: "warn", contradicted: "bad", missing: "neutral" };
 function SupplyChainChips({ provenance }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   if (!provenance) return null;
-  const slsa = provenance.attestations.find((a) => a.predicateType === "https://slsa.dev/provenance/v0.2");
-  const anyVerified = provenance.attestations.some((a) => a.verified);
+  const slsa = findSlsa(provenance);
+  const signedAndAttested = isSignedAndAttested(provenance);
   const rekor = provenance.attestations.find((a) => a.transparencyLog)?.transparencyLog;
-  if (!slsa && !anyVerified) return null;
+  const logged = worstVerdict(provenance.attestations.filter((a) => a.transparencyLog));
+  if (!slsa && provenance.attestations.length === 0) return null;
+  const slsaVerdict = verdictOf(slsa);
   return /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-    anyVerified && /* @__PURE__ */ jsx(StatusChip, { tone: "ok", children: "cosign verified" }),
-    slsa && /* @__PURE__ */ jsxs(StatusChip, { tone: slsa.verified ? "ok" : "warn", children: [
+    signedAndAttested && /* @__PURE__ */ jsx(StatusChip, { tone: "ok", children: "cosign verified" }),
+    slsa && /* @__PURE__ */ jsxs(StatusChip, { tone: VERDICT_TONE[slsaVerdict], children: [
       "SLSA ",
-      slsa.verified ? "provenance" : "unverified"
+      slsaVerdict === "verified" ? "provenance" : explain(slsa, "build provenance").label
     ] }),
     rekor && // Not a link: this platform runs its own internal Rekor
     // (rekor-server.rekor-system, see glidepathProvenance.ts), which has
@@ -26,7 +30,7 @@ function SupplyChainChips({ provenance }) {
     // that internal log, so linking out to sigstore's public
     // search.sigstore.dev would either 404 or, worse, silently resolve
     // to an unrelated public entry that happens to share the index.
-    /* @__PURE__ */ jsxs(StatusChip, { tone: "info", children: [
+    /* @__PURE__ */ jsxs(StatusChip, { tone: logged === "verified" ? "ok" : "warn", children: [
       "Rekor entry #",
       rekor.logIndex
     ] })

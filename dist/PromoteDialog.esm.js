@@ -25,8 +25,11 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
   },
+  lead: { color: ({ t }) => t.textHi, marginBottom: 6 },
   text: { color: ({ t }) => t.textLo },
-  error: { color: ({ t }) => t.bad },
+  error: { color: ({ t }) => t.bad, marginBottom: 6 },
+  details: { color: ({ t }) => t.textFaint, fontSize: 12, "& summary": { cursor: "pointer" } },
+  detailsBody: { fontFamily: fontMono, fontSize: 11.5, marginTop: 6, maxHeight: 160, overflow: "auto", overflowWrap: "anywhere" },
   link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky }
 }));
 const mono = { fontFamily: fontMono };
@@ -35,7 +38,8 @@ function PromoteDialog({
   onClose,
   promote,
   targetIsLower,
-  onConfirm
+  onConfirm,
+  names
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -43,6 +47,8 @@ function PromoteDialog({
   const source = target && "env" in target.source ? target.source : void 0;
   const sourceImage = target && !source ? target.source.image : void 0;
   const appName = source?.appName ?? target?.target.appName ?? "this app";
+  const tag = imageTag(source ? source.image : sourceImage ?? "");
+  const releaseName = names?.byTag.get(tag);
   const goToDeployment = () => {
     if (!target) return;
     setSearchParams((prev) => {
@@ -73,59 +79,26 @@ function PromoteDialog({
       children: target && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(DialogTitle, { className: classes.title, children: source ? `Promote ${appName} to ${target.target.env}?` : `Deploy ${appName} to ${target.target.env}?` }),
         /* @__PURE__ */ jsxs(DialogContent, { children: [
-          !promote.result && !promote.error && /* @__PURE__ */ jsxs(DialogContentText, { className: classes.text, children: [
-            targetIsLower ? /* @__PURE__ */ jsxs(Fragment, { children: [
-              "Commits directly to",
-              " ",
-              /* @__PURE__ */ jsxs("span", { style: mono, children: [
-                "envs/",
-                target.target.env,
-                ".yaml"
-              ] }),
-              " ",
-              "in ",
-              appName,
-              "'s glidepath/ folder",
-              " ",
-              "- no PR, no review. ArgoCD syncs it as soon as this commit lands."
-            ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-              "Runs ",
-              appName,
-              "'s release pipeline, which opens a PR against",
-              " ",
-              /* @__PURE__ */ jsxs("span", { style: mono, children: [
-                "gitops-",
-                appName
-              ] }),
-              " bumping",
-              " ",
-              /* @__PURE__ */ jsxs("span", { style: mono, children: [
-                target.target.cluster,
-                "/",
-                target.target.env,
-                "/release.yaml"
-              ] }),
-              " ",
-              "and starts tracking the release. ArgoCD won't sync anything until that PR is reviewed and merged. Opening the PR takes about a minute."
+          !promote.result && !promote.error && /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsxs(DialogContentText, { className: classes.lead, children: [
+              targetIsLower ? "Deploys " : "Opens a release PR for ",
+              releaseName && /* @__PURE__ */ jsx("b", { children: `${releaseName} ` }),
+              /* @__PURE__ */ jsx("span", { style: mono, children: tag }),
+              source ? `, now in ${source.env}` : ", its first deploy",
+              targetIsLower ? `, to ${target.target.env} straight away.` : "."
             ] }),
-            " ",
-            source ? /* @__PURE__ */ jsxs(Fragment, { children: [
-              "Image: ",
-              /* @__PURE__ */ jsx("span", { style: mono, children: imageTag(source.image) }),
-              " - currently promoted to",
-              " ",
-              source.env,
-              "."
-            ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-              "Image: ",
-              /* @__PURE__ */ jsx("span", { style: mono, children: imageTag(sourceImage) }),
-              " - not yet deployed anywhere. This is its first deploy."
+            /* @__PURE__ */ jsxs(DialogContentText, { className: classes.text, children: [
+              targetIsLower ? `${target.target.env} is a Ground environment, so there's no PR to review.` : `${target.target.env} changes only when you merge the PR. It takes about a minute to appear.`,
+              !targetIsLower && !releaseName && names ? ` Once it's healthy there, this build becomes the release ${names.next}.` : ""
             ] })
           ] }),
           promote.loading && /* @__PURE__ */ jsx(Progress, {}),
-          promote.error && /* @__PURE__ */ jsxs(DialogContentText, { className: classes.error, style: { fontStyle: "italic" }, children: [
-            "Couldn't promote: ",
-            promote.error
+          promote.error && /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsx(DialogContentText, { className: classes.error, children: targetIsLower ? "Couldn't deploy." : "Couldn't start the release." }),
+            /* @__PURE__ */ jsxs("details", { className: classes.details, children: [
+              /* @__PURE__ */ jsx("summary", { children: "Details" }),
+              /* @__PURE__ */ jsx("div", { className: classes.detailsBody, children: promote.error })
+            ] })
           ] }),
           promote.result?.mode === "pr" && /* @__PURE__ */ jsxs(DialogContentText, { className: classes.text, children: [
             promote.result.alreadyOpen ? "A release PR for this promotion is already open:" : "Release PR opened:",

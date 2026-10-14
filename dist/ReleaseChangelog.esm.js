@@ -38,7 +38,8 @@ function ReleaseChangelog({ names, onBack }) {
             e.owner ? ` \xB7 ${e.owner}` : ""
           ] })
         ] }),
-        notes.length === 0 && !e.knownIssues?.length && /* @__PURE__ */ jsx(EmptyNote, { children: "No notes were written for this release." }),
+        e.summary && /* @__PURE__ */ jsx("div", { className: classes.section, children: e.summary }),
+        notes.length === 0 && !e.knownIssues?.length && !e.summary && /* @__PURE__ */ jsx(EmptyNote, { children: "No notes were written for this release." }),
         notes.map((c) => /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
           /* @__PURE__ */ jsx("b", { children: NOTE_LABEL[c] }),
           /* @__PURE__ */ jsx("ul", { className: classes.bullets, children: e.notes[c].map((line, i) => /* @__PURE__ */ jsx("li", { children: line }, i)) })

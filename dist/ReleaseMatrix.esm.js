@@ -59,6 +59,7 @@ const useStyles = makeStyles(() => ({
     cursor: "pointer",
     "&:hover": { color: ({ t }) => t.sky, textDecoration: "underline" }
   },
+  releaseName: { fontFamily: fontDisplay, letterSpacing: "0.06em", marginRight: 8, color: ({ t }) => t.amberInk },
   nicknameChip: {
     display: "inline-block",
     marginLeft: 8,
@@ -133,7 +134,8 @@ function ReleaseMatrix({
   totalCount,
   environments,
   provenanceByImage,
-  onPromote
+  onPromote,
+  names
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -147,14 +149,14 @@ function ReleaseMatrix({
     return /* @__PURE__ */ jsxs("div", { className: classes.wrap, children: [
       /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
         /* @__PURE__ */ jsx(SectionTitle, { children: "Release matrix" }),
-        /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Rows are recent releases, newest first \xB7 columns are environments in promotion order. Read a column for what's live right now, a row for one release's full journey." })
+        /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Rows are builds from main, newest first; a build that shipped to Flight shows its release name. Columns are environments in promotion order. Read a column for what's live now, a row for one build's journey." })
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsxs("tr", { children: [
           /* @__PURE__ */ jsx("th", {}),
           environments.map((env) => /* @__PURE__ */ jsx("th", { className: classes.colHead, children: env.env }, env.key))
         ] }) }),
-        /* @__PURE__ */ jsx("tbody", { children: /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { colSpan: environments.length + 1, style: { padding: "20px 0", textAlign: "center" }, children: /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "No releases recorded yet." }) }) }) })
+        /* @__PURE__ */ jsx("tbody", { children: /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { colSpan: environments.length + 1, style: { padding: "20px 0", textAlign: "center" }, children: /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "No builds deployed yet." }) }) }) })
       ] }) })
     ] });
   }
@@ -173,8 +175,8 @@ function ReleaseMatrix({
     /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Release matrix" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.sub, children: [
-        "Rows are recent releases, newest first \xB7 columns are environments in promotion order. Read a column for what's live right now, a row for one release's full journey.",
-        totalCount > releases.length ? ` Showing the latest ${releases.length} of ${totalCount} known releases.` : ""
+        "Rows are builds from main, newest first; a build that shipped to Flight shows its release name. Columns are environments in promotion order. Read a column for what's live now, a row for one build's journey.",
+        totalCount > releases.length ? ` Showing the latest ${releases.length} of ${totalCount} builds.` : ""
       ] })
     ] }),
     /* @__PURE__ */ jsx("div", { className: classes.scroll, children: /* @__PURE__ */ jsxs("table", { className: classes.table, children: [
@@ -184,14 +186,17 @@ function ReleaseMatrix({
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: releases.map((row) => /* @__PURE__ */ jsxs("tr", { className: `${classes.row} ${row.current ? classes.rowCurrent : ""}`, children: [
         /* @__PURE__ */ jsxs("th", { className: `${classes.rowHead} ${row.current ? classes.rowCurrentHead : ""}`, children: [
-          /* @__PURE__ */ jsx(
+          /* @__PURE__ */ jsxs(
             "button",
             {
               type: "button",
               className: classes.rowHeadLink,
               onClick: () => goToImage(row.imageTag),
               title: `View ${row.imageTag} in the Images tab`,
-              children: row.imageTag
+              children: [
+                names?.get(row.imageTag) && /* @__PURE__ */ jsx("span", { className: classes.releaseName, children: names.get(row.imageTag) }),
+                row.imageTag
+              ]
             }
           ),
           row.nickname && /* @__PURE__ */ jsx(
@@ -203,7 +208,7 @@ function ReleaseMatrix({
                 borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
                 backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`
               },
-              title: "This release's build flow, from the CI/CD tab",
+              title: "This build's flow, from the CI/CD tab",
               children: row.nickname
             }
           )
@@ -308,7 +313,7 @@ function ReleaseMatrix({
         openCell.sha ? ` \xB7 commit ${openCell.sha.slice(0, 7)}` : ""
       ] }),
       openProvenance && /* @__PURE__ */ jsx(PipelineFlow, { stages: buildSupplyChainStages(openProvenance.data, openProvenance.loading) }),
-      !openProvenance && openCell.status === "deployed" && !openRow.image && /* @__PURE__ */ jsx(Typography, { className: classes.fact, style: { fontStyle: "italic" }, children: "This release is no longer live in any environment, so its supply-chain record isn't held in memory here - only what deploy history recorded above." })
+      !openProvenance && openCell.status === "deployed" && !openRow.image && /* @__PURE__ */ jsx(Typography, { className: classes.fact, style: { fontStyle: "italic" }, children: "This build is no longer live in any environment, so its supply-chain record isn't held in memory here, only what deploy history recorded above." })
     ] }) })
   ] });
 }
