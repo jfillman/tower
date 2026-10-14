@@ -2,7 +2,7 @@ import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseRow } from './useReleaseContext';
-import { RELEASE_MODE_LABEL, type ReleaseDraft, type ReleaseMode } from './releaseFlow';
+import { RELEASE_MODE_LABEL, type PlannedScope, type ReleaseDraft, type ReleaseMode } from './releaseFlow';
 import { envTierOf, extractShortShaFromImageTag, imageTag, type EnvironmentSummary } from './types';
 import {
   buildChangeCategories,
@@ -29,7 +29,8 @@ import {
 export const GROUND_SOAK_TARGET_HOURS = 24;
 
 export interface LinkedIssue {
-  number: number;
+  /** "#198", "owner/repo#5", or a Jira key ("BAG-12"). */
+  label: string;
   url: string;
   /** The PR that closes it. */
   prNumber: number;
@@ -79,6 +80,8 @@ export interface NextRelease {
   previousVersion?: string;
   suggestedVersion?: string;
   readiness: ReadinessItem[];
+  /** R4: the draft's milestone and its issues, when the team plans one. */
+  planned?: PlannedScope;
 }
 
 // GitHub's closing keywords (close/closes/closed, fix/fixes/fixed, resolve/resolves/
@@ -87,17 +90,27 @@ export interface NextRelease {
 // links issues through the PR's Development sidebar, which the PR feed doesn't carry.
 const CLOSING_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/gi;
 
-export function closingIssueRefs(pr: PullRequestSummary): Array<{ number: number; url: string }> {
+export function closingIssueRefs(pr: PullRequestSummary, jiraBaseUrl?: string): Array<{ label: string; url: string }> {
   const repoUrl = pr.url.replace(/\/pull\/\d+.*$/, '');
-  const seen = new Map<string, { number: number; url: string }>();
+  const seen = new Map<string, { label: string; url: string }>();
   const text = `${pr.title}\n${pr.body ?? ''}`;
   for (const m of text.matchAll(CLOSING_REF)) {
     const number = Number(m[2]);
     const url = m[1] ? `https://github.com/${m[1]}/issues/${number}` : `${repoUrl}/issues/${number}`;
-    seen.set(url, { number, url });
+    seen.set(url, { label: m[1] ? `${m[1]}#${number}` : `#${number}`, url });
+  }
+  // R4: Jira keys anywhere in the title, body or branch name, when a Jira site is configured.
+  if (jiraBaseUrl) {
+    for (const m of `${text}\n${pr.headRef ?? ''}`.matchAll(JIRA_KEY)) {
+      const url = `${jiraBaseUrl}/browse/${m[1]}`;
+      seen.set(url, { label: m[1], url });
+    }
   }
   return [...seen.values()];
 }
+
+// Jira's own key shape: a project key (a capital letter, then capitals or digits) and an issue number.
+const JIRA_KEY = /\b([A-Z][A-Z0-9]{1,9}-\d+)\b/g;
 
 // Conventional Commits' breaking-change markers: "feat!:" / "feat(api)!:" in the title,
 // a "BREAKING CHANGE" footer, or a breaking label.
@@ -146,7 +159,7 @@ export function buildNextRelease(input: {
   pipelineEnvironments: EnvironmentSummary[];
   pipelineOrder: { lower?: string[]; upper?: string[] };
   /** The saved draft and the app's release mode (R2), once loaded. Adds the notes, owner and sign-off checks. */
-  flow?: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string };
+  flow?: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string; jiraBaseUrl?: string; planned?: PlannedScope };
   now?: number;
 }): NextRelease {
   const { records, releases, sourcePrs, pipelineRuns, provenanceByImage, pipelineEnvironments, pipelineOrder } = input;
@@ -171,7 +184,7 @@ export function buildNextRelease(input: {
 
   const issueMap = new Map<string, LinkedIssue>();
   [...scope, ...incoming].forEach(pr =>
-    closingIssueRefs(pr).forEach(ref => {
+    closingIssueRefs(pr, input.flow?.jiraBaseUrl).forEach(ref => {
       if (!issueMap.has(ref.url)) issueMap.set(ref.url, { ...ref, prNumber: pr.number, merged: pr.state === 'merged' });
     }),
   );
@@ -238,7 +251,8 @@ export function buildNextRelease(input: {
     leading,
     previousVersion,
     suggestedVersion,
-    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow)],
+    planned: input.flow?.planned,
+    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow, now)],
   };
 }
 
@@ -327,9 +341,31 @@ function buildReadiness(input: {
 
 // The checks the saved draft and the release mode add (R2). Notes and an owner are what a person
 // writes; the sign-off only applies to Hand-flown, where the production release PR needs it.
-function flowReadiness(flow: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string } | undefined): ReadinessItem[] {
+function flowReadiness(
+  flow: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string; planned?: PlannedScope } | undefined,
+  now: number,
+): ReadinessItem[] {
   if (!flow) return [];
   const items: ReadinessItem[] = [];
+  // R4: a scheduled release's target date and planned scope.
+  if (flow.draft?.targetDate) {
+    const days = Math.round((Date.parse(`${flow.draft.targetDate}T00:00:00Z`) - now) / 86_400_000);
+    let when = `in ${days} days`;
+    if (days === 0) when = 'today';
+    else if (days === 1) when = 'tomorrow';
+    else if (days < 0) when = `${-days} day${days === -1 ? '' : 's'} late`;
+    items.push({ id: 'target', label: 'Target date', state: days < 0 ? 'todo' : 'ok', detail: `${flow.draft.targetDate} (${when})` });
+  }
+  if (flow.planned?.milestone) {
+    const total = flow.planned.issues.length;
+    const closed = flow.planned.issues.filter(i => i.state === 'closed').length;
+    items.push({
+      id: 'planned',
+      label: 'Planned issues closed',
+      state: total > 0 && closed === total ? 'ok' : 'todo',
+      detail: `${closed} of ${total} on ${flow.planned.milestone.title}`,
+    });
+  }
   const noteCount = Object.values(flow.draft?.notes ?? {}).reduce((n, l) => n + (l?.length ?? 0), 0);
   items.push(
     noteCount > 0

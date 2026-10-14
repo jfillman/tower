@@ -33,8 +33,8 @@ const next: NextRelease = {
   scopeMayBeIncomplete: false,
   incoming: [pr(221, 'feat: lost-bag claims', 'open')],
   issues: [
-    { number: 198, url: 'https://github.com/o/bags/issues/198', prNumber: 11, merged: true },
-    { number: 203, url: 'https://github.com/o/bags/issues/203', prNumber: 221, merged: false },
+    { label: '#198', url: 'https://github.com/o/bags/issues/198', prNumber: 11, merged: true },
+    { label: '#203', url: 'https://github.com/o/bags/issues/203', prNumber: 221, merged: false },
   ],
   changeCategories: { features: 1, fixes: 1, chores: 0 },
   breaking: false,

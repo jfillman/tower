@@ -26,6 +26,7 @@ import {
   suggestNotes,
   useReleaseDraft,
   useReleaseMode,
+  useReleasePlanned,
   useSaveReleaseDraft,
   useSubmitReleaseMode,
 } from '../releaseFlow';
@@ -96,12 +97,19 @@ export function ReleasesTab() {
   const savedDraft = useReleaseDraft(flowTarget, flowNonce);
   const saveDraft = useSaveReleaseDraft();
   const submitMode = useSubmitReleaseMode();
+  const planned = useReleasePlanned(savedDraft.data?.milestone ? flowTarget : undefined, flowNonce);
   const flow = useMemo(
     () =>
       releaseMode.data || savedDraft.data || savedDraft.notFound
-        ? { draft: savedDraft.data, mode: releaseMode.data?.mode, signoffEnv: releaseMode.data?.signoffEnv }
+        ? {
+            draft: savedDraft.data,
+            mode: releaseMode.data?.mode,
+            signoffEnv: releaseMode.data?.signoffEnv,
+            jiraBaseUrl: releaseMode.data?.jiraBaseUrl,
+            planned: planned.data,
+          }
         : undefined,
-    [releaseMode.data, savedDraft.data, savedDraft.notFound],
+    [releaseMode.data, savedDraft.data, savedDraft.notFound, planned.data],
   );
 
   // The release in progress, shown above the records (Release Record R1). Computed here,

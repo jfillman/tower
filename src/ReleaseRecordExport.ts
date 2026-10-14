@@ -1,7 +1,7 @@
 import { formatDateTime } from './shared/format';
 import { slugHue } from './PipelineRunList';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
-import { countedSignoffs, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
+import { countedSignoffs, NOTE_CATEGORIES, OUTCOME_LABEL, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
 import type { SealedRelease } from './ReleaseSignoffPanel';
 import type { ReleaseRecordHumanContext } from './useReleaseRecordPersistence';
 
@@ -226,7 +226,7 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
       <div class="meta">RELEASE RECORD<br/>${esc(record.appName)} · ${esc(record.version ?? record.imageTag)}${nicknameBadgeHtml(record.nickname)}<br/>Generated ${formatDateTime(new Date().toISOString())}</div>
     </div>
     <h1>${esc(record.appName)} ${esc(record.version ?? record.imageTag)}${nicknameBadgeHtml(record.nickname)}</h1>
-    <div class="sub">Deployed ${formatDateTime(record.createdAt)} · Confidence ${displayConfidence}/100 · ${record.status}</div>
+    <div class="sub">Deployed ${formatDateTime(record.createdAt)} · Readiness ${displayConfidence}/100 · ${record.status}${record.outcome?.result ? ` · Outcome: ${OUTCOME_LABEL[record.outcome.result]}` : ''}</div>
     <div class="cols">
       <div>
         <h5>What changed</h5>
@@ -245,7 +245,7 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
     ${releaseHtml(extras)}
     <div class="human">${humanContextHtml(humanContext)}</div>
     <div class="cats" style="margin-top:18px;">
-      <b>How the confidence score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
+      <b>How the readiness score (${displayConfidence}/100) is calculated</b> - a heuristic from evidence Tower can see, not a prediction:
       ${confidenceBreakdown(record, signoffs)
         .map(l => `${esc(l.label)} +${l.points}/${l.max} (${esc(l.note)})`)
         .join(' · ')}

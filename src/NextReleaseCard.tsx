@@ -14,6 +14,7 @@ import { Button, Card, EmptyNote, Hint, SectionTitle, StatusChip, TextLink, Tile
 
 const SCOPE_SHOWN = 6;
 const INCOMING_SHOWN = 3;
+const PLANNED_SHOWN = 4;
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // The kit Card, in the dashed amber of the record's Human context band.
@@ -37,6 +38,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   item: { display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12.5, padding: '2px 0', minWidth: 0 },
   prTitle: { color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   faint: { color: ({ t }) => t.textFaint, fontSize: 12 },
+  planned: { borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, paddingBottom: 8, marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 4 },
   sub: { borderTop: ({ t }) => `1px solid ${t.lineSoft}`, marginTop: 8, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 },
   issues: { display: 'flex', flexWrap: 'wrap', gap: 8, fontFamily: fontMono, fontSize: 11, marginTop: 4 },
   tag: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi },
@@ -120,6 +122,30 @@ export function NextReleaseCard({
     >
       <div className={classes.grid}>
         <Tile className={classes.column}>
+          {next.planned?.milestone && (
+            <div className={classes.planned}>
+              <SectionTitle level={2}>
+                {`Planned · ${next.planned.milestone.title} · ${next.planned.issues.filter(i => i.state === 'closed').length} of ${next.planned.issues.length} closed`}
+              </SectionTitle>
+              {next.planned.issues
+                .filter(i => i.state === 'open')
+                .slice(0, PLANNED_SHOWN)
+                .map(i => (
+                  <div key={i.number} className={classes.item}>
+                    <TextLink href={i.url}>#{i.number}</TextLink>
+                    <span className={classes.prTitle} title={i.title}>
+                      {i.title}
+                    </span>
+                    {i.assignee && <span className={classes.faint}>{i.assignee}</span>}
+                  </div>
+                ))}
+              {next.planned.issues.filter(i => i.state === 'open').length > PLANNED_SHOWN && (
+                <span className={classes.faint}>
+                  + {next.planned.issues.filter(i => i.state === 'open').length - PLANNED_SHOWN} more open
+                </span>
+              )}
+            </div>
+          )}
           <SectionTitle level={2}>
             {`Scope · ${scope.length} PR${scope.length === 1 ? '' : 's'}`}
             {next.changeCategories.features + next.changeCategories.fixes > 0 &&
@@ -145,7 +171,7 @@ export function NextReleaseCard({
             <div className={classes.issues}>
               <span className={classes.faint}>Closes</span>
               {scopeIssues.map(i => (
-                <TextLink key={i.url} href={i.url}>#{i.number}</TextLink>
+                <TextLink key={i.url} href={i.url}>{i.label}</TextLink>
               ))}
             </div>
           )}
@@ -166,7 +192,7 @@ export function NextReleaseCard({
               <div className={classes.issues}>
                 <span className={classes.faint}>Would close</span>
                 {incomingIssues.map(i => (
-                  <TextLink key={i.url} href={i.url}>#{i.number}</TextLink>
+                  <TextLink key={i.url} href={i.url}>{i.label}</TextLink>
                 ))}
               </div>
             )}

@@ -5,8 +5,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
+import { outcomeChip } from './ReleaseOutcome';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
-import { Count, IconButton, SectionTitle, StatusChip, type StatusTone } from './ui';
+import { Count, IconButton, SectionTitle, StatusChip, TextLink, type StatusTone } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -46,6 +47,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.06em', color: ({ t }) => t.textHi, marginRight: 10 },
+  chips: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
   ladder: { display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4, fontFamily: fontMono, fontSize: 11 },
   rungDone: { color: ({ t }) => t.textLo },
   rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
@@ -65,6 +67,7 @@ export function confidenceColor(t: HangarTokens, confidence: number): string {
 }
 
 export function statusPill(record: ReleaseRecord): { label: string; tone: StatusTone } {
+  if (record.status === 'rolled-back') return { label: 'rolled back', tone: 'bad' };
   if (record.current) {
     if (record.status === 'degraded') return { label: 'degraded', tone: 'bad' };
     return { label: 'current', tone: 'warn' };
@@ -78,6 +81,7 @@ export function ReleaseRecordList({
   names,
   flightEnvs,
   onOpen,
+  onChangelog,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
@@ -86,6 +90,8 @@ export function ReleaseRecordList({
   /** Flight environments in promotion order. Each record shows how far it got when there's more than one. */
   flightEnvs?: string[];
   onOpen: (id: string) => void;
+  /** Opens the app's changelog (every release's notes), once its release history has loaded. */
+  onChangelog?: () => void;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -102,7 +108,10 @@ export function ReleaseRecordList({
   return (
     <div>
       <div className={classes.head}>
-        <SectionTitle>Release records</SectionTitle>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <SectionTitle>Release records</SectionTitle>
+          {onChangelog && <TextLink onClick={onChangelog}>Changelog</TextLink>}
+        </span>
         <Count>
           {records.length} of this app's {totalKnown} recent release{totalKnown === 1 ? '' : 's'} reached Flight
         </Count>
@@ -110,6 +119,7 @@ export function ReleaseRecordList({
       <div className={classes.list}>
         {records.map(record => {
           const pill = statusPill(record);
+          const outcome = outcomeChip(record.outcome);
           const prAuthor = record.pullRequests[0]?.author;
           return (
             <button
@@ -122,7 +132,7 @@ export function ReleaseRecordList({
                 <span className={classes.scoreNum} style={{ color: confidenceColor(t, displayScore(record)) }}>
                   {displayScore(record)}
                 </span>
-                <span className={classes.scoreLbl}>confidence</span>
+                <span className={classes.scoreLbl}>readiness</span>
               </div>
               <div>
                 <span className={classes.ver}>
@@ -151,9 +161,16 @@ export function ReleaseRecordList({
                   </div>
                 )}
               </div>
-              <StatusChip tone={pill.tone} dot>
-                {pill.label}
-              </StatusChip>
+              <span className={classes.chips}>
+                <StatusChip tone={pill.tone} dot>
+                  {pill.label}
+                </StatusChip>
+                {outcome && pill.label !== outcome.label && (
+                  <StatusChip tone={outcome.tone} dot>
+                    {outcome.label}
+                  </StatusChip>
+                )}
+              </span>
               <span className={classes.date}>{formatDateTime(record.createdAt)}</span>
               <div className={classes.actions}>
                 <IconButton

@@ -24,6 +24,7 @@ import type {
 import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
 import { FilterChip, FilterGroup, StatusChip, type StatusTone } from '../../../ui';
+import type { CalendarEntry } from '../../../releaseFlow';
 
 function useKit() {
   const t = useHangarTokens();
@@ -712,6 +713,80 @@ export function ActivityPanel({
               <div className={c.rowSide}>
                 <span className={c.age}>{fmtAge(now, String(n.created))}</span>
                 {link && <Links links={[{ label: 'Open', href: link, external: /^https?:/.test(link) }]} />}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </OpsPanel>
+  );
+}
+
+// ---- Release calendar (Release Record R4)
+
+/**
+ * Every app's next release, soonest target date first: its name, target date, owner and mode, what is
+ * on its way to production now, and how its last release ended. From /release-calendar.
+ */
+export function ReleaseCalendarPanel({
+  entries,
+  now,
+  towerHref,
+  limit,
+  error,
+}: {
+  entries: CalendarEntry[];
+  now: number;
+  towerHref: TowerHref;
+  limit: number;
+  error?: string;
+}) {
+  const { t, c } = useKit();
+  const shown = entries.filter(e => !e.error).slice(0, limit);
+  return (
+    <OpsPanel id="ops-releases" title="Release calendar" count={entries.length}>
+      {shown.length === 0 ? (
+        <Empty>{error ? `Release calendar unavailable (${error}).` : 'No app releases to Flight yet.'}</Empty>
+      ) : (
+        shown.map(e => {
+          let due: string | undefined;
+          let edge = 'transparent';
+          if (e.next.targetDate) {
+            const days = Math.round((Date.parse(`${e.next.targetDate}T00:00:00Z`) - now) / 86_400_000);
+            due = `in ${days}d`;
+            if (days === 0) due = 'due today';
+            if (days < 0) {
+              due = `${-days}d late`;
+              edge = t.bad;
+            } else if (days <= 2) edge = t.amber;
+          }
+          const href = towerHref(e.appName, 'releases');
+          const detail = [
+            e.next.releaseOwner ? `owner ${e.next.releaseOwner}` : undefined,
+            `${e.next.noteCount} note${e.next.noteCount === 1 ? '' : 's'}`,
+            e.inFlight.length ? `→ ${e.inFlight.map(f => f.env).join(', ')}` : undefined,
+            e.last ? `last ${e.last.name}${e.last.outcome ? ` (${e.last.outcome.replace(/-/g, ' ')})` : ''}` : undefined,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <div key={e.appName} className={c.row} style={{ borderLeftColor: edge }}>
+              <div className={c.rowMain}>
+                <div className={c.rowTitle}>
+                  {e.appName} · {e.next.name}
+                  {e.mode === 'hand-flown' ? ' · Hand-flown' : ''}
+                </div>
+                <div className={c.rowDetail} title={detail}>
+                  {detail}
+                </div>
+              </div>
+              <div className={c.rowSide}>
+                {e.next.targetDate && (
+                  <span className={c.age} title={e.next.targetDate}>
+                    {due}
+                  </span>
+                )}
+                {href && <Links links={[{ label: 'Open', href }]} />}
               </div>
             </div>
           );

@@ -4,7 +4,7 @@ import { applyApprovalBonus, displayScore, withPersistedGuardrails, withRecorded
 import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
 
 // The bug: a superseded record's row showed its live score (no gate data left: 55) while the opened record
-// used the guardrails frozen in its committed file (85). Both now start from the same recorded evidence.
+// used the guardrails frozen in its committed file (80 since R3 dropped the constant +5). Both now start from the same recorded evidence.
 const live = {
   id: 'bags@1.1.1-e9080a0',
   appName: 'bags',
@@ -31,9 +31,9 @@ describe('one score for a record everywhere', () => {
   it('scores the row from the same frozen guardrails the open record uses', () => {
     const row = withRecordedEvidence(live, { guardrails, signoffs: 1 });
     const opened = withPersistedGuardrails(row, { guardrails } as ReleaseRecordDoc);
-    expect(row.confidence).toBe(85);
+    expect(row.confidence).toBe(80);
     expect(displayScore(row)).toBe(applyApprovalBonus(opened.confidence, 1));
-    expect(displayScore(row)).toBe(90);
+    expect(displayScore(row)).toBe(85);
   });
 
   it('leaves a record with nothing recorded as it is', () => {
@@ -43,6 +43,6 @@ describe('one score for a record everywhere', () => {
 
   it('shows the recorded score in the list row', () => {
     render(<ReleaseRecordList records={[withRecordedEvidence(live, { guardrails, signoffs: 1 })]} totalKnown={1} onOpen={jest.fn()} />);
-    expect(screen.getByText('90')).toBeTruthy();
+    expect(screen.getByText('85')).toBeTruthy();
   });
 });
