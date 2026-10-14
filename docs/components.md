@@ -13,14 +13,20 @@ Main entry point showing:
 **Key exports:** `OverviewTab`
 
 ### Releases
+Matrix, Log, Lead time, Preview and **Record**. Record (`src/ReleaseRecordPanel.tsx`) is the release history and the
+release being put together; see [Release records](release-records/index.md):
 
-Release record management and promotion workflows:
-- Release list with search/filter
-- Release detail view with full history
-- Promotion dialog for tier-aware environment promotion
-- Approval workflows per environment tier
+- **Mode bar** (`ReleaseModeBar.tsx`): the app's release mode, the sign-off environment, **Change** for admins, and
+  **Autoland eligibility** (`AutolandEligibility.tsx`, display only).
+- **Next release** (`NextReleaseCard.tsx`, model in `nextRelease.ts`): scope, incoming PRs, linked issues (GitHub, and
+  Jira when configured), planned milestone issues, candidates, suggested version, readiness, Promote. The draft editor
+  (`ReleaseDraftEditor.tsx`) saves notes, owner, risk, target date, milestone and the GitHub Release opt-in.
+- **Record list** (`ReleaseRecordList.tsx`): one row per record, with its tree name (`releaseNames.ts`), Flight ladder,
+  readiness score and outcome chip; Compare; **Changelog** (`ReleaseChangelog.tsx`).
+- **Record detail** (`ReleaseRecordDetail.tsx`): masthead, **Release notes and sign-off** (`ReleaseSignoffPanel.tsx`),
+  **Outcome** (`ReleaseOutcome.tsx`), what changed, what was built, what happened, human context, export.
 
-**Key exports:** `ReleasesTab`, `ReleaseRecordDetail`, `PromoteDialog`
+**Key components:** `ReleasesTab`, `ReleaseRecordPanel`, `ReleaseRecordDetail`
 
 ### Pull Requests
 
@@ -118,11 +124,15 @@ Tower service right now, and what needs a human.
 - **Deployments**: Glidepath release records for upper environments, deploy pipelines for ground and cloud targets,
   Rollouts with nothing behind them; releases waiting for approval; what landed in the window.
 - **DORA** (see [installation](installation.md#dora-metrics-source-ops-wall)) and the notifications feed.
+- **Release calendar**: every app's next release by tree name, its target date (late ones marked), owner, note
+  count, what is on its way to production, and how its last release ended. From the backend's `/release-calendar`
+  (`useReleaseCalendar` in `src/releaseFlow.ts`).
 
 URL parameters: `owner`, `window` (`24h`, `7d`), `pipelines` (comma list of `build,deploy,guardrail,platform`), `dora`
 (`7`, `30`, `90`). Links open in a new tab so the wall stays put. The layout uses three, two or one column from the
 page's own width; in fullscreen it fits the screen exactly and each panel scrolls inside itself (Activity gives up
-height first, DORA never). It makes no GitHub calls.
+height first, DORA never). It makes no GitHub calls from the browser; the Release calendar's come from the
+backend, cached for five minutes.
 
 **Fleet Grid**: the app × environment health matrix for the four application kinds.
 
@@ -143,14 +153,21 @@ DAG rendering for Tekton pipelines and task dependency visualization.
 
 ### ReleaseRecordDetail
 
-Full release record view with promotion workflow.
+One release record: masthead, sign-off, outcome, evidence, human context, export.
 
 **Props:**
 ```typescript
 {
-  releaseRecord: ReleaseRecord;
-  onPromote: (env: string) => Promise<void>;
-  onClose: () => void;
+  record: ReleaseRecord;
+  otherRecords: ReleaseRecord[];
+  onCompare: (id: string) => void;
+  onBack: () => void;
+  appName?: string;
+  owner?: string;
+  gitopsPrs?: PullRequestSummary[];
+  name?: string;                    // the release's tree name
+  signoffEnv?: string;              // the environment whose release PR carries the sign-off
+  allNames?: Map<string, string>;   // every release's name by image tag
 }
 ```
 
@@ -296,6 +313,14 @@ Persist release records to git.
   error?: Error;
 }
 ```
+
+### Release record hooks
+
+- `useReleaseRecords` (`src/useReleaseRecords.ts`): builds each record from PRs, pipeline runs, deployments and the
+  committed record; `withRecordedEvidence` and `displayScore` give one readiness score everywhere.
+- `useReleaseNames` (`src/useReleaseNames.ts`): tree names from the committed records' order.
+- `src/releaseFlow.ts`: `useReleaseDraft` / `useSaveReleaseDraft`, `useReleaseMode` / `useSubmitReleaseMode`,
+  `useReleaseSignoff`, `useReleasePlanned`, `useReleaseCalendar`, each one route on the backend.
 
 ## Utilities
 

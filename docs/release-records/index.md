@@ -4,6 +4,17 @@ Releases → **Record** is an app's release history: one record per image that r
 what changed, what was built and what happened, plus the human context people add. Above the records sits the
 release that is still being put together.
 
+A release is followed from the moment the previous one ships until its outcome is known:
+
+![One release from draft to outcome: the draft opens when the previous release ships; Promote opens the release PR to the sign-off environment, where a Hand-flown app waits for a sign-off; once merged it rolls out, then bakes while healthy; it ends stopped before production, replaced before healthy, clean, or rolled back](diagrams/01-lifecycle.png)
+
+| Stage | Where you see it |
+|---|---|
+| Draft | The **Next release** card above the records, and the Ops Wall's **Release calendar** |
+| Release PR, rolling out | The record list's Flight ladder (● ✓ ○), and the announcements in Activity |
+| Record committed | A record row with its tree name; it opens into the full record |
+| Baking, outcome | The outcome chip beside the readiness score, and the record's **Outcome** panel |
+
 ## Next release (the draft)
 
 The draft opens the moment the previous release reaches Flight, so an app always has one, before any PR is opened.
@@ -63,12 +74,27 @@ GitHub Free cannot require a check on a private repository, so Hand-flown is a s
   without a sign-off" notification, and the record says so.
 
 A **sign-off counts** when it is an approving review (each reviewer's latest review decides), submitted before the
-merge, by someone other than the person who merged the PR. Release PRs are opened by the Glidepath app, so with one
+merge, by someone who neither merged nor opened the PR. Release PRs are opened by the Glidepath app, so with one
 GitHub account a sign-off always needs a second account.
 
+![A Hand-flown release: Glidepath opens the release PR; every two minutes the Tower backend sets the sign-off status to pending and announces the release is ready; a second account approves and the status turns to success; you merge and the backend announces the release; within the hour it commits the record, and once the outcome is final it opens the outcome PR](diagrams/03-hand-flown.png)
+
+A release PR to the sign-off environment ends in one of these sign-off states, shown in the record's **Release notes
+and sign-off** panel:
+
+| State | Meaning |
+|---|---|
+| awaiting | Open, no sign-off that counts yet (commit status pending) |
+| approved | Open, with a sign-off that counts (commit status success) |
+| signed | Merged with a sign-off that counts |
+| self-approved | Merged, and the only approval came from the person who merged it |
+| shipped without | Merged with no approval at all |
+
+The last two raise the "Shipped without a sign-off" notification on a Hand-flown app.
+
 The record's **Release notes and sign-off** panel shows the notes the draft carried and the sign-off: from the
-record when it was written after the production PR merged, otherwise read live from the PR. The confidence score's
-approval points now come from sign-offs that count (+5 each, up to +10), and only from sign-offs the record
+record when it was written after the production PR merged, otherwise read live from the PR. The readiness score's
+approval points come from sign-offs that count (+5 each, up to +10), and only from sign-offs the record
 carries: one read live from the PR is shown but does not move the score, so a record scores the same in the list,
 in Compare and when opened. The list also uses the guardrail results frozen in each committed record, the same ones
 the opened record falls back to. Approvals added to a record's human context
@@ -99,7 +125,8 @@ release got them. What happened afterwards is the outcome, shown beside the scor
 **GitHub Release (opt-in per release).** Tick "Publish a GitHub Release" in the draft, and once the release is
 healthy in production Tower creates `v<version>` at the image's commit in the app repo, named after the release
 (`CEDAR · v1.9.0`), with the draft's notes as the body. It never moves a tag: if `v<version>` already tags another
-commit (the version was not bumped), it publishes nothing and the record says why.
+commit (the version was not bumped), it publishes nothing and the record says why. A Release that already exists
+for that tag at the same commit is linked, not recreated. The link reaches the record with the outcome PR.
 
 **Changelog.** "Changelog" beside the Release records title lists every committed release's notes, newest first.
 
@@ -118,6 +145,38 @@ commit (the version was not bumped), it publishes nothing and the record says wh
 - **Autoland eligibility** under the mode bar: what an app would need before Autoland could land releases on its
   own (tests that report results, a canary rollout in production, production metrics, at least five recorded
   outcomes with under 15% rolled back, and an average readiness of 80). Display only; Autoland is not available yet.
+
+## Where it lives, and what runs on its own
+
+![Where a release's data lives: Tower talks only to Backstage's backend, which commits the draft to the app repo and publishes GitHub Releases there, opens record and outcome PRs and sets sign-off statuses in gitops-app, opens the release-mode PR in gitops-cluster-dev-tenants, reads outcomes from Glidepath's release-tracking ConfigMaps on the dev cluster, and announces releases through Backstage notifications](diagrams/02-where-it-lives.png)
+
+| Data | Where | Written by |
+|---|---|---|
+| The draft (notes, owner, risk, target date, milestone, GitHub Release opt-in) | `glidepath/releases/next.yaml` in the app repo | **Save** in the draft editor: a direct commit, which builds nothing |
+| Release mode per app | `release-modes.yaml` in `gitops-cluster-dev-tenants` | **Change** in the mode bar (admins): a PR |
+| The release record | `releases/<app>@<tag>.yaml` in `gitops-<app>` (cloud targets: `glidepath/records/` in the app repo) | The record poll: a PR on a `release-record-*` branch |
+| Outcome, late sign-off, GitHub Release link | The same record file | The record poll: a PR on a `release-record-outcome-*` branch |
+| Sign-off status | Commit status `hangar/release-signoff` on the release PR | The sign-off poll |
+| GitHub Release | `v<version>` in the app repo | The record poll, once the release is healthy in production |
+| Rollout state | `release-tracking-*` ConfigMaps in `app-<app>-cicd` on the dev cluster | Glidepath (read only here); swept after 14 days |
+
+The backend runs two scheduled tasks, one replica at a time:
+
+| Task | Every | Does |
+|---|---|---|
+| `release-signoff-poll` | 2 minutes | Sets the sign-off status on each open Hand-flown release PR to the sign-off environment; announces "ready" when such a PR opens and "released" when it merges, for every app; raises "Shipped without a sign-off". A restart does not announce history: each app's PRs are snapshotted the first time the poll sees the app. |
+| `release-record-poll` | hour | Opens the record PR once the first Flight environment is healthy; publishes the opted-in GitHub Release; opens the outcome PR once the outcome is final. An open PR is reused, never duplicated. |
+
+The Release calendar is computed on request and cached for five minutes.
+
+Routes (all under `/api/glidepath`, Backstage's backend):
+
+| Route | Permission |
+|---|---|
+| `GET /release-records`, `GET /release-record` | signed in |
+| `GET /release-draft`, `POST /release-draft` | `tower.release-record.edit` to save (owners) |
+| `GET /release-mode`, `POST /release-mode` | `tower.release.mode` to change (admins only) |
+| `GET /release-signoff`, `GET /release-planned`, `GET /release-calendar` | signed in |
 
 ## Release names
 

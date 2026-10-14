@@ -1,11 +1,13 @@
 """Render each diagram page's SVG (the diagram only, per the diagram-design export rule) to a 2x PNG beside it.
 
-python3 tools/diagrams/png.py   # needs Google Chrome; fetches Google Fonts like the page does
+python3 tools/diagrams/png.py [dir]   # needs Google Chrome; fetches Google Fonts like the page does
+                                     # dir defaults to docs/break-glass/diagrams
 """
-import os, re, subprocess, tempfile
+import os, re, subprocess, sys, tempfile
 
 CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'docs', 'break-glass', 'diagrams')
+DIR = (os.path.abspath(sys.argv[1]) if len(sys.argv) > 1
+       else os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'docs', 'break-glass', 'diagrams'))
 FONTS = ('<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600'
          '&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">')
 

@@ -41,16 +41,18 @@ plugin/src/tower/
 ### Release Records
 
 ```
-Backstage Context
+Backstage backend /api/glidepath/release-* (GitHub, release-tracking ConfigMaps)
   ↓
-useReleaseContext.ts (fetch from API)
+useReleaseRecords.ts, releaseFlow.ts (draft, mode, sign-off, planned), useReleaseNames.ts
   ↓
-Releases tab / ReleaseRecordDetail component
+ReleaseRecordPanel: mode bar, Next release card + draft editor, record list, Compare, Changelog
   ↓
-PromoteDialog (environment promotion)
-  ↓
-useReleaseRecordPersistence (commit to git)
+ReleaseRecordDetail: masthead, sign-off, outcome, evidence, human context (saved as a PR)
 ```
+
+The backend owns every write and two scheduled tasks (sign-off poll every 2 minutes, record poll hourly) that open
+record and outcome PRs, set sign-off statuses and publish opted-in GitHub Releases. See
+[Release records](release-records/index.md#where-it-lives-and-what-runs-on-its-own).
 
 ### Cluster State
 
@@ -83,18 +85,17 @@ built" and the cloud deployments view read the same endpoint.
 
 ## Key Design Decisions
 
-### No Backend Services
+### Reads in the browser, writes in the backend
 
-Tower reads directly from:
-- Kubernetes API (via `kubeconfig` or in-cluster credentials)
-- ArgoCD API (direct HTTP calls)
-- Tekton Dashboard or Tekton API
-
-This eliminates the operational burden of a dedicated backend service — all queries go through standard APIs.
+Tower reads clusters through Backstage's Kubernetes proxy (read only) and Argo CD through the backend. Everything that
+changes something (Argo CD actions, release PRs, config PRs, release records, Tekton re-runs) goes through routes in
+Backstage's backend (`packages/backend/src` in the backstage repo), which check Tower's permissions and audit the
+write. The browser never holds a cluster, Argo CD or GitHub credential. See [Security model](security.md).
 
 ### Release Records as Git State
 
-Release records (promotions, approvals, metadata) are persisted as git commits, not in a database. This ensures:
+Release records (what changed, what was built, sign-offs, notes, outcome) are persisted as files in git, through PRs,
+not in a database; the next release's draft and the release modes are files too. This ensures:
 - Auditability (full git history)
 - No additional persistence layer
 - GitOps alignment with infrastructure management
