@@ -131,6 +131,28 @@ tower:
 Without this block Tower uses `kube-prometheus-stack-prometheus:9090` in `observability` on the Tekton cluster. The
 Kubernetes plugin's identity needs `get` on `services/proxy` for that Service.
 
+### Release records
+
+Release records need Backstage's backend from the backstage repo (routes under `/api/glidepath/release-*` and the
+`release-signoff-poll` / `release-record-poll` tasks) and Backstage's notifications backend for the announcements.
+The backend uses its GitHub integration credential, which needs, on the app repos, `gitops-<app>` repos and the
+release-modes repo: read contents, issues, milestones, PRs and reviews; write contents (the draft, and branches for
+PRs); open PRs; set commit statuses; and create releases (only for apps that opt in to GitHub Releases).
+
+```yaml
+tower:
+  # Where each app's release mode lives. Defaults shown (owner: the app's GitHub owner).
+  releaseModes:
+    repo: gitops-cluster-dev-tenants
+    path: release-modes.yaml
+  # Jira keys (ABC-123) in PR titles, bodies and branches link here. Unset: no Jira links.
+  jira:
+    baseUrl: https://your-org.atlassian.net
+```
+
+`release-modes.yaml` does not need to exist: every app is Assisted until an admin changes one, and the first change
+opens the PR that creates it. Only `group:default/admins` gets `tower.release.mode`; it is never granted to owners.
+
 ## Verification
 
 After installation, Tower should be available in the Backstage sidebar. Verify by:

@@ -131,6 +131,27 @@ target), and the outcome. A refusal is audited too.
 Severity is `medium` by default, `high` for the `.flight` permissions, rollback, force sync and Flight Rollout
 actions, and `critical` for a Flight analysis bypass.
 
+## Release records: what the backend does on its own
+
+Two scheduled tasks in Backstage's backend write to GitHub without a user asking, with the backend's GitHub
+integration credential ([Release records](release-records/index.md#where-it-lives-and-what-runs-on-its-own)):
+
+- **Only PRs, statuses and Releases.** The record and outcome are PRs to `gitops-<app>`, on `release-record-*` and
+  `release-record-outcome-*` branches that the release gates skip. Nothing merges them; the record is in the history
+  only once a person merges the PR. The sign-off status is a commit status on the release PR.
+- **A GitHub Release is opt-in per release**, set by an owner in the draft, and published only once the release is
+  healthy in production. It never creates a tag at a commit other than the image's, and never moves or replaces a tag.
+- **The sign-off is a soft gate.** The status cannot block a merge (see Known gaps); a merge without a sign-off that
+  counts is announced at high severity and stays on the record.
+- **Announcements go to everyone** through Backstage notifications, with the app, the release name, the PR and who
+  signed off. They carry nothing a signed-in user cannot already read.
+
+The draft is the one direct commit: **Save** writes `glidepath/releases/next.yaml` in the app repo with the
+backend's credential, naming the user in the commit message (`tower.release-record.edit`, audited). When the release
+is recorded, the record poll deletes the file the same way, when it opens the record PR. Glidepath builds nothing
+for a push that only touches `glidepath/`, and no environment reads that file. A release mode changes only through a
+PR to `release-modes.yaml`, which only admins may open (`tower.release.mode`).
+
 ## Image pruning
 
 Images tab → **Clean up old images** deletes an app's old package versions from the registry. It covers only the
@@ -195,7 +216,8 @@ See [Guardrails](break-glass/guardrails.md) for every layer and what it stops.
   CD: *Restart pods* on the Rollout (rolling), or *Restart pod* for one pod. A pod delete skips the
   PodDisruptionBudget, so the backend counts the pod's ready siblings first: the last ready pod is refused on Flight
   and needs an explicit "restart anyway, accepting downtime" on Ground.
-- **No direct commits to an environment's running configuration.** Every change is a PR.
+- **No direct commits to an environment's running configuration.** Every change is a PR (The release draft is a
+  direct commit, to a file no environment reads.)
 - **No standing credentials in the browser.** The browser talks only to Backstage's backend, which holds the
   Argo CD and GitHub credentials.
 
@@ -211,6 +233,8 @@ Ground actions, and is refused Flight sync and force sync.
 - Release PRs to gitops repositories are on a plan without branch protection, so a break-glass merge is possible
   for anyone with write access to the repository. The PR keeps its failed checks visible.
 - Merging a release PR from Tower is not offered; merge it on GitHub.
+- The Hand-flown sign-off is a commit status, not a required check: GitHub Free cannot require one on a private
+  repository, so a release PR can merge without it. Tower announces it and records it instead.
 - Break-glass has its own limits and open items: see
   [what it does not protect against](break-glass/guardrails.md#what-break-glass-does-not-protect-against) and
   [still open](break-glass/admin/design.md#still-open).

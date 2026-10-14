@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Hand-flown release</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#f2efe9;--paper-2:#e8e3da;--ink:#1b1f24;--muted:#5b6570;--soft:#838b93;--accent:#b9791f;--link:#2e7ba6;--rule:rgba(27,31,36,0.12);
+--card:#fff;--font-sans:'Geist',system-ui,sans-serif;--font-serif:'Instrument Serif',serif;--font-mono:'Geist Mono',ui-monospace,monospace}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);padding:2.5rem 2rem 2rem}
+.frame{max-width:1120px;margin:0 auto}
+.eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+h1{font-family:var(--font-serif);font-size:clamp(1.5rem,2.4vw + .75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:.5rem}
+.lede{color:var(--muted);font-size:.9rem;line-height:1.5;max-width:70ch;margin-bottom:1.25rem}
+.fig{overflow-x:auto}
+svg{width:100%;min-width:900px;display:block}
+.cards{display:grid;grid-template-columns:1.15fr 1fr 1.05fr;gap:.75rem;margin-top:1.25rem}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem}
+.card .eyebrow{margin-bottom:.35rem}
+.card p,.card li{font-size:.8rem;line-height:1.5;color:var(--ink)}
+.card ul{padding-left:1rem}
+.card .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:.4rem;background:var(--muted)}
+.card .dot.accent{background:var(--accent)} .card .dot.link{background:var(--link)}
+.foot{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--soft);border-top:1px solid var(--rule);margin-top:1.25rem;padding-top:.6rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot a{color:var(--link);text-decoration:none}
+@media (max-width:900px){.cards{grid-template-columns:1fr}}
+@media print{@page{size:landscape;margin:10mm}body{padding:0}.cards{margin-top:.75rem}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root:not([data-theme=light]) svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root:not([data-theme=light]) svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root:not([data-theme=light]) svg [fill="#5b6570"]{fill:#a1aab3}
+:root:not([data-theme=light]) svg [fill="#838b93"]{fill:#7f8891}
+:root:not([data-theme=light]) svg [fill="#b9791f"]{fill:#e8a33d}
+:root:not([data-theme=light]) svg [fill="#f2efe9"]{fill:#131619}
+:root:not([data-theme=light]) svg [fill="#ffffff"]{fill:#1c2127}
+:root:not([data-theme=light]) svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root:not([data-theme=light]) svg [fill="rgba(27,31,36,0.03)"]{fill:rgba(232,228,220,0.03)}
+:root:not([data-theme=light]) svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root:not([data-theme=light]) svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root:not([data-theme=light]) svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root:not([data-theme=light]) svg [stroke="#838b93"]{stroke:#7f8891}
+:root:not([data-theme=light]) svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.20)"]{stroke:rgba(232,228,220,0.2)}
+:root:not([data-theme=light]) svg [stroke="rgba(27,31,36,0.30)"]{stroke:rgba(232,228,220,0.3)}}
+:root[data-theme=dark]{--paper:#131619;--paper-2:#1b1f24;--ink:#e8e4dc;--muted:#a1aab3;--soft:#7f8891;--accent:#e8a33d;--link:#6fb2d9;--rule:rgba(232,228,220,0.14);--card:#1a1e23}
+:root[data-theme=dark] svg [fill="#1b1f24"]{fill:#e8e4dc}
+:root[data-theme=dark] svg [fill="#2e7ba6"]{fill:#6fb2d9}
+:root[data-theme=dark] svg [fill="#5b6570"]{fill:#a1aab3}
+:root[data-theme=dark] svg [fill="#838b93"]{fill:#7f8891}
+:root[data-theme=dark] svg [fill="#b9791f"]{fill:#e8a33d}
+:root[data-theme=dark] svg [fill="#f2efe9"]{fill:#131619}
+:root[data-theme=dark] svg [fill="#ffffff"]{fill:#1c2127}
+:root[data-theme=dark] svg [fill="rgba(185,121,31,0.08)"]{fill:rgba(232,163,61,0.104)}
+:root[data-theme=dark] svg [fill="rgba(27,31,36,0.03)"]{fill:rgba(232,228,220,0.03)}
+:root[data-theme=dark] svg [fill="rgba(91,101,112,0.10)"]{fill:rgba(161,170,179,0.1)}
+:root[data-theme=dark] svg [stroke="#1b1f24"]{stroke:#e8e4dc}
+:root[data-theme=dark] svg [stroke="#5b6570"]{stroke:#a1aab3}
+:root[data-theme=dark] svg [stroke="#838b93"]{stroke:#7f8891}
+:root[data-theme=dark] svg [stroke="#b9791f"]{stroke:#e8a33d}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.12)"]{stroke:rgba(232,228,220,0.12)}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.20)"]{stroke:rgba(232,228,220,0.2)}
+:root[data-theme=dark] svg [stroke="rgba(27,31,36,0.30)"]{stroke:rgba(232,228,220,0.3)}
+</style>
+</head>
+<body>
+<div class="frame">
+<p class="eyebrow">Release records · 03 · Sequence</p>
+<h1>A Hand-flown release</h1>
+<p class="lede">Two people, one PR. The status says whether a sign-off counts; it cannot stop the merge.</p>
+<div class="fig">
+<svg viewBox="0 24 1000 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="03-hand-flown-title 03-hand-flown-desc">
+<title id="03-hand-flown-title">A Hand-flown release</title>
+<desc id="03-hand-flown-desc">Glidepath opens the release PR to production. Every two minutes the Tower backend sets the sign-off status to pending and announces that the release is ready. A second GitHub account approves; the status turns to success. You merge; the backend announces the release. Within the hour it commits the release record, and once the outcome is final it opens the outcome PR.</desc>
+<defs><marker id="arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#5b6570" stroke-width="1.2"/></marker><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5b6570"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#b9791f"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e7ba6"/></marker></defs>
+<rect width="100%" height="100%" fill="#f2efe9"/>
+<line x1="100" y1="88" x2="100" y2="532" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="3,3"/><line x1="290" y1="88" x2="290" y2="532" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="3,3"/><line x1="500" y1="88" x2="500" y2="532" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="3,3"/><line x1="720" y1="88" x2="720" y2="532" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="3,3"/><line x1="900" y1="88" x2="900" y2="532" stroke="rgba(27,31,36,0.20)" stroke-width="1" stroke-dasharray="3,3"/><path d="M900,136 L500,136" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="778" y="118" width="64" height="12" rx="2" fill="#f2efe9"/><text x="810" y="127" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">RELEASE PR</text><path d="M720,180 L500,180" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="566" y="162" width="88" height="12" rx="2" fill="#f2efe9"/><text x="610.0" y="171" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">STATUS PENDING</text><path d="M720,224 L100,224" fill="none" stroke="#5b6570" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/><rect x="566" y="206" width="88" height="12" rx="2" fill="#f2efe9"/><text x="610" y="215" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">READY FOR PROD</text><path d="M290,268 L500,268" fill="none" stroke="#b9791f" stroke-width="1.2" marker-end="url(#arrow-accent)"/><rect x="371" y="250" width="48" height="12" rx="2" fill="#f2efe9"/><text x="395.0" y="259" fill="#b9791f" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">APPROVE</text><path d="M720,312 L500,312" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="566" y="294" width="88" height="12" rx="2" fill="#f2efe9"/><text x="610.0" y="303" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">STATUS SUCCESS</text><path d="M100,356 L500,356" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="377" y="338" width="36" height="12" rx="2" fill="#f2efe9"/><text x="395" y="347" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">MERGE</text><path d="M720,400 L100,400" fill="none" stroke="#5b6570" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-open)"/><rect x="582" y="382" width="56" height="12" rx="2" fill="#f2efe9"/><text x="610" y="391" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">RELEASED</text><path d="M720,444 L500,444" fill="none" stroke="#5b6570" stroke-width="1.2" marker-end="url(#arrow)"/><rect x="580" y="426" width="60" height="12" rx="2" fill="#f2efe9"/><text x="610.0" y="435" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">RECORD PR</text><path d="M720,488 L500,488" fill="none" stroke="#5b6570" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/><rect x="578" y="470" width="64" height="12" rx="2" fill="#f2efe9"/><text x="610.0" y="479" fill="#838b93" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">OUTCOME PR</text><text x="732" y="184" fill="#838b93" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">every 2 min</text><text x="732" y="448" fill="#838b93" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">hourly</text><text x="732" y="492" fill="#838b93" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">when final</text><rect x="20" y="40" width="160" height="48" rx="6" fill="#f2efe9"/><rect x="20" y="40" width="160" height="48" rx="6" fill="rgba(91,101,112,0.10)" stroke="#838b93" stroke-width="1"/><text x="100.0" y="68.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">You</text><rect x="210" y="40" width="160" height="48" rx="6" fill="#f2efe9"/><rect x="210" y="40" width="160" height="48" rx="6" fill="rgba(185,121,31,0.08)" stroke="#b9791f" stroke-width="1"/><text x="290.0" y="68.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Second account</text><rect x="420" y="40" width="160" height="48" rx="6" fill="#f2efe9"/><rect x="420" y="40" width="160" height="48" rx="6" fill="rgba(27,31,36,0.03)" stroke="rgba(27,31,36,0.30)" stroke-width="1"/><text x="500.0" y="68.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">GitHub</text><rect x="640" y="40" width="160" height="48" rx="6" fill="#f2efe9"/><rect x="640" y="40" width="160" height="48" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="720.0" y="68.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tower backend</text><rect x="820" y="40" width="160" height="48" rx="6" fill="#f2efe9"/><rect x="820" y="40" width="160" height="48" rx="6" fill="#ffffff" stroke="#1b1f24" stroke-width="1"/><text x="900.0" y="68.0" fill="#1b1f24" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Glidepath</text><text x="20" y="572" fill="#5b6570" font-size="16" font-family="'Instrument Serif', serif" font-style="italic">The sign-off counts only from someone who neither merged nor opened the PR, before the merge.</text><line x1="24" y1="600" x2="976" y2="600" stroke="rgba(27,31,36,0.12)" stroke-width="0.8"/><text x="24" y="620" fill="#5b6570" font-size="8" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">LEGEND</text><line x1="96" y1="618" x2="116" y2="618" stroke="#5b6570" stroke-width="1.2"/><text x="124" y="621" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Call</text><line x1="164" y1="618" x2="184" y2="618" stroke="#5b6570" stroke-width="1.2" stroke-dasharray="5,4"/><text x="192" y="621" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Notification</text><line x1="272" y1="618" x2="292" y2="618" stroke="#b9791f" stroke-width="1.2"/><text x="300" y="621" fill="#5b6570" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">Sign-off</text>
+</svg>
+</div>
+<div class="cards"></div>
+<div class="foot"><span>Tower · Release records</span><span></span></div>
+</div>
+</body>
+</html>
