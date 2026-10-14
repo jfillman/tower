@@ -30,12 +30,15 @@ export function ReleaseModeBar({
   submitting,
   error,
   prUrl,
+  waitingForMerge,
   onChange,
 }: {
   info: ReleaseModeInfo;
   submitting: boolean;
   error?: string;
   prUrl?: string;
+  /** The PR is open and the mode file doesn't say the new mode yet: Tower is re-reading it. */
+  waitingForMerge?: boolean;
   onChange: (mode: ReleaseMode) => void;
 }) {
   const t = useHangarTokens();
@@ -81,6 +84,7 @@ export function ReleaseModeBar({
       {prUrl && (
         <span className={classes.caption}>
           Mode change PR opened · <TextLink href={prUrl}>review ↗</TextLink>
+          {waitingForMerge && ' · the mode updates here once it merges'}
         </span>
       )}
       {error && <span className={classes.error}>{error}</span>}

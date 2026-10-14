@@ -116,7 +116,7 @@ def d03():
     b += msg('bs', 'gh', 444, 'record PR')
     b += msg('bs', 'gh', 488, 'outcome PR', dashed=True)
     b += text(xs['bs'] + 12, 184, 'every 2 min', 8, 400, SOFT, mono=True)
-    b += text(xs['bs'] + 12, 448, 'hourly', 8, 400, SOFT, mono=True)
+    b += text(xs['bs'] + 12, 448, 'within minutes', 8, 400, SOFT, mono=True)
     b += text(xs['bs'] + 12, 492, 'when final', 8, 400, SOFT, mono=True)
     b += node(20, 40, 160, 48, 'You', None, 'input')
     b += node(210, 40, 160, 48, 'Second account', None, 'focal')
@@ -128,7 +128,7 @@ def d03():
     write('03-hand-flown', 'Release records · 03 · Sequence', 'A Hand-flown release',
           'Glidepath opens the release PR to production. Every two minutes the Tower backend sets the sign-off status to '
           'pending and announces that the release is ready. A second GitHub account approves; the status turns to '
-          'success. You merge; the backend announces the release. Within the hour it commits the release record, and '
+          'success. You merge; the backend announces the release. Within minutes it commits the release record, and '
           'once the outcome is final it opens the outcome PR.',
           b, 644, 'Two people, one PR. The status says whether a sign-off counts; it cannot stop the merge.', y0=24)
 

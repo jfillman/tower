@@ -20,7 +20,7 @@ import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPro
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel';
 import { useReleaseRecords } from '../useReleaseRecords';
 import { buildNextRelease } from '../nextRelease';
-import { useReleaseNames } from '../useReleaseNames';
+import { draftStillBelongsTo, useReleaseNames } from '../useReleaseNames';
 import {
   RELEASE_MODE_LABEL,
   suggestNotes,
@@ -29,6 +29,7 @@ import {
   useReleasePlanned,
   useSaveReleaseDraft,
   useSubmitReleaseMode,
+  type ReleaseMode,
 } from '../releaseFlow';
 import { ReleaseModeBar } from '../ReleaseModeBar';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor';
@@ -93,10 +94,36 @@ export function ReleasesTab() {
   // R2: the app's release mode and the saved draft (notes, owner, risk), refetched after a save.
   const flowTarget = owner && appName ? { owner, appName } : undefined;
   const [flowNonce, setFlowNonce] = useState(0);
-  const releaseMode = useReleaseMode(flowTarget, flowNonce);
+  // A mode change is a PR someone merges on GitHub, so Tower can't know when it lands: while one is pending, the mode
+  // is re-read every 20 seconds and whenever this window gets focus back (2026-10-14 bug: after merging, the bar kept
+  // the old mode until you left the tab and came back).
+  const [modeNonce, setModeNonce] = useState(0);
+  const [requestedMode, setRequestedMode] = useState<ReleaseMode | undefined>(undefined);
+  const releaseMode = useReleaseMode(flowTarget, flowNonce + modeNonce);
   const savedDraft = useReleaseDraft(flowTarget, flowNonce);
   const saveDraft = useSaveReleaseDraft();
   const submitMode = useSubmitReleaseMode();
+  const modePending = Boolean(requestedMode && submitMode.result && releaseMode.data?.mode !== requestedMode);
+  useEffect(() => {
+    if (!modePending) return undefined;
+    const reread = () => setModeNonce(n => n + 1);
+    const timer = window.setInterval(reread, 20_000);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 15 * 60_000);
+    window.addEventListener('focus', reread);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+      window.removeEventListener('focus', reread);
+    };
+  }, [modePending]);
+  // Once the new mode is in, the "PR opened" note has done its job.
+  const resetSubmitMode = submitMode.reset;
+  useEffect(() => {
+    if (requestedMode && releaseMode.data?.mode === requestedMode) {
+      setRequestedMode(undefined);
+      resetSubmitMode();
+    }
+  }, [requestedMode, releaseMode.data?.mode, resetSubmitMode]);
   const planned = useReleasePlanned(savedDraft.data?.milestone ? flowTarget : undefined, flowNonce);
   const flow = useMemo(
     () =>
@@ -282,7 +309,11 @@ export function ReleasesTab() {
                   submitting={submitMode.loading}
                   error={submitMode.error}
                   prUrl={submitMode.result?.prUrl}
-                  onChange={mode => submitMode.submit({ owner, appName, mode })}
+                  waitingForMerge={modePending}
+                  onChange={mode => {
+                    setRequestedMode(mode);
+                    submitMode.submit({ owner, appName, mode });
+                  }}
                 />
               ) : undefined
             }
@@ -295,6 +326,12 @@ export function ReleasesTab() {
                   saving={saveDraft.loading}
                   error={saveDraft.error}
                   commitUrl={saveDraft.result?.commitUrl}
+                  belongsTo={draftStillBelongsTo(
+                    releaseNames,
+                    Boolean(savedDraft.data),
+                    gitopsPrs.map(pr => pr.title),
+                  )}
+                  nextName={releaseNames?.next}
                   onSave={async draft => {
                     if (await saveDraft.submit({ owner, appName, draft })) setFlowNonce(n => n + 1);
                   }}

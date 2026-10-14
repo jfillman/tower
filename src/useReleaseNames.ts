@@ -92,3 +92,21 @@ export function namesFromHistory(index: ReleaseRecordIndexEntry[], records: Rele
   ]);
   return { byTag, next: releaseNameFor(byTag.size), index };
 }
+
+/**
+ * The release a saved draft still belongs to. A release is named as soon as it reaches Flight, but its draft is only
+ * copied into its record (and next.yaml cleared) when Tower's backend writes the record PR. In between, the draft on
+ * screen is that release's, not the next one's (2026-10-14 bug: IRONWOOD's notes showed under JUNIPER).
+ */
+export function draftStillBelongsTo(
+  names: ReleaseNames | undefined,
+  hasDraft: boolean,
+  recordPrTitles: string[],
+): string | undefined {
+  if (!names || !hasDraft) return undefined;
+  const committed = new Set(names.index.map(e => e.imageTag));
+  const withPr = new Set(recordPrTitles.map(t => t.match(/^Release Record: \S+ @ (\S+)$/)?.[1]).filter(Boolean) as string[]);
+  const pending = [...names.byTag.entries()].filter(([tag]) => !committed.has(tag) && !withPr.has(tag));
+  return pending.length > 0 ? pending[pending.length - 1][1] : undefined;
+}
+
