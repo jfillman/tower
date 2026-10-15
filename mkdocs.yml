@@ -1,29 +1,33 @@
-site_name: Tower
-docs_dir: docs
-theme:
-  name: material
-  features:
-    - navigation.instant
-    - navigation.tabs
-    - toc.integrate
+site_name: 'Tower'
+site_description: 'Hangar''s Backstage plugin for releases, deployments and operational dashboards'
+
 nav:
   - Home: index.md
-  - Deployments: deployments.md
-  - Release records: release-records/index.md
-  - Security model: security.md
-  - Supply chain: supply-chain.md
-  - Cluster credentials: credentials/index.md
-  - Break-glass debugging:
-      - Overview: break-glass/index.md
-      - "Walkthrough: Ground": break-glass/ground-walkthrough.md
-      - "Walkthrough: Flight": break-glass/flight-walkthrough.md
-      - Choosing a mode and options: break-glass/options.md
-      - Inside the session: break-glass/in-the-session.md
-      - Breaking the glass and reviews: break-glass/glass-broken.md
-      - Recordings: break-glass/recordings.md
-      - Guardrails: break-glass/guardrails.md
-      - Troubleshooting: break-glass/troubleshooting.md
-      - Admin guide:
+  - User guide:
+      - Deployments: deployments.md
+      - Release records: release-records/index.md
+      - Supply chain: supply-chain.md
+      - Provisioning: provisioning.md
+      - Environments: environments.md
+      - Cloud deploys: cloud-deploys.md
+      - Service classes: service-classes.md
+      - Break-glass debugging:
+          - Overview: break-glass/index.md
+          - "Walkthrough: Ground": break-glass/ground-walkthrough.md
+          - "Walkthrough: Flight": break-glass/flight-walkthrough.md
+          - Choosing a mode and options: break-glass/options.md
+          - Inside the session: break-glass/in-the-session.md
+          - Breaking the glass and reviews: break-glass/glass-broken.md
+          - Recordings: break-glass/recordings.md
+          - Guardrails: break-glass/guardrails.md
+          - Troubleshooting: break-glass/troubleshooting.md
+  - Admin guide:
+      - Installation: installation.md
+      - Architecture: architecture.md
+      - Components: components.md
+      - Security model: security.md
+      - Cluster credentials: credentials/index.md
+      - Break-glass debugging:
           - Overview and architecture: break-glass/admin/index.md
           - Setup: break-glass/admin/setup.md
           - Configuration reference: break-glass/admin/configuration.md
@@ -32,12 +36,9 @@ nav:
           - How it works: break-glass/admin/internals.md
           - Design decisions: break-glass/admin/design.md
           - Testing and verification: break-glass/admin/testing.md
-  - Installation: installation.md
-  - Architecture: architecture.md
-  - Components: components.md
-  - Provisioning: provisioning.md
-  - Environments: environments.md
-  - Design system: design-system.md
-  - Cloud deploys: cloud-deploys.md
-  - Service classes: service-classes.md
-  - Brand: brand/README.md
+      - Design system: design-system.md
+  - Brand:
+      - Marks and files: brand/README.md
+
+plugins:
+  - techdocs-core
