@@ -1,20 +1,16 @@
-import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import { STALE_THRESHOLD_MS, relativeTime } from './shared/format.esm.js';
+import { relativeTime } from './shared/format.esm.js';
 import { useHangarTokens } from './brand/tokens.esm.js';
 import { PrButton } from './PrButton.esm.js';
-import { gitopsPrForEnv } from './useReleaseContext.esm.js';
+import { parseGitopsPrTitle, gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
-import { Card, StatusChip, healthTone, Callout, TextLink, Tile, Stat } from './ui/index.esm.js';
-import { isSignedAndAttested } from './supplyChain.esm.js';
+import { Stat, Callout, TextLink } from './ui/index.esm.js';
 
 const useStyles = makeStyles(() => ({
-  deck: { marginBottom: 20 },
-  deckBody: { display: "flex", flexDirection: "column", gap: 14 },
-  envRow: { display: "flex", flexWrap: "wrap", gap: 8 },
-  tasks: { display: "flex", flexDirection: "column", gap: 6 },
-  statsRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }
+  tasks: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 },
+  stats: { display: "inline-flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }
 }));
 const CALLOUT_TONE = { bad: "bad", warn: "warn", good: "ok", neutral: "neutral" };
 function computeTaskQueue(environments, gitopsPrs, sourcePrs, goToMatrix, goToPullRequests, goToTopology) {
@@ -83,30 +79,11 @@ function computeTaskQueue(environments, gitopsPrs, sourcePrs, goToMatrix, goToPu
   }
   return tasks.slice(0, 3);
 }
-function verifiedSupplyChainCount(environments, provenanceByImage) {
-  let verified = 0;
-  let total = 0;
-  environments.forEach((env) => {
-    if (!env.image) return;
-    const state = provenanceByImage[env.image];
-    if (!state || state.loading || !state.data) return;
-    total += 1;
-    if (isSignedAndAttested(state.data)) verified += 1;
-  });
-  return { verified, total };
-}
-function releasesThisWeek(deployHistory) {
-  if (!deployHistory) return 0;
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1e3;
-  return Object.values(deployHistory).flat().filter((entry) => new Date(entry.date).getTime() >= cutoff).length;
-}
 function CommandDeck({
   environments,
-  previewCount,
   gitopsPrs,
   sourcePrs,
-  deployHistory,
-  provenanceByImage,
+  nextTag,
   onSelectTab
 }) {
   const t = useHangarTokens();
@@ -119,75 +96,43 @@ function CommandDeck({
       return next;
     });
   };
-  const goToMatrix = () => onSelectTab("matrix");
-  const goToEnvTopology = (env) => () => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("tab", "topology");
-      next.set("env", env);
-      return next;
-    });
-  };
   const tasks = computeTaskQueue(
     environments,
     gitopsPrs,
     sourcePrs,
-    goToMatrix,
+    () => onSelectTab("matrix"),
     goToTowerTab("pull-requests"),
     goToTowerTab("topology")
-  );
-  const openPromotions = gitopsPrs.filter((pr) => pr.state === "open").length;
-  const openSourcePrCount = sourcePrs.filter((pr) => pr.state === "open").length;
-  const releasesWeek = releasesThisWeek(deployHistory);
-  const { verified, total } = verifiedSupplyChainCount(environments, provenanceByImage);
-  return /* @__PURE__ */ jsx(Card, { className: classes.deck, children: /* @__PURE__ */ jsxs("div", { className: classes.deckBody, children: [
-    /* @__PURE__ */ jsxs("div", { className: classes.envRow, children: [
-      environments.map((env) => {
-        const h = health(env);
-        const stale = env.deployedAt && Date.now() - new Date(env.deployedAt).getTime() > STALE_THRESHOLD_MS;
-        return /* @__PURE__ */ jsxs(
-          StatusChip,
-          {
-            tone: healthTone(h),
-            dot: true,
-            onClick: goToEnvTopology(env.env),
-            title: `View ${env.env} in Topology${stale ? ` - deployed ${relativeTime(env.deployedAt)}` : ""}`,
-            children: [
-              env.env,
-              env.drift && /* @__PURE__ */ jsx("span", { title: "Running a different image than the majority", children: "\u26A0" })
-            ]
-          },
-          env.key
-        );
-      }),
-      previewCount > 0 && /* @__PURE__ */ jsxs(StatusChip, { tone: "info", dot: true, onClick: () => onSelectTab("preview"), title: "View preview environments", children: [
-        previewCount,
-        " preview"
-      ] })
-    ] }),
-    /* @__PURE__ */ jsx("div", { className: classes.tasks, children: tasks.map((task, i) => /* @__PURE__ */ jsx(
-      Callout,
-      {
-        tone: CALLOUT_TONE[task.tone],
-        icon: task.icon,
-        label: task.eyebrow,
-        title: task.headline,
-        actions: task.pr || task.action ? /* @__PURE__ */ jsxs(Fragment, { children: [
-          task.pr && /* @__PURE__ */ jsx(PrButton, { pr: task.pr, showTarget: true }),
-          task.action && /* @__PURE__ */ jsx(TextLink, { onClick: task.action.onClick, children: task.action.label })
-        ] }) : void 0,
-        children: task.detail
-      },
-      i
-    )) }),
-    /* @__PURE__ */ jsxs("div", { className: classes.statsRow, children: [
-      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Releases this week", value: releasesWeek }) }),
-      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Open source PRs", value: openSourcePrCount }) }),
-      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: `Pending promotion${openPromotions === 1 ? "" : "s"}`, value: openPromotions }) }),
-      /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label: "Supply chain", value: total > 0 ? `${verified}/${total} verified` : "checking\u2026", caption: "cosign \xB7 SLSA \xB7 Rekor" }) })
-    ] })
-  ] }) });
+  ).filter((task) => {
+    if (task.tone !== "bad" && task.tone !== "warn") return false;
+    return !(task.pr && nextTag && parseGitopsPrTitle(task.pr.title)?.imageTag === nextTag);
+  });
+  if (tasks.length === 0) return null;
+  return /* @__PURE__ */ jsx("div", { className: classes.tasks, children: tasks.map((task, i) => /* @__PURE__ */ jsx(
+    Callout,
+    {
+      tone: CALLOUT_TONE[task.tone],
+      icon: task.icon,
+      label: task.eyebrow,
+      title: task.headline,
+      actions: task.pr || task.action ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        task.pr && /* @__PURE__ */ jsx(PrButton, { pr: task.pr, showTarget: true }),
+        task.action && /* @__PURE__ */ jsx(TextLink, { onClick: task.action.onClick, children: task.action.label })
+      ] }) : void 0,
+      children: task.detail
+    },
+    i
+  )) });
+}
+function ReleaseStats({ releasesThisWeek, openSourcePrs, pendingPromotions }) {
+  const t = useHangarTokens();
+  const classes = useStyles({ t });
+  return /* @__PURE__ */ jsxs("span", { className: classes.stats, "aria-label": "Release stats", children: [
+    /* @__PURE__ */ jsx(Stat, { label: "Releases this week", value: releasesThisWeek }),
+    /* @__PURE__ */ jsx(Stat, { label: "Open source PRs", value: openSourcePrs }),
+    /* @__PURE__ */ jsx(Stat, { label: `Pending promotion${pendingPromotions === 1 ? "" : "s"}`, value: pendingPromotions, tone: pendingPromotions > 0 ? "warn" : void 0 })
+  ] });
 }
 
-export { CommandDeck };
+export { CommandDeck, ReleaseStats };
 //# sourceMappingURL=CommandDeck.esm.js.map

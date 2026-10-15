@@ -1,14 +1,17 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState, useEffect, useMemo } from 'react';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PageHeader, Subtabs } from '../ui/index.esm.js';
+import { PageHeader, StatusChip, Subtabs } from '../ui/index.esm.js';
 import { usePromote } from '../useReleaseData.esm.js';
 import { useReleaseContext, applyCloudPins } from '../useReleaseContext.esm.js';
 import { usePinnedTags } from '../environments/releasePins.esm.js';
-import { CommandDeck } from '../CommandDeck.esm.js';
+import { ReleaseStats, CommandDeck } from '../CommandDeck.esm.js';
+import { ReleaseHeroes } from '../ReleaseHeroes.esm.js';
+import { ReleaseChangelog } from '../ReleaseChangelog.esm.js';
+import { liveRelease, lastOutcome, nextReleasePath, noteCount, releaseStats } from '../releaseCards.esm.js';
 import { ReleaseMatrix } from '../ReleaseMatrix.esm.js';
 import { ReleaseLog, buildLogEntries } from '../ReleaseLog.esm.js';
 import { LeadTimePanel } from '../TimelinePanel.esm.js';
@@ -18,7 +21,7 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass.esm.js';
 import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel.esm.js';
-import { useReleaseRecords } from '../useReleaseRecords.esm.js';
+import { useReleaseRecords, withRecordedEvidence } from '../useReleaseRecords.esm.js';
 import { buildNextRelease } from '../nextRelease.esm.js';
 import { useReleaseNames, draftStillBelongsTo } from '../useReleaseNames.esm.js';
 import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, useReleasePlanned, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
@@ -27,7 +30,8 @@ import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
 import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
-  panelSpacer: { marginTop: 16 }
+  panelSpacer: { marginTop: 16, scrollMarginTop: 16 },
+  headerEnd: { display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }
 }));
 function ReleasesTab() {
   const t = useHangarTokens();
@@ -101,7 +105,14 @@ function ReleasesTab() {
     [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder, flow]
   );
   const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : void 0, releaseRecords);
-  const [activeTab, setActiveTab] = useState("matrix");
+  const [activeTab, setActiveTab] = useState("record");
+  const [openRecordId, setOpenRecordId] = useState(null);
+  const panelRef = useRef(null);
+  const showInPanel = (id) => {
+    setOpenRecordId(id);
+    setActiveTab("record");
+    window.requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const [promoteTarget, setPromoteTarget] = useState(null);
   const promote = usePromote();
   const { entity } = useEntity();
@@ -138,25 +149,73 @@ function ReleasesTab() {
       setPromoteTarget({ source: { image: source.image }, target: target2 });
     }
   };
+  const flightEnvs = pipelineOrder.upper ?? [];
+  const lowerEnvs = pipelineOrder.lower ?? [];
+  const byTag = new Map((releaseNames?.index ?? []).map((e) => [e.imageTag, e]));
+  const evidenced = releaseRecords.map((r) => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  const signoffEnv = releaseMode.data?.signoffEnv;
+  const live = liveRelease(evidenced, signoffEnv, flightEnvs);
+  const last = lastOutcome(evidenced, live?.id);
+  const nameOf = (tag) => tag ? releaseNames?.byTag.get(tag) : void 0;
+  const leadingTag = nextRelease.leading?.imageTag;
+  const path = nextReleasePath(leadingTag, nextRelease.leading?.liveOn ?? [], lowerEnvs, flightEnvs, pipelineEnvironments, gitopsPrs);
+  const flightSteps = path.filter((p) => p.kind === "flight");
+  const draftIsNexts = !draftStillBelongsTo(releaseNames, Boolean(savedDraft.data), gitopsPrs.map((pr) => pr.title));
+  const heroNext = nextRelease.leading || nextRelease.scope.length > 0 ? {
+    next: nextRelease,
+    name: releaseNames?.next,
+    path,
+    notes: draftIsNexts ? noteCount(savedDraft.data) : 0,
+    owner: draftIsNexts ? savedDraft.data?.owner : void 0,
+    blocked: flightSteps.find((p) => p.state === "blocked"),
+    openPr: [...flightSteps].reverse().find((p) => p.pr)
+  } : void 0;
+  const stats = releaseStats(deployHistory.data, gitopsPrs, sourcePrs);
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(
       PageHeader,
       {
         title: "Releases",
-        subtitle: `${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? "" : "s"} tracked${owner && appName ? ` \xB7 ${owner}/${appName}` : ""}`,
-        actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+        subtitle: /* @__PURE__ */ jsxs(Fragment, { children: [
+          `${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? "" : "s"} tracked${owner && appName ? ` \xB7 ${owner}/${appName}` : ""}`,
+          releaseMode.data && /* @__PURE__ */ jsxs(Fragment, { children: [
+            " ",
+            /* @__PURE__ */ jsxs(StatusChip, { tone: releaseMode.data.mode === "hand-flown" ? "warn" : "neutral", dot: true, children: [
+              RELEASE_MODE_LABEL[releaseMode.data.mode],
+              signoffEnv && releaseMode.data.mode === "hand-flown" ? ` \xB7 sign-off on ${signoffEnv}` : ""
+            ] })
+          ] })
+        ] }),
+        actions: /* @__PURE__ */ jsxs("span", { className: classes.headerEnd, children: [
+          /* @__PURE__ */ jsx(ReleaseStats, { ...stats }),
+          /* @__PURE__ */ jsx(RefreshButton, { onClick: refresh })
+        ] })
       }
     ),
     /* @__PURE__ */ jsx(
       CommandDeck,
       {
         environments: pipelineEnvironments,
-        previewCount: previewEnvironments.length,
         gitopsPrs,
         sourcePrs,
-        deployHistory: deployHistory.data,
-        provenanceByImage,
+        nextTag: leadingTag,
         onSelectTab: setActiveTab
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      ReleaseHeroes,
+      {
+        next: heroNext,
+        live,
+        liveName: live ? nameOf(live.imageTag) : void 0,
+        liveEnvCount: live ? live.deployments.filter((d) => d.isLive && flightEnvs.some((e) => e.toLowerCase() === d.env.toLowerCase())).length : 0,
+        flightEnvCount: flightEnvs.length,
+        signoffEnv: signoffEnv ?? flightEnvs[flightEnvs.length - 1],
+        last,
+        lastName: last ? nameOf(last.imageTag) : void 0,
+        nameOf,
+        onOpenDraft: () => showInPanel(null),
+        onOpenRecord: showInPanel
       }
     ),
     /* @__PURE__ */ jsx(
@@ -164,17 +223,19 @@ function ReleasesTab() {
       {
         label: "Release views",
         tabs: [
+          { id: "record", label: `Releases (${releaseRecords.length})` },
           { id: "matrix", label: "Matrix" },
           { id: "log", label: "Log" },
           { id: "lead", label: "Lead time" },
           { id: "preview", label: `Preview (${previewEnvironments.length})` },
-          { id: "record", label: `Record (${releaseRecords.length})` }
+          ...releaseNames ? [{ id: "changelog", label: "Changelog" }] : []
         ],
         value: activeTab,
         onChange: setActiveTab
       }
     ),
-    /* @__PURE__ */ jsxs("div", { className: classes.panelSpacer, children: [
+    /* @__PURE__ */ jsxs("div", { className: classes.panelSpacer, ref: panelRef, children: [
+      activeTab === "changelog" && /* @__PURE__ */ jsx(ReleaseChangelog, { names: releaseNames, onBack: () => setActiveTab("record") }),
       activeTab === "matrix" && /* @__PURE__ */ jsx(
         ReleaseMatrix,
         {
@@ -211,6 +272,9 @@ function ReleasesTab() {
           promoteTo: pipelineOrder.upper?.[0],
           modeLabel: releaseMode.data ? `${RELEASE_MODE_LABEL[releaseMode.data.mode]} release` : void 0,
           signoffEnv: releaseMode.data?.signoffEnv,
+          openId: openRecordId,
+          onOpenIdChange: setOpenRecordId,
+          onChangelog: () => setActiveTab("changelog"),
           modeBar: releaseMode.data && owner && appName ? /* @__PURE__ */ jsx(
             ReleaseModeBar,
             {

@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 import SearchIcon from '@material-ui/icons/Search';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
-import { useUi, useBlocks, useSection, useData, useControls, useStatus } from './styles.esm.js';
+import { useUi, useBlocks, useSection, useStatus, useData, useControls } from './styles.esm.js';
 export { CopyButton, YamlBlock, YamlLine, useCopyText } from './YamlBlock.esm.js';
 
 const cx = (...c) => c.filter(Boolean).join(" ");
