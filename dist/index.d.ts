@@ -1,5 +1,7 @@
 import * as react from 'react';
+import { ReactNode } from 'react';
 import * as _backstage_frontend_plugin_api from '@backstage/frontend-plugin-api';
+import { ApiRef, ProfileInfoApi, BackstageIdentityApi, SessionApi, SignInPageProps } from '@backstage/core-plugin-api';
 
 declare const towerRouteRef: _backstage_frontend_plugin_api.RouteRef<undefined>;
 declare const towerPlugin: _backstage_frontend_plugin_api.OverridableFrontendPlugin<{}, {}, {
@@ -45,4 +47,31 @@ declare const towerPlugin: _backstage_frontend_plugin_api.OverridableFrontendPlu
     }>;
 }>;
 
-export { towerPlugin, towerRouteRef };
+/** An OAuth provider the page offers. `id` is what's remembered between visits; keep it stable. */
+interface HangarSignInProvider {
+    id: string;
+    title: string;
+    /** One line under the button, e.g. which accounts are allowed. */
+    message?: string;
+    apiRef: ApiRef<ProfileInfoApi & BackstageIdentityApi & SessionApi>;
+    icon?: ReactNode;
+}
+interface HangarSignInOptions {
+    providers: HangarSignInProvider[];
+    /** Offer "Continue as guest". Needs the backend guest provider; meant for local development only. */
+    guest?: boolean;
+    /** Replaces the default line under the wordmark. */
+    tagline?: ReactNode;
+}
+declare const githubSignInProvider: HangarSignInProvider;
+declare function HangarSignInPage({ onSignInSuccess, providers, guest, tagline }: SignInPageProps & HangarSignInOptions): react.JSX.Element;
+
+/**
+ * The Hangar sign-in page as an app module: add the result to `createApp({ features })`. It overrides the app's
+ * single `sign-in-page` extension, so remove any other SignInPageBlueprint the app registers. Providers are the
+ * app's choice (which auth backends it runs), so they're passed in rather than fixed here.
+ */
+declare function createHangarSignInModule(options: HangarSignInOptions): _backstage_frontend_plugin_api.FrontendModule;
+
+export { HangarSignInPage, createHangarSignInModule, githubSignInProvider, towerPlugin, towerRouteRef };
+export type { HangarSignInOptions, HangarSignInProvider };
