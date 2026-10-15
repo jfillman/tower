@@ -1,24 +1,31 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { makeStyles } from '@material-ui/core/styles';
+import type { Theme } from '@material-ui/core/styles';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { StatusChip, TextLink } from './ui';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
 import { NextReleaseCard } from './NextReleaseCard';
-import { ReleaseChangelog } from './ReleaseChangelog';
 import { AutolandEligibility } from './AutolandEligibility';
 import type { NextRelease, NextReleaseCandidate } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { withRecordedEvidence, type ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseNames } from './useReleaseNames';
 
-// The Record sub-tab's own list<->detail<->compare state (ReleasesTab.tsx
-// just renders this for `activeTab === 'record'`, same as every other
-// sub-tab panel) - kept local rather than lifted into ReleasesTab's own
-// state since nothing else on that tab needs to know which record is open.
-// `compareId` only ever applies on top of an open detail record (Compare is
-// triggered from the detail view's own action bar) - clearing `openId`
-// without also clearing `compareId` would leave compare state pointing at a
-// record no longer open, so `onBack` on the list is the only place that
-// needs to reset both.
+// The Releases sub-tab: list<->detail<->compare. Which record is open can be controlled by the tab (openId /
+// onOpenIdChange), since the cards above it open records too (2026-10-14, mockup E); left uncontrolled, it keeps its
+// own. `compareId` only ever applies on top of an open record (Compare starts from the record's action bar), so
+// opening another record clears it. A row of release chips above every view picks the draft or a recent record.
+
+const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
+  picker: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  pickerLabel: { fontFamily: fontMono, fontSize: 11, letterSpacing: '0.12em', color: ({ t }) => t.textLo },
+  chipOn: { fontWeight: 600, boxShadow: ({ t }) => `inset 0 0 0 1px ${t.amber}` },
+}));
+
+const PICKER_RECENT = 5;
+
 export function ReleaseRecordPanel({
   records: liveRecords,
   totalKnown,
@@ -34,6 +41,9 @@ export function ReleaseRecordPanel({
   draftEditor,
   modeLabel,
   signoffEnv,
+  openId: controlledOpenId,
+  onOpenIdChange,
+  onChangelog,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
@@ -53,26 +63,67 @@ export function ReleaseRecordPanel({
   modeLabel?: string;
   /** The environment whose release PR carries the sign-off. */
   signoffEnv?: string;
+  /** The open record, when the tab controls it (null: the list and the draft). */
+  openId?: string | null;
+  onOpenIdChange?: (id: string | null) => void;
+  /** Opens the app's changelog. */
+  onChangelog?: () => void;
 }) {
+  const t = useHangarTokens();
+  const classes = useStyles({ t });
   // Every view of a record (row, Compare, the open record) scores it from the same data: live, plus what its
   // committed file adds (frozen guardrails, counted sign-offs).
   const records = useMemo(() => {
     const byTag = new Map((names?.index ?? []).map(e => [e.imageTag, e]));
     return liveRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
   }, [liveRecords, names]);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [showChangelog, setShowChangelog] = useState(false);
+  const [ownOpenId, setOwnOpenId] = useState<string | null>(null);
+  const openId = controlledOpenId !== undefined ? controlledOpenId : ownOpenId;
   const [compareId, setCompareId] = useState<string | null>(null);
+  const setOpenId = (id: string | null) => {
+    setCompareId(null);
+    if (onOpenIdChange) onOpenIdChange(id);
+    else setOwnOpenId(id);
+  };
   const open = openId ? records.find(r => r.id === openId) : undefined;
   const compareTarget = compareId ? records.find(r => r.id === compareId) : undefined;
+  const nameOf = (r: ReleaseRecord) => names?.byTag.get(r.imageTag) ?? r.version ?? r.imageTag;
 
-  if (showChangelog) return <ReleaseChangelog names={names} onBack={() => setShowChangelog(false)} />;
+  const recent = records.slice(0, PICKER_RECENT);
+  const picker = (
+    <div className={classes.picker} aria-label="Pick a release">
+      <span className={classes.pickerLabel}>RELEASE</span>
+      {next && (
+        <StatusChip tone="warn" onClick={() => setOpenId(null)} className={!open ? classes.chipOn : undefined}>
+          {names?.next ?? 'Next'} · draft
+        </StatusChip>
+      )}
+      {recent.map(r => (
+        <StatusChip key={r.id} tone="neutral" onClick={() => setOpenId(r.id)} className={open?.id === r.id ? classes.chipOn : undefined}>
+          {nameOf(r)}
+        </StatusChip>
+      ))}
+      {records.length > PICKER_RECENT && (
+        <TextLink onClick={() => setOpenId(null)} title="Every record is in the list below the draft">
+          + {records.length - PICKER_RECENT} older
+        </TextLink>
+      )}
+    </div>
+  );
+
   if (open && compareTarget) {
-    return <ReleaseRecordCompare left={compareTarget} right={open} onBack={() => setCompareId(null)} />;
+    return (
+      <>
+        {picker}
+        <ReleaseRecordCompare left={compareTarget} right={open} onBack={() => setCompareId(null)} />
+      </>
+    );
   }
   if (open) {
     return (
-      <ReleaseRecordDetail
+      <>
+        {picker}
+        <ReleaseRecordDetail
         record={open}
         name={names?.byTag.get(open.imageTag)}
         allNames={names?.byTag}
@@ -84,10 +135,12 @@ export function ReleaseRecordPanel({
         onCompare={setCompareId}
         onBack={() => setOpenId(null)}
       />
+      </>
     );
   }
   return (
     <>
+      {picker}
       {modeBar}
       {modeBar && records.length > 0 && <AutolandEligibility records={records} signoffEnv={signoffEnv} />}
       {next && (
@@ -107,11 +160,8 @@ export function ReleaseRecordPanel({
         totalKnown={totalKnown}
         names={names?.byTag}
         flightEnvs={flightEnvs}
-        onChangelog={names ? () => setShowChangelog(true) : undefined}
-        onOpen={id => {
-          setCompareId(null);
-          setOpenId(id);
-        }}
+        onChangelog={names ? onChangelog : undefined}
+        onOpen={setOpenId}
       />
     </>
   );

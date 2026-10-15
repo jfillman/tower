@@ -1,38 +1,25 @@
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { STALE_THRESHOLD_MS, relativeTime } from './shared/format';
+import { relativeTime } from './shared/format';
 import { useHangarTokens, type HangarTokens } from './brand/tokens';
 import { PrButton } from './PrButton';
-import { gitopsPrForEnv } from './useReleaseContext';
-import { health, type DeployHistoryEntry, type EnvironmentSummary } from './types';
-import type { ProvenanceState } from './useReleaseData';
+import { gitopsPrForEnv, parseGitopsPrTitle } from './useReleaseContext';
+import { health, type EnvironmentSummary } from './types';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
-import { Callout, Card, healthTone, Stat, StatusChip, TextLink, Tile, type CalloutTone } from './ui';
-import { isSignedAndAttested } from './supplyChain';
+import { Callout, Stat, TextLink, type CalloutTone } from './ui';
 
-// The "permanent, dynamic command panel" from the 2026-09-16 Releases revamp
-// (Command Deck concept, merged with Split Sub-tabs and the Log's Table/
-// Timeline toggle - see that session for the full design discussion). A
-// normal, non-sticky panel - this page's sub-tabs already keep any one view
-// short, so a pinned slim status bar (this component's first pass had one)
-// turned out to add nothing but a redundant second read of the same top
-// task - removed same-day per live feedback rather than kept as dead code.
-// Zero new backend calls - every fact here is already fetched by
-// useReleaseContext for the rest of the tab; this only reshapes it into
-// "what needs my attention right now" instead of the one-task-at-a-time
-// banner it replaces (ReleaseStatusPanel, deleted this pass).
+// What needs attention on the Releases tab, above its release cards. It was the "Command Deck" of the 2026-09-16
+// revamp (environment chips, a ranked task queue and four stat tiles); since 2026-10-14 (mockup E) the release cards
+// lead the page, so this keeps only the tasks that are a problem (a degraded environment, drift, a pending promotion
+// that isn't the next release's own) and shows nothing when all is well. The stats moved into the page header
+// (ReleaseStats); the environment chips' jump to Topology is on the Deployments and Topology tabs. Zero new backend
+// calls: every fact is already fetched by useReleaseContext.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  deck: { marginBottom: 20 },
-  deckBody: { display: 'flex', flexDirection: 'column', gap: 14 },
-
-  envRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-
-  tasks: { display: 'flex', flexDirection: 'column', gap: 6 },
-
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 },
+  tasks: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 },
+  stats: { display: 'inline-flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' },
 }));
 
 interface DeckTask {
@@ -140,71 +127,29 @@ function computeTaskQueue(
   return tasks.slice(0, 3);
 }
 
-function verifiedSupplyChainCount(
-  environments: EnvironmentSummary[],
-  provenanceByImage: Record<string, ProvenanceState>,
-): { verified: number; total: number } {
-  let verified = 0;
-  let total = 0;
-  environments.forEach(env => {
-    if (!env.image) return;
-    const state = provenanceByImage[env.image];
-    if (!state || state.loading || !state.data) return;
-    total += 1;
-    if (isSignedAndAttested(state.data)) verified += 1;
-  });
-  return { verified, total };
-}
-
-function releasesThisWeek(deployHistory: Record<string, DeployHistoryEntry[]> | undefined): number {
-  if (!deployHistory) return 0;
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  return Object.values(deployHistory)
-    .flat()
-    .filter(entry => new Date(entry.date).getTime() >= cutoff).length;
-}
-
 export function CommandDeck({
   environments,
-  previewCount,
   gitopsPrs,
   sourcePrs,
-  deployHistory,
-  provenanceByImage,
+  nextTag,
   onSelectTab,
 }: {
   environments: EnvironmentSummary[];
-  previewCount: number;
   gitopsPrs: PullRequestSummary[];
   sourcePrs: PullRequestSummary[];
-  deployHistory: Record<string, DeployHistoryEntry[]> | undefined;
-  provenanceByImage: Record<string, ProvenanceState>;
+  /** The next release's leading image: its pending release PR is on the Next release card already. */
+  nextTag?: string;
   onSelectTab: (tab: ReleasesSubTab) => void;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [, setSearchParams] = useSearchParams();
 
-  // Cross-tab navigation follows ReleaseMatrix.tsx's own `goToImage` pattern:
-  // merge into the existing search params (via TowerPage's `tab` key) rather
-  // than replacing them outright, so `entity` survives the jump.
+  // Cross-tab navigation merges into the existing search params (TowerPage's `tab` key), so `entity` survives.
   const goToTowerTab = (tab: string) => () => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
-      return next;
-    });
-  };
-  const goToMatrix = () => onSelectTab('matrix');
-
-  // Same `?tab=topology&env=` deep link TopologyTab.tsx already reads for a
-  // Recent Activity release-event pill (see that tab's own comment) - an env
-  // chip here is just a second way in, not a new convention.
-  const goToEnvTopology = (env: string) => () => {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', 'topology');
-      next.set('env', env);
       return next;
     });
   };
@@ -213,80 +158,49 @@ export function CommandDeck({
     environments,
     gitopsPrs,
     sourcePrs,
-    goToMatrix,
+    () => onSelectTab('matrix'),
     goToTowerTab('pull-requests'),
     goToTowerTab('topology'),
-  );
-
-  const openPromotions = gitopsPrs.filter(pr => pr.state === 'open').length;
-  const openSourcePrCount = sourcePrs.filter(pr => pr.state === 'open').length;
-  const releasesWeek = releasesThisWeek(deployHistory);
-  const { verified, total } = verifiedSupplyChainCount(environments, provenanceByImage);
+  ).filter(task => {
+    if (task.tone !== 'bad' && task.tone !== 'warn') return false;
+    return !(task.pr && nextTag && parseGitopsPrTitle(task.pr.title)?.imageTag === nextTag);
+  });
+  if (tasks.length === 0) return null;
 
   return (
-    <Card className={classes.deck}>
-      <div className={classes.deckBody}>
-        <div className={classes.envRow}>
-          {environments.map(env => {
-            const h = health(env);
-            const stale = env.deployedAt && Date.now() - new Date(env.deployedAt).getTime() > STALE_THRESHOLD_MS;
-            return (
-              <StatusChip
-                key={env.key}
-                tone={healthTone(h)}
-                dot
-                onClick={goToEnvTopology(env.env)}
-                title={`View ${env.env} in Topology${stale ? ` - deployed ${relativeTime(env.deployedAt)}` : ''}`}
-              >
-                {env.env}
-                {env.drift && <span title="Running a different image than the majority">⚠</span>}
-              </StatusChip>
-            );
-          })}
-          {previewCount > 0 && (
-            <StatusChip tone="info" dot onClick={() => onSelectTab('preview')} title="View preview environments">
-              {previewCount} preview
-            </StatusChip>
-          )}
-        </div>
+    <div className={classes.tasks}>
+      {tasks.map((task, i) => (
+        <Callout
+          key={i}
+          tone={CALLOUT_TONE[task.tone]}
+          icon={task.icon}
+          label={task.eyebrow}
+          title={task.headline}
+          actions={
+            task.pr || task.action ? (
+              <>
+                {task.pr && <PrButton pr={task.pr} showTarget />}
+                {task.action && <TextLink onClick={task.action.onClick}>{task.action.label}</TextLink>}
+              </>
+            ) : undefined
+          }
+        >
+          {task.detail}
+        </Callout>
+      ))}
+    </div>
+  );
+}
 
-        <div className={classes.tasks}>
-          {tasks.map((task, i) => (
-            <Callout
-              key={i}
-              tone={CALLOUT_TONE[task.tone]}
-              icon={task.icon}
-              label={task.eyebrow}
-              title={task.headline}
-              actions={
-                task.pr || task.action ? (
-                  <>
-                    {task.pr && <PrButton pr={task.pr} showTarget />}
-                    {task.action && <TextLink onClick={task.action.onClick}>{task.action.label}</TextLink>}
-                  </>
-                ) : undefined
-              }
-            >
-              {task.detail}
-            </Callout>
-          ))}
-        </div>
-
-        <div className={classes.statsRow}>
-          <Tile>
-            <Stat label="Releases this week" value={releasesWeek} />
-          </Tile>
-          <Tile>
-            <Stat label="Open source PRs" value={openSourcePrCount} />
-          </Tile>
-          <Tile>
-            <Stat label={`Pending promotion${openPromotions === 1 ? '' : 's'}`} value={openPromotions} />
-          </Tile>
-          <Tile>
-            <Stat label="Supply chain" value={total > 0 ? `${verified}/${total} verified` : 'checking…'} caption="cosign · SLSA · Rekor" />
-          </Tile>
-        </div>
-      </div>
-    </Card>
+/** The Releases header's numbers (they were the Command Deck's tiles until 2026-10-14). */
+export function ReleaseStats({ releasesThisWeek, openSourcePrs, pendingPromotions }: { releasesThisWeek: number; openSourcePrs: number; pendingPromotions: number }) {
+  const t = useHangarTokens();
+  const classes = useStyles({ t });
+  return (
+    <span className={classes.stats} aria-label="Release stats">
+      <Stat label="Releases this week" value={releasesThisWeek} />
+      <Stat label="Open source PRs" value={openSourcePrs} />
+      <Stat label={`Pending promotion${pendingPromotions === 1 ? '' : 's'}`} value={pendingPromotions} tone={pendingPromotions > 0 ? 'warn' : undefined} />
+    </span>
   );
 }

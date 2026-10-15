@@ -26,7 +26,7 @@ Backstage's backend, against this platform's own Fulcio root and Rekor log; it d
 A step is green only when what it stands for verified. Before 2026-10-14 the first four turned green as soon as the
 item existed, and Sign + Attest when any one attestation verified.
 
-"Signed and attested", as the readiness score, the record and the Command Deck count it, means: the build provenance
+"Signed and attested", as the readiness score and the record count it, means: the build provenance
 verified, and nothing on the image contradicting it.
 
 ## The results, in plain words

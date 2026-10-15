@@ -1,8 +1,10 @@
 # Release records
 
-Releases → **Record** is an app's release history: one record per release, with what changed, what was built and
-what happened, the notes written before it shipped and the notes added after. Above the records sits the release
-that is still being put together.
+The Releases tab leads with three cards: the **next release** (the draft), the release **live in production** (with
+its bake progress) and the **last outcome**. Each opens its record in Releases → **Releases**, the first sub-tab: an
+app's release history, one record per release, with what changed, what was built and what happened, the notes
+written before it shipped and the notes added after. Above the records sits the release that is still being put
+together, and a row of chips picks the draft or one of the five newest records.
 
 **Builds and releases.** Every merge to main produces a *build*: an image such as `1.1.4-9d3dcde`, with a two-word
 slug for its pipeline flow. A build that ships to a Flight environment becomes a *release* and gets a name (HAZEL).
@@ -15,10 +17,10 @@ A release is followed from the moment the previous one ships until its outcome i
 
 | Stage | Where you see it |
 |---|---|
-| Draft | The **Next release** card above the records, and the Ops Wall's **Release calendar** |
+| Draft | The **Next release** card at the top of the tab and above the records, and the Ops Wall's **Release calendar** |
 | Release PR, rolling out | The record list's Flight ladder (● ✓ ○), and the announcements in Activity |
 | Record committed | A record row with its tree name; it opens into the full record |
-| Baking, outcome | The outcome chip beside the readiness score, and the record's **Outcome** panel |
+| Baking, outcome | The **Live in production** card's bake bar, the **Last outcome** card, the outcome chip beside the readiness score, and the record's **Outcome** panel |
 
 ## Next release (the draft)
 
@@ -63,7 +65,7 @@ The **sign-off environment** is the Flight environment `cicd.yaml` marks `produc
 environment. Staging and pre-prod never need a sign-off.
 
 Modes live in one platform-owned file, `release-modes.yaml` in `gitops-cluster-dev-tenants` (`tower.releaseModes` in
-app-config moves it). Only admins can change a mode: **Change** in the Record tab's mode bar opens a PR to that file,
+app-config moves it). Only admins can change a mode: **Change** in the Releases sub-tab's mode bar opens a PR to that file,
 and the mode takes effect when the PR merges.
 
 ```yaml

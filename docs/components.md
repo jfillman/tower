@@ -13,8 +13,21 @@ Main entry point showing:
 **Key exports:** `OverviewTab`
 
 ### Releases
-Matrix, Log, Lead time, Preview and **Record**. Record (`src/ReleaseRecordPanel.tsx`) is the release history and the
-release being put together; see [Release records](release-records/index.md):
+The releases lead the page. The header carries the release mode and three numbers (releases this week, open source
+PRs, pending promotions; `ReleaseStats` in `CommandDeck.tsx`). Below it, `CommandDeck` lists only what is wrong (a
+degraded environment, drift, a pending promotion that isn't the next release's own), and then three cards
+(`ReleaseHeroes.tsx`, choices in `releaseCards.ts`):
+
+- **Next release**: its name, the suggested version, where it is (the highest Ground environment running it, then each
+  Flight environment: live, release PR open, blocked by failing checks, or not yet), readiness, scope and notes. **Open**
+  shows the draft below.
+- **Live in production**: the release live in the sign-off environment, its bake progress, readiness score, counted
+  sign-offs and how many Flight environments run it.
+- **Last outcome**: the newest release with a final outcome, and how it ended.
+
+Sub-tabs: **Releases** (first), Matrix, Log, Lead time, Preview and Changelog. Releases (`src/ReleaseRecordPanel.tsx`)
+is the release history and the release being put together, with a row of release chips (the draft and the five
+newest records) above it; a card's **Open** selects its release there. See [Release records](release-records/index.md):
 
 - **Mode bar** (`ReleaseModeBar.tsx`): the app's release mode, the sign-off environment, **Change** for admins, and
   **Autoland eligibility** (`AutolandEligibility.tsx`, display only).
