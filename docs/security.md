@@ -3,6 +3,9 @@
 Tower is a window onto the platform and a small set of levers on it. This page describes every lever, who may pull
 it, and the guardrails behind each one, in Tower, in Backstage's backend, in Argo CD and in the cluster.
 
+Every rule here is also in Hangar's [business rules register](https://github.com/jfillman/hangar/blob/main/docs/policy/business-rules.md), with the rules of every other component.
+A change to a rule updates that page too.
+
 ## Principles
 
 1. **Git is the source of truth.** Configuration, promotions, releases, rollbacks and cloud pins all happen as pull
