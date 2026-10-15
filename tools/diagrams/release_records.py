@@ -74,7 +74,7 @@ def d02():
     b += path([(440, 328), (584, 328)]) + hlab(440, 584, 328, 'mode PR')
     b += path([(584, 496), (440, 496)], dashed=True) + hlab(440, 584, 496, 'outcomes')
     # nodes
-    b += node(32, 136, 168, 64, 'Tower', 'Record tab · Ops Wall', 'input')
+    b += node(32, 136, 168, 64, 'Tower', 'Releases tab · Ops Wall', 'input')
     b += node(32, 392, 168, 64, 'Notifications', 'Activity · Releases')
     b += node(272, 96, 168, 440, 'Backstage backend', None, 'focal')
     for i, line in enumerate(('release routes', 'sign-off poll · 2 min', 'record poll · hourly', 'calendar · 5 min cache')):

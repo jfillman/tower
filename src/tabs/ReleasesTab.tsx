@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader, Subtabs } from '../ui';
+import { PageHeader, StatusChip, Subtabs } from '../ui';
 import { usePromote } from '../useReleaseData';
 import { applyCloudPins, useReleaseContext } from '../useReleaseContext';
 import { usePinnedTags } from '../environments/releasePins';
-import { CommandDeck } from '../CommandDeck';
+import { CommandDeck, ReleaseStats } from '../CommandDeck';
+import { ReleaseHeroes, type HeroNext } from '../ReleaseHeroes';
+import { ReleaseChangelog } from '../ReleaseChangelog';
+import { lastOutcome, liveRelease, nextReleasePath, noteCount, releaseStats } from '../releaseCards';
 import { ReleaseMatrix } from '../ReleaseMatrix';
 import { ReleaseLog, buildLogEntries } from '../ReleaseLog';
 import { LeadTimePanel } from '../TimelinePanel';
@@ -18,7 +21,7 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass';
 import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPromoteDialog';
 import { ReleaseRecordPanel } from '../ReleaseRecordPanel';
-import { useReleaseRecords } from '../useReleaseRecords';
+import { useReleaseRecords, withRecordedEvidence } from '../useReleaseRecords';
 import { buildNextRelease } from '../nextRelease';
 import { draftStillBelongsTo, useReleaseNames } from '../useReleaseNames';
 import {
@@ -35,6 +38,11 @@ import { ReleaseModeBar } from '../ReleaseModeBar';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor';
 import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
 
+// 2026-10-14 (mockup E, "the release record should be front and center"): the release cards lead the page (next
+// release, live in production, last outcome; ReleaseHeroes), the Command Deck's stats moved into the header and its
+// task queue shows only problems, and Releases (the records) is the first sub-tab, with Changelog beside it. The cards
+// open their record in that sub-tab. The history of the earlier layout follows.
+//
 // Tower's Releases tab, revamped 2026-09-16 (Command Deck + Split Sub-tabs +
 // the Log's Table/Timeline toggle - see that session's design discussion,
 // built against the mockups at that time and the Tower field report's
@@ -62,10 +70,11 @@ import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../typ
 // own comment on useArgoStatusMap) - both need real, separately-scoped
 // backend work, not a frontend button wired to nothing.
 
-export type ReleasesSubTab = 'matrix' | 'log' | 'lead' | 'preview' | 'record';
+export type ReleasesSubTab = 'matrix' | 'log' | 'lead' | 'preview' | 'record' | 'changelog';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  panelSpacer: { marginTop: 16 },
+  panelSpacer: { marginTop: 16, scrollMarginTop: 16 },
+  headerEnd: { display: 'inline-flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
 }));
 
 export function ReleasesTab() {
@@ -159,7 +168,15 @@ export function ReleasesTab() {
   );
   const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : undefined, releaseRecords);
 
-  const [activeTab, setActiveTab] = useState<ReleasesSubTab>('matrix');
+  const [activeTab, setActiveTab] = useState<ReleasesSubTab>('record');
+  // The record open in the Releases sub-tab; the cards above open records too.
+  const [openRecordId, setOpenRecordId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const showInPanel = (id: string | null) => {
+    setOpenRecordId(id);
+    setActiveTab('record');
+    window.requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
   // source is a real EnvironmentSummary when promoting an already-deployed
   // release forward, or just its image when this is a first deploy of a
   // release that's never been deployed anywhere (2026-09-16: "trigger a
@@ -224,37 +241,97 @@ export function ReleasesTab() {
     }
   };
 
+  // The three cards (mockup E). Records carry their committed evidence (counted sign-offs) as the Releases sub-tab
+  // shows them, so a card and the record it opens agree.
+  const flightEnvs = pipelineOrder.upper ?? [];
+  const lowerEnvs = pipelineOrder.lower ?? [];
+  const byTag = new Map((releaseNames?.index ?? []).map(e => [e.imageTag, e]));
+  const evidenced = releaseRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  const signoffEnv = releaseMode.data?.signoffEnv;
+  const live = liveRelease(evidenced, signoffEnv, flightEnvs);
+  const last = lastOutcome(evidenced, live?.id);
+  const nameOf = (tag?: string) => (tag ? releaseNames?.byTag.get(tag) : undefined);
+  const leadingTag = nextRelease.leading?.imageTag;
+  const path = nextReleasePath(leadingTag, nextRelease.leading?.liveOn ?? [], lowerEnvs, flightEnvs, pipelineEnvironments, gitopsPrs);
+  const flightSteps = path.filter((p): p is Extract<typeof p, { kind: 'flight' }> => p.kind === 'flight');
+  const draftIsNexts = !draftStillBelongsTo(releaseNames, Boolean(savedDraft.data), gitopsPrs.map(pr => pr.title));
+  const heroNext: HeroNext | undefined =
+    nextRelease.leading || nextRelease.scope.length > 0
+      ? {
+          next: nextRelease,
+          name: releaseNames?.next,
+          path,
+          notes: draftIsNexts ? noteCount(savedDraft.data) : 0,
+          owner: draftIsNexts ? savedDraft.data?.owner : undefined,
+          blocked: flightSteps.find(p => p.state === 'blocked'),
+          openPr: [...flightSteps].reverse().find(p => p.pr),
+        }
+      : undefined;
+  const stats = releaseStats(deployHistory.data, gitopsPrs, sourcePrs);
+
   return (
     <div>
       <PageHeader
         title="Releases"
-        subtitle={`${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? '' : 's'} tracked${owner && appName ? ` · ${owner}/${appName}` : ''}`}
-        actions={<RefreshButton onClick={refresh} />}
+        subtitle={
+          <>
+            {`${pipelineEnvironments.length} environment${pipelineEnvironments.length === 1 ? '' : 's'} tracked${owner && appName ? ` · ${owner}/${appName}` : ''}`}
+            {releaseMode.data && (
+              <>
+                {' '}
+                <StatusChip tone={releaseMode.data.mode === 'hand-flown' ? 'warn' : 'neutral'} dot>
+                  {RELEASE_MODE_LABEL[releaseMode.data.mode]}
+                  {signoffEnv && releaseMode.data.mode === 'hand-flown' ? ` · sign-off on ${signoffEnv}` : ''}
+                </StatusChip>
+              </>
+            )}
+          </>
+        }
+        actions={
+          <span className={classes.headerEnd}>
+            <ReleaseStats {...stats} />
+            <RefreshButton onClick={refresh} />
+          </span>
+        }
       />
       <CommandDeck
         environments={pipelineEnvironments}
-        previewCount={previewEnvironments.length}
         gitopsPrs={gitopsPrs}
         sourcePrs={sourcePrs}
-        deployHistory={deployHistory.data}
-        provenanceByImage={provenanceByImage}
+        nextTag={leadingTag}
         onSelectTab={setActiveTab}
+      />
+      <ReleaseHeroes
+        next={heroNext}
+        live={live}
+        liveName={live ? nameOf(live.imageTag) : undefined}
+        liveEnvCount={live ? live.deployments.filter(d => d.isLive && flightEnvs.some(e => e.toLowerCase() === d.env.toLowerCase())).length : 0}
+        flightEnvCount={flightEnvs.length}
+        signoffEnv={signoffEnv ?? flightEnvs[flightEnvs.length - 1]}
+        last={last}
+        lastName={last ? nameOf(last.imageTag) : undefined}
+        nameOf={nameOf}
+        onOpenDraft={() => showInPanel(null)}
+        onOpenRecord={showInPanel}
       />
 
       <Subtabs
         label="Release views"
         tabs={[
+          { id: 'record', label: `Releases (${releaseRecords.length})` },
           { id: 'matrix', label: 'Matrix' },
           { id: 'log', label: 'Log' },
           { id: 'lead', label: 'Lead time' },
           { id: 'preview', label: `Preview (${previewEnvironments.length})` },
-          { id: 'record', label: `Record (${releaseRecords.length})` },
+          ...(releaseNames ? [{ id: 'changelog' as const, label: 'Changelog' }] : []),
         ]}
         value={activeTab}
         onChange={setActiveTab}
       />
 
-      <div className={classes.panelSpacer}>
+      <div className={classes.panelSpacer} ref={panelRef}>
+        {activeTab === 'changelog' && <ReleaseChangelog names={releaseNames} onBack={() => setActiveTab('record')} />}
+
         {activeTab === 'matrix' && (
           <ReleaseMatrix
             releases={matrixReleases}
@@ -302,6 +379,9 @@ export function ReleasesTab() {
             promoteTo={pipelineOrder.upper?.[0]}
             modeLabel={releaseMode.data ? `${RELEASE_MODE_LABEL[releaseMode.data.mode]} release` : undefined}
             signoffEnv={releaseMode.data?.signoffEnv}
+            openId={openRecordId}
+            onOpenIdChange={setOpenRecordId}
+            onChangelog={() => setActiveTab('changelog')}
             modeBar={
               releaseMode.data && owner && appName ? (
                 <ReleaseModeBar
