@@ -44,6 +44,7 @@ Images, SLOs, Notifications, App Configuration, Glidepath. Plus fleet dashboards
 - **Deployments ("Ground Control")**: plain-language troubleshooting, the six-step delivery path per environment, Argo CD Refresh, Sync, Force sync and Terminate, Rollout controls (resume, pause, abort, retry, restart, promote), Roll back
 - **App Configuration and Glidepath**: edit environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images, notifications**: burn rate, live objects, artifact catalog, a time-sliced event feed
+- **Hangar sign-in page**: the branded first screen (mark, product family, one sign-in box), light and dark, installed with one line; see [Installation](docs/installation.md#sign-in-page)
 
 ## Installation
 
@@ -65,24 +66,30 @@ registry - install it straight from a tagged commit on this repo (see `RELEASING
 get cut):
 
 ```bash
-yarn workspace app add "@jfillman/tower@jfillman/tower#v0.1.0"
+yarn workspace app add "@jfillman/tower@jfillman/tower#vX.Y.Z"
 ```
 
-Then register it as a feature in `packages/app/src/App.tsx`:
+Then register it, and the Hangar sign-in page that ships with it, in `packages/app/src/App.tsx`:
 
 ```typescript
-import { towerPlugin } from '@jfillman/tower';
+import { createHangarSignInModule, githubSignInProvider, towerPlugin } from '@jfillman/tower';
 
 export default createApp({
   features: [
     // ...your other features
     towerPlugin,
+    createHangarSignInModule({
+      providers: [githubSignInProvider],
+      guest: process.env.NODE_ENV === 'development',
+    }),
   ],
 });
 ```
 
 That's it - `towerPlugin` declares its own route (`/tower`), sidebar icon, and title; there's no
-separate nav-wiring step.
+separate nav-wiring step. The sign-in module replaces Backstage's stock sign-in page, so remove any
+other sign-in page module the app registers. Providers, guest and session handling:
+[Installation → Sign-in page](docs/installation.md#sign-in-page).
 
 ### Configuration
 

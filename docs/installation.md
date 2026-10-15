@@ -11,56 +11,74 @@
 
 ## Install Tower into Backstage
 
-### 1. Copy the plugin into your Backstage app
+Tower needs the **new frontend system** (`createApp({ features: [...] })` from `@backstage/frontend-defaults`). It is
+a versioned package installed from a git tag on this repo; there is no npm registry (see `RELEASING.md`).
+
+### 1. Add the package
 
 ```bash
-# From your Backstage app directory:
-cp -r tower/plugin/src/tower packages/app/src/modules/
+yarn workspace app add "@jfillman/tower@jfillman/tower#vX.Y.Z"
 ```
 
-### 2. Import Tower into your app module
+### 2. Register Tower and the Hangar sign-in page
 
 Edit `packages/app/src/App.tsx`:
 
 ```typescript
-import { towerRoutes } from './modules/tower';
+import { createApp } from '@backstage/frontend-defaults';
+import { createHangarSignInModule, githubSignInProvider, towerPlugin } from '@jfillman/tower';
 
-// Add to your routes
-<Route path="/tower/*" element={<towerRoutes />} />
+export default createApp({
+  features: [
+    // ...your other features
+    towerPlugin,
+    createHangarSignInModule({
+      providers: [githubSignInProvider],
+      guest: process.env.NODE_ENV === 'development',
+    }),
+  ],
+});
 ```
 
-### 3. Add Tower to your navigation
+`towerPlugin` brings its own route (`/tower`), sidebar entry and icon; there is no nav wiring.
 
-Edit `packages/app/src/modules/nav/Nav.tsx` (or your nav component):
-
-```typescript
-import { TowerIcon } from './modules/tower';
-
-// In your navigation items:
-<NavLink to="/tower" label="Tower">
-  <TowerIcon />
-</NavLink>
-```
-
-### 4. Update dependencies
-
-Tower requires these Backstage packages:
+### 3. Build and run
 
 ```bash
-yarn workspace app add @backstage/core-components @backstage/core-plugin-api
+yarn start   # http://localhost:3000, Tower at /tower
 ```
 
-### 5. Build and run
+## Sign-in page
 
-```bash
-# Build the app
-yarn build
+`createHangarSignInModule` replaces Backstage's stock sign-in page with the Hangar one: the dial mark and wordmark,
+the product family (Tower, Glidepath, Airframe, Apron, Autopilot), and one sign-in box. It follows the user's light
+or dark theme.
 
-# Run in development
-yarn dev
+- **One sign-in page per app.** The module overrides the app's `sign-in-page` extension. Remove any other
+  `SignInPageBlueprint` module from `features`, or the app fails to start with a duplicate extension.
+- **Providers are yours.** Pass the auth providers your backend runs. `githubSignInProvider` is ready-made; any other
+  OAuth provider is an object:
 
-# Tower will be available at http://localhost:3000/tower
-```
+  ```typescript
+  import { microsoftAuthApiRef } from '@backstage/core-plugin-api';
+
+  createHangarSignInModule({
+    providers: [
+      githubSignInProvider,
+      { id: 'microsoft-auth-provider', title: 'Microsoft', apiRef: microsoftAuthApiRef, message: 'Company accounts only' },
+    ],
+  });
+  ```
+
+  The first provider gets the amber primary button. Keep `id` stable: it is how the page remembers the provider
+  between visits.
+- **Guest is for local development.** `guest: true` adds "Continue as guest". It needs the backend guest provider
+  (`@backstage/plugin-auth-backend-module-guest-provider`), which refuses sign-in outside `NODE_ENV=development`.
+  The legacy guest token (no auth backend) is not offered.
+- **Sessions carry over.** The page remembers the provider under the same browser key as the stock page, and
+  `githubSignInProvider` uses the stock GitHub id, so a user signed in before the switch stays signed in. Signing
+  out forgets the provider.
+- `tagline` replaces the line under the wordmark.
 
 ## Configuration
 
