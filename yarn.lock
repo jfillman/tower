@@ -2828,6 +2828,7 @@ __metadata:
     "@backstage/core-components": "npm:^0.18.13"
     "@backstage/core-plugin-api": "npm:^1.12.9"
     "@backstage/frontend-plugin-api": "npm:^0.18.0"
+    "@backstage/plugin-app-react": "npm:^0.2.6"
     "@backstage/plugin-catalog-react": "npm:^3.2.2"
     "@backstage/plugin-kubernetes": "npm:^0.12.22"
     "@backstage/plugin-kubernetes-common": "npm:^0.9.12"

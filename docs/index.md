@@ -49,6 +49,7 @@ fleet-wide dashboard.
 - **App Configuration and Glidepath**: edit an app's environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images**: burn rate, live objects, artifact catalog
 - **Fleet dashboards**: Fleet Grid and Ops Wall
+- **Hangar sign-in page**: the branded first screen (mark, product family, one sign-in box), light and dark, installed with one line; see [Installation](installation.md#sign-in-page)
 
 ## Quick Links
 
