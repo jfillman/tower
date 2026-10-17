@@ -136,7 +136,7 @@ backend writes the outcome into the record with one PR per release (branch `rele
 excluded from the release gates like the record PRs themselves), together with the production sign-off when the
 record was written before that PR merged (an app with staging before production). Glidepath sweeps its tracking
 records after 14 days, so releases older than that, and cloud targets, have no outcome. SLO burn during the bake
-window is not measured yet: kind-prod's Prometheus is off, so there is no production metric to read.
+window is not measured yet: the production cluster's Prometheus is off, so there is no production metric to read.
 
 The record's score is now called **readiness**: how ready the release was when it shipped (guardrails, signed
 and attested, sign-offs). The old "+5, no incidents" points are gone; Tower never tracked incidents, so every

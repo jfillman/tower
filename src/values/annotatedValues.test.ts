@@ -6,7 +6,7 @@ const chart = fixture as unknown as ChartValues;
 // A trimmed copy of boarding-api's staging file.
 const FILE = {
   appName: 'boarding-api',
-  cluster: 'kind-prod',
+  cluster: 'example-prod',
   envName: 'staging',
   rollout: { replicas: 2, ports: [{ name: 'http', containerPort: 8080 }], serviceAccount: undefined },
   env: [{ name: 'LOG_LEVEL', value: 'info' }],
@@ -32,7 +32,7 @@ describe('annotateValues', () => {
     const marked = text.split('\n').filter(l => l.includes('# set here'));
     expect(marked.some(l => l.startsWith('appName: boarding-api'))).toBe(true);
     expect(marked.some(l => l.trim().startsWith('replicas: 2'))).toBe(true);
-    expect(marked.some(l => l.startsWith('devClusterName'))).toBe(false);
+    expect(marked.some(l => l.startsWith('clusterType'))).toBe(false);
   });
   it('carries the schema description above each field', () => {
     const i = text.split('\n').findIndex(l => l.startsWith('appName:'));

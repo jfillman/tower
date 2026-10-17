@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ownChartOf } from '../../environments/ownChart';
+import { usePlatformConfig } from '../../platformConfig';
 import { RawValuesEditor } from '../../values/RawValuesEditor';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -244,6 +245,7 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
+  const airframe = usePlatformConfig().airframeChart;
   const { def } = row;
   // The values file may not exist yet (a Flight environment's is written by Crossplane, a Ground one's by the onboarding
   // pull request). Editing before then would open a pull request that creates the file out of order.
@@ -258,7 +260,7 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
     return <div className={ui.note}>A cloud environment has no chart values. Its target resource is under Settings.</div>;
   }
   // An environment rendering its own chart (glidepath ADR-0023) gets raw YAML: the form describes Airframe's chart.
-  const own = ownChartOf(ctx.deploy, row.name);
+  const own = ownChartOf(ctx.deploy, row.name, airframe);
   if (def.tier === 'ground') {
     if (row.state === 'new') {
       return (

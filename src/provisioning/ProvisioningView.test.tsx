@@ -16,7 +16,7 @@ const inputs: ProvisioningInputs = {
     kind: 'NodeJSApplication',
     name: 'sky-marshall',
     namespace: 'app-sky-marshall-cicd',
-    cluster: 'kind-dev',
+    cluster: 'example-dev',
     createdAt: t('2026-10-01T17:46:50Z'),
     conditions: [
       { type: 'DevClusterReady', status: 'True', lastTransitionTime: '2026-10-01T17:47:19Z' },
@@ -27,13 +27,14 @@ const inputs: ProvisioningInputs = {
   },
   secrets: { found: true, ready: true, readyAt: t('2026-10-01T17:50:38Z') },
   links: {
-    requestPr: { number: 16, url: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/16', state: 'merged' },
-    sourceRepoUrl: 'https://github.com/jfillman/sky-marshall',
-    gitopsRepoUrl: 'https://github.com/jfillman/gitops-sky-marshall',
+    requestPr: { number: 16, url: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/16', state: 'merged' },
+    sourceRepoUrl: 'https://github.com/example-org/sky-marshall',
+    gitopsRepoUrl: 'https://github.com/example-org/gitops-sky-marshall',
     infisicalProjectId: 'c6a39d3a-8aae-4630-b157-13c6cb4250b3',
+    infisicalUrl: 'https://infisical.example.internal',
     onboarding: {
-      source: { number: 1, url: 'https://github.com/jfillman/sky-marshall/pull/1', state: 'open' },
-      gitops: { number: 1, url: 'https://github.com/jfillman/gitops-sky-marshall/pull/1', state: 'merged' },
+      source: { number: 1, url: 'https://github.com/example-org/sky-marshall/pull/1', state: 'open' },
+      gitops: { number: 1, url: 'https://github.com/example-org/gitops-sky-marshall/pull/1', state: 'merged' },
     },
   },
 };
@@ -61,14 +62,14 @@ describe('ProvisioningView', () => {
 
     const link = (name: RegExp) => screen.getByRole('link', { name });
     expect(link(/Request PR #16/).getAttribute('href')).toBe(
-      'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/16',
+      'https://github.com/example-org/gitops-cluster-dev-tenants/pull/16',
     );
-    expect(link(/^Source repo/).getAttribute('href')).toBe('https://github.com/jfillman/sky-marshall');
-    expect(link(/GitOps repo/).getAttribute('href')).toBe('https://github.com/jfillman/gitops-sky-marshall');
+    expect(link(/^Source repo/).getAttribute('href')).toBe('https://github.com/example-org/sky-marshall');
+    expect(link(/GitOps repo/).getAttribute('href')).toBe('https://github.com/example-org/gitops-sky-marshall');
     expect(link(/Source PR #1/).textContent).toContain('open');
     expect(link(/GitOps PR #1/).textContent).toContain('merged');
     expect(link(/Infisical project/).getAttribute('href')).toBe(
-      'http://infisical.dev.kiac.local/projects/secret-management/c6a39d3a-8aae-4630-b157-13c6cb4250b3/overview',
+      'https://infisical.example.internal/projects/secret-management/c6a39d3a-8aae-4630-b157-13c6cb4250b3/overview',
     );
     expect(screen.getByText(/Merge the two onboarding PRs to start the first build \(1 of 2 merged\)/)).toBeTruthy();
   });

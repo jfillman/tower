@@ -287,7 +287,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
 }));
 
-/** `group:default/jfillman` shown as `jfillman`: the default namespace and the group kind are noise on a card. */
+/** `group:default/example-org` shown as `example-org`: the default namespace and the group kind are noise on a card. */
 export function ownerLabel(owner: unknown): string {
   return typeof owner === 'string' ? owner.replace(/^group:default\//, '') : '';
 }

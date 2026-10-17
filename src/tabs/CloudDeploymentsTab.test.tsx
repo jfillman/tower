@@ -12,7 +12,7 @@ function run(name: string, edit?: (pr: any, trs: any[]) => void) {
   const trs = clone(real.taskRuns) as RawTaskRun[];
   pr.metadata.name = name;
   edit?.(pr, trs);
-  return toPipelineRunSummary(pr, 'kind-dev', new Map(trs.map(t => [t.metadata.name, t])));
+  return toPipelineRunSummary(pr, 'example-dev', new Map(trs.map(t => [t.metadata.name, t])));
 }
 
 let mockRuns: ReturnType<typeof run>[] = [];
@@ -22,7 +22,7 @@ jest.mock('../tekton/useTektonPipelineRuns', () => ({
 }));
 jest.mock('@backstage/plugin-catalog-react', () => ({
   useEntity: () => ({
-    entity: { metadata: { name: 'smoke-ecs', annotations: { 'github.com/project-slug': 'jfillman/smoke-ecs' } } },
+    entity: { metadata: { name: 'smoke-ecs', annotations: { 'github.com/project-slug': 'example-org/smoke-ecs' } } },
   }),
 }));
 
@@ -36,7 +36,7 @@ jest.mock('../useReleaseData', () => ({
   useImageVersions: () => mockImages,
 }));
 let mockPin: unknown = { loading: false, data: undefined };
-const mockSubmit = jest.fn(async () => ({ prUrl: 'https://github.com/jfillman/smoke-ecs/pull/9', alreadyOpen: false, pin: { tag: 'x' } }));
+const mockSubmit = jest.fn(async () => ({ prUrl: 'https://github.com/example-org/smoke-ecs/pull/9', alreadyOpen: false, pin: { tag: 'x' } }));
 jest.mock('../environments/releasePins', () => ({
   ...jest.requireActual('../environments/releasePins'),
   usePinState: () => mockPin,
@@ -126,7 +126,7 @@ describe('CloudDeploymentsTab', () => {
   it("shows a cloud Flight environment's pin, and Promote and Roll back open pin PRs", () => {
     mockDeploy = { target: 'aws-ecs', environments: [{ name: 'dev', tier: 'ground' }, { name: 'prod', tier: 'flight' }] };
     mockRuns = [run('ci-1-deploy-ok')];
-    const pin = (tag: string, digest: string) => ({ repository: 'ghcr.io/jfillman/smoke-ecs', tag, digest, promotedFrom: 'dev' });
+    const pin = (tag: string, digest: string) => ({ repository: 'ghcr.io/example-org/smoke-ecs', tag, digest, promotedFrom: 'dev' });
     mockPin = {
       loading: false,
       data: {
@@ -137,7 +137,7 @@ describe('CloudDeploymentsTab', () => {
           { sha: 'c2', date: '2026-10-07T00:00:00Z', message: 'Pin', pin: pin('2.0.0-bbbbbbb', 'sha256:bbbb') },
           { sha: 'c1', date: '2026-10-06T00:00:00Z', message: 'Pin', pin: pin('1.0.0-aaaaaaa', 'sha256:aaaa') },
         ],
-        openPr: { url: 'https://github.com/jfillman/smoke-ecs/pull/8' },
+        openPr: { url: 'https://github.com/example-org/smoke-ecs/pull/8' },
       },
     };
     renderTab();
@@ -159,7 +159,7 @@ describe('CloudDeploymentsTab', () => {
     renderTab();
     expect(screen.getByText(/No recent deploy runs/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Promote to prod' }));
-    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', image: 'ghcr.io/jfillman/smoke-ecs:0.1.1-65d4c04' }));
+    expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', image: 'ghcr.io/example-org/smoke-ecs:0.1.1-65d4c04' }));
     mockImages = { loading: false, data: [] };
   });
 });

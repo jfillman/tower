@@ -14,7 +14,7 @@ function run(name: string, start: string, edit?: (pr: any) => void) {
   pr.status.startTime = start;
   pr.status.completionTime = start;
   edit?.(pr);
-  return toPipelineRunSummary(pr as RawPipelineRun, 'kind-dev', new Map(trs.map(t => [t.metadata.name, t])));
+  return toPipelineRunSummary(pr as RawPipelineRun, 'example-dev', new Map(trs.map(t => [t.metadata.name, t])));
 }
 
 describe('cloudEnvironmentsFromRuns', () => {

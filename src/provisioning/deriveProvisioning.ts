@@ -136,6 +136,8 @@ export interface ProvisioningLinks {
   onboarding?: { source?: PrSnapshot; gitops?: PrSnapshot };
   /** Infisical project id, when Tower can read the Project resource. */
   infisicalProjectId?: string;
+  /** The cluster's Infisical UI (tower.clusters.<cluster>.infisicalUrl); unset hides the project link. */
+  infisicalUrl?: string;
 }
 
 /** One object the XR composes, for the "What gets created" list. `ready` is undefined when Tower cannot read that kind. */
@@ -213,7 +215,7 @@ export interface Provisioning {
   completedAt?: number;
   /**
    * Built hours ago but never got a rollout on the dev cluster. Either it
-   * deploys somewhere else (Backstage itself deploys to kind-prod) or the
+   * deploys somewhere else (Backstage itself deploys to an upper cluster) or the
    * deploy is stuck; either way it is not "being provisioned" any more.
    */
   stalled: boolean;
@@ -271,14 +273,12 @@ function cond(xr: XrSnapshot, type: string): XrCondition | undefined {
 const prLink = (label: string, pr?: PrSnapshot): StepLink[] =>
   pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
 
-// Same per-cluster hostname convention as Grafana's (kind-dev -> *.dev.kiac.local).
-const INFISICAL_HOST_BY_CLUSTER: Record<string, string> = { 'kind-dev': 'infisical.dev.kiac.local' };
-
-/** Public so the view and tests build the same URL. Infisical's UI is served over the gateway's http listener. */
-export const infisicalProjectUrl = (cluster: string, projectId: string): string | undefined => {
-  const host = INFISICAL_HOST_BY_CLUSTER[cluster];
-  return host ? `http://${host}/projects/secret-management/${projectId}/overview` : undefined;
-};
+/**
+ * Infisical's page for a project, under the cluster's configured Infisical UI (tower.clusters.<cluster>.infisicalUrl).
+ * No configured UI, no link: Tower guesses no hostname. Public so the view and tests build the same URL.
+ */
+export const infisicalProjectUrl = (baseUrl: string | undefined, projectId: string): string | undefined =>
+  baseUrl ? `${baseUrl.replace(/\/+$/, '')}/projects/secret-management/${projectId}/overview` : undefined;
 
 /**
  * `typical` overrides the built-in estimates, step id to seconds: Tower passes the median of the
@@ -537,7 +537,7 @@ export function deriveProvisioning(
       ? 'Creating the Infisical project and identity'
       : 'Waiting for the SecretStore to be created';
   }
-  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(xr.cluster, links.infisicalProjectId) : undefined;
+  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(links.infisicalUrl, links.infisicalProjectId) : undefined;
   let secretsSeconds: number | undefined;
   if (secretsState === 'done') secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), secrets?.readyAt);
   else if (secretsState === 'run') secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), now);

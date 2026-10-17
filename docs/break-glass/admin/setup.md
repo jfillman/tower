@@ -9,7 +9,7 @@ is how they were set up, and how to add a third.
 | [1. Prerequisites](#1-prerequisites) | per cluster | n/a |
 | [2. Admission policies](#2-admission-policies) | per cluster, **before** the RBAC | the cluster's gitops repo |
 | [3. RBAC](#3-rbac) | per cluster | the cluster's gitops repo |
-| [4. The recordings store](#4-the-recordings-store) | once | gitops-cluster-dev, Infisical, kind-prod |
+| [4. The recordings store](#4-the-recordings-store) | once | gitops-cluster-dev, Infisical, <prod-cluster> |
 | [5. Backend configuration](#5-backend-configuration) | once (plus the cluster's tier) | backstage `app-config` |
 | [6. Permissions](#6-permissions) | once | backstage catalog |
 | [7. Verify](#7-verify-end-to-end) | per cluster | n/a |
@@ -17,7 +17,7 @@ is how they were set up, and how to add a third.
 ## 1. Prerequisites
 
 - **Kubernetes 1.30 or later** (ValidatingAdmissionPolicy is GA; on Flight it must match `CONNECT` on `pods/exec`).
-  kind-prod runs 1.37.
+  <prod-cluster> runs 1.37.
 - **Ephemeral containers** enabled (default since 1.25).
 - **App namespaces labelled** `hangar.io/app: <app>` and `hangar.io/env: <env>`. Airframe's environment composition
   does this. Break-glass refuses any namespace whose labels do not name the app and environment requested, and the
@@ -32,7 +32,7 @@ is how they were set up, and how to add a third.
 ## 2. Admission policies
 
 Install the policies **before** the RBAC that they constrain: the moment Backstage can bind a debug role, the policy
-must already be there to narrow it. On kind-prod the Argo CD app orders this with sync waves (policies at `-1`, RBAC at
+must already be there to narrow it. On <prod-cluster> the Argo CD app orders this with sync waves (policies at `-1`, RBAC at
 `0`).
 
 What each rule does, and how to edit one without an outage, is in [Admission policies](policies.md).
@@ -46,7 +46,7 @@ What each rule does, and how to edit one without an outage, is in [Admission pol
 - Apply `30-policy/kyverno-policies/tower-breakglass-rbac.yaml`: aggregated ClusterRoles that let Kyverno's controllers
   read `pods/ephemeralcontainers` and let its **cleanup controller** delete expired RoleBindings and pods (it has no
   delete on those kinds by default). The cleanup controller acts on the `cleanup.kyverno.io/ttl` label.
-- Replace the literal username `hangar:kind-prod:tower-actor` (kiac-dev's federated write identity, see
+- Replace the literal username `hangar:<prod-cluster>:tower-actor` (<dev-cluster>'s federated write identity, see
   [Cluster credentials](../../credentials/index.md)) with Backstage's write identity on the new cluster, everywhere it
   appears. That includes the RoleBinding policy's subject check, which expects a `User` subject there.
 
@@ -81,15 +81,15 @@ ServiceAccount there:
 | ClusterRole `tower-breakglass-debug-live` | `pods`: get, list, delete · `pods/ephemeralcontainers`: get, patch, update · `pods/attach`: get, create |
 | ClusterRole `tower-breakglass-debug-copy` | `pods`: get, list, create, delete · `pods/attach`: get, create |
 | ClusterRole `tower-breakglass-binder` | `rolebindings`: get, list, create, delete · `clusterroles`: `bind`, resourceNames the two roles above |
-| ClusterRoleBinding with the binder role | on kiac-dev `tower-actor-breakglass-binder` (`tower-actor-rbac.yaml`), to the User `hangar:kind-prod:tower-actor`; on kind-prod `backstage-ingestor-breakglass-binder`, to Backstage's ServiceAccount |
+| ClusterRoleBinding with the binder role | on <dev-cluster> `tower-actor-breakglass-binder` (`tower-actor-rbac.yaml`), to the User `hangar:<prod-cluster>:tower-actor`; on <prod-cluster> `backstage-ingestor-breakglass-binder`, to Backstage's ServiceAccount |
 
 The debug roles are **never bound at rest**. Backstage binds one to itself, per session, in one namespace.
 
 Check, as Backstage (replace the identity and namespace):
 
 ```bash
-SA=system:serviceaccount:backstage:backstage-ingestor; NS=app-sky-marshall-staging   # kind-prod
-# kiac-dev: AS="--as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod"; NS=app-sky-marshall-dev
+SA=system:serviceaccount:backstage:backstage-ingestor; NS=app-sky-marshall-staging   # <prod-cluster>
+# <dev-cluster>: AS="--as=hangar:<prod-cluster>:tower-actor --as-group=hangar:<prod-cluster>"; NS=app-sky-marshall-dev
 kubectl auth can-i create rolebindings -n $NS --as=$SA              # yes
 kubectl auth can-i create pods/attach -n $NS --as=$SA               # no
 kubectl auth can-i patch pods/ephemeralcontainers -n $NS --as=$SA   # no
@@ -98,7 +98,7 @@ kubectl auth can-i delete pods -n $NS --as=$SA                      # no
 
 ## 4. The recordings store
 
-Once, on kiac-dev's MinIO (the store is off the Flight cluster on purpose: recordings should not live only on the
+Once, on <dev-cluster>'s MinIO (the store is off the Flight cluster on purpose: recordings should not live only on the
 cluster they record).
 
 1. **Bucket.** gitops-cluster-dev `40-observability/minio/create-breakglass-locked-bucket-job.yaml` creates
@@ -118,15 +118,15 @@ cluster they record).
      "Resource":["arn:aws:s3:::tower-breakglass/*","arn:aws:s3:::tower-breakglass-v2/*"]}]}
    ```
 3. **Infisical.** Plant the key and secret as `tower-breakglass-minio-access-key` and
-   `tower-breakglass-minio-secret-key` (kind-prod, `platform-cicd-kind-prod`, shared). Never paste them anywhere else.
+   `tower-breakglass-minio-secret-key` (<prod-cluster>, `platform-cicd-<prod-cluster>`, shared). Never paste them anywhere else.
 4. **The anchor key** (phase B). Generate an ECDSA P-256 private key and plant it as `tower-breakglass-anchor-key`
    (same project): `openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt`. The ExternalSecret
    `backstage-breakglass-anchor` mounts it as `TOWER_BREAKGLASS_ANCHOR_KEY`. The public half travels in every Rekor
    entry, so rotating the key invalidates nothing. Without it, recordings are stored but not anchored (the record says
    so), and the sweep anchors them once the key appears, for a day after each session's end.
-5. **Rekor route.** gitops-cluster-dev `60-gateway-routes/rekor-httproute.yaml` exposes `rekor.dev.kiac.local`; the
-   kind-prod Backstage Deployment's `hostAliases` maps it like `minio.dev.kiac.local`.
-6. **Into Backstage.** gitops-cluster-kind-prod `60-backstage/backstage/breakglass-minio-external-secret.yaml` syncs them
+5. **Rekor route.** gitops-cluster-dev `60-gateway-routes/rekor-httproute.yaml` exposes `rekor.<dev-domain>`; the
+   <prod-cluster> Backstage Deployment's `hostAliases` maps it like `minio.<dev-domain>`.
+6. **Into Backstage.** gitops-cluster-<prod-cluster> `60-backstage/backstage/breakglass-minio-external-secret.yaml` syncs them
    into Secret `backstage-breakglass-minio`; the Deployment maps them to `TOWER_BREAKGLASS_MINIO_ACCESS_KEY` and
    `TOWER_BREAKGLASS_MINIO_SECRET_KEY`.
 
@@ -146,15 +146,15 @@ Defaults suit this lab; set only what differs. Full list in the [configuration r
 ```yaml
 glidepath:
   breakglass:
-    groundClusters: [kind-dev]          # clusters whose undeclared environments are Ground; all others are Flight
+    groundClusters: [<dev-cluster>]          # clusters whose undeclared environments are Ground; all others are Flight
     recordings:
-      endpoint: http://minio.dev.kiac.local:8080
+      endpoint: http://minio.<dev-domain>:8080
       bucket: tower-breakglass-v2          # the object-locked bucket; rows written before it read from legacyBucket
       legacyBucket: tower-breakglass       # default when bucket is not the first one
       region: us-east-1
       retentionDays: 365                # must match the bucket's lifecycle rule; shown to users
     anchor:
-      rekorUrl: http://rekor.dev.kiac.local:8080   # the default; the key comes from TOWER_BREAKGLASS_ANCHOR_KEY
+      rekorUrl: http://rekor.<dev-domain>:8080   # the default; the key comes from TOWER_BREAKGLASS_ANCHOR_KEY
 ```
 
 **A new Ground cluster** must be added to `groundClusters`, or infra services on it are treated as Flight (apps with a

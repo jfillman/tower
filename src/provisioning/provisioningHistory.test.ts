@@ -31,7 +31,7 @@ describe('toRunRecord', () => {
       kind: 'PythonApplication',
       name: 'air-traffic-api',
       namespace: 'app-air-traffic-api-cicd',
-      cluster: 'kind-dev',
+      cluster: 'example-dev',
       createdAt: T0,
       conditions: [
         { type: 'DevClusterReady', status: 'True', lastTransitionTime: new Date(T0 + 10_000).toISOString() },

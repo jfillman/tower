@@ -3,7 +3,7 @@
 ## Your shell
 
 The terminal runs `sh` in the debug container, as **user and group 65532**, in the Tower debug image
-(`ghcr.io/jfillman/tower-debug`, Alpine-based, signed, pinned by digest). The prompt is `debug <dir> $`.
+(`ghcr.io/<owner>/tower-debug`, Alpine-based, signed, pinned by digest). The prompt is `debug <dir> $`.
 
 | Need | Tools |
 |---|---|

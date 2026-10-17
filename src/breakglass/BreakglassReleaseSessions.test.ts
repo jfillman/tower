@@ -3,7 +3,7 @@ import type { ReleaseRecord } from '../useReleaseRecords';
 import type { BreakglassSession } from '../tabs/topology/breakglassShared';
 
 const rec = (id: string, deployments: Array<{ env: string; deployedAt: string }>) =>
-  ({ id, deployments: deployments.map(d => ({ ...d, cluster: 'kind-prod', isLive: false })) }) as unknown as ReleaseRecord;
+  ({ id, deployments: deployments.map(d => ({ ...d, cluster: 'example-prod', isLive: false })) }) as unknown as ReleaseRecord;
 
 describe('break-glass sessions during a release (G12)', () => {
   const a = rec('app@1', [{ env: 'prod', deployedAt: '2026-10-10T10:00:00.000Z' }, { env: 'staging', deployedAt: '2026-10-10T09:00:00.000Z' }]);

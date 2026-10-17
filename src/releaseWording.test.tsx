@@ -9,7 +9,7 @@ import type { EnvironmentSummary } from './types';
 // context into the draft.
 
 const env = (e: string, image: string) =>
-  ({ key: `kind-prod/${e}`, appName: 'bags', cluster: 'kind-prod', env: e, image }) as unknown as EnvironmentSummary;
+  ({ key: `example-prod/${e}`, appName: 'bags', cluster: 'example-prod', env: e, image }) as unknown as EnvironmentSummary;
 const promote = { loading: false, promote: jest.fn(), reset: jest.fn() } as any;
 const names = (byTag: [string, string][], next = 'IRONWOOD') => ({ byTag: new Map(byTag), next, index: [] });
 

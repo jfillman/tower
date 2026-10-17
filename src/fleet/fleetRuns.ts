@@ -1,6 +1,5 @@
 import { CLOUD_DEPLOY_TASKS, cloudDeployFromRun, type CloudDeploy } from '../cloudDeploy';
 import {
-  TEKTON_CLUSTER,
   toPipelineRunSummary,
   type RawPipelineRun,
   type RawTaskRun,
@@ -56,8 +55,9 @@ export function mayDeployToCloud(raw: RawPipelineRun): boolean {
   return (raw.status?.pipelineSpec?.tasks ?? []).some(t => t.name in CLOUD_DEPLOY_TASKS);
 }
 
-export function toFleetRun(raw: RawPipelineRun, taskRunsByName: Map<string, RawTaskRun>): FleetRun {
-  const run = toPipelineRunSummary(raw, TEKTON_CLUSTER, taskRunsByName);
+/** `cluster`: the control-plane cluster the run is on ('' when app-config does not name it). */
+export function toFleetRun(raw: RawPipelineRun, taskRunsByName: Map<string, RawTaskRun>, cluster = ''): FleetRun {
+  const run = toPipelineRunSummary(raw, cluster, taskRunsByName);
   const repoUrl = meta(raw, 'pipelinesascode.tekton.dev/repo-url');
   const checkRunId = meta(raw, 'pipelinesascode.tekton.dev/check-run-id');
   const start = run.startTime ? Date.parse(run.startTime) : undefined;

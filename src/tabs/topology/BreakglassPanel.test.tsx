@@ -63,7 +63,7 @@ class FakeWebSocket {
 const sockets: FakeWebSocket[] = [];
 (globalThis as unknown as { WebSocket: unknown }).WebSocket = FakeWebSocket;
 
-const env = { env: 'dev', cluster: 'kind-dev', namespace: 'app-sky-marshall-dev', appName: 'sky-marshall' } as EnvironmentSummary;
+const env = { env: 'dev', cluster: 'example-dev', namespace: 'app-sky-marshall-dev', appName: 'sky-marshall' } as EnvironmentSummary;
 const renderIt = async (tier: 'lower' | 'upper' | 'preview' = 'lower') => {
   await act(async () => {
     render(<BreakglassPanel env={env} podName="sky-marshall-abc" containers={['sky-marshall']} tier={tier} />);
@@ -122,7 +122,7 @@ describe('BreakglassPanel', () => {
     expect(JSON.parse(String(post.init!.body))).toMatchObject({
       appName: 'sky-marshall',
       env: 'dev',
-      cluster: 'kind-dev',
+      cluster: 'example-dev',
       namespace: 'app-sky-marshall-dev',
       podName: 'sky-marshall-abc',
       mode: 'copy',
@@ -244,10 +244,10 @@ describe('BreakglassPanel on Flight (phase 3)', () => {
   });
 
   it('lets the requester start an approved session, which opens the terminal', async () => {
-    listBody = { sessions: [flightRow({ state: 'approved', approver: 'user:default/jfillman', expiresAt: at(9) })], user: 'user:development/skyport-dev', recordingsConfigured: true };
+    listBody = { sessions: [flightRow({ state: 'approved', approver: 'user:default/example-org', expiresAt: at(9) })], user: 'user:development/skyport-dev', recordingsConfigured: true };
     postResponse = { status: 200, body: { session: flightRow({ state: 'active', expiresAt: at(30) }) } };
     await renderIt('upper');
-    expect(screen.getByTestId('breakglass-approved').textContent).toContain('Approved by jfillman');
+    expect(screen.getByTestId('breakglass-approved').textContent).toContain('Approved by example-org');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Start recorded session' })));
     expect(calls.find(c => c.init?.method === 'POST')!.url).toBe('http://be/api/glidepath/breakglass/sessions/f1/start');
     expect(screen.getByText(/Recorded break-glass session/)).toBeTruthy();
@@ -255,7 +255,7 @@ describe('BreakglassPanel on Flight (phase 3)', () => {
   });
 
   it('asks a second person to decide, and sends their note', async () => {
-    listBody = { sessions: [flightRow({})], user: 'user:default/jfillman', recordingsConfigured: true };
+    listBody = { sessions: [flightRow({})], user: 'user:default/example-org', recordingsConfigured: true };
     await renderCard('upper');
     const box = screen.getByTestId('breakglass-to-decide');
     expect(box.textContent).toContain('skyport-dev asks for a 30-minute live session');
@@ -285,12 +285,12 @@ describe('the one free extension', () => {
 
 describe('glass broken and its review (phase 4)', () => {
   const ended = flightRow({
-    id: 'g1', state: 'ended', requester: 'user:default/jfillman', glassBroken: true, reviewState: 'due', endedAt: at(-1),
+    id: 'g1', state: 'ended', requester: 'user:default/example-org', glassBroken: true, reviewState: 'due', endedAt: at(-1),
     recordingKey: 'sky-marshall/dev/g1.cast', recordingSha256: 'abc', recordingExpiresAt: at(60 * 24 * 365),
   });
 
   it('offers breaking the glass on Flight only to someone who may, and sends it', async () => {
-    listBody = { sessions: [], user: 'user:default/jfillman', recordingsConfigured: true, canBreakGlass: true, canReview: true };
+    listBody = { sessions: [], user: 'user:default/example-org', recordingsConfigured: true, canBreakGlass: true, canReview: true };
     postResponse = { status: 200, body: { id: 'g2', session: { id: 'g2', mode: 'copy', pod: 'sky-marshall-abc', expiresAt: at(15), state: 'active', requester: 'u', processAccess: false, glassBroken: true } } };
     await renderIt('upper');
     expect(screen.getByRole('button', { name: 'Request approval' })).toBeTruthy();
@@ -308,7 +308,7 @@ describe('glass broken and its review (phase 4)', () => {
   });
 
   it('never on Ground, where there is no second person to skip', async () => {
-    listBody = { sessions: [], user: 'user:default/jfillman', recordingsConfigured: true, canBreakGlass: true };
+    listBody = { sessions: [], user: 'user:default/example-org', recordingsConfigured: true, canBreakGlass: true };
     await renderIt('lower');
     expect(screen.queryByTestId('breakglass-glass-broken')).toBeNull();
   });
@@ -328,7 +328,7 @@ describe('glass broken and its review (phase 4)', () => {
   });
 
   it('never asks the person who broke the glass to review it', async () => {
-    listBody = { sessions: [ended], user: 'user:default/jfillman', recordingsConfigured: true, canReview: true };
+    listBody = { sessions: [ended], user: 'user:default/example-org', recordingsConfigured: true, canReview: true };
     await renderCard('upper');
     expect(screen.getByText('review due')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();

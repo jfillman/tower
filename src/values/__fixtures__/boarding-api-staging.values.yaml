@@ -1,6 +1,6 @@
 appName: boarding-api
 appType: app
-cluster: kind-prod
+cluster: example-prod
 envName: staging
 rollout:
   replicas: 4
@@ -34,8 +34,8 @@ httpRoute:
   hostnames:
     - boarding-api.prod.kind.local
   parentRefs:
-    - name: kiac
-      namespace: kiac-gateway
+    - name: public-gateway
+      namespace: gateway-system
 env:
   - name: REDIS_URL
     value: redis://cache-master:6379

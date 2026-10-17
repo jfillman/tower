@@ -28,11 +28,11 @@ describe('readEnvironments', () => {
       environments: [
         { name: 'dev', tier: 'ground' },
         { name: 'test', tier: 'ground', lambda: { functionName: 'fn-test' } },
-        { name: 'prod', tier: 'flight', cluster: 'kind-prod' },
+        { name: 'prod', tier: 'flight', cluster: 'example-prod' },
       ],
     });
     expect(r.shape).toBe('new');
-    expect(r.envs).toEqual([ground('dev'), ground('test', { lambda: { functionName: 'fn-test' } }), flight('prod', 'kind-prod')]);
+    expect(r.envs).toEqual([ground('dev'), ground('test', { lambda: { functionName: 'fn-test' } }), flight('prod', 'example-prod')]);
   });
 
   it('is the default Ground dev when nothing is declared, like the schema', () => {
@@ -47,14 +47,14 @@ describe('readEnvironments', () => {
 });
 
 describe('applyStaged', () => {
-  const base = [ground('dev'), ground('test'), flight('staging', 'kind-prod'), flight('prod', 'kind-prod')];
+  const base = [ground('dev'), ground('test'), flight('staging', 'example-prod'), flight('prod', 'example-prod')];
 
   it('adds a Ground environment after the last Ground one, before any Flight one', () => {
     expect(applyStaged(base, [{ kind: 'add', env: ground('qa') }]).map(e => e.name)).toEqual(['dev', 'test', 'qa', 'staging', 'prod']);
   });
 
   it('adds a Flight environment at the end', () => {
-    expect(applyStaged(base, [{ kind: 'add', env: flight('dr', 'kind-prod') }]).map(e => e.name)).toEqual(['dev', 'test', 'staging', 'prod', 'dr']);
+    expect(applyStaged(base, [{ kind: 'add', env: flight('dr', 'example-prod') }]).map(e => e.name)).toEqual(['dev', 'test', 'staging', 'prod', 'dr']);
   });
 
   it('does not mutate what it was given', () => {
@@ -89,7 +89,7 @@ describe('applyStaged', () => {
 
 describe('validateEnvironments', () => {
   it('accepts a good Kubernetes list', () => {
-    expect(validateEnvironments([ground('dev'), flight('prod', 'kind-prod')], undefined)).toEqual([]);
+    expect(validateEnvironments([ground('dev'), flight('prod', 'example-prod')], undefined)).toEqual([]);
   });
   it('refuses a duplicate, a bad name and an empty list', () => {
     expect(validateEnvironments([ground('dev'), ground('dev')], undefined).join()).toMatch(/listed twice/);
@@ -101,7 +101,7 @@ describe('validateEnvironments', () => {
   });
   it('allows Flight on a cloud target (a release pin environment), but not with a cluster', () => {
     expect(validateEnvironments([ground('dev'), flight('prod')], 'aws-lambda')).toEqual([]);
-    expect(validateEnvironments([ground('dev'), flight('prod', 'kind-prod')], 'aws-lambda').join()).toMatch(/sets a cluster, but aws-lambda has none/);
+    expect(validateEnvironments([ground('dev'), flight('prod', 'example-prod')], 'aws-lambda').join()).toMatch(/sets a cluster, but aws-lambda has none/);
   });
   it('refuses an override block for another target, or on a Kubernetes app', () => {
     expect(validateEnvironments([ground('dev', { ecs: { service: 's' } })], 'aws-lambda').join()).toMatch(/sets ecs, but this app's target is aws-lambda/);
@@ -137,7 +137,7 @@ describe('buildDeploy', () => {
     const deploy = {
       environments: [
         { name: 'dev', tier: 'ground', chart: { path: 'charts/x', targetRevision: 'v1' } },
-        { name: 'prod', tier: 'flight', cluster: 'kind-prod', production: true, chart: { targetRevision: 'v2' } },
+        { name: 'prod', tier: 'flight', cluster: 'example-prod', production: true, chart: { targetRevision: 'v2' } },
       ],
     };
     const { envs } = readEnvironments(deploy);
@@ -148,7 +148,7 @@ describe('buildDeploy', () => {
     expect(validateEnvironments([{ name: 'dev', tier: 'ground', production: true }], undefined).join()).toMatch(/production but Ground/);
   });
   it('round-trips: reading what it wrote gives the same environments', () => {
-    const envs = [ground('dev'), ground('qa', { lambda: { functionName: 'q' } }), flight('prod', 'kind-prod')];
+    const envs = [ground('dev'), ground('qa', { lambda: { functionName: 'q' } }), flight('prod', 'example-prod')];
     expect(readEnvironments(buildDeploy({}, envs)).envs).toEqual(envs);
   });
 });
@@ -230,10 +230,10 @@ describe('stageSetBlock', () => {
 });
 
 describe('adding a Flight environment', () => {
-  const before = [ground('dev'), flight('staging', 'kind-prod')];
+  const before = [ground('dev'), flight('staging', 'example-prod')];
 
   it('finds the Flight environments that are new, and only those', () => {
-    const after = applyStaged(before, [{ kind: 'add', env: ground('qa') }, { kind: 'add', env: flight('prod', 'kind-prod') }]);
+    const after = applyStaged(before, [{ kind: 'add', env: ground('qa') }, { kind: 'add', env: flight('prod', 'example-prod') }]);
     expect(addedFlightEnvs(before, after).map(e => e.name)).toEqual(['prod']);
     expect(addedFlightEnvs(before, before)).toEqual([]);
   });
@@ -241,7 +241,7 @@ describe('adding a Flight environment', () => {
   it('requires a cluster for a new Flight environment', () => {
     const after = applyStaged(before, [{ kind: 'add', env: flight('prod') }]);
     expect(validateAddedFlight(before, after, undefined).join()).toMatch(/needs the cluster it runs on/);
-    const ok = applyStaged(before, [{ kind: 'add', env: flight('prod', 'kind-prod') }]);
+    const ok = applyStaged(before, [{ kind: 'add', env: flight('prod', 'example-prod') }]);
     expect(validateAddedFlight(before, ok, undefined)).toEqual([]);
   });
 
@@ -258,7 +258,7 @@ describe('adding a Flight environment', () => {
   });
 
   it('tells the user the order to merge the two pull requests', () => {
-    const after = applyStaged(before, [{ kind: 'add', env: flight('prod', 'kind-prod') }]);
+    const after = applyStaged(before, [{ kind: 'add', env: flight('prod', 'example-prod') }]);
     const out = followUps(before, after, undefined);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatch(/Merge that one before the cicd\.yaml change/);
@@ -267,7 +267,7 @@ describe('adding a Flight environment', () => {
 });
 
 describe('removing environments', () => {
-  const before = [ground('dev'), ground('qa'), flight('prod', 'kind-prod')];
+  const before = [ground('dev'), ground('qa'), flight('prod', 'example-prod')];
 
   it('names exactly the files the backend allows deleting', () => {
     expect(envFilePaths('qa')).toEqual([
@@ -277,7 +277,7 @@ describe('removing environments', () => {
   });
 
   it('finds removed environments', () => {
-    expect(removedEnvs(before, [ground('dev'), flight('prod', 'kind-prod')]).map(e => e.name)).toEqual(['qa']);
+    expect(removedEnvs(before, [ground('dev'), flight('prod', 'example-prod')]).map(e => e.name)).toEqual(['qa']);
     expect(removedEnvs(before, before)).toEqual([]);
   });
 
@@ -290,7 +290,7 @@ describe('removing environments', () => {
   });
 
   it('refuses a removal a pipeline step still uses, naming the pipeline', () => {
-    const after = [ground('dev'), flight('prod', 'kind-prod')];
+    const after = [ground('dev'), flight('prod', 'example-prod')];
     expect(validateRemovals(before, after, { ci: { steps: [{ env: 'qa' }] } })).toEqual([
       'Pipeline "ci" still has a step for "qa". Remove that step in the Glidepath tab first.',
     ]);
@@ -317,7 +317,7 @@ describe('removing environments', () => {
       '.tekton/flow-promote-prod.yaml',
     ]);
     // Removing only a Ground environment of a cloud app deletes nothing.
-    expect(deleteFilesFor(before, [ground('dev'), flight('prod', 'kind-prod')], 'aws-lambda')).toEqual([]);
+    expect(deleteFilesFor(before, [ground('dev'), flight('prod', 'example-prod')], 'aws-lambda')).toEqual([]);
     // A Kubernetes app's Flight environment never gets a delete from here.
     expect(deleteFilesFor(before, [ground('dev'), ground('qa')], 'k8s-rollout')).toEqual([]);
   });
@@ -340,7 +340,7 @@ describe('removing environments', () => {
   });
 
   it('says what a Ground removal will take with it, and that a cloud resource is left alone', () => {
-    const after = [ground('dev'), flight('prod', 'kind-prod')];
+    const after = [ground('dev'), flight('prod', 'example-prod')];
     const k8s = followUps(before, after, undefined, 'air-traffic-api');
     expect(k8s).toHaveLength(1);
     expect(k8s[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
@@ -351,7 +351,7 @@ describe('removing environments', () => {
 });
 
 describe('release steps for new Flight environments', () => {
-  const envs = [ground('dev'), flight('staging', 'kind-prod'), flight('prod', 'kind-prod')];
+  const envs = [ground('dev'), flight('staging', 'example-prod'), flight('prod', 'example-prod')];
   const ci = { trigger: { branch: 'main' }, steps: [{ stage: 'build' }, { stage: 'deploy', env: 'dev' }, { stage: 'release', env: 'staging' }] };
 
   it('inserts the step right after the step for the environment before it', () => {
@@ -413,8 +413,8 @@ describe('release steps for new Flight environments', () => {
 
   it('only asks for environments staged with the step on and still present', () => {
     const staged = [
-      { kind: 'add' as const, env: flight('dr', 'kind-prod'), pipelineStep: true },
-      { kind: 'add' as const, env: flight('dr2', 'kind-prod') },
+      { kind: 'add' as const, env: flight('dr', 'example-prod'), pipelineStep: true },
+      { kind: 'add' as const, env: flight('dr2', 'example-prod') },
       { kind: 'add' as const, env: ground('qa'), pipelineStep: true },
     ];
     const after = applyStaged(envs, staged);
@@ -423,7 +423,7 @@ describe('release steps for new Flight environments', () => {
   });
 
   it('adds a deploy step, not a release step, for a Ground environment, after the Ground one before it', () => {
-    const withTest = [ground('dev'), ground('test'), flight('staging', 'kind-prod')];
+    const withTest = [ground('dev'), ground('test'), flight('staging', 'example-prod')];
     const plan = planPipelineSteps({ ci }, withTest, ['test']);
     expect((plan.pipelines as any).ci.steps).toEqual([{ stage: 'build' }, { stage: 'deploy', env: 'dev' }, { stage: 'deploy', env: 'test' }, { stage: 'release', env: 'staging' }]);
     expect(plan.added).toEqual([{ env: 'test', stage: 'deploy', pipeline: 'ci', after: 'dev' }]);

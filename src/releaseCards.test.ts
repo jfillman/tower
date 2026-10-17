@@ -11,7 +11,7 @@ function rec(id: string, live: string[], extra: Partial<ReleaseRecord> = {}): Re
     id,
     imageTag: id,
     current: live.length > 0,
-    deployments: live.map(env => ({ env, cluster: 'kind-prod', deployedAt: '2026-10-14T00:00:00Z', isLive: true })),
+    deployments: live.map(env => ({ env, cluster: 'example-prod', deployedAt: '2026-10-14T00:00:00Z', isLive: true })),
     ...extra,
   } as unknown as ReleaseRecord;
 }

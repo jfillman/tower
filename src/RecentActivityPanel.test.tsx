@@ -71,7 +71,7 @@ describe('build and release rows read the outcome from the title (2026-10-11)', 
   const build = (title: string) =>
     ({
       ...n('b', 'build', title),
-      payload: { title, severity: 'normal', topic: 'build', description: 'Repo: jfillman/backstage @ abcdef1234\nImage: ghcr.io/jfillman/backstage:1.0.2-abcdef1\nRun: ci-0-build-x' },
+      payload: { title, severity: 'normal', topic: 'build', description: 'Repo: example-org/backstage @ abcdef1234\nImage: ghcr.io/example-org/backstage:1.0.2-abcdef1\nRun: ci-0-build-x' },
     }) as any;
   const renderRows = (items: any[]) =>
     render(
