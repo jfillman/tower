@@ -4,7 +4,7 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { TEKTON_CLUSTER, toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
-import { deriveProvisioning } from './deriveProvisioning.esm.js';
+import { deriveProvisioning, isCloudApp } from './deriveProvisioning.esm.js';
 import { updateObservation } from './observed.esm.js';
 
 const XR_CLUSTER = TEKTON_CLUSTER;
@@ -186,7 +186,8 @@ function useProvisioning() {
       const name = x.metadata.name;
       const entry = github.get(name) ?? { at: 0, busy: false, requestTries: 0 };
       github.set(name, entry);
-      const bothMerged = entry.onboarding?.source?.state === "merged" && entry.onboarding.gitops?.state === "merged";
+      const cloudApp = isCloudApp({ kind: x.kind ?? "", deployTarget: x.spec?.deployTarget });
+      const bothMerged = entry.onboarding?.source?.state === "merged" && (cloudApp || entry.onboarding.gitops?.state === "merged");
       const wantsRequest = !entry.requestPr && entry.requestTries < 3 && Boolean(tenants);
       if (entry.busy || Date.now() - entry.at < GITHUB_POLL_MS || bothMerged && !wantsRequest) return;
       entry.busy = true;
@@ -337,7 +338,8 @@ function useProvisioning() {
               namespace: x.metadata.namespace,
               cluster: XR_CLUSTER,
               createdAt: Date.parse(x.metadata.creationTimestamp),
-              conditions: x.status?.conditions ?? []
+              conditions: x.status?.conditions ?? [],
+              deployTarget: x.spec?.deployTarget
             },
             build: first ? toBuild(first) : void 0,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0,

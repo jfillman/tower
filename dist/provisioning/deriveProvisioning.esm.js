@@ -1,4 +1,7 @@
 const FUNCTION_KINDS = /* @__PURE__ */ new Set(["LambdaFunction", "AzureFunction"]);
+function isCloudApp(xr) {
+  return FUNCTION_KINDS.has(xr.kind) || xr.deployTarget !== void 0 && xr.deployTarget !== "kubernetes";
+}
 const STALL_AFTER_MS = 4 * 3600 * 1e3;
 const NO_BUILD_EVIDENCE_AFTER_MS = 2 * 3600 * 1e3;
 const TYPICAL_SEC = {
@@ -35,7 +38,8 @@ const infisicalProjectUrl = (cluster, projectId) => {
 function deriveProvisioning(input, now, typical) {
   const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
-  const cloudFinal = isFunction || Boolean(cloudDeploy);
+  const cloudApp = isCloudApp(xr);
+  const cloudFinal = cloudApp || Boolean(cloudDeploy);
   const created = xr.createdAt;
   const synced = cond(xr, "Synced");
   const ready = cond(xr, "Ready");
@@ -165,14 +169,14 @@ function deriveProvisioning(input, now, typical) {
     parallel: true
   });
   const ob = links?.onboarding;
-  const obPrs = isFunction ? [ob?.source] : [ob?.source, ob?.gitops];
+  const obPrs = cloudApp ? [ob?.source] : [ob?.source, ob?.gitops];
   const expectedPrs = obPrs.length;
   const merged = obPrs.filter((pr) => pr?.state === "merged");
   let onboardingState = "pend";
   let onboardingFraction = 0;
   let onboardingDetail;
   let onboardingEnd;
-  const mergePrompt = isFunction ? "Merge the onboarding PR to start the first build" : "Merge the two onboarding PRs to start the first build";
+  const mergePrompt = cloudApp ? "Merge the onboarding PR to start the first build" : "Merge the two onboarding PRs to start the first build";
   if (builtOrDeployed || ob && merged.length === expectedPrs) {
     onboardingState = "done";
     onboardingFraction = 1;
@@ -181,7 +185,7 @@ function deriveProvisioning(input, now, typical) {
     onboardingState = "run";
     if (!ob) {
       onboardingDetail = mergePrompt;
-    } else if (isFunction) {
+    } else if (cloudApp) {
       onboardingFraction = merged.length / expectedPrs;
       onboardingDetail = ob.source ? mergePrompt : "Waiting for onboarding to open its PR";
     } else {
@@ -202,8 +206,8 @@ function deriveProvisioning(input, now, typical) {
   else if (onboardingState === "run") onboardingSeconds = secBetween(onboardingStart || void 0, now);
   push({
     id: "onboarding",
-    title: isFunction ? "Application onboarding PR" : "Application onboarding PRs",
-    desc: isFunction ? "One PR on the source repo adds the pipeline files. Merging it starts the build" : "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
+    title: cloudApp ? "Application onboarding PR" : "Application onboarding PRs",
+    desc: cloudApp ? "One PR on the source repo adds the pipeline files. Merging it starts the build" : "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
     state: onboardingState,
     fraction: onboardingFraction,
     startedAt: onboardingStart || void 0,
@@ -354,5 +358,5 @@ function deriveProvisioning(input, now, typical) {
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { FUNCTION_KINDS, NO_BUILD_EVIDENCE_AFTER_MS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl };
+export { FUNCTION_KINDS, NO_BUILD_EVIDENCE_AFTER_MS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl, isCloudApp };
 //# sourceMappingURL=deriveProvisioning.esm.js.map
