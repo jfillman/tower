@@ -553,6 +553,30 @@ describe('an app (not a function) that deploys to a cloud target', () => {
     expect(p.steps[RUNNING].title).toBe('Deployed to AWS ECS');
     expect(p.steps[RUNNING].state).toBe('done');
   });
+  // Created with spec.deployTarget aws-ecs (Airframe v0.3.151): onboarding opens no GitOps-repo PR for it.
+  const ecsXr = { ...xr(live), kind: 'GoApplication', name: 'custom-api', deployTarget: 'aws-ecs' };
+  const srcOpen = { onboarding: { source: { number: 1, url: 'https://github.com/o/custom-api/pull/1', state: 'open' as const } } };
+  const srcMerged = {
+    onboarding: { source: { number: 1, url: 'u', state: 'merged' as const, mergedAt: Date.parse('2026-09-30T15:10:00Z') } },
+  };
+  it('a deployTarget aws-ecs app waits for ONE onboarding PR, the source repo\'s, not a GitOps one that never comes', () => {
+    const p = deriveProvisioning({ xr: ecsXr, links: srcOpen }, now);
+    const s = p.steps[ONBOARDING];
+    expect(s.title).toBe('Application onboarding PR');
+    expect(s.state).toBe('run');
+    expect(s.detail).toBe('Merge the onboarding PR to start the first build');
+    expect(deriveProvisioning({ xr: ecsXr, links: srcMerged }, now).steps[ONBOARDING].state).toBe('done');
+  });
+  it('a deployTarget aws-ecs app ends on a cloud deploy even before its first deploy run, and keeps its GitOps repo', () => {
+    const p = deriveProvisioning({ xr: ecsXr, links: srcMerged }, now);
+    expect(p.steps[RUNNING].title).not.toBe('Running healthy in dev');
+    expect(p.steps[REPOS].desc).toBe('Source and GitOps repos created, starter files committed');
+  });
+  it('deployTarget kubernetes is the ordinary app: two onboarding PRs', () => {
+    const p = deriveProvisioning({ xr: { ...ecsXr, deployTarget: 'kubernetes' }, links: srcMerged }, now);
+    expect(p.steps[ONBOARDING].title).toBe('Application onboarding PRs');
+    expect(p.steps[ONBOARDING].state).toBe('run');
+  });
   it('an ordinary Kubernetes app is unchanged', () => {
     const p = deriveProvisioning({ xr: xr(live) }, now);
     expect(p.steps[RUNNING].title).toBe('Running healthy in dev');

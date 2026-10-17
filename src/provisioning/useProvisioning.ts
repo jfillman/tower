@@ -24,6 +24,7 @@ import {
   type StepObservation,
   type CatalogSnapshot,
   type CloudDeploySnapshot,
+  isCloudApp,
 } from './deriveProvisioning';
 import { updateObservation } from './observed';
 
@@ -69,7 +70,7 @@ interface ListResponse<T> {
 interface RawXr {
   kind?: string;
   metadata: { name: string; namespace: string; creationTimestamp: string; annotations?: Record<string, string> };
-  spec?: { devCluster?: string; crossplane?: { resourceRefs?: { kind: string; name: string }[] } };
+  spec?: { devCluster?: string; deployTarget?: string; crossplane?: { resourceRefs?: { kind: string; name: string }[] } };
   status?: { conditions?: XrCondition[] };
 }
 interface RawManaged {
@@ -386,7 +387,10 @@ export function useProvisioning(): UseProvisioningResult {
       const name = x.metadata.name;
       const entry = github.get(name) ?? { at: 0, busy: false, requestTries: 0 };
       github.set(name, entry);
-      const bothMerged = entry.onboarding?.source?.state === 'merged' && entry.onboarding.gitops?.state === 'merged';
+      // A cloud app gets no GitOps-repo PR, so its source one is all there is to wait for.
+      const cloudApp = isCloudApp({ kind: x.kind ?? '', deployTarget: x.spec?.deployTarget });
+      const bothMerged =
+        entry.onboarding?.source?.state === 'merged' && (cloudApp || entry.onboarding.gitops?.state === 'merged');
       // A hand-applied XR has no request PR, so stop asking after a few misses.
       const wantsRequest = !entry.requestPr && entry.requestTries < 3 && Boolean(tenants);
       if (entry.busy || Date.now() - entry.at < GITHUB_POLL_MS || (bothMerged && !wantsRequest)) return;
@@ -580,6 +584,7 @@ export function useProvisioning(): UseProvisioningResult {
               cluster: XR_CLUSTER,
               createdAt: Date.parse(x.metadata.creationTimestamp),
               conditions: x.status?.conditions ?? [],
+              deployTarget: x.spec?.deployTarget,
             },
             build: first ? toBuild(first) : undefined,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : undefined,

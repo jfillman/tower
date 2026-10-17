@@ -34,6 +34,11 @@ export interface XrSnapshot {
   createdAt: number;
   conditions: XrCondition[];
   /**
+   * Where the app deploys, from the XR's spec.deployTarget (Airframe v0.3.151): `kubernetes`, or a cloud target such
+   * as `aws-ecs`. Undefined for kinds and XRs without the field, which deploy to Kubernetes.
+   */
+  deployTarget?: string;
+  /**
    * No XR exists yet: this is a request PR that is open, or merged and not yet applied by Argo.
    * `createdAt` is then the PR's own creation time, and the steps after "request" wait.
    */
@@ -108,6 +113,16 @@ export interface CloudDeploySnapshot {
  * Rollout: one onboarding PR on the source repo, and "deployed" means the cloud deploy ran.
  */
 export const FUNCTION_KINDS = new Set(['LambdaFunction', 'AzureFunction']);
+
+/**
+ * An app that deploys to a cloud target: a function kind, or a container app created with a cloud
+ * spec.deployTarget (aws-ecs). Glidepath's onboarding opens no GitOps-repo PR for it (a cloud app's releases are pin
+ * PRs on its source repo, ADR-0020), and its last step is a cloud deploy, not a Rollout. Found 2026-10-17: an ECS Go
+ * app's "Application onboarding PRs" step waited forever for a GitOps PR that never comes.
+ */
+export function isCloudApp(xr: Pick<XrSnapshot, 'kind' | 'deployTarget'>): boolean {
+  return FUNCTION_KINDS.has(xr.kind) || (xr.deployTarget !== undefined && xr.deployTarget !== 'kubernetes');
+}
 
 export interface ProvisioningLinks {
   /** The PR that requested the service (against the cluster's tenants repo). */
@@ -276,8 +291,9 @@ export function deriveProvisioning(
 ): Provisioning {
   const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
+  const cloudApp = isCloudApp(xr);
   // A function, or any app that deploys to a cloud target, has no Rollout to wait for.
-  const cloudFinal = isFunction || Boolean(cloudDeploy);
+  const cloudFinal = cloudApp || Boolean(cloudDeploy);
   const created = xr.createdAt;
   const synced = cond(xr, 'Synced');
   const ready = cond(xr, 'Ready');
@@ -448,15 +464,16 @@ export function deriveProvisioning(
   // GitOps repo. Nothing builds until the source one is merged; Glidepath opens
   // them but a person merges them.
   const ob = links?.onboarding;
-  // A function has only the source repo, so one PR; an app has the source and GitOps ones.
-  const obPrs = isFunction ? [ob?.source] : [ob?.source, ob?.gitops];
+  // A cloud app (a function, or a container app deploying to ECS) gets only the source repo's PR; a Kubernetes app
+  // gets the source and GitOps ones.
+  const obPrs = cloudApp ? [ob?.source] : [ob?.source, ob?.gitops];
   const expectedPrs = obPrs.length;
   const merged = obPrs.filter(pr => pr?.state === 'merged');
   let onboardingState: StepState = 'pend';
   let onboardingFraction = 0;
   let onboardingDetail: string | undefined;
   let onboardingEnd: number | undefined;
-  const mergePrompt = isFunction
+  const mergePrompt = cloudApp
     ? 'Merge the onboarding PR to start the first build'
     : 'Merge the two onboarding PRs to start the first build';
   if (builtOrDeployed || (ob && merged.length === expectedPrs)) {
@@ -467,7 +484,7 @@ export function deriveProvisioning(
     onboardingState = 'run';
     if (!ob) {
       onboardingDetail = mergePrompt;
-    } else if (isFunction) {
+    } else if (cloudApp) {
       onboardingFraction = merged.length / expectedPrs;
       onboardingDetail = ob.source ? mergePrompt : 'Waiting for onboarding to open its PR';
     } else {
@@ -488,8 +505,8 @@ export function deriveProvisioning(
   else if (onboardingState === 'run') onboardingSeconds = secBetween(onboardingStart || undefined, now);
   push({
     id: 'onboarding',
-    title: isFunction ? 'Application onboarding PR' : 'Application onboarding PRs',
-    desc: isFunction
+    title: cloudApp ? 'Application onboarding PR' : 'Application onboarding PRs',
+    desc: cloudApp
       ? 'One PR on the source repo adds the pipeline files. Merging it starts the build'
       : 'Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build',
     state: onboardingState,
