@@ -81,7 +81,10 @@ TaskRunLogConsole (live: pod logs; archived: Tekton Results logs)
 Tekton deletes a finished run from the cluster about an hour after it completes. Older runs come from Tekton Results
 (30-day retention) through the Backstage backend, which queries Results server-side, trims each run to the fields Tower
 reads and caches it (`packages/backend/src/pipelineHistory.ts` in the backstage repo). The Release Record's "What was
-built" and the cloud deployments view read the same endpoint.
+built" and the cloud deployments view read the same endpoint. History never reaches back past the creation of the
+app's `app-<app>-cicd` namespace: Results keys runs by namespace, so an app deleted and created again under the same
+name would otherwise show the old app's runs, and its cloud environments the old app's deploys (smoke-ecs,
+2026-10-17).
 
 ## Key Design Decisions
 
