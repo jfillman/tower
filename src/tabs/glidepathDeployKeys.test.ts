@@ -11,7 +11,7 @@ const original = {
     lambda: { functionName: 'glidepath-smoke-fn', region: 'us-east-1' },
     environments: [
       { name: 'dev', tier: 'ground' },
-      { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+      { name: 'staging', tier: 'flight', cluster: 'example-prod' },
     ],
     chart: { targetRevision: 'v1' },
     strategy: 'rollout',

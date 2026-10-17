@@ -81,7 +81,7 @@
      },
      {
       "name": "git-url",
-      "value": "https://github.com/jfillman/smoke-ecs"
+      "value": "https://github.com/example-org/smoke-ecs"
      },
      {
       "name": "git-revision",
@@ -89,7 +89,7 @@
      },
      {
       "name": "image-ref",
-      "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+      "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
      },
      {
       "name": "chain-id",
@@ -132,7 +132,7 @@
        "hostAliases": [
         {
          "hostnames": [
-          "backstage.prod.kiac.local"
+          "backstage.example.internal"
          ],
          "ip": "192.168.1.78"
         }
@@ -503,7 +503,7 @@
      "params": [
       {
        "name": "image-ref",
-       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+       "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
       },
       {
        "name": "config-json",
@@ -885,7 +885,7 @@
       },
       {
        "name": "git-url",
-       "value": "https://github.com/jfillman/smoke-ecs"
+       "value": "https://github.com/example-org/smoke-ecs"
       },
       {
        "name": "git-revision",
@@ -893,7 +893,7 @@
       },
       {
        "name": "image-ref",
-       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+       "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
       },
       {
        "name": "env",
@@ -1026,7 +1026,7 @@
       },
       {
        "name": "git-url",
-       "value": "https://github.com/jfillman/smoke-ecs"
+       "value": "https://github.com/example-org/smoke-ecs"
       },
       {
        "name": "git-revision",
@@ -1034,7 +1034,7 @@
       },
       {
        "name": "image-ref",
-       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+       "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
       },
       {
        "name": "env",
@@ -1045,7 +1045,7 @@
       "hostAliases": [
        {
         "hostnames": [
-         "backstage.prod.kiac.local"
+         "backstage.example.internal"
         ],
         "ip": "192.168.1.78"
        }
@@ -1427,7 +1427,7 @@
       },
       {
        "name": "git-url",
-       "value": "https://github.com/jfillman/smoke-ecs"
+       "value": "https://github.com/example-org/smoke-ecs"
       },
       {
        "name": "git-revision",
@@ -1553,7 +1553,7 @@
      "params": [
       {
        "name": "image-ref",
-       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+       "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
       },
       {
        "name": "image-repo",
@@ -1605,7 +1605,7 @@
       {
        "name": "image-ref",
        "type": "string",
-       "value": "ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7"
+       "value": "ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7"
       }
      ],
      "startTime": "2026-10-04T02:54:33Z",
@@ -1618,7 +1618,7 @@
         "containerID": "containerd://fe8988cd13dd1bffa78fe0cba59e93f7c3601091b95089338d86839ca320d76f",
         "exitCode": 0,
         "finishedAt": "2026-10-04T02:54:37Z",
-        "message": "[{\"key\":\"image-ref\",\"value\":\"ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7\",\"type\":1}]",
+        "message": "[{\"key\":\"image-ref\",\"value\":\"ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7\",\"type\":1}]",
         "reason": "Completed",
         "startedAt": "2026-10-04T02:54:37Z"
        },
@@ -1682,7 +1682,7 @@
       },
       {
        "name": "git-url",
-       "value": "https://github.com/jfillman/smoke-ecs"
+       "value": "https://github.com/example-org/smoke-ecs"
       },
       {
        "name": "git-revision",
@@ -1807,7 +1807,7 @@
       },
       {
        "name": "subject-content-json",
-       "value": "{\"environment\": {\"id\": \"dev\"}, \"artifactId\": \"ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7\", \"git-url\": \"https://github.com/jfillman/smoke-ecs\", \"revision\": \"4eedae7b7cf01572bd82683e69d50d2dc96392b4\"}"
+       "value": "{\"environment\": {\"id\": \"dev\"}, \"artifactId\": \"ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7\", \"git-url\": \"https://github.com/example-org/smoke-ecs\", \"revision\": \"4eedae7b7cf01572bd82683e69d50d2dc96392b4\"}"
       },
       {
        "name": "chain-id",

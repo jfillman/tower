@@ -2,7 +2,7 @@ import fixture from './__fixtures__/cloudDeployRuns.json';
 import { toPipelineRunSummary, type RawPipelineRun, type RawTaskRun } from './tekton/useTektonPipelineRuns';
 import { cloudDeployFromRun, consoleUrlFor, hasCloudDeployInFlight, summarizeCloudDeploys } from './cloudDeploy';
 
-// A real deploy to ECS captured from kiac-dev (smoke-ecs, ci-1-deploy-swift-bear-772974f5): the
+// A real deploy to ECS captured from example-dev (smoke-ecs, ci-1-deploy-swift-bear-772974f5): the
 // pipeline label, the resolve-deploy-target / resolve-image-ref results and the cloud task's params
 // are exactly what the cluster produced. The variants below change one thing about it.
 const real = (fixture as any)['ci-1-deploy-swift-bear-772974f5'];
@@ -12,7 +12,7 @@ function summarize(edit?: (pr: any, trs: any[]) => void) {
   const pr = clone(real.pipelineRun) as RawPipelineRun;
   const trs = clone(real.taskRuns) as RawTaskRun[];
   edit?.(pr, trs);
-  return toPipelineRunSummary(pr, 'kind-dev', new Map(trs.map(t => [t.metadata.name, t])));
+  return toPipelineRunSummary(pr, 'example-dev', new Map(trs.map(t => [t.metadata.name, t])));
 }
 const taskRun = (trs: any[], name: string) => trs.find(t => t.metadata.labels['tekton.dev/pipelineTask'] === name);
 const setConfig = (trs: any[], edit: (c: any) => void) => {
@@ -39,7 +39,7 @@ describe('cloudDeployFromRun on the real ECS deploy', () => {
     });
   });
   it('knows the image, its tag and the commit it was built from', () => {
-    expect(d.imageRef).toBe('ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7');
+    expect(d.imageRef).toBe('ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7');
     expect(d.imageTag).toBe('0.0.0-4eedae7');
     expect(d.shortSha).toBe('4eedae7');
     expect(d.env).toBe('dev');
@@ -142,7 +142,7 @@ describe('variants', () => {
   it('survives a tag-less image ref', () => {
     const run = summarize((_pr, trs) => {
       const r = taskRun(trs, 'resolve-image-ref').status.results.find((x: any) => x.name === 'image-ref');
-      r.value = 'ghcr.io/jfillman/smoke-ecs@sha256:abc';
+      r.value = 'ghcr.io/example-org/smoke-ecs@sha256:abc';
     });
     const d = cloudDeployFromRun(run)!;
     expect(d.imageTag).toBeUndefined();
@@ -152,7 +152,7 @@ describe('variants', () => {
   it('reads the tag off a ref that also carries a digest', () => {
     const run = summarize((_pr, trs) => {
       const r = taskRun(trs, 'resolve-image-ref').status.results.find((x: any) => x.name === 'image-ref');
-      r.value = 'ghcr.io/jfillman/smoke-ecs:0.0.0-4eedae7@sha256:abc';
+      r.value = 'ghcr.io/example-org/smoke-ecs:0.0.0-4eedae7@sha256:abc';
     });
     expect(cloudDeployFromRun(run)!.imageTag).toBe('0.0.0-4eedae7');
   });

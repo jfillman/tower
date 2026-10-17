@@ -1,7 +1,7 @@
 import type { GraphEdge, GraphNode, PipelineGraphLayout, PipelineRunSummary, TaskPhase } from './types';
 
 // Real Tekton pipelines are DAGs, not fixed shapes - the live "build" pipeline
-// this was built against (kind-dev, app-backstage-cicd) has 11 tasks across 7
+// this was built against (the dev cluster, app-backstage-cicd) has 11 tasks across 7
 // dependency-depth levels plus 4 finally tasks, and other apps' pipelines will
 // differ again. So this lays out whatever `runAfter` graph the pipeline
 // actually declares - depth-first columns by real dependency depth, not

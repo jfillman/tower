@@ -18,6 +18,7 @@ import { RefreshButton } from '../RefreshButton';
 import { Count, FilterBar, FilterChips, PageHeader } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { isPreviewEnvName, isRolloutActive } from '../types';
+import { usePlatformConfig } from '../platformConfig';
 
 // The CI half of what used to be one combined "CI / CD" tab - split out
 // 2026-09-16 (HANDOFF-tower-cicd-redesign.md) so Pipelines (this file) and
@@ -94,6 +95,7 @@ export function PipelinesTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { owner, environments, loading, error, appName, refresh } = useReleaseContext();
+  const cluster = usePlatformConfig().controlPlaneCluster;
 
   const cdEnvs = environments.filter(e => !isPreviewEnvName(e.env));
   const pendingDeployCount = cdEnvs.filter(isRolloutActive).length;
@@ -278,7 +280,7 @@ export function PipelinesTab() {
                 : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
                     historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
                   }`}{' '}
-              &middot; kind-dev
+              {cluster ? <> &middot; {cluster}</> : null}
             </Count>
           }
         >

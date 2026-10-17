@@ -3,7 +3,7 @@
 Backstage's own checks are the first lock. These policies are the second, inside each cluster's API server, so that a
 bug in the backend, or a compromised Backstage, still cannot widen what a session may do. They all **fail closed**.
 
-| Policy | Ground (kiac-dev) | Flight (kind-prod) | Guards |
+| Policy | Ground (<dev-cluster>) | Flight (<prod-cluster>) | Guards |
 |---|---|---|---|
 | `tower-breakglass-rolebinding` | ✓ | ✓ (+ approver rule) | the only grant Backstage may create |
 | `tower-breakglass-debug-container` | ✓ | ✓ (+ host namespaces) | what runs in a debug container or copy pod |
@@ -16,7 +16,7 @@ ValidatingAdmissionPolicy, `vpol-<name>`, and registers no webhook, so the API s
 down. (They were `ClusterPolicy` webhooks until 2026-10-11; Kyverno 1.19 deprecates `ClusterPolicy`, and the webhooks
 made break-glass unavailable whenever Kyverno lost its lease on a busy node.)
 
-**Flight** writes them directly as ValidatingAdmissionPolicy + binding (gitops-cluster-kind-prod
+**Flight** writes them directly as ValidatingAdmissionPolicy + binding (gitops-cluster-<prod-cluster>
 `30-policy/breakglass/policies.yaml`, Argo CD app `tower-breakglass`, sync wave `-1`).
 
 ## tower-breakglass-rolebinding
@@ -28,7 +28,7 @@ Backstage. Every other RoleBinding write skips it.
 |---|---|
 | Backstage may create only `tower-breakglass-*` bindings | *Backstage may only create RoleBindings named tower-breakglass-\*.* |
 | `roleRef` is ClusterRole `tower-breakglass-debug-live` or `-copy` | *…binds tower-breakglass-debug-live or -copy (a ClusterRole)…* |
-| exactly one subject: Backstage's write identity on this cluster (kiac-dev: User `hangar:kind-prod:tower-actor`; kind-prod: ServiceAccount `backstage/backstage-ingestor`) | *…binds … to Tower's write identity only …* |
+| exactly one subject: Backstage's write identity on this cluster (<dev-cluster>: User `hangar:<prod-cluster>:tower-actor`; <prod-cluster>: ServiceAccount `backstage/backstage-ingestor`) | *…binds … to Tower's write identity only …* |
 | label `cleanup.kyverno.io/ttl` is `15m`, `30m`, `45m`, `60m` or `75m` | *…carries cleanup.kyverno.io/ttl of 15m to 75m (a session plus its one 15-minute extension).* |
 | the namespace is labelled `hangar.io/app` | *…may only be created in an app namespace (labelled hangar.io/app).* |
 | **Flight only:** a requester annotation, and either an approver annotation that differs from it, or `hangar.io/breakglass-glass-broken: "true"` with no approver | *A Flight break-glass RoleBinding names an approver who is not the requester, or is marked glass broken … with no approver.* |
@@ -64,7 +64,7 @@ already in the pod are not re-judged.
 
 Ground exempts `system:masters` from the container rules (an operator's own `kubectl debug`) and applies them only in
 `hangar.io/app` namespaces. **Flight applies them to everyone, in every namespace**: an operator's own
-`kubectl debug` on kind-prod must also use the Tower debug image, hardened. `--profile=restricted` alone does not set a
+`kubectl debug` on <prod-cluster> must also use the Tower debug image, hardened. `--profile=restricted` alone does not set a
 group or a read-only root, so add them:
 
 ```bash
@@ -72,7 +72,7 @@ cat > debug-custom.json <<'EOF'
 {"securityContext": {"runAsUser": 65532, "runAsGroup": 65532, "runAsNonRoot": true, "allowPrivilegeEscalation": false,
   "readOnlyRootFilesystem": true, "capabilities": {"drop": ["ALL"]}}}
 EOF
-kubectl debug -it <pod> -n <ns> --image=ghcr.io/jfillman/tower-debug@sha256:<digest> \
+kubectl debug -it <pod> -n <ns> --image=ghcr.io/<owner>/tower-debug@sha256:<digest> \
   --profile=restricted --custom=debug-custom.json -- sh
 ```
 
@@ -92,12 +92,12 @@ named `debug-*`.
 Backstage's live role includes `patch pods` for the length of a session, used for one thing: the process-access
 annotation above. This policy makes sure that is all the patch can do: `object.spec == oldObject.spec`, the labels are
 unchanged, and the annotations differ in no key other than `hangar.io/breakglass-process-access` (added, changed or
-removed). Tested in isolation on kiac-dev: the annotation admitted; a label, an image or another annotation refused.
+removed). Tested in isolation on <dev-cluster>: the annotation admitted; a label, an image or another annotation refused.
 
 ## tower-breakglass-debug-image
 
 **Matches** the same requests as `tower-breakglass-debug-container` (an ephemeral-container update, or a copy pod), and
-only looks at images under `ghcr.io/jfillman/tower-debug`.
+only looks at images under `ghcr.io/<owner>/tower-debug`.
 
 An `ImageValidatingPolicy`: the image must carry the cosign **keyless** signature of tower's `debug-image.yml` workflow
 on `main` (issuer `https://token.actions.githubusercontent.com`, the public Fulcio and Rekor). The digest pin in
@@ -111,10 +111,10 @@ the webhook sees nothing but those two kinds of request. Check it after any chan
 Verified on both clusters: a plain pod create is untouched; a copy pod with the signed digest is admitted; a tag under
 the debug repository that does not exist is refused.
 
-On Flight this is why kind-prod runs a **slim Kyverno** (`30-policy/kyverno`: admission and cleanup controllers only,
+On Flight this is why <prod-cluster> runs a **slim Kyverno** (`30-policy/kyverno`: admission and cleanup controllers only,
 no background or reports controller): this policy, and the cleanup controller's TTL backstop
 (`30-policy/kyverno-policies/tower-breakglass-rbac.yaml` gives it delete on RoleBindings and pods). Validation stays in
-the hand-written VAPs; if Kyverno is down on kind-prod, a session can still be refused by it, never admitted
+the hand-written VAPs; if Kyverno is down on <prod-cluster>, a session can still be refused by it, never admitted
 unchecked.
 
 ## tower-breakglass-no-exec (Flight)
@@ -150,10 +150,10 @@ for about ten minutes. The rules that came out of it:
 
 ## Changing a policy without an outage
 
-1. **Test the exact CEL first**, on kiac-dev, in a throwaway policy bound to a scratch namespace (see
+1. **Test the exact CEL first**, on <dev-cluster>, in a throwaway policy bound to a scratch namespace (see
    [Testing](testing.md#testing-a-policy-rule-in-isolation)). Cover every allow and every deny.
 2. **Widen before you narrow.** When a value changes (the image digest, the TTL list), first make the policy accept
-   both old and new, deploy, then switch the backend, then drop the old value. kind-prod's debug-container policy keeps
+   both old and new, deploy, then switch the backend, then drop the old value. <prod-cluster>'s debug-container policy keeps
    the allowed images in a list variable (`variables.images`) for this. Doing it in the other order refuses every
    session in between.
 3. **Order on Flight:** the policy PR merges and syncs **before** the backstage bump that relies on it. Check that the

@@ -17,7 +17,7 @@ a versioned package installed from a git tag on this repo; there is no npm regis
 ### 1. Add the package
 
 ```bash
-yarn workspace app add "@jfillman/tower@jfillman/tower#vX.Y.Z"
+yarn workspace app add "@jfillman/tower@<owner>/tower#vX.Y.Z"   # <owner>: where this repo lives
 ```
 
 ### 2. Register Tower and the Hangar sign-in page
@@ -129,6 +129,27 @@ tower:
   clusterName: prod
 ```
 
+### Clusters and links
+
+Tower names no cluster, GitHub owner or lab host. It reads them from `tower:` in app-config; a cluster's name is its
+registry name, which is also its kubectl context and its `kubernetes.clusterLocatorMethods` entry:
+
+```yaml
+tower:
+  # The control-plane (dev) cluster: Tekton, Glidepath's release records, Airframe's app XRs. Required for the
+  # Pipelines, Ops Wall and Provisioning views; they say so when it is missing.
+  controlPlaneCluster: <dev-cluster>
+  clusters:                                # all optional; an unset value hides its link or lookup
+    <dev-cluster>:
+      tenantsRepo: <owner>/<tenants-repo>  # the registry record's tenantsRepo, where XR requests are opened
+      infisicalUrl: https://<infisical-ui>
+      grafanaUrl: https://<grafana>
+    <prod-cluster>:
+      grafanaUrl: https://<grafana>
+  airframe:                                # the fleet's default environment chart
+    repoURL: https://github.com/<owner>/airframe.git
+```
+
 ### DORA metrics source (Ops Wall)
 
 The Ops Wall's DORA panel queries dora-exporter's series (`dora_deployments_total`, `dora_releases_total`,
@@ -140,13 +161,13 @@ Mimir), not a Prometheus with short local retention:
 tower:
   dora:
     metrics:
-      cluster: kind-dev # as registered in kubernetes.clusterLocatorMethods
+      cluster: <dev-cluster> # as registered in kubernetes.clusterLocatorMethods
       namespace: observability
       service: thanos-query-frontend
       port: 9090
 ```
 
-Without this block Tower uses `kube-prometheus-stack-prometheus:9090` in `observability` on the Tekton cluster. The
+Without this block Tower uses `kube-prometheus-stack-prometheus:9090` in `observability` on `tower.controlPlaneCluster`. The
 Kubernetes plugin's identity needs `get` on `services/proxy` for that Service.
 
 ### Release records

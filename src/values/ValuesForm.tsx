@@ -1233,7 +1233,7 @@ export function ConfigEditor({
   source: ValuesSource;
   /** A shared values file (App Configuration) rather than one environment's: the PR summary words its effect so. */
   shared?: boolean;
-  /** Names what is being edited in the panel, for example "TEST (kind-dev)". */
+  /** Names what is being edited in the panel, for example "TEST (example-dev)". */
   title: string;
   prod?: boolean;
   layout?: 'side' | 'inline';
@@ -2022,7 +2022,7 @@ export function ConfigEditor({
           <div style={{ marginTop: 10 }}>
             <div className={classes.grid}>
               <Field label="Hostnames (comma-separated)" classes={classes}>
-                <input className={classes.input} placeholder="e.g. boarding-api.prod.kiac.local" value={form.httpRouteHostnames} onChange={e => setF('httpRouteHostnames', e.target.value, 'httpRoute')} />
+                <input className={classes.input} placeholder="e.g. boarding-api.example.com" value={form.httpRouteHostnames} onChange={e => setF('httpRouteHostnames', e.target.value, 'httpRoute')} />
               </Field>
               <Field label="Path (optional)" classes={classes}>
                 <input className={classes.input} placeholder="e.g. /api" value={form.httpRoutePath} onChange={e => setF('httpRoutePath', e.target.value, 'httpRoute')} />
@@ -2048,7 +2048,7 @@ export function ConfigEditor({
                 <div className={classes.row} key={i}>
                   <input
                     className={classes.input}
-                    placeholder="name (e.g. kiac)"
+                    placeholder="name (e.g. public-gateway)"
                     value={ref.name}
                     onChange={e => {
                       const next = [...form.httpRouteParentRefs];
@@ -2058,7 +2058,7 @@ export function ConfigEditor({
                   />
                   <input
                     className={classes.input}
-                    placeholder="namespace (e.g. kiac-gateway)"
+                    placeholder="namespace (e.g. gateway-system)"
                     value={ref.namespace}
                     onChange={e => {
                       const next = [...form.httpRouteParentRefs];

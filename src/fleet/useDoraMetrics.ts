@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { configApiRef, discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
+import { usePlatformConfig } from '../platformConfig';
 import {
   CLUSTER_PROMETHEUS,
   prometheusProxyPath,
@@ -16,25 +16,27 @@ import { usePolled, type Polled } from './usePolled';
 const POLL_MS = 5 * 60_000;
 
 export interface DoraSource extends PrometheusEndpoint {
+  /** '' when neither tower.dora.metrics.cluster nor tower.controlPlaneCluster is set: the panel then reports that. */
   cluster: string;
 }
 
 /**
  * Where dora-exporter's series are queried: `tower.dora.metrics` in app-config. Point it at the
  * long-term query layer (Thanos Query, Mimir) on the cluster dora-exporter reports to. Without
- * config, the control-plane cluster's own Prometheus, which only covers its local retention.
+ * config, tower.controlPlaneCluster's own Prometheus, which only covers its local retention.
  */
 export function useDoraSource(): DoraSource {
   const config = useApi(configApiRef);
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
   return useMemo(() => {
     const c = config.getOptionalConfig('tower.dora.metrics');
     return {
-      cluster: c?.getOptionalString('cluster') ?? TEKTON_CLUSTER,
+      cluster: c?.getOptionalString('cluster') ?? controlPlane ?? '',
       namespace: c?.getOptionalString('namespace') ?? CLUSTER_PROMETHEUS.namespace,
       service: c?.getOptionalString('service') ?? CLUSTER_PROMETHEUS.service,
       port: c?.getOptionalNumber('port') ?? CLUSTER_PROMETHEUS.port,
     };
-  }, [config]);
+  }, [config, controlPlane]);
 }
 
 type ScalarKey = Exclude<
@@ -62,6 +64,7 @@ export function useDoraMetrics(
   const appsKey = apps ? [...apps].sort().join(',') : '*';
 
   const fetcher = useCallback(async () => {
+    if (!source.cluster) throw new Error('no cluster to query: set tower.dora.metrics.cluster or tower.controlPlaneCluster');
     const q = doraQueries(windowDays, apps);
     const instant = async (query: string) => {
       const res = await k8sProxyGet<RawPrometheusVector>(

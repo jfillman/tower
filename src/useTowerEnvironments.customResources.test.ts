@@ -27,8 +27,8 @@ describe('customResourcesByClusterAndKind', () => {
   });
 
   it('keeps a cluster whose matchers all came back empty, so its maps get an entry', () => {
-    const out = customResourcesByClusterAndKind([cluster('kind-prod', [], [])]);
-    expect(out.has('kind-prod')).toBe(true);
-    expect(out.get('kind-prod')?.size).toBe(0);
+    const out = customResourcesByClusterAndKind([cluster('example-prod', [], [])]);
+    expect(out.has('example-prod')).toBe(true);
+    expect(out.get('example-prod')?.size).toBe(0);
   });
 });

@@ -24,7 +24,7 @@ Tower reads these through the Kubernetes proxy on the dev cluster, with its exis
 
 GitHub-backed lookups (request PR, onboarding PRs) are not polled at the 6 second Kubernetes cadence: they refresh every 45 seconds, and stop once both onboarding PRs are merged.
 
-A service counts as in flight if its XR is under 24 hours old and not finished. One that was built more than 4 hours ago but has no rollout on the dev cluster is treated as stalled and dropped, which covers apps that deploy elsewhere (Backstage itself deploys to kind-prod). A finished one stays in the strip for 15 minutes.
+A service counts as in flight if its XR is under 24 hours old and not finished. One that was built more than 4 hours ago but has no rollout on the dev cluster is treated as stalled and dropped, which covers apps that deploy elsewhere (Backstage itself deploys to <prod-cluster>). A finished one stays in the strip for 15 minutes.
 
 The logic lives in `src/provisioning/deriveProvisioning.ts` and is pure, so it is tested against conditions copied from a live XR.
 
@@ -34,10 +34,10 @@ The logic lives in `src/provisioning/deriveProvisioning.ts` and is pure, so it i
 - **Per-resource progress needs a read grant.** The `backstage-github-mr-viewer` ClusterRole (read-only on `repo.github.m.upbound.io` repositories and repositoryfiles) lives in `gitops-cluster-dev`'s `backstage-ingestor-rbac`. On a cluster without it, the step falls back to waiting for the whole XR to be Ready.
 - **Typical durations are estimates**, hard-coded in `TYPICAL_SEC`, until Tower records history.
 - **Cluster and CI/CD durations on old XRs are not meaningful.** Crossplane resets those condition times on re-reconcile. They are accurate for a service watched while it is being created.
-- **A stalled service moves to a "Stalled" group on the tab** (built more than 4 hours ago, no rollout on the dev cluster) and leaves the strip and the tab badge. It either deploys elsewhere (Backstage itself deploys to kind-prod) or the deploy is stuck; Tower cannot tell which. It drops out entirely when the XR is 24 hours old.
+- **A stalled service moves to a "Stalled" group on the tab** (built more than 4 hours ago, no rollout on the dev cluster) and leaves the strip and the tab badge. It either deploys elsewhere (Backstage itself deploys to <prod-cluster>) or the deploy is stuck; Tower cannot tell which. It drops out entirely when the XR is 24 hours old.
 - **"What gets created"** lists the XR's `resourceRefs` with readiness for the GitHub repositories/files and the CI/CD child XR, plus the app's SecretStore. Kinds Tower cannot read show as "not tracked".
 - **The scaffolder link comes from the Backstage app, not the template source.** The ingestor hardcodes the generated templates' success output, so a catalog processor (`towerProvisioningLink.ts` in the backstage repo) appends "Track provisioning in Tower" to the four application templates, pointing at the deep link above.
-- **Provisioning reads only the `kind-dev` cluster**, so XRs on kind-prod are not discovered.
+- **Provisioning reads only `tower.controlPlaneCluster`**, so XRs on other clusters are not discovered.
 
 ## Before the XR exists
 

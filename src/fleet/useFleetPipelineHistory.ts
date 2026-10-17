@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns';
+import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { toHistoryRun, type HistoryRun, type RawResult } from './pipelineHistory';
 import { usePolled, type Polled } from './usePolled';
 
@@ -18,8 +18,10 @@ const MAX_PAGES = 10;
 export function useFleetPipelineHistory(windowMs: number): Polled<HistoryRun[]> {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const cluster = usePlatformConfig().controlPlaneCluster;
 
   const fetcher = useCallback(async () => {
+    if (!cluster) throw new Error(NO_CONTROL_PLANE);
     const cutoff = Date.now() - windowMs;
     const out: HistoryRun[] = [];
     let pageToken: string | undefined;
@@ -33,7 +35,7 @@ export function useFleetPipelineHistory(windowMs: number): Polled<HistoryRun[]> 
       const res = await k8sProxyGet<{ results?: RawResult[]; nextPageToken?: string; next_page_token?: string }>(
         discoveryApi,
         fetchApi,
-        TEKTON_CLUSTER,
+        cluster,
         `${RELAY}/apis/results.tekton.dev/v1alpha2/parents/-/results?${params.toString()}`,
       );
       const results = res.results ?? [];
@@ -50,7 +52,7 @@ export function useFleetPipelineHistory(windowMs: number): Polled<HistoryRun[]> 
       if (older || !pageToken || results.length === 0) break;
     }
     return out;
-  }, [discoveryApi, fetchApi, windowMs]);
+  }, [discoveryApi, fetchApi, windowMs, cluster]);
 
-  return usePolled(`fleet-history:${windowMs}`, fetcher, POLL_MS);
+  return usePolled(`fleet-history:${windowMs}:${cluster ?? ''}`, fetcher, POLL_MS);
 }

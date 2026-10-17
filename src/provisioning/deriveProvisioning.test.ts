@@ -6,7 +6,7 @@ import {
   type XrCondition,
 } from './deriveProvisioning';
 
-// Conditions copied from the live gate-api NodeJSApplication XR on kiac-dev.
+// Conditions copied from the live gate-api NodeJSApplication XR on example-dev.
 const live: XrCondition[] = [
   {
     type: 'DevClusterReady',
@@ -38,7 +38,7 @@ const xr = (conditions: XrCondition[]): ProvisioningInputs['xr'] => ({
   kind: 'NodeJSApplication',
   name: 'gate-api',
   namespace: 'app-gate-api-cicd',
-  cluster: 'kind-dev',
+  cluster: 'example-dev',
   createdAt: created,
   conditions,
 });
@@ -48,7 +48,7 @@ const [MERGE, REQUEST, CLUSTER, CICD, REPOS, CATALOG, ONBOARDING, SECRETS, BUILD
 // 20 minutes after the onboarding PRs merged (mergedLinks): a build is expected, and may still be starting.
 const soonAfterMerge = Date.parse('2026-09-30T15:30:00Z');
 const secretsReady = { found: true, ready: true, readyAt: Date.parse('2026-09-30T15:03:00Z') };
-// Both onboarding PRs merged, as on sky-marshall (jfillman/sky-marshall#1, gitops-sky-marshall#1).
+// Both onboarding PRs merged, as on sky-marshall (example-org/sky-marshall#1, gitops-sky-marshall#1).
 const mergedLinks: ProvisioningLinks = {
   onboarding: {
     source: {
@@ -235,7 +235,7 @@ describe('deriveProvisioning', () => {
       const creating = deriveProvisioning({ xr: xr(live), secrets: { found: true, ready: false } }, now);
       expect(creating.steps[SECRETS].detail).toBe('Creating the Infisical project and identity');
       const done = deriveProvisioning(
-        { xr: xr(live), secrets: secretsReady, links: { infisicalProjectId: 'c6a39d3a' } },
+        { xr: xr(live), secrets: secretsReady, links: { infisicalProjectId: 'c6a39d3a', infisicalUrl: 'https://infisical.example.internal' } },
         now,
       );
       expect(done.steps[SECRETS].state).toBe('done');
@@ -243,7 +243,7 @@ describe('deriveProvisioning', () => {
       expect(done.steps[SECRETS].links).toEqual([
         {
           label: 'Infisical project',
-          url: 'http://infisical.dev.kiac.local/projects/secret-management/c6a39d3a/overview',
+          url: 'https://infisical.example.internal/projects/secret-management/c6a39d3a/overview',
         },
       ]);
     });
@@ -267,8 +267,15 @@ describe('deriveProvisioning', () => {
       expect(old.complete).toBe(true);
     });
 
-    it('has no link for a cluster whose Infisical host is not known', () => {
-      expect(infisicalProjectUrl('kind-prod', 'x')).toBeUndefined();
+    it('has no link for a cluster whose Infisical UI is not configured', () => {
+      expect(infisicalProjectUrl(undefined, 'x')).toBeUndefined();
+      expect(deriveProvisioning({ xr: xr(live), secrets: secretsReady, links: { infisicalProjectId: 'x' } }, now).steps[SECRETS].links).toEqual([]);
+    });
+
+    it('builds the link under the configured Infisical UI, trailing slash or not', () => {
+      expect(infisicalProjectUrl('https://infisical.example.internal/', 'x')).toBe(
+        'https://infisical.example.internal/projects/secret-management/x/overview',
+      );
     });
   });
 

@@ -26,7 +26,7 @@ const action = (name: string, over: Partial<{ disabled: boolean; allowed: boolea
 });
 
 const renderControls = () =>
-  render(<RolloutControls cluster="kind-prod" argoAppName="sky-marshall-staging" namespace="app-sky-marshall-staging" rolloutName="sky-marshall" />);
+  render(<RolloutControls cluster="example-prod" argoAppName="sky-marshall-staging" namespace="app-sky-marshall-staging" rolloutName="sky-marshall" />);
 
 beforeEach(() => {
   calls.length = 0;
@@ -42,7 +42,7 @@ describe('RolloutControls', () => {
     renderControls();
     await screen.findByText('Abort');
     expect(calls[0].url).toBe(
-      'http://be/api/glidepath/argo/rollout-actions?cluster=kind-prod&appName=sky-marshall-staging&namespace=app-sky-marshall-staging&rolloutName=sky-marshall',
+      'http://be/api/glidepath/argo/rollout-actions?cluster=example-prod&appName=sky-marshall-staging&namespace=app-sky-marshall-staging&rolloutName=sky-marshall',
     );
     expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['Resume', 'Promote full ⚠', 'Abort', 'Restart pods']);
     expect((screen.getByText('Resume').closest('button') as HTMLButtonElement).disabled).toBe(true);
@@ -67,7 +67,7 @@ describe('RolloutControls', () => {
     const post = calls.find(c => c.init?.method === 'POST')!;
     expect(post.url).toBe('http://be/api/glidepath/argo/rollout-action');
     expect(JSON.parse(String(post.init!.body))).toEqual({
-      cluster: 'kind-prod',
+      cluster: 'example-prod',
       appName: 'sky-marshall-staging',
       namespace: 'app-sky-marshall-staging',
       rolloutName: 'sky-marshall',

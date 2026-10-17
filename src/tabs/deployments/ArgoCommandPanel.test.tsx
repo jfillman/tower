@@ -20,9 +20,9 @@ const actions = () => ({
 });
 
 const env = (over: Partial<EnvironmentSummary> = {}): EnvironmentSummary => ({
-  key: 'kind-dev/app-sky-marshall-dev',
+  key: 'example-dev/app-sky-marshall-dev',
   env: 'dev',
-  cluster: 'kind-dev',
+  cluster: 'example-dev',
   namespace: 'app-sky-marshall-dev',
   deployed: true,
   drift: false,
@@ -58,7 +58,7 @@ describe('ArgoCommandPanel controls (2026-10-10)', () => {
     expect(screen.getByTestId('force-sync-confirm').textContent).toContain('Service/sky-marshall');
     expect(screen.getByTestId('force-sync-confirm').textContent).not.toContain('NetworkPolicy');
     fireEvent.click(screen.getAllByRole('button', { name: 'Force sync' })[1]);
-    expect(a.forceSync).toHaveBeenCalledWith('kind-dev', 'sky-marshall-dev');
+    expect(a.forceSync).toHaveBeenCalledWith('example-dev', 'sky-marshall-dev');
   });
 
   it('disables Force sync where the user may not (a Flight environment for an owner)', () => {
@@ -76,7 +76,7 @@ describe('ArgoCommandPanel controls (2026-10-10)', () => {
     expect(screen.queryByRole('button', { name: 'Terminate sync' })).toBeNull();
     rerender(<ArgoCommandPanel env={env({ argoOperationPhase: 'Running' })} argoActions={a as never} />);
     fireEvent.click(button('Terminate sync'));
-    expect(a.terminate).toHaveBeenCalledWith('kind-dev', 'sky-marshall-dev');
+    expect(a.terminate).toHaveBeenCalledWith('example-dev', 'sky-marshall-dev');
   });
 });
 

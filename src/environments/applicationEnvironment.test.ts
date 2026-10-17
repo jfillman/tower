@@ -10,7 +10,7 @@ import {
 } from './applicationEnvironment';
 
 const discoveryApi = { getBaseUrl: async (id: string) => `http://backstage/api/${id}` };
-const input = { appName: 'air-traffic-api', env: 'staging', cluster: 'kind-prod' };
+const input = { appName: 'air-traffic-api', env: 'staging', cluster: 'example-prod' };
 
 const json = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body }) as unknown as Response;
 const api = (impl: (url: string, init?: RequestInit) => Promise<Response>) => ({
@@ -23,7 +23,7 @@ const prLinks = {
   output: {
     links: [
       { title: 'Download YAML Manifest', url: 'data:application/yaml;base64,AAAA' },
-      { title: 'Open Pull Request', url: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' },
+      { title: 'Open Pull Request', url: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42' },
     ],
   },
 };
@@ -33,7 +33,7 @@ describe('templateValues', () => {
     expect(templateValues(input)).toEqual({
       appName: 'air-traffic-api',
       appType: 'app',
-      cluster: 'kind-prod',
+      cluster: 'example-prod',
       configMapGenerator: false,
       env: 'staging',
       pushToGit: true,
@@ -82,7 +82,7 @@ describe('launchApplicationEnvironment', () => {
 describe('reading the outcome', () => {
   it('finds the pull request in the completion output', () => {
     expect(prUrlFromEvents([{ id: 1, type: 'log' }, completion(prLinks)])).toBe(
-      'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42',
+      'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42',
     );
   });
   it('falls back to any link that is a pull request when the title differs', () => {
@@ -111,7 +111,7 @@ describe('waitForTask', () => {
     });
     await expect(waitForTask(a, 'task-1')).resolves.toEqual({
       ok: true,
-      prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42',
+      prUrl: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42',
     });
     expect(urls).toEqual([
       'http://backstage/api/scaffolder/v2/tasks/task-1/events',

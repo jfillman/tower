@@ -58,7 +58,7 @@ describe('outcomes on records', () => {
     );
     expect(screen.getByText('Replaced by CEDAR · 1.2.0-bbbbbbb')).toBeTruthy();
     expect(screen.getByText('v1.1.0 ↗').closest('a')?.getAttribute('href')).toBe('https://github.com/o/bags/releases/tag/v1.1.0');
-    expect(screen.getByText(/kind-prod's Prometheus is off/)).toBeTruthy();
+    expect(screen.getByText(/the production cluster's Prometheus is off/)).toBeTruthy();
   });
 
   it('explains a record with no outcome', () => {
@@ -107,7 +107,7 @@ describe('autolandEligibility', () => {
         createdAt: D(i + 1),
         confidence: 85,
         testResults: [{ taskName: 't', resultName: 'passed', value: '12' }],
-        deployments: [{ env: 'prod', cluster: 'kind-prod', deployedAt: D(i + 1), isLive: false, rolloutStrategy: 'canary' }],
+        deployments: [{ env: 'prod', cluster: 'example-prod', deployedAt: D(i + 1), isLive: false, rolloutStrategy: 'canary' }],
         outcome: outcome({ result: 'clean' }),
       }),
     );
@@ -137,7 +137,7 @@ describe('release calendar panel', () => {
             owner: 'o',
             mode: 'hand-flown',
             signoffEnv: 'prod',
-            next: { name: 'CEDAR', targetDate: '2026-10-12', releaseOwner: 'jfillman', noteCount: 3 },
+            next: { name: 'CEDAR', targetDate: '2026-10-12', releaseOwner: 'example-org', noteCount: 3 },
             inFlight: [{ env: 'staging', imageTag: '1.2.0-ccccccc', prUrl: 'u' }],
             last: { name: 'BIRCH', imageTag: '1.1.0-bbbbbbb', at: D(5), outcome: 'clean' },
           },
@@ -146,6 +146,6 @@ describe('release calendar panel', () => {
     );
     expect(screen.getByText('bags · CEDAR · Hand-flown')).toBeTruthy();
     expect(screen.getByText('2d late')).toBeTruthy();
-    expect(screen.getByText('owner jfillman · 3 notes · → staging · last BIRCH (clean)')).toBeTruthy();
+    expect(screen.getByText('owner example-org · 3 notes · → staging · last BIRCH (clean)')).toBeTruthy();
   });
 });

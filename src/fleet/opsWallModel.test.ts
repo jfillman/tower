@@ -9,7 +9,7 @@ import { toReleaseEvent, toReleaseRecord, type RawConfigMap } from './releaseRec
 const NOW = Date.parse('2026-10-07T18:00:00Z');
 const iso = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
 
-// Shapes follow the live objects on kiac-dev (2026-10-07): PaC annotations, hangar.io labels and
+// Shapes follow the live objects on example-dev (2026-10-07): PaC annotations, hangar.io labels and
 // Tekton's own condition message.
 function rawRun(o: {
   name: string;
@@ -38,11 +38,11 @@ function rawRun(o: {
         'pipelinesascode.tekton.dev/check-run-id': '112926487806',
       },
       annotations: {
-        'pipelinesascode.tekton.dev/repo-url': `https://github.com/jfillman/${o.app}`,
+        'pipelinesascode.tekton.dev/repo-url': `https://github.com/example-org/${o.app}`,
         'pipelinesascode.tekton.dev/sha': '658e550c08dcd1636a6af127008a58d9415eaa8d',
         'pipelinesascode.tekton.dev/sha-title': 'glidepath migration\n\nbody',
-        'pipelinesascode.tekton.dev/sha-url': `https://github.com/jfillman/${o.app}/commit/658e550`,
-        'pipelinesascode.tekton.dev/sender': 'jfillman',
+        'pipelinesascode.tekton.dev/sha-url': `https://github.com/example-org/${o.app}/commit/658e550`,
+        'pipelinesascode.tekton.dev/sender': 'example-org',
       },
     },
     spec: { params: o.env ? [{ name: 'env', value: o.env }] : [] },
@@ -66,14 +66,14 @@ function record(data: Record<string, string>): RawConfigMap {
       namespace: `app-${data.appName}-cicd`,
       labels: { 'hangar.io/subcomponent': 'release-tracking' },
     },
-    data: { cluster: 'kind-prod', kind: 'promote', ...data },
+    data: { cluster: 'example-prod', kind: 'promote', ...data },
   };
 }
 
 function env(o: Partial<EnvironmentSummary> & { env: string }): EnvironmentSummary {
   return {
     key: o.env,
-    cluster: 'kind-prod',
+    cluster: 'example-prod',
     namespace: `app-x-${o.env}`,
     drift: false,
     pods: [],
@@ -138,7 +138,7 @@ describe('toFleetRun', () => {
     expect(r.key).toBe('app-travel-agent-api-cicd/ci-0-build-q484x');
     expect(r.stage).toBe('build');
     expect(r.title).toBe('glidepath migration');
-    expect(r.checkRunUrl).toBe('https://github.com/jfillman/travel-agent-api/runs/112926487806');
+    expect(r.checkRunUrl).toBe('https://github.com/example-org/travel-agent-api/runs/112926487806');
   });
   it('reads TaskRuns only for live, failed or cloud-capable runs', () => {
     expect(
@@ -230,18 +230,18 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'checkin-api',
         env: 'staging',
-        releaseId: 'c19a8a89:kind-prod/staging',
+        releaseId: 'c19a8a89:example-prod/staging',
         state: 'proposed',
         prCreatedAt: '2026-10-06T06:04:28Z',
         stateAt: '2026-10-06T06:04:45Z',
-        prUrl: 'https://github.com/jfillman/gitops-checkin-api/pull/9',
+        prUrl: 'https://github.com/example-org/gitops-checkin-api/pull/9',
       }),
     );
     const fresh = toReleaseRecord(
       record({
         appName: 'gate-api',
         env: 'staging',
-        releaseId: 'g1:kind-prod/staging',
+        releaseId: 'g1:example-prod/staging',
         state: 'proposed',
         prCreatedAt: iso(30),
       }),
@@ -252,7 +252,7 @@ describe('buildOpsWallModel', () => {
     expect(m.attention.map(a => `${a.rule}:${a.app}`)).toEqual(['release-awaiting-merge:checkin-api']);
     expect(m.attention[0].links[0]).toEqual({
       label: 'PR',
-      href: 'https://github.com/jfillman/gitops-checkin-api/pull/9',
+      href: 'https://github.com/example-org/gitops-checkin-api/pull/9',
       external: true,
     });
   });
@@ -262,7 +262,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'gate-api',
         env: 'staging',
-        releaseId: 'p:kind-prod/staging',
+        releaseId: 'p:example-prod/staging',
         state: 'progressing',
         mergedAt: iso(3),
       }),
@@ -271,7 +271,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'baggage-api',
         env: 'staging',
-        releaseId: 's:kind-prod/staging',
+        releaseId: 's:example-prod/staging',
         state: 'sync-failed',
         stateAt: iso(5),
         lastError: 'one or more objects failed to apply',
@@ -323,7 +323,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'gate-api',
         env: 'staging',
-        releaseId: 'a:kind-prod/staging',
+        releaseId: 'a:example-prod/staging',
         state: 'merged',
         mergedAt: iso(120),
       }),
@@ -332,7 +332,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'flight-api',
         env: 'staging',
-        releaseId: 'b:kind-prod/staging',
+        releaseId: 'b:example-prod/staging',
         state: 'healthy',
         stateAt: iso(10),
       }),
@@ -364,7 +364,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'gate-api',
         env: 'staging',
-        releaseId: 'f:kind-prod/staging',
+        releaseId: 'f:example-prod/staging',
         state: 'aborted',
         stateAt: iso(60),
       }),
@@ -373,7 +373,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'gate-api',
         env: 'staging',
-        releaseId: 'h:kind-prod/staging',
+        releaseId: 'h:example-prod/staging',
         state: 'healthy',
         stateAt: iso(30),
       }),
@@ -382,7 +382,7 @@ describe('buildOpsWallModel', () => {
       record({
         appName: 'boarding-api',
         env: 'prod',
-        releaseId: 'd:kind-prod/prod',
+        releaseId: 'd:example-prod/prod',
         state: 'degraded',
         stateAt: iso(15),
       }),
@@ -416,13 +416,13 @@ describe('buildOpsWallModel', () => {
       inputs({
         slos: [
           {
-            cluster: 'kind-prod',
+            cluster: 'example-prod',
             service: 'flight-api',
             slo: 'availability',
             periodBurnRate: 1.4,
             budgetRemaining: -0.4,
           },
-          { cluster: 'kind-prod', service: 'gate-api', slo: 'latency', periodBurnRate: 0.9, budgetRemaining: 0.1 },
+          { cluster: 'example-prod', service: 'gate-api', slo: 'latency', periodBurnRate: 0.9, budgetRemaining: 0.1 },
         ],
         appFilter: new Set(['gate-api']),
       }),
@@ -446,7 +446,7 @@ describe('pipeline history and type filter', () => {
       },
     })!;
 
-  it('reads a Results summary (shape from Results v0.20.0 on kiac-dev)', () => {
+  it('reads a Results summary (shape from Results v0.20.0 on example-dev)', () => {
     expect(hist('ci-0-build-sjfhm', 'flight-api', 'build', 'FAILURE', 30)).toMatchObject({
       key: 'app-flight-api-cicd/ci-0-build-sjfhm',
       app: 'flight-api',

@@ -5,7 +5,7 @@ import { AppPicker, CATALOG_REFRESH_MS } from './AppPicker';
 const entities = [
   { name: 'baggage-api', type: 'service', tags: ['kind:nodejsapplication'] },
   { name: 'gate-assign-svc', type: 'service', tags: ['kind:goapplication'] },
-  { name: 'gate-assign-svc-kind-prod-proofing', type: 'service', tags: ['kind:applicationenvironment'] },
+  { name: 'gate-assign-svc-example-prod-proofing', type: 'service', tags: ['kind:applicationenvironment'] },
   { name: 'ops-copilot', type: 'ai-agent', tags: [] },
 ].map(e => ({
   apiVersion: 'backstage.io/v1alpha1',
@@ -116,7 +116,7 @@ describe('AppPicker home', () => {
       </MemoryRouter>,
     );
     await screen.findByText('baggage-api');
-    expect(screen.queryByText('gate-assign-svc-kind-prod-proofing')).toBeNull();
+    expect(screen.queryByText('gate-assign-svc-example-prod-proofing')).toBeNull();
     expect(screen.getByRole('button', { name: /^All\s*3$/ })).toBeTruthy();
   });
 
@@ -139,7 +139,7 @@ describe('AppPicker home', () => {
           kind: 'NodeJSApplication',
           name: 'fare-quote-api',
           namespace: 'x',
-          cluster: 'kind-dev',
+          cluster: 'example-dev',
           createdAt: created,
           conditions: [],
         },
@@ -209,7 +209,7 @@ describe('AppPicker keeps the list current', () => {
   const late = {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',
-    metadata: { name: 'smoke-fn', namespace: 'default', tags: ['cluster:kind-dev', 'kind:lambdafunction'] },
+    metadata: { name: 'smoke-fn', namespace: 'default', tags: ['cluster:example-dev', 'kind:lambdafunction'] },
     spec: { type: 'crossplane-xr', owner: 'team-a' },
   };
   const open = () =>

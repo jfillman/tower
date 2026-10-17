@@ -8,7 +8,7 @@ const entity = (spec: Entity['spec'], annotations?: Record<string, string>, tags
   spec,
 });
 
-const kind = (k: string) => ['cluster:kind-dev', `kind:${k}`];
+const kind = (k: string) => ['cluster:example-dev', `kind:${k}`];
 
 describe('isTowerService', () => {
   it('shows the four application XR kinds and InfraService, unchanged from before service-class', () => {

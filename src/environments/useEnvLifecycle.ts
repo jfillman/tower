@@ -8,7 +8,8 @@ import {
   type SecretsSnapshot,
   type XrCondition,
 } from '../provisioning/deriveProvisioning';
-import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, latestOnboardingPr, toManaged, toSecrets } from '../provisioning/useProvisioning';
+import { latestOnboardingPr, toManaged, toSecrets } from '../provisioning/useProvisioning';
+import { usePlatformConfig } from '../platformConfig';
 import { deriveEnvLifecycle, type EnvLifecycleInputs, type EnvLifecycleStep } from './lifecycle';
 import { ENVS_ROOT } from '../types';
 
@@ -58,17 +59,27 @@ export interface EnvLifecycleTarget {
 export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): { steps: EnvLifecycleStep[]; loading: boolean } {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  // The dev (control-plane) cluster holds the ApplicationEnvironment XRs; its tenants repo and Infisical UI come from
+  // app-config (platformConfig.ts). Unset: those lookups and links are skipped.
+  const platform = usePlatformConfig();
+  const XR_CLUSTER = platform.controlPlaneCluster;
+  const devLinks = XR_CLUSTER ? platform.clusters[XR_CLUSTER] : undefined;
+  const tenantsRepo = devLinks?.tenantsRepo;
   const [extra, setExtra] = useState<Partial<EnvLifecycleInputs>>({});
   const [loading, setLoading] = useState(enabled);
   const { owner, appName, env, tier, cluster } = target;
 
   useEffect(() => {
     if (!enabled) return undefined;
+    if (!XR_CLUSTER) {
+      setLoading(false);
+      return undefined;
+    }
     let cancelled = false;
     const github: { at: number; busy: boolean; requestPr?: PrSnapshot; onboardingPr?: PrSnapshot } = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
     const ns = `app-${appName}-cicd`;
-    const tenants = TENANTS_REPO_BY_CLUSTER[XR_CLUSTER];
+    const tenants = tenantsRepo;
 
     const optional = async <T,>(path: string): Promise<T | undefined> => {
       try {
@@ -143,7 +154,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
             `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${ns}/projects`,
           );
           const id = projects?.items?.find(p => p.metadata.name === store.metadata.name)?.metadata.annotations?.['crossplane.io/external-name'];
-          if (id) next.infisicalUrl = infisicalProjectUrl(XR_CLUSTER, id);
+          if (id) next.infisicalUrl = infisicalProjectUrl(devLinks?.infisicalUrl, id);
         }
       }
       void refreshGithub();
@@ -158,7 +169,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster]);
+  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestPr: PrSnapshot | undefined =
     extra.requestPr ??
@@ -172,7 +183,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
     cicdPrUrl: target.cicdPrUrl,
     deployed: target.deployed,
     valuesFileExists: target.valuesFileExists,
-    tenantsRepoUrl: TENANTS_REPO_BY_CLUSTER[XR_CLUSTER] ? `https://github.com/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].owner}/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].repo}` : undefined,
+    tenantsRepoUrl: tenantsRepo ? `https://github.com/${tenantsRepo.owner}/${tenantsRepo.repo}` : undefined,
     gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
     valuesFileUrl:
       tier === 'flight' && cluster

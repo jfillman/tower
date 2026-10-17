@@ -3,12 +3,12 @@ import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy';
 import {
-  TEKTON_CLUSTER,
   toPipelineRunSummary,
   type RawPipelineRun as TektonRawPipelineRun,
   type RawTaskRun,
 } from '../tekton/useTektonPipelineRuns';
 import { summarizeCloudDeploys } from '../cloudDeploy';
+import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import {
   deriveProvisioning,
   type BuildSnapshot,
@@ -29,9 +29,8 @@ import {
 import { updateObservation } from './observed';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
-// Tekton (see TEKTON_CLUSTER). The four app-tier kinds are the ones a user
-// can request from the scaffolder.
-export const XR_CLUSTER = TEKTON_CLUSTER;
+// Tekton (tower.controlPlaneCluster, platformConfig.ts). The four app-tier
+// kinds are the ones a user can request from the scaffolder.
 const XR_PLURALS = [
   'nodejsapplications',
   'springbootapplications',
@@ -48,11 +47,9 @@ const XR_KINDS = [
   'LambdaFunction',
   'AzureFunction',
 ];
-// The tenants repo each dev cluster's XR requests are opened against, used to find a request before
-// any XR exists to read it off (an existing XR names it in its source-info annotation, which wins).
-export const TENANTS_REPO_BY_CLUSTER: Record<string, { owner: string; repo: string }> = {
-  'kind-dev': { owner: 'jfillman', repo: 'gitops-cluster-dev-tenants' },
-};
+// The tenants repo the dev cluster's XR requests are opened against (tower.clusters.<cluster>.tenantsRepo, the
+// registry record's tenantsRepo) is used to find a request before any XR exists to read it off; an existing XR names
+// it in its source-info annotation, which wins.
 const POLL_MS = 6000;
 // A service that was created long ago and never finished is a stuck or
 // abandoned XR, not something being provisioned right now.
@@ -103,10 +100,11 @@ interface RawRollout {
 export function toCloudDeploySnapshot(
   runs: TektonRawPipelineRun[] | undefined,
   taskRuns: RawTaskRun[] | undefined,
+  cluster = '',
 ): CloudDeploySnapshot | undefined {
   if (!runs?.length) return undefined;
   const byName = new Map((taskRuns ?? []).map(t => [t.metadata.name, t]));
-  const summary = summarizeCloudDeploys(runs.map(r => toPipelineRunSummary(r, TEKTON_CLUSTER, byName)));
+  const summary = summarizeCloudDeploys(runs.map(r => toPipelineRunSummary(r, cluster, byName)));
   const pick = summary.inFlight ?? summary.latestFailure ?? summary.current;
   if (!pick) return undefined;
   let state: CloudDeploySnapshot['state'] = 'succeeded';
@@ -360,12 +358,19 @@ export function useProvisioning(): UseProvisioningResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const catalogApi = useApi(catalogApiRef);
+  const platform = usePlatformConfig();
+  const XR_CLUSTER = platform.controlPlaneCluster;
+  const configuredTenants = XR_CLUSTER ? platform.clusters[XR_CLUSTER]?.tenantsRepo : undefined;
   const [state, setState] = useState<UseProvisioningResult>({
     items: [],
     loading: true,
   });
 
   useEffect(() => {
+    if (!XR_CLUSTER) {
+      setState({ items: [], loading: false, error: NO_CONTROL_PLANE });
+      return undefined;
+    }
     let cancelled = false;
     // Per service: what GitHub last said, and when it was last asked.
     const github = new Map<
@@ -574,6 +579,7 @@ export function useProvisioning(): UseProvisioningResult {
                 deployRuns,
                 (await optional<ListResponse<RawTaskRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))
                   ?.items,
+                XR_CLUSTER,
               )
             : undefined;
           return {
@@ -609,6 +615,7 @@ export function useProvisioning(): UseProvisioningResult {
               gitopsRepoUrl: repoLinks.gitopsRepoUrl,
               onboarding: gh?.onboarding,
               infisicalProjectId: projectId,
+              infisicalUrl: platform.clusters[XR_CLUSTER]?.infisicalUrl,
             },
           };
         }),
@@ -616,7 +623,7 @@ export function useProvisioning(): UseProvisioningResult {
       if (cancelled) return;
       refreshPending(
         xrs.map(x => parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info'])).find(Boolean) ??
-          TENANTS_REPO_BY_CLUSTER[XR_CLUSTER],
+          configuredTenants,
       );
       items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map(x => x.metadata.name)), XR_CLUSTER, now));
       // What Tower watched change, per service, for steps the cluster has no timestamp for. Derived
@@ -643,7 +650,7 @@ export function useProvisioning(): UseProvisioningResult {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, catalogApi]);
+  }, [discoveryApi, fetchApi, catalogApi, XR_CLUSTER, configuredTenants?.owner, configuredTenants?.repo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return state;
 }

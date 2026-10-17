@@ -16,7 +16,7 @@ jest.mock('@backstage/core-plugin-api', () => ({
   useApi: (ref: { id: string }) => (ref.id === 'core.discovery' ? { getBaseUrl: async () => 'http://be/api/glidepath' } : { fetch: mockFetch }),
 }));
 
-const env = { env: 'dev', cluster: 'kind-dev', namespace: 'app-sky-marshall-dev', argoAppName: 'sky-marshall-dev' } as EnvironmentSummary;
+const env = { env: 'dev', cluster: 'example-dev', namespace: 'app-sky-marshall-dev', argoAppName: 'sky-marshall-dev' } as EnvironmentSummary;
 const renderIt = () => render(<PodRestartControl env={env} podName="sky-marshall-abc" noteClass="n" badClass="x" />);
 
 beforeEach(() => {
@@ -31,7 +31,7 @@ describe('PodRestartControl', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restart pod' }));
     expect(screen.getByTestId('pod-restart-confirm').textContent).toContain('skips the PodDisruptionBudget');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Restart' })));
-    expect(posts[0]).toEqual({ cluster: 'kind-dev', appName: 'sky-marshall-dev', namespace: 'app-sky-marshall-dev', podName: 'sky-marshall-abc' });
+    expect(posts[0]).toEqual({ cluster: 'example-dev', appName: 'sky-marshall-dev', namespace: 'app-sky-marshall-dev', podName: 'sky-marshall-abc' });
     expect(screen.getByText(/replacement will appear/)).toBeTruthy();
   });
 

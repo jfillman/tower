@@ -2,7 +2,7 @@ import { dump as dumpYaml, load as loadYaml } from 'js-yaml';
 
 // A short list of SLOs worth having on any service, each one a toggle. Only SLOs whose metric exists in the cluster's Prometheus
 // are offered: the probe metrics (every pod's liveness and readiness probes, scraped from the kubelet) and nothing that needs
-// request metrics, because none are scraped here today (no gateway or per-app request series on kiac-dev). Each preset carries
+// request metrics, because none are scraped here today (no gateway or per-app request series on the dev cluster). Each preset carries
 // the query Tower runs to check there is data before the SLO is turned on, so a toggle never creates an SLO with nothing behind it.
 
 export interface SloContext {

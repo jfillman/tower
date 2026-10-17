@@ -1,7 +1,7 @@
 # Operations runbook
 
-Day-to-day checks and the incidents you are most likely to meet. Commands assume `kubectl` contexts `kiac-dev` (Ground)
-and `kind-prod` (Flight).
+Day-to-day checks and the incidents you are most likely to meet. Commands assume `kubectl` contexts `<dev-cluster>` (Ground)
+and `<prod-cluster>` (Flight).
 
 ## See what is open
 
@@ -10,10 +10,10 @@ sessions, newest first. The **Break-glass** strip on the Tower home page and the
 person can act on across every app (`GET /api/glidepath/breakglass/queue`: requests to decide, approvals to start,
 reviews due).
 
-**Across everything**, in Backstage's database (`backstage_plugin_glidepath` on kind-prod's Postgres):
+**Across everything**, in Backstage's database (`backstage_plugin_glidepath` on <prod-cluster>'s Postgres):
 
 ```bash
-kubectl --context kind-prod -n backstage exec backstage-postgres-postgresql-0 -- sh -c \
+kubectl --context <prod-cluster> -n backstage exec backstage-postgres-postgresql-0 -- sh -c \
   'PGPASSWORD="$(cat $POSTGRES_PASSWORD_FILE)" psql -U "$POSTGRES_USER" -d backstage_plugin_glidepath -c "
    select id, app, env, state, tier, mode, requester, approver, glass_broken, review_state, expires_at
    from breakglass_sessions where state <> '\''ended'\'' or review_state = '\''due'\'' order by created_at desc"'
@@ -22,7 +22,7 @@ kubectl --context kind-prod -n backstage exec backstage-postgres-postgresql-0 --
 **In the clusters**, what a session left (normally nothing once it ends):
 
 ```bash
-for c in kiac-dev kind-prod; do
+for c in <dev-cluster> <prod-cluster>; do
   kubectl --context $c get rolebindings -A -l app.kubernetes.io/managed-by=tower-breakglass
   kubectl --context $c get pods -A -l hangar.io/breakglass-copy=true
   kubectl --context $c get pods -A -o json | jq -r '.items[] | select(any(.spec.ephemeralContainers[]?; .name|startswith("debug-")))
@@ -55,8 +55,8 @@ The record's notes say *RoleBinding not deleted* or *copy pod not deleted*.
 - **Flight:** no cleanup controller yet. Delete it by hand:
 
   ```bash
-  kubectl --context kind-prod -n <ns> delete rolebinding tower-breakglass-<id>
-  kubectl --context kind-prod -n <ns> delete pod -l hangar.io/breakglass-copy=true
+  kubectl --context <prod-cluster> -n <ns> delete rolebinding tower-breakglass-<id>
+  kubectl --context <prod-cluster> -n <ns> delete pod -l hangar.io/breakglass-copy=true
   ```
 
 ## Backstage restarted, or crashed, mid-session
@@ -79,16 +79,16 @@ The message contains *is forbidden: ValidatingAdmissionPolicy '<policy>' … den
 2. Check the live policy is the version you expect (Argo CD may say Synced against an older revision):
 
    ```bash
-   kubectl --context kind-prod get validatingadmissionpolicy <policy> -o yaml | less
-   kubectl --context kind-prod -n argocd get app tower-breakglass \
+   kubectl --context <prod-cluster> get validatingadmissionpolicy <policy> -o yaml | less
+   kubectl --context <prod-cluster> -n argocd get app tower-breakglass \
      -o jsonpath='{.status.sync.status} {.status.sync.revision} {.status.operationState.phase}{"\n"}'
    ```
 3. If Argo CD's operation is stuck (phase `Running` or `Terminating` for many minutes with no progress), clear it and
    let auto-sync run:
 
    ```bash
-   kubectl --context kind-prod -n argocd patch app tower-breakglass --type merge -p '{"operation":null}'
-   kubectl --context kind-prod -n argocd annotate app tower-breakglass argocd.argoproj.io/refresh=hard --overwrite
+   kubectl --context <prod-cluster> -n argocd patch app tower-breakglass --type merge -p '{"operation":null}'
+   kubectl --context <prod-cluster> -n argocd annotate app tower-breakglass argocd.argoproj.io/refresh=hard --overwrite
    ```
 
 ## Every pod create in the cluster is refused
@@ -100,27 +100,27 @@ that guard until the fixed binding is back, so also make sure no session is open
 
 ```bash
 kubectl --context <cluster> delete validatingadmissionpolicybinding <policy>        # Flight
-kubectl --context kiac-dev delete validatingpolicies.policies.kyverno.io <policy>   # Ground (Kyverno removes vpol-<policy>)
+kubectl --context <dev-cluster> delete validatingpolicies.policies.kyverno.io <policy>   # Ground (Kyverno removes vpol-<policy>)
 ```
 
 ## Release a new debug image
 
-1. Change `debug-image/` in jfillman/tower and merge. The **Debug image** workflow builds amd64 + arm64, pushes, signs
+1. Change `debug-image/` in <owner>/tower and merge. The **Debug image** workflow builds amd64 + arm64, pushes, signs
    with cosign, and prints the digest in its summary.
 2. Verify the signature:
 
    ```bash
-   cosign verify ghcr.io/jfillman/tower-debug@sha256:<new> \
-     --certificate-identity-regexp '^https://github.com/jfillman/tower/.github/workflows/debug-image.yml@refs/heads/main$' \
+   cosign verify ghcr.io/<owner>/tower-debug@sha256:<new> \
+     --certificate-identity-regexp '^https://github.com/<owner>/tower/.github/workflows/debug-image.yml@refs/heads/main$' \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com
    ```
-3. **Widen** both clusters' policies to accept old and new: kind-prod's `variables.images` list; kiac-dev's
-   `debugImage` variable (make it a list, `c.image in [...]`, the way kind-prod does). Merge, and check the live policies.
-4. **Switch** the backend: `DEBUG_IMAGE` in backstage `breakglassSpec.ts`; release; merge the kind-prod bump.
+3. **Widen** both clusters' policies to accept old and new: <prod-cluster>'s `variables.images` list; <dev-cluster>'s
+   `debugImage` variable (make it a list, `c.image in [...]`, the way <prod-cluster> does). Merge, and check the live policies.
+4. **Switch** the backend: `DEBUG_IMAGE` in backstage `breakglassSpec.ts`; release; merge the <prod-cluster> bump.
 5. **Narrow**: once no pod uses the old digest, drop it from both policies:
 
    ```bash
-   for c in kiac-dev kind-prod; do kubectl --context $c get pods -A -o json | jq -r --arg d "<old digest>" \
+   for c in <dev-cluster> <prod-cluster>; do kubectl --context $c get pods -A -o json | jq -r --arg d "<old digest>" \
      '.items[] | select(any((.spec.containers[]?, .spec.ephemeralContainers[]?); .image|contains($d))) | .metadata.name'; done
    ```
 
@@ -139,7 +139,7 @@ kubectl --context kiac-dev delete validatingpolicies.policies.kyverno.io <policy
 mc cp --version-id <recording_version> <alias>/tower-breakglass-v2/sky-marshall/staging/<id>.cast .
 shasum -a 256 <id>.cast
 # and against the transparency log, with nothing from Backstage (recording_rekor_index):
-rekor-cli --rekor_server http://rekor.dev.kiac.local:8080 get --log-index <N> --format json \
+rekor-cli --rekor_server http://rekor.<dev-domain>:8080 get --log-index <N> --format json \
   | jq -r '.Body.HashedRekordObj.data.hash.value'
 ```
 
@@ -159,7 +159,7 @@ retention would be a deliberate, logged act in the MinIO console.
 Every break-glass action is a `tower-write` (or `tower-breakglass-recording`) audit event in the backend log:
 
 ```bash
-kubectl --context kind-prod -n backstage logs deploy/backstage --since=24h \
+kubectl --context <prod-cluster> -n backstage logs deploy/backstage --since=24h \
   | grep -E '"eventId":"tower-(write|breakglass-recording)"' | grep breakglass \
   | jq -c '{t: .timestamp, sev: .severityLevel, perm: .meta.permission, who: .meta.initiator, app: .meta.app // .meta.entityRef,
             env: .meta.env, action: (.meta.action // .meta.phase // .meta.decision), status: .status}'
