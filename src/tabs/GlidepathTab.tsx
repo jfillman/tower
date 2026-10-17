@@ -58,8 +58,20 @@ import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
 // Mirrors glidepath/schemas/cicd.schema.json's build.agent enum and the
 // cache/sourceVolume t-shirt sizes exactly - kept in sync by hand, same
 // posture as every other cross-repo type mirror in this file.
-const BUILD_AGENTS = ['nodejs-18', 'nodejs-20', 'nodejs-22', 'openjdk-17', 'openjdk-21', 'python-3.11', 'go-1.22'] as const;
-type BuildAgent = (typeof BUILD_AGENTS)[number];
+// 2026-10-17: the list had drifted (no python-3.12/3.13, go-1.23, go-1.24), and an agent missing from it was shown
+// as nodejs-20 and written back as nodejs-20 on the next save - a new Go app (scaffolded with go-1.23) would have
+// been switched to the Node.js image. The file's own agent is now always kept and offered (agentOptions), whether or
+// not this list knows it.
+export const BUILD_AGENTS = [
+  'nodejs-18', 'nodejs-20', 'nodejs-22', 'openjdk-17', 'openjdk-21',
+  'python-3.11', 'python-3.12', 'python-3.13', 'go-1.22', 'go-1.23', 'go-1.24',
+] as const;
+type BuildAgent = string;
+
+/** The agents the select offers: the known ones, plus the file's own if it isn't one of them (never dropped). */
+export function agentOptions(current: string): string[] {
+  return current && !(BUILD_AGENTS as readonly string[]).includes(current) ? [...BUILD_AGENTS, current] : [...BUILD_AGENTS];
+}
 const VOLUME_SIZES = ['small', 'medium', 'large', 'xlarge'] as const;
 type VolumeSize = (typeof VOLUME_SIZES)[number];
 
@@ -139,9 +151,8 @@ export function buildFormFromValues(values: Partial<Record<CicdTopLevelField, un
     // Argo Rollouts is the only implemented strategy (2026-09-24) - a legacy
     // `strategy: deployment` in the file is normalized to it on the next save.
     strategy: 'rollout',
-    buildAgent: (BUILD_AGENTS as readonly string[]).includes(build.agent as string)
-      ? (build.agent as BuildAgent)
-      : 'nodejs-20',
+    // The file's agent as written, known or not; nodejs-20 only for a file with none (never valid, but don't crash).
+    buildAgent: typeof build.agent === 'string' && build.agent ? build.agent : 'nodejs-20',
     buildScriptEnabled: typeof build.script === 'string',
     buildScript: typeof build.script === 'string' ? build.script : '',
     // `containerfile` is the schema's current key; `dockerfile` is the legacy name
@@ -425,7 +436,7 @@ export function GlidepathTab() {
         <SectionTitle>Build</SectionTitle>
         <div className={classes.row}>
           <Select value={form.buildAgent} onChange={e => setForm(f => (f ? { ...f, buildAgent: e.target.value as BuildAgent } : f))}>
-            {BUILD_AGENTS.map(a => (
+            {agentOptions(form.buildAgent).map(a => (
               <MenuItem key={a} value={a}>
                 {a}
               </MenuItem>

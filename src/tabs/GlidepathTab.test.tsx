@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { GlidepathTab, buildCandidateValues, buildFormFromValues } from './GlidepathTab';
+import { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues } from './GlidepathTab';
 
 const submit = jest.fn();
 // A complete file, as a real one is: the form writes every field it has, so a sparse file would read as changed.
@@ -21,6 +21,21 @@ const tab = (name: string) => fireEvent.click(screen.getByRole('tab', { name: ne
 const pending = () => within(screen.getByRole('region', { name: 'Pending changes to cicd.yaml' }));
 
 beforeEach(() => submit.mockClear());
+
+describe('build agent', () => {
+  it('keeps the file\'s agent, known or not, instead of turning it into nodejs-20', () => {
+    for (const agent of ['go-1.23', 'python-3.13', 'go-1.24', 'go-1.99']) {
+      const values: any = { ...sparse, build: { agent } };
+      expect(buildFormFromValues(values).buildAgent).toBe(agent);
+      expect((buildCandidateValues(buildFormFromValues(values), values) as any).build.agent).toBe(agent);
+    }
+  });
+  it('offers every agent Glidepath\'s schema allows, plus an unknown current one', () => {
+    expect(BUILD_AGENTS).toEqual(expect.arrayContaining(['go-1.22', 'go-1.23', 'go-1.24', 'python-3.12', 'python-3.13']));
+    expect(agentOptions('go-1.23')).toEqual([...BUILD_AGENTS]);
+    expect(agentOptions('go-1.99')).toEqual([...BUILD_AGENTS, 'go-1.99']);
+  });
+});
 
 describe('Glidepath tab', () => {
   it('has the settings in sub-tabs, one section each, and no Platform files section', () => {
