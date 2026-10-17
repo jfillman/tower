@@ -468,7 +468,7 @@ export function GlidepathTab() {
           />
         ) : (
           <Typography className={classes.sectionHint}>
-            Off - the whole build happens inside {form.buildContainerfile} (kaniko builds it directly).
+            Off - the whole build happens inside {form.buildContainerfile} (BuildKit builds it directly).
           </Typography>
         )}
         <div className={classes.switchRow}>
