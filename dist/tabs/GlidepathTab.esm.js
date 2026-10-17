@@ -24,7 +24,22 @@ import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
 import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
-const BUILD_AGENTS = ["nodejs-18", "nodejs-20", "nodejs-22", "openjdk-17", "openjdk-21", "python-3.11", "go-1.22"];
+const BUILD_AGENTS = [
+  "nodejs-18",
+  "nodejs-20",
+  "nodejs-22",
+  "openjdk-17",
+  "openjdk-21",
+  "python-3.11",
+  "python-3.12",
+  "python-3.13",
+  "go-1.22",
+  "go-1.23",
+  "go-1.24"
+];
+function agentOptions(current) {
+  return current && !BUILD_AGENTS.includes(current) ? [...BUILD_AGENTS, current] : [...BUILD_AGENTS];
+}
 const VOLUME_SIZES = ["small", "medium", "large", "xlarge"];
 function splitCsv(text) {
   return text.split(",").map((s) => s.trim()).filter(Boolean);
@@ -65,7 +80,8 @@ function buildFormFromValues(values) {
     // Argo Rollouts is the only implemented strategy (2026-09-24) - a legacy
     // `strategy: deployment` in the file is normalized to it on the next save.
     strategy: "rollout",
-    buildAgent: BUILD_AGENTS.includes(build.agent) ? build.agent : "nodejs-20",
+    // The file's agent as written, known or not; nodejs-20 only for a file with none (never valid, but don't crash).
+    buildAgent: typeof build.agent === "string" && build.agent ? build.agent : "nodejs-20",
     buildScriptEnabled: typeof build.script === "string",
     buildScript: typeof build.script === "string" ? build.script : "",
     // `containerfile` is the schema's current key; `dockerfile` is the legacy name
@@ -302,7 +318,7 @@ function GlidepathTab() {
     tab === "build" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Build" }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
-        /* @__PURE__ */ jsx(Select, { value: form.buildAgent, onChange: (e) => setForm((f) => f ? { ...f, buildAgent: e.target.value } : f), children: BUILD_AGENTS.map((a) => /* @__PURE__ */ jsx(MenuItem, { value: a, children: a }, a)) }),
+        /* @__PURE__ */ jsx(Select, { value: form.buildAgent, onChange: (e) => setForm((f) => f ? { ...f, buildAgent: e.target.value } : f), children: agentOptions(form.buildAgent).map((a) => /* @__PURE__ */ jsx(MenuItem, { value: a, children: a }, a)) }),
         /* @__PURE__ */ jsx(
           TextField,
           {
@@ -629,5 +645,5 @@ function GlidepathTab() {
   ] });
 }
 
-export { GlidepathTab, buildCandidateValues, buildFormFromValues };
+export { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues };
 //# sourceMappingURL=GlidepathTab.esm.js.map
