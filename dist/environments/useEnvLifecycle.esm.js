@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { infisicalProjectUrl } from '../provisioning/deriveProvisioning.esm.js';
-import { TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, toManaged, toSecrets, latestOnboardingPr } from '../provisioning/useProvisioning.esm.js';
+import { toManaged, toSecrets, latestOnboardingPr } from '../provisioning/useProvisioning.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 import { deriveEnvLifecycle } from './lifecycle.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
 
@@ -11,16 +12,24 @@ const GITHUB_POLL_MS = 45e3;
 function useEnvLifecycle(target, enabled) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const platform = usePlatformConfig();
+  const XR_CLUSTER = platform.controlPlaneCluster;
+  const devLinks = XR_CLUSTER ? platform.clusters[XR_CLUSTER] : void 0;
+  const tenantsRepo = devLinks?.tenantsRepo;
   const [extra, setExtra] = useState({});
   const [loading, setLoading] = useState(enabled);
   const { owner, appName, env, tier, cluster } = target;
   useEffect(() => {
     if (!enabled) return void 0;
+    if (!XR_CLUSTER) {
+      setLoading(false);
+      return void 0;
+    }
     let cancelled = false;
     const github = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
     const ns = `app-${appName}-cicd`;
-    const tenants = TENANTS_REPO_BY_CLUSTER[XR_CLUSTER];
+    const tenants = tenantsRepo;
     const optional = async (path) => {
       try {
         return await k8sProxyGet(discoveryApi, fetchApi, XR_CLUSTER, path);
@@ -91,7 +100,7 @@ function useEnvLifecycle(target, enabled) {
             `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${ns}/projects`
           );
           const id2 = projects?.items?.find((p) => p.metadata.name === store.metadata.name)?.metadata.annotations?.["crossplane.io/external-name"];
-          if (id2) next.infisicalUrl = infisicalProjectUrl(XR_CLUSTER, id2);
+          if (id2) next.infisicalUrl = infisicalProjectUrl(devLinks?.infisicalUrl, id2);
         }
       }
       void refreshGithub();
@@ -105,7 +114,7 @@ function useEnvLifecycle(target, enabled) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster]);
+  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl]);
   const requestPr = extra.requestPr ?? (target.knownRequestUrl ? { number: Number(target.knownRequestUrl.split("/").pop()) || 0, url: target.knownRequestUrl, state: "open" } : void 0);
   const steps = deriveEnvLifecycle({
     tier,
@@ -114,7 +123,7 @@ function useEnvLifecycle(target, enabled) {
     cicdPrUrl: target.cicdPrUrl,
     deployed: target.deployed,
     valuesFileExists: target.valuesFileExists,
-    tenantsRepoUrl: TENANTS_REPO_BY_CLUSTER[XR_CLUSTER] ? `https://github.com/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].owner}/${TENANTS_REPO_BY_CLUSTER[XR_CLUSTER].repo}` : void 0,
+    tenantsRepoUrl: tenantsRepo ? `https://github.com/${tenantsRepo.owner}/${tenantsRepo.repo}` : void 0,
     gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
     valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,

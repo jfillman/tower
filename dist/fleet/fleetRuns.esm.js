@@ -1,5 +1,5 @@
 import { cloudDeployFromRun, CLOUD_DEPLOY_TASKS } from '../cloudDeploy.esm.js';
-import { toPipelineRunSummary, TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns.esm.js';
+import { toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 
 function meta(raw, name) {
   return raw.metadata.labels?.[name] ?? raw.metadata.annotations?.[name];
@@ -14,8 +14,8 @@ function parseProgress(message) {
 function mayDeployToCloud(raw) {
   return (raw.status?.pipelineSpec?.tasks ?? []).some((t) => t.name in CLOUD_DEPLOY_TASKS);
 }
-function toFleetRun(raw, taskRunsByName) {
-  const run = toPipelineRunSummary(raw, TEKTON_CLUSTER, taskRunsByName);
+function toFleetRun(raw, taskRunsByName, cluster = "") {
+  const run = toPipelineRunSummary(raw, cluster, taskRunsByName);
   const repoUrl = meta(raw, "pipelinesascode.tekton.dev/repo-url");
   const checkRunId = meta(raw, "pipelinesascode.tekton.dev/check-run-id");
   const start = run.startTime ? Date.parse(run.startTime) : void 0;

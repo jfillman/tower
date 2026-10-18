@@ -1464,7 +1464,7 @@ function ConfigEditor({
         ] }),
         form.httpRouteEnabled && /* @__PURE__ */ jsxs("div", { style: { marginTop: 10 }, children: [
           /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
-            /* @__PURE__ */ jsx(Field, { label: "Hostnames (comma-separated)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. boarding-api.prod.kiac.local", value: form.httpRouteHostnames, onChange: (e) => setF("httpRouteHostnames", e.target.value, "httpRoute") }) }),
+            /* @__PURE__ */ jsx(Field, { label: "Hostnames (comma-separated)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. boarding-api.example.com", value: form.httpRouteHostnames, onChange: (e) => setF("httpRouteHostnames", e.target.value, "httpRoute") }) }),
             /* @__PURE__ */ jsx(Field, { label: "Path (optional)", classes, children: /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "e.g. /api", value: form.httpRoutePath, onChange: (e) => setF("httpRoutePath", e.target.value, "httpRoute") }) }),
             /* @__PURE__ */ jsx(Field, { label: "Path type", classes, children: /* @__PURE__ */ jsxs("select", { className: classes.input, value: form.httpRoutePathType, onChange: (e) => setF("httpRoutePathType", e.target.value, "httpRoute"), children: [
               /* @__PURE__ */ jsx("option", { value: "", children: "Chart default" }),
@@ -1489,7 +1489,7 @@ function ConfigEditor({
                 "input",
                 {
                   className: classes.input,
-                  placeholder: "name (e.g. kiac)",
+                  placeholder: "name (e.g. public-gateway)",
                   value: ref.name,
                   onChange: (e) => {
                     const next = [...form.httpRouteParentRefs];
@@ -1502,7 +1502,7 @@ function ConfigEditor({
                 "input",
                 {
                   className: classes.input,
-                  placeholder: "namespace (e.g. kiac-gateway)",
+                  placeholder: "namespace (e.g. gateway-system)",
                   value: ref.namespace,
                   onChange: (e) => {
                     const next = [...form.httpRouteParentRefs];

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns.esm.js';
+import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
 import { toHistoryRun } from './pipelineHistory.esm.js';
 import { usePolled } from './usePolled.esm.js';
 
@@ -12,7 +12,9 @@ const MAX_PAGES = 10;
 function useFleetPipelineHistory(windowMs) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const cluster = usePlatformConfig().controlPlaneCluster;
   const fetcher = useCallback(async () => {
+    if (!cluster) throw new Error(NO_CONTROL_PLANE);
     const cutoff = Date.now() - windowMs;
     const out = [];
     let pageToken;
@@ -26,7 +28,7 @@ function useFleetPipelineHistory(windowMs) {
       const res = await k8sProxyGet(
         discoveryApi,
         fetchApi,
-        TEKTON_CLUSTER,
+        cluster,
         `${RELAY}/apis/results.tekton.dev/v1alpha2/parents/-/results?${params.toString()}`
       );
       const results = res.results ?? [];
@@ -43,8 +45,8 @@ function useFleetPipelineHistory(windowMs) {
       if (older || !pageToken || results.length === 0) break;
     }
     return out;
-  }, [discoveryApi, fetchApi, windowMs]);
-  return usePolled(`fleet-history:${windowMs}`, fetcher, POLL_MS);
+  }, [discoveryApi, fetchApi, windowMs, cluster]);
+  return usePolled(`fleet-history:${windowMs}:${cluster ?? ""}`, fetcher, POLL_MS);
 }
 
 export { useFleetPipelineHistory };

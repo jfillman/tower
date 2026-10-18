@@ -113,7 +113,7 @@ function AddEnvironmentDialog({
       tier === "flight" && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsx("input", { ...p, list: "flight-clusters", value: cluster, onChange: (e) => setCluster(e.target.value) }) }),
         /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((k) => /* @__PURE__ */ jsx("option", { value: k }, k)) }),
-        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "The registered upper cluster it runs on, for example kind-prod." }),
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "The registered upper cluster it runs on (its name in the cluster registry)." }),
         /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first." }),
         /* @__PURE__ */ jsx(
           FormControlLabel,

@@ -353,7 +353,7 @@ function GlidepathTab() {
       ) : /* @__PURE__ */ jsxs(Typography, { className: classes.sectionHint, children: [
         "Off - the whole build happens inside ",
         form.buildContainerfile,
-        " (kaniko builds it directly)."
+        " (BuildKit builds it directly)."
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.switchRow, children: [
         /* @__PURE__ */ jsx(

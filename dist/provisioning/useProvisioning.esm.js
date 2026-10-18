@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
-import { TEKTON_CLUSTER, toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
+import { toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
+import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
 import { deriveProvisioning, isCloudApp } from './deriveProvisioning.esm.js';
 import { updateObservation } from './observed.esm.js';
 
-const XR_CLUSTER = TEKTON_CLUSTER;
 const XR_PLURALS = [
   "nodejsapplications",
   "springbootapplications",
@@ -24,17 +24,14 @@ const XR_KINDS = [
   "LambdaFunction",
   "AzureFunction"
 ];
-const TENANTS_REPO_BY_CLUSTER = {
-  "kind-dev": { owner: "jfillman", repo: "gitops-cluster-dev-tenants" }
-};
 const POLL_MS = 6e3;
 const MAX_AGE_MS = 24 * 3600 * 1e3;
 const GITHUB_POLL_MS = 45e3;
 const KEEP_DONE_MS = 15 * 60 * 1e3;
-function toCloudDeploySnapshot(runs, taskRuns) {
+function toCloudDeploySnapshot(runs, taskRuns, cluster = "") {
   if (!runs?.length) return void 0;
   const byName = new Map((taskRuns ?? []).map((t) => [t.metadata.name, t]));
-  const summary = summarizeCloudDeploys(runs.map((r2) => toPipelineRunSummary(r2, TEKTON_CLUSTER, byName)));
+  const summary = summarizeCloudDeploys(runs.map((r2) => toPipelineRunSummary(r2, cluster, byName)));
   const pick = summary.inFlight ?? summary.latestFailure ?? summary.current;
   if (!pick) return void 0;
   let state = "succeeded";
@@ -175,11 +172,18 @@ function useProvisioning() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const catalogApi = useApi(catalogApiRef);
+  const platform = usePlatformConfig();
+  const XR_CLUSTER = platform.controlPlaneCluster;
+  const configuredTenants = XR_CLUSTER ? platform.clusters[XR_CLUSTER]?.tenantsRepo : void 0;
   const [state, setState] = useState({
     items: [],
     loading: true
   });
   useEffect(() => {
+    if (!XR_CLUSTER) {
+      setState({ items: [], loading: false, error: NO_CONTROL_PLANE });
+      return void 0;
+    }
     let cancelled = false;
     const github = /* @__PURE__ */ new Map();
     const refreshGithub = (x, owner, tenants) => {
@@ -329,7 +333,8 @@ function useProvisioning() {
           const deployRuns = (runs?.items ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
           const cloudDeploy = deployRuns.length ? toCloudDeploySnapshot(
             deployRuns,
-            (await optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))?.items
+            (await optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))?.items,
+            XR_CLUSTER
           ) : void 0;
           return {
             xr: {
@@ -361,14 +366,15 @@ function useProvisioning() {
               sourceRepoUrl: repoLinks.sourceRepoUrl,
               gitopsRepoUrl: repoLinks.gitopsRepoUrl,
               onboarding: gh?.onboarding,
-              infisicalProjectId: projectId
+              infisicalProjectId: projectId,
+              infisicalUrl: platform.clusters[XR_CLUSTER]?.infisicalUrl
             }
           };
         })
       );
       if (cancelled) return;
       refreshPending(
-        xrs.map((x) => parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"])).find(Boolean) ?? TENANTS_REPO_BY_CLUSTER[XR_CLUSTER]
+        xrs.map((x) => parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"])).find(Boolean) ?? configuredTenants
       );
       items.push(...toPendingInputs(pendingCache.list, new Set(xrs.map((x) => x.metadata.name)), XR_CLUSTER, now));
       const withObserved = items.map((i) => {
@@ -391,9 +397,9 @@ function useProvisioning() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, catalogApi]);
+  }, [discoveryApi, fetchApi, catalogApi, XR_CLUSTER, configuredTenants?.owner, configuredTenants?.repo]);
   return state;
 }
 
-export { BUILD_PIPELINE, TENANTS_REPO_BY_CLUSTER, XR_CLUSTER, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map

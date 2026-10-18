@@ -29,7 +29,7 @@ function autolandEligibility(records, signoffEnv) {
     id: "metrics",
     label: "Production metrics",
     state: "todo",
-    detail: "Judging a canary and the bake window needs production metrics; kind-prod's Prometheus is off"
+    detail: "Judging a canary and the bake window needs production metrics; the production cluster's Prometheus is off"
   });
   const cfr = closed.length > 0 ? rolledBack / closed.length : void 0;
   items.push({

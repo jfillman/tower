@@ -17,6 +17,7 @@ import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, FilterBar, FilterChips, Count } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 
 const useStyles = makeStyles(() => ({
   dagGap: { marginTop: 12 },
@@ -79,6 +80,7 @@ function PipelinesTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const { owner, environments, loading, error, appName, refresh } = useReleaseContext();
+  const cluster = usePlatformConfig().controlPlaneCluster;
   const cdEnvs = environments.filter((e) => !isPreviewEnvName(e.env));
   const pendingDeployCount = cdEnvs.filter(isRolloutActive).length;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -225,7 +227,10 @@ function PipelinesTab() {
           end: /* @__PURE__ */ jsxs(Count, { children: [
             listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
             " ",
-            "\xB7 kind-dev"
+            cluster ? /* @__PURE__ */ jsxs(Fragment, { children: [
+              " \xB7 ",
+              cluster
+            ] }) : null
           ] }),
           children: /* @__PURE__ */ jsx(
             FilterChips,

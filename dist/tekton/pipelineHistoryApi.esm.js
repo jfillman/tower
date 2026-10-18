@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { toPipelineRunSummary, TEKTON_CLUSTER } from './useTektonPipelineRuns.esm.js';
+import { toPipelineRunSummary } from './useTektonPipelineRuns.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 import { parseTimestampedLine } from './useTaskRunLogs.esm.js';
 
-function archivedRunToSummary(app, dto) {
+function archivedRunToSummary(app, dto, cluster = "") {
   const taskRunsByName = new Map(dto.taskRuns.map((tr) => [tr.metadata.name, tr]));
-  return { ...toPipelineRunSummary(dto.pipelineRun, TEKTON_CLUSTER, taskRunsByName), archive: { app, result: dto.result } };
+  return { ...toPipelineRunSummary(dto.pipelineRun, cluster, taskRunsByName), archive: { app, result: dto.result } };
 }
 function useArchivedRuns(appName, sinceHours, limit, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const cluster = usePlatformConfig().controlPlaneCluster ?? "";
   const [state, setState] = useState({ loading: Boolean(appName), runs: [] });
   useEffect(() => {
     if (!appName) {
@@ -25,7 +27,7 @@ function useArchivedRuns(appName, sinceHours, limit, refreshNonce = 0) {
         const res = await fetchApi.fetch(`${base}/pipeline-history/runs?${q}`);
         if (!res.ok) throw new Error(`pipeline history: ${res.status} ${(await res.text()).slice(0, 200)}`);
         const body = await res.json();
-        if (!cancelled) setState({ loading: false, runs: body.runs.map((r) => archivedRunToSummary(appName, r)) });
+        if (!cancelled) setState({ loading: false, runs: body.runs.map((r) => archivedRunToSummary(appName, r, cluster)) });
       } catch (e) {
         if (!cancelled) setState({ loading: false, runs: [], error: String(e) });
       }
@@ -33,7 +35,7 @@ function useArchivedRuns(appName, sinceHours, limit, refreshNonce = 0) {
     return () => {
       cancelled = true;
     };
-  }, [appName, sinceHours, limit, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, sinceHours, limit, cluster, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
 function useArchivedRunLookup(params) {

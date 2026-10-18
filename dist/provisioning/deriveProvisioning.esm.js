@@ -30,11 +30,7 @@ function cond(xr, type) {
   return xr.conditions.find((c) => c.type === type);
 }
 const prLink = (label, pr) => pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
-const INFISICAL_HOST_BY_CLUSTER = { "kind-dev": "infisical.dev.kiac.local" };
-const infisicalProjectUrl = (cluster, projectId) => {
-  const host = INFISICAL_HOST_BY_CLUSTER[cluster];
-  return host ? `http://${host}/projects/secret-management/${projectId}/overview` : void 0;
-};
+const infisicalProjectUrl = (baseUrl, projectId) => baseUrl ? `${baseUrl.replace(/\/+$/, "")}/projects/secret-management/${projectId}/overview` : void 0;
 function deriveProvisioning(input, now, typical) {
   const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
@@ -229,7 +225,7 @@ function deriveProvisioning(input, now, typical) {
     secretsState = "run";
     secretsDetail = secrets?.found ? "Creating the Infisical project and identity" : "Waiting for the SecretStore to be created";
   }
-  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(xr.cluster, links.infisicalProjectId) : void 0;
+  const projectUrl = links?.infisicalProjectId ? infisicalProjectUrl(links.infisicalUrl, links.infisicalProjectId) : void 0;
   let secretsSeconds;
   if (secretsState === "done") secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), secrets?.readyAt);
   else if (secretsState === "run") secretsSeconds = secBetween(ts(cicdC?.lastTransitionTime), now);

@@ -17,11 +17,8 @@ import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, Panel, FactGrid, Fact, TextLink, Section, healthColor, Hint, StatusChip, HEALTH_LABEL, healthTone } from '../ui/index.esm.js';
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 
-const GRAFANA_HOST_BY_CLUSTER = {
-  "kind-dev": "grafana.dev.kiac.local",
-  "kind-prod": "grafana.prod.kiac.local"
-};
 function computeReleaseTracks(list) {
   const runs = [];
   for (const env of list) {
@@ -321,6 +318,7 @@ function trackRows(envs, gridWidth) {
 }
 function OverviewTab() {
   const t = useHangarTokens();
+  const platform = usePlatformConfig();
   const classes = useStyles({ t });
   const [gridEl, setGridEl] = useState(null);
   const [gridWidth, setGridWidth] = useState(0);
@@ -607,7 +605,7 @@ function OverviewTab() {
     ),
     /* @__PURE__ */ jsx(Section, { title: "Monitoring", className: classes.block, children: /* @__PURE__ */ jsxs("div", { className: classes.monitoringCard, children: [
       /* @__PURE__ */ jsx(Hint, { className: classes.monitoringNote, children: "No per-app dashboards exist yet - this app's live metrics aren't embedded here, but each environment's cluster runs a real Grafana instance you can explore directly." }),
-      /* @__PURE__ */ jsx("div", { className: classes.monitoringLinks, children: [...new Set(pipelineEnvs.map((env) => env.cluster))].map((cluster) => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] })).filter((c) => Boolean(c.host)).map(({ cluster, host }) => /* @__PURE__ */ jsxs(TextLink, { href: `http://${host}`, children: [
+      /* @__PURE__ */ jsx("div", { className: classes.monitoringLinks, children: [...new Set(pipelineEnvs.map((env) => env.cluster))].map((cluster) => ({ cluster, url: platform.clusters[cluster]?.grafanaUrl })).filter((c) => Boolean(c.url)).map(({ cluster, url }) => /* @__PURE__ */ jsxs(TextLink, { href: url, children: [
         "Open Grafana (",
         cluster,
         ") \u2197"

@@ -66,7 +66,7 @@ function ReleaseOutcomePanel({
           /* @__PURE__ */ jsx(TextLink, { href: githubRelease.url, children: `${githubRelease.tag ?? "release"} \u2197` })
         ] }),
         githubRelease?.skipped && /* @__PURE__ */ jsx(Hint, { children: `GitHub Release not published: ${githubRelease.skipped}.` }),
-        outcome && /* @__PURE__ */ jsx(Hint, { children: "SLO burn during the bake window is not measured yet: kind-prod's Prometheus is off, so there is no production metric to read." })
+        outcome && /* @__PURE__ */ jsx(Hint, { children: "SLO burn during the bake window is not measured yet: the production cluster's Prometheus is off, so there is no production metric to read." })
       ]
     }
   );

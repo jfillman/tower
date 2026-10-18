@@ -27,6 +27,7 @@ import { useFleetSlos } from '../../useFleetSlos.esm.js';
 import { ActivityPanel, ReleaseCalendarPanel, DoraPanel, DeploymentsPanel, PipelinesPanel, AttentionPanel, FitContext } from './opswall/panels.esm.js';
 import { useOpsStyles } from './opswall/styles.esm.js';
 import { FilterSelect, FilterChips } from '../../ui/index.esm.js';
+import { usePlatformConfig } from '../../platformConfig.esm.js';
 
 const WINDOWS = { "24h": 24 * 36e5, "7d": 7 * 24 * 36e5 };
 const isOpsWindow = (v) => v !== null && v in WINDOWS;
@@ -73,6 +74,7 @@ function columnCount(width) {
 }
 function OpsWallDashboard({ fit = false }) {
   const t = useHangarTokens();
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
   const c = useOpsStyles({ t });
   const now = useNow(1e3);
   const [rootRef, width] = useWidth();
@@ -226,13 +228,13 @@ function OpsWallDashboard({ fit = false }) {
     polledSource(
       "Pipelines",
       runs,
-      "Running and recent Tekton PipelineRuns on kind-dev (finished runs are archived after about an hour)."
+      `Running and recent Tekton PipelineRuns on ${controlPlane ?? "the control-plane cluster"} (finished runs are archived after about an hour).`
     ),
     polledSource("History", history, `Finished runs for the last ${opsWindow}, from the Tekton Results archive.`),
     polledSource(
       "Releases",
       records,
-      "Glidepath's release records (upper-environment releases and their state) on kind-dev."
+      `Glidepath's release records (upper-environment releases and their state) on ${controlPlane ?? "the control-plane cluster"}.`
     ),
     polledSource(
       "Release alerts",

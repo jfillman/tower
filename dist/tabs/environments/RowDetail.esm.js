@@ -1,6 +1,7 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
 import { ownChartOf } from '../../environments/ownChart.esm.js';
+import { usePlatformConfig } from '../../platformConfig.esm.js';
 import { RawValuesEditor } from '../../values/RawValuesEditor.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
@@ -200,6 +201,7 @@ function Values({ row, ctx, source }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
+  const airframe = usePlatformConfig().airframeChart;
   const { def } = row;
   const gate = (src) => src && !src.loading && !src.error && src.data && !src.data.raw.trim() ? /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
     "The values file ",
@@ -209,7 +211,7 @@ function Values({ row, ctx, source }) {
   if (ctx.cloudBlock) {
     return /* @__PURE__ */ jsx("div", { className: ui.note, children: "A cloud environment has no chart values. Its target resource is under Settings." });
   }
-  const own = ownChartOf(ctx.deploy, row.name);
+  const own = ownChartOf(ctx.deploy, row.name, airframe);
   if (def.tier === "ground") {
     if (row.state === "new") {
       return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [

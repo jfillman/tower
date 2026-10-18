@@ -13,6 +13,7 @@ import { RawValuesEditor } from '../values/RawValuesEditor.esm.js';
 import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { ownChartOf } from '../environments/ownChart.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 import { PageHeader, Panel, Subtabs } from '../ui/index.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
@@ -77,6 +78,7 @@ function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
+  const platform = usePlatformConfig();
   const [sectionId, setSection] = useState("base");
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0);
   const deploy = cicd.data?.values.deploy;
@@ -84,7 +86,7 @@ function ConfigTab() {
     () => [...new Set(readEnvironments(deploy).envs.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))],
     [deploy]
   );
-  const own = ownChartOf(deploy, "");
+  const own = ownChartOf(deploy, "", platform.airframeChart);
   const [searchParams, setSearchParams] = useSearchParams();
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });

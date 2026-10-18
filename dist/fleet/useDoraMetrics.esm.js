@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef, configApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
-import { TEKTON_CLUSTER } from '../tekton/useTektonPipelineRuns.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 import { CLUSTER_PROMETHEUS, prometheusProxyPath } from '../usePrometheusQuery.esm.js';
 import { doraQueries, buildDoraSnapshot } from './dora.esm.js';
 import { usePolled } from './usePolled.esm.js';
@@ -9,15 +9,16 @@ import { usePolled } from './usePolled.esm.js';
 const POLL_MS = 5 * 6e4;
 function useDoraSource() {
   const config = useApi(configApiRef);
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
   return useMemo(() => {
     const c = config.getOptionalConfig("tower.dora.metrics");
     return {
-      cluster: c?.getOptionalString("cluster") ?? TEKTON_CLUSTER,
+      cluster: c?.getOptionalString("cluster") ?? controlPlane ?? "",
       namespace: c?.getOptionalString("namespace") ?? CLUSTER_PROMETHEUS.namespace,
       service: c?.getOptionalString("service") ?? CLUSTER_PROMETHEUS.service,
       port: c?.getOptionalNumber("port") ?? CLUSTER_PROMETHEUS.port
     };
-  }, [config]);
+  }, [config, controlPlane]);
 }
 const SCALAR_KEYS = [
   "deploys",
@@ -35,6 +36,7 @@ function useDoraMetrics(windowDays, apps) {
   const source = useDoraSource();
   const appsKey = apps ? [...apps].sort().join(",") : "*";
   const fetcher = useCallback(async () => {
+    if (!source.cluster) throw new Error("no cluster to query: set tower.dora.metrics.cluster or tower.controlPlaneCluster");
     const q = doraQueries(windowDays, apps);
     const instant = async (query) => {
       const res = await k8sProxyGet(
