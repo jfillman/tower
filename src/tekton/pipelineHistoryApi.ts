@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { TEKTON_CLUSTER, toPipelineRunSummary, type RawPipelineRun, type RawTaskRun } from './useTektonPipelineRuns';
+import { toPipelineRunSummary, type RawPipelineRun, type RawTaskRun } from './useTektonPipelineRuns';
+import { usePlatformConfig } from '../platformConfig';
 import type { PipelineRunSummary, TaskStepSummary } from './types';
 import { parseTimestampedLine, type StepLogBlock, type TaskLogLine } from './useTaskRunLogs';
 
@@ -15,10 +16,13 @@ interface ArchivedRunDto {
   taskRuns: RawTaskRun[];
 }
 
-/** An archived run as the same summary a live run produces (one parser for both), marked with where it came from. */
-export function archivedRunToSummary(app: string, dto: ArchivedRunDto): PipelineRunSummary {
+/**
+ * An archived run as the same summary a live run produces (one parser for both), marked with where it came from.
+ * `cluster` is the control-plane cluster the run ran on ('' when app-config does not name it).
+ */
+export function archivedRunToSummary(app: string, dto: ArchivedRunDto, cluster = ''): PipelineRunSummary {
   const taskRunsByName = new Map(dto.taskRuns.map(tr => [tr.metadata.name, tr]));
-  return { ...toPipelineRunSummary(dto.pipelineRun, TEKTON_CLUSTER, taskRunsByName), archive: { app, result: dto.result } };
+  return { ...toPipelineRunSummary(dto.pipelineRun, cluster, taskRunsByName), archive: { app, result: dto.result } };
 }
 
 export interface UseArchivedRunsResult {
@@ -36,6 +40,7 @@ export function useArchivedRuns(
 ): UseArchivedRunsResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const cluster = usePlatformConfig().controlPlaneCluster ?? '';
   const [state, setState] = useState<UseArchivedRunsResult>({ loading: Boolean(appName), runs: [] });
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export function useArchivedRuns(
         const res = await fetchApi.fetch(`${base}/pipeline-history/runs?${q}`);
         if (!res.ok) throw new Error(`pipeline history: ${res.status} ${(await res.text()).slice(0, 200)}`);
         const body = (await res.json()) as { runs: ArchivedRunDto[] };
-        if (!cancelled) setState({ loading: false, runs: body.runs.map(r => archivedRunToSummary(appName, r)) });
+        if (!cancelled) setState({ loading: false, runs: body.runs.map(r => archivedRunToSummary(appName, r, cluster)) });
       } catch (e) {
         // Degrades to "no archived runs": every caller still has the live runs.
         if (!cancelled) setState({ loading: false, runs: [], error: String(e) });
@@ -61,7 +66,7 @@ export function useArchivedRuns(
     return () => {
       cancelled = true;
     };
-  }, [appName, sinceHours, limit, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, sinceHours, limit, cluster, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
 }

@@ -1,6 +1,6 @@
 # Tower break-glass debug image
 
-`ghcr.io/jfillman/tower-debug`: the container a Tower break-glass session runs in (spec:
+`ghcr.io/<owner>/tower-debug` (`<owner>`: this repo's GitHub owner): the container a Tower break-glass session runs in (spec:
 `SPEC-tower-break-glass-debug.md`). Alpine plus:
 
 | Need | Tools |
@@ -25,15 +25,15 @@ arm64, pushes it, and signs it with cosign (keyless, GitHub OIDC). Its summary p
 Then pin that digest in the three places that name it:
 
 - backstage `packages/backend/src/breakglassSpec.ts` (`DEBUG_IMAGE`);
-- gitops-cluster-dev `30-policy/kyverno-policies/tower-breakglass.yaml`;
-- gitops-cluster-kind-prod `30-policy/breakglass/policies.yaml`.
+- the dev cluster's repo, `30-policy/kyverno-policies/tower-breakglass.yaml`;
+- each upper cluster's repo, `30-policy/breakglass/policies.yaml`.
 
 Accept the new digest in the policies **before** the backend uses it.
 
 Verify a signature by hand:
 
 ```bash
-cosign verify ghcr.io/jfillman/tower-debug@sha256:... \
-  --certificate-identity-regexp '^https://github.com/jfillman/tower/.github/workflows/debug-image.yml@refs/heads/main$' \
+cosign verify ghcr.io/<owner>/tower-debug@sha256:... \
+  --certificate-identity-regexp '^https://github.com/<owner>/tower/.github/workflows/debug-image.yml@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```

@@ -1,7 +1,7 @@
 // Types for the CI/CD tab's CI section - a real Tekton PipelineRun's task
 // graph and per-task execution state. Modeled directly off the live shape
-// confirmed against kind-dev's actual `tekton.dev/v1` PipelineRun/TaskRun
-// objects (kubectl --context kiac-dev -n app-backstage-cicd get pipelinerun
+// confirmed against the dev cluster's actual `tekton.dev/v1` PipelineRun/TaskRun
+// objects (kubectl --context <dev-cluster> -n app-backstage-cicd get pipelinerun
 // ci-0-build-... -o json), not the Tekton API's full spec - only the fields
 // this tab actually reads.
 

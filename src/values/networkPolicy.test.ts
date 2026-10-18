@@ -51,9 +51,9 @@ describe('parseLabels and parsePorts', () => {
 });
 
 describe('gateway namespace selector', () => {
-  const selector = { matchLabels: { 'kubernetes.io/metadata.name': 'kiac-gateway' } };
+  const selector = { matchLabels: { 'kubernetes.io/metadata.name': 'gateway-system' } };
   it('reads the namespace and sets it keeping other labels and fields', () => {
-    expect(gatewayNamespaceOf(selector)).toBe('kiac-gateway');
+    expect(gatewayNamespaceOf(selector)).toBe('gateway-system');
     expect(gatewayNamespaceOf({ matchExpressions: [] })).toBe('');
     expect(withGatewayNamespace({ matchLabels: { x: 'y' }, matchExpressions: [{ key: 'k' }] }, 'gw')).toEqual({
       matchLabels: { x: 'y', 'kubernetes.io/metadata.name': 'gw' },
@@ -84,7 +84,7 @@ describe('gateway selector', () => {
 
 describe('parent refs', () => {
   it('round-trips name, namespace and sectionName without inventing empty keys', () => {
-    const refs = [{ name: 'kiac', namespace: 'kiac-gateway', sectionName: 'https' }, { name: 'internal' }];
+    const refs = [{ name: 'public-gateway', namespace: 'gateway-system', sectionName: 'https' }, { name: 'internal' }];
     expect(buildParentRefs(parseParentRefs(refs))).toEqual(refs);
     expect(buildParentRefs([{ name: ' ', namespace: 'x', sectionName: '' }])).toEqual([]);
   });

@@ -3,7 +3,7 @@
 Tower is a window onto the platform and a small set of levers on it. This page describes every lever, who may pull
 it, and the guardrails behind each one, in Tower, in Backstage's backend, in Argo CD and in the cluster.
 
-Every rule here is also in Hangar's [business rules register](https://github.com/jfillman/hangar/blob/main/docs/policy/business-rules.md), with the rules of every other component.
+Every rule here is also in Hangar's [business rules register](https://github.com/<owner>/hangar/blob/main/docs/policy/business-rules.md), with the rules of every other component.
 A change to a rule updates that page too.
 
 ## Principles
@@ -14,8 +14,8 @@ A change to a rule updates that page too.
 2. **Delegated, not direct.** Tower and its backend hold **no standing Kubernetes write permissions on any cluster**.
    Sync, force sync, terminate and Rollout actions run through Argo CD, as one narrowly scoped Argo CD account. Argo CD
    checks that the resource belongs to the Application and records the operation. There are two exceptions. Both are
-   held to their exact shape by admission policies in the cluster, and on kiac-dev both are held only by
-   `hangar:kind-prod:tower-actor`, whose token is minted for each action ([Cluster credentials](credentials/index.md)):
+   held to their exact shape by admission policies in the cluster, and on <dev-cluster> both are held only by
+   `hangar:<prod-cluster>:tower-actor`, whose token is minted for each action ([Cluster credentials](credentials/index.md)):
    - Tekton Re-run and Cancel: `create` and `patch` on PipelineRuns. `tower-pipelinerun-shape` allows only
      Glidepath's own run shape in an app's `-cicd` namespace, and on an existing run only a cancel.
    - [Break-glass](break-glass/index.md): the only standing right is to bind one of two debug roles to itself, for one
@@ -31,10 +31,10 @@ A change to a rule updates that page too.
 7. **The Kubernetes proxy is read-only.** Tower reads clusters through Backstage's `/api/kubernetes/proxy`, which runs
    as Backstage's own identity and does no ownership check, so the backend refuses anything but GET (and any WebSocket
    upgrade) on it. Every write goes through an owner-gated route.
-8. **No stored cluster credential.** On kind-prod, Backstage is its in-cluster ServiceAccount. On kiac-dev, reads use
+8. **No stored cluster credential.** On <prod-cluster>, Backstage is its in-cluster ServiceAccount. On <dev-cluster>, reads use
    the pod's own projected token (600 s, rotated by the kubelet), and writes use a `tower-actor` token minted for each
-   action. kiac-dev trusts kind-prod's ServiceAccount issuer and maps those two tokens to two users with separate RBAC.
-   Nothing long-lived exists to leak, and deleting one entry in kiac-dev's authentication config revokes everything in
+   action. <dev-cluster> trusts <prod-cluster>'s ServiceAccount issuer and maps those two tokens to two users with separate RBAC.
+   Nothing long-lived exists to leak, and deleting one entry in <dev-cluster>'s authentication config revokes everything in
    seconds. See [Cluster credentials](credentials/index.md).
 
 ## Who may do what

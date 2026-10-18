@@ -12,6 +12,7 @@ import { RawValuesEditor } from '../values/RawValuesEditor';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { ownChartOf, type ChartRef } from '../environments/ownChart';
+import { usePlatformConfig } from '../platformConfig';
 import { PageHeader, Panel, Subtabs } from '../ui';
 import { useUi } from '../ui/styles';
 import { useHangarTokens } from '../brand/tokens';
@@ -101,6 +102,7 @@ export function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
   const { owner, appName, loading, error } = useReleaseContext();
+  const platform = usePlatformConfig();
   const [sectionId, setSection] = useState<string>('base');
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined);
   const deploy = cicd.data?.values.deploy as Deploy | undefined;
@@ -109,7 +111,7 @@ export function ConfigTab() {
     [deploy],
   );
   // No environment is named "": only deploy.chart applies, the chart the app's environments render by default.
-  const own = ownChartOf(deploy, '');
+  const own = ownChartOf(deploy, '', platform.airframeChart);
   const [searchParams, setSearchParams] = useSearchParams();
 
   if (loading) return <Progress />;

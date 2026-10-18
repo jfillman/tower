@@ -153,7 +153,7 @@ export function AddEnvironmentDialog({
                 ))}
               </datalist>
               <Hint className={c.noteGap} style={{ marginTop: -6 }}>
-                The registered upper cluster it runs on, for example kind-prod.
+                The registered upper cluster it runs on (its name in the cluster registry).
               </Hint>
               <Hint className={c.noteGap}>
                 Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo,

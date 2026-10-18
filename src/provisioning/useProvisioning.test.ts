@@ -48,11 +48,11 @@ describe('toManaged', () => {
 
 // The annotation exactly as written on the live sky-marshall XR.
 const SOURCE_INFO =
-  '{"pushToGit":true,"gitBranch":"main","gitRepo":"github.com?owner=jfillman\\u0026repo=gitops-cluster-dev-tenants","gitLayout":"custom","basePath":""}';
+  '{"pushToGit":true,"gitBranch":"main","gitRepo":"github.com?owner=example-org\\u0026repo=gitops-cluster-dev-tenants","gitLayout":"custom","basePath":""}';
 
 describe('parseTenantsRepo', () => {
   it('reads the owner and repo off the XR source-info annotation', () => {
-    expect(parseTenantsRepo(SOURCE_INFO)).toEqual({ owner: 'jfillman', repo: 'gitops-cluster-dev-tenants' });
+    expect(parseTenantsRepo(SOURCE_INFO)).toEqual({ owner: 'example-org', repo: 'gitops-cluster-dev-tenants' });
   });
   it('is undefined for a missing or malformed annotation', () => {
     expect(parseTenantsRepo(undefined)).toBeUndefined();
@@ -69,13 +69,13 @@ describe('toRepoLinks', () => {
   it('tells the source and GitOps repos apart by the composed resource name', () => {
     expect(
       toRepoLinks('sky-marshall', [
-        repo('sky-marshall-src', 'jfillman/sky-marshall'),
-        repo('sky-marshall-gitops', 'jfillman/gitops-sky-marshall'),
+        repo('sky-marshall-src', 'example-org/sky-marshall'),
+        repo('sky-marshall-gitops', 'example-org/gitops-sky-marshall'),
       ]),
     ).toEqual({
-      owner: 'jfillman',
-      sourceRepoUrl: 'https://github.com/jfillman/sky-marshall',
-      gitopsRepoUrl: 'https://github.com/jfillman/gitops-sky-marshall',
+      owner: 'example-org',
+      sourceRepoUrl: 'https://github.com/example-org/sky-marshall',
+      gitopsRepoUrl: 'https://github.com/example-org/gitops-sky-marshall',
     });
   });
   it('is empty when the repositories could not be read', () => {
@@ -153,14 +153,14 @@ describe('toCreated', () => {
         { kind: 'Mystery', name: 'a-other' },
       ],
       [mr('a-tektoncicd', 'True'), mr('a-src', 'True'), mr('a-readme', 'False')],
-      { name: 'a-kind-dev', ready: true },
+      { name: 'a-example-dev', ready: true },
     );
     expect(out).toEqual([
       { kind: 'TektonCICD', name: 'a-tektoncicd', ready: true },
       { kind: 'Repository', name: 'a-src', ready: true },
       { kind: 'RepositoryFile', name: 'a-readme', ready: false },
       { kind: 'Mystery', name: 'a-other', ready: undefined },
-      { kind: 'SecretStore', name: 'a-kind-dev', ready: true },
+      { kind: 'SecretStore', name: 'a-example-dev', ready: true },
     ]);
   });
   it('is empty with no refs and no store', () => {
@@ -200,13 +200,13 @@ describe('toPendingInputs', () => {
     kind: 'GoApplication',
     name: 'smoke-ecs',
     number: 20,
-    url: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/20',
+    url: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/20',
     state: 'open' as const,
     createdAt: '2026-10-03T22:59:00Z',
     ...over,
   });
   it('turns an open request into a pending provisioning input timed from the PR', () => {
-    const [i] = toPendingInputs([req()], new Set(), 'kind-dev', now);
+    const [i] = toPendingInputs([req()], new Set(), 'example-dev', now);
     expect(i.xr).toMatchObject({ name: 'smoke-ecs', kind: 'GoApplication', pending: true, conditions: [] });
     expect(i.xr.createdAt).toBe(Date.parse('2026-10-03T22:59:00Z'));
     expect(i.links?.requestPr).toMatchObject({ number: 20, state: 'open' });
@@ -215,21 +215,21 @@ describe('toPendingInputs', () => {
     const [i] = toPendingInputs(
       [req({ state: 'merged', mergedAt: '2026-10-03T23:20:00Z' })],
       new Set(),
-      'kind-dev',
+      'example-dev',
       now,
     );
     expect(i.links?.requestPr?.mergedAt).toBe(Date.parse('2026-10-03T23:20:00Z'));
   });
   it('drops a request once its XR exists, so the XR item takes over', () => {
-    expect(toPendingInputs([req()], new Set(['smoke-ecs']), 'kind-dev', now)).toEqual([]);
+    expect(toPendingInputs([req()], new Set(['smoke-ecs']), 'example-dev', now)).toEqual([]);
   });
   it('drops kinds Tower does not provision and abandoned old PRs', () => {
-    expect(toPendingInputs([req({ kind: 'ApplicationEnvironment' })], new Set(), 'kind-dev', now)).toEqual([]);
-    expect(toPendingInputs([req({ createdAt: '2026-09-01T00:00:00Z' })], new Set(), 'kind-dev', now)).toEqual([]);
+    expect(toPendingInputs([req({ kind: 'ApplicationEnvironment' })], new Set(), 'example-dev', now)).toEqual([]);
+    expect(toPendingInputs([req({ createdAt: '2026-09-01T00:00:00Z' })], new Set(), 'example-dev', now)).toEqual([]);
   });
 });
 
-describe('toCloudDeploySnapshot over the real ECS deploy captured from kiac-dev', () => {
+describe('toCloudDeploySnapshot over the real ECS deploy captured from example-dev', () => {
   const real = (fixture as any)['ci-1-deploy-swift-bear-772974f5'];
   const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
   const snap = (edit?: (pr: any, trs: any[]) => void) => {
@@ -290,8 +290,8 @@ describe('toPendingInputs for function kinds', () => {
       createdAt: '2026-10-03T22:59:00Z',
     });
     const now = Date.parse('2026-10-03T23:30:00Z');
-    expect(toPendingInputs([mk('LambdaFunction')], new Set(), 'kind-dev', now)).toHaveLength(1);
-    expect(toPendingInputs([mk('AzureFunction')], new Set(), 'kind-dev', now)[0].xr.kind).toBe('AzureFunction');
+    expect(toPendingInputs([mk('LambdaFunction')], new Set(), 'example-dev', now)).toHaveLength(1);
+    expect(toPendingInputs([mk('AzureFunction')], new Set(), 'example-dev', now)[0].xr.kind).toBe('AzureFunction');
   });
 });
 

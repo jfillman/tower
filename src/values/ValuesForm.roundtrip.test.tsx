@@ -12,7 +12,7 @@ jest.mock('@backstage/core-components', () => ({
 jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
 jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false, data: undefined }) }));
 
-// The real staging values file of boarding-api (gitops-boarding-api, kind-prod/staging), as Crossplane and a person
+// The real staging values file of boarding-api (gitops-boarding-api, example-prod/staging), as Crossplane and a person
 // left it: env vars from a ConfigMap and a Secret, a rollout with probes and steps, an HTTPRoute, attached components.
 // A change to ONE field must put back every other field of that block exactly as it was; anything else is data loss.
 const fixtureJson = (name: string) => JSON.parse(readFileSync(join(__dirname, '__fixtures__', name), 'utf8'));
@@ -52,7 +52,7 @@ describe('values form round trip: one edit leaves the rest of the block as it wa
   });
 
   it('httpRoute: a parent ref listener (sectionName) survives an edit and can be set', () => {
-    const hr = { ...clone(original.httpRoute), parentRefs: [{ name: 'kiac', namespace: 'kiac-gateway', sectionName: 'https' }, { name: 'internal' }] };
+    const hr = { ...clone(original.httpRoute), parentRefs: [{ name: 'public-gateway', namespace: 'gateway-system', sectionName: 'https' }, { name: 'internal' }] };
     open({ ...clone(original), httpRoute: hr });
     tab('Networking');
     fireEvent.change(screen.getByDisplayValue('boarding-api.prod.kind.local'), { target: { value: 'boarding-api.example.local' } });
@@ -212,7 +212,7 @@ describe('values form: network policy', () => {
   const np = {
     enabled: true,
     allowIngressFromIngressController: true,
-    ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'kiac-gateway' } },
+    ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'gateway-system' } },
     allowIngressFrom: [],
     allowEgressTo: [],
     extraIngressRules: [],
@@ -223,13 +223,13 @@ describe('values form: network policy', () => {
   it('shows the gateway namespace and writes a new one, keeping the rest', () => {
     open(withNp());
     tab('Networking');
-    expect((screen.getByLabelText('Gateway namespace') as HTMLInputElement).value).toBe('kiac-gateway');
+    expect((screen.getByLabelText('Gateway namespace') as HTMLInputElement).value).toBe('gateway-system');
     edit(() => screen.getByLabelText('Gateway namespace'), 'other-gateway');
     expect(patchOf().networkPolicy).toEqual({ ...np, ingressControllerNamespaceSelector: { matchLabels: { 'kubernetes.io/metadata.name': 'other-gateway' } } });
   });
 
   it('a selector that is more than one namespace name is shown and edited as YAML, not flattened', () => {
-    const selector = { matchLabels: { 'kubernetes.io/metadata.name': 'kiac-gateway', tier: 'edge' }, matchExpressions: [{ key: 'zone', operator: 'In', values: ['a'] }] };
+    const selector = { matchLabels: { 'kubernetes.io/metadata.name': 'gateway-system', tier: 'edge' }, matchExpressions: [{ key: 'zone', operator: 'In', values: ['a'] }] };
     open(withNp({ ingressControllerNamespaceSelector: selector }));
     tab('Networking');
     expect(screen.queryByLabelText('Gateway namespace')).toBeNull();
@@ -247,7 +247,7 @@ describe('values form: network policy', () => {
     open(withNp());
     tab('Networking');
     fireEvent.click(screen.getByRole('button', { name: 'Edit the gateway selector as YAML' }));
-    const yaml = screen.getByDisplayValue(/kiac-gateway/) as HTMLTextAreaElement;
+    const yaml = screen.getByDisplayValue(/gateway-system/) as HTMLTextAreaElement;
     fireEvent.change(yaml, { target: { value: 'matchLabels:\n  gateway: "true"\n' } });
     expect(patchOf().networkPolicy.ingressControllerNamespaceSelector).toEqual({ matchLabels: { gateway: 'true' } });
   });
@@ -353,8 +353,8 @@ describe('values form: placeholders are ghost text, not values', () => {
     open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] }, httpRoute: { enabled: true, hostnames: [], parentRefs: [] } });
     tab('Networking');
     const placeholders = screen.getAllByRole('textbox').map(e => e.getAttribute('placeholder') ?? '');
-    expect(placeholders).toContain('e.g. boarding-api.prod.kiac.local');
-    expect(placeholders).not.toContain('checkout-api.prod.kiac.local');
+    expect(placeholders).toContain('e.g. boarding-api.example.com');
+    expect(placeholders).not.toContain('checkout-api.example.com');
     expect(placeholders.filter(p => /^\/|^\d+$/.test(p))).toEqual([]); // no bare "/" or "3000" that reads as a value
   });
 });
@@ -512,7 +512,7 @@ describe('values form: analysis templates and their scope', () => {
   const region = () => within(screen.getByRole('region', { name: /Pending changes to the values/ }));
 
   it('keeps clusterScope on a step when something else changes (the builder used to drop it)', () => {
-    open({ rollout: stepsWith([{ templateName: 'pod-health-check', clusterScope: true }]) }, { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'kind-prod' });
+    open({ rollout: stepsWith([{ templateName: 'pod-health-check', clusterScope: true }]) }, { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'example-prod' });
     edit(() => screen.getByRole('spinbutton', { name: /^Replicas$/ }), '2');
     expect(patchOf().rollout.steps[1].analysis.templates).toEqual([{ templateName: 'pod-health-check', clusterScope: true }]);
   });
@@ -537,7 +537,7 @@ describe('values form: analysis templates and their scope', () => {
   it('warns at once about the boarding-api pre-prod case, naming the fix, without any edit', () => {
     open(
       { rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'pod-health-check' }], startingStep: 2 } } },
-      { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'kind-prod' },
+      { clusterAnalysisTemplates: ['pod-health-check'], analysisCluster: 'example-prod' },
     );
     tab('Release');
     const alert = screen.getByRole('alert');
@@ -560,9 +560,9 @@ describe('values form: analysis templates and their scope', () => {
   });
 
   it('flags a cluster template the cluster does not have, listing the ones it has', () => {
-    open({ rollout: stepsWith([{ templateName: 'nope', clusterScope: true }]) }, { clusterAnalysisTemplates: ['a', 'b'], analysisCluster: 'kind-prod' });
+    open({ rollout: stepsWith([{ templateName: 'nope', clusterScope: true }]) }, { clusterAnalysisTemplates: ['a', 'b'], analysisCluster: 'example-prod' });
     tab('Release');
-    expect(screen.getByRole('alert').textContent).toMatch(/"nope" is not a ClusterAnalysisTemplate on kind-prod\. Available: a, b\./);
+    expect(screen.getByRole('alert').textContent).toMatch(/"nope" is not a ClusterAnalysisTemplate on example-prod\. Available: a, b\./);
   });
 
   it('a new analysis step takes templates one by one and writes clusterScope only for a cluster one', () => {
@@ -580,7 +580,7 @@ describe('values form: analysis templates and their scope', () => {
 
 describe('values form: common SLOs', () => {
   it('offers the toggles on the Release tab when it knows where to look, stages the SLO, and writes it to slos', () => {
-    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { sloContext: { cluster: 'kind-dev', namespace: 'app-boarding-api-staging', app: 'boarding-api' } });
+    open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { sloContext: { cluster: 'example-dev', namespace: 'app-boarding-api-staging', app: 'boarding-api' } });
     tab('Release');
     expect(screen.getByText('Common SLOs')).toBeTruthy();
     fireEvent.click(screen.getByRole('checkbox', { name: 'SLO Readiness availability' }));

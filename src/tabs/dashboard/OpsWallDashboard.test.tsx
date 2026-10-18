@@ -10,7 +10,7 @@ import { OpsWallDashboard } from './OpsWallDashboard';
 const entity = (name: string) => ({
   apiVersion: 'backstage.io/v1alpha1',
   kind: 'Component',
-  metadata: { name, tags: ['kind:nodejsapplication'], annotations: { 'github.com/project-slug': `jfillman/${name}` } },
+  metadata: { name, tags: ['kind:nodejsapplication'], annotations: { 'github.com/project-slug': `example-org/${name}` } },
   spec: { owner: 'group:default/platform' },
 });
 
@@ -50,7 +50,7 @@ jest.mock('../../useFleetEnvironments', () => ({
           {
             key: 'staging',
             env: 'staging',
-            cluster: 'kind-prod',
+            cluster: 'example-prod',
             namespace: 'app-gate-api-staging',
             rolloutPhase: 'Degraded',
             rolloutMessage: 'RolloutAborted',
@@ -110,10 +110,10 @@ jest.mock('../../fleet/useFleetReleases', () => ({
         data: {
           appName: 'checkin-api',
           env: 'staging',
-          cluster: 'kind-prod',
+          cluster: 'example-prod',
           state: 'proposed',
           prCreatedAt: '2026-10-06T06:04:28Z',
-          prUrl: 'https://github.com/jfillman/gitops-checkin-api/pull/9',
+          prUrl: 'https://github.com/example-org/gitops-checkin-api/pull/9',
         },
       }),
     ],
@@ -139,7 +139,7 @@ describe('OpsWallDashboard', () => {
       loading: false,
       failures: 0,
       updatedAt: Date.now(),
-      source: { cluster: 'kind-dev', namespace: 'observability', service: 'thanos-query-frontend', port: 9090 },
+      source: { cluster: 'example-dev', namespace: 'observability', service: 'thanos-query-frontend', port: 9090 },
       data: {
         windowDays: 30,
         deploysPerDay: 1.5,
@@ -172,11 +172,11 @@ describe('OpsWallDashboard', () => {
       loading: false,
       failures: 1,
       error: 'no endpoints available for service "thanos-query-frontend"',
-      source: { cluster: 'kind-dev', namespace: 'observability', service: 'thanos-query-frontend', port: 9090 },
+      source: { cluster: 'example-dev', namespace: 'observability', service: 'thanos-query-frontend', port: 9090 },
     };
     renderWall();
     expect(
-      screen.getByText(/DORA metrics are unavailable: thanos-query-frontend on kind-dev did not answer/),
+      screen.getByText(/DORA metrics are unavailable: thanos-query-frontend on example-dev did not answer/),
     ).toBeTruthy();
   });
 

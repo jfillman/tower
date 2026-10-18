@@ -192,7 +192,7 @@ describe('values form source', () => {
 
 describe('values form Deployment switch (rollout.enabled, 2026-10-10)', () => {
   type D = { values: Record<string, unknown>; raw: string; path: string };
-  const empty: D = { values: {}, raw: '', path: 'kind-prod/base.yaml' };
+  const empty: D = { values: {}, raw: '', path: 'example-prod/base.yaml' };
   const legacyOff: D = { values: { rollout: null }, raw: 'rollout: null\n', path: 'glidepath/envs/test.yaml' };
   const off: D = { values: { rollout: { replicas: 2, enabled: false } }, raw: 'rollout:\n  replicas: 2\n  enabled: false\n', path: 'glidepath/envs/test.yaml' };
   const on: D = { values: { rollout: { replicas: 2 } }, raw: 'rollout:\n  replicas: 2\n', path: 'glidepath/envs/test.yaml' };

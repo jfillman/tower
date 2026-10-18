@@ -35,6 +35,7 @@ import {
 } from './opswall/panels';
 import { useOpsStyles } from './opswall/styles';
 import { FilterChips, FilterSelect } from '../../ui';
+import { usePlatformConfig } from '../../platformConfig';
 
 // The Ops Wall: what is happening across the fleet right now and what needs a human. Every
 // source is read directly (Tekton, Glidepath's release records, Kubernetes, Argo CD, Prometheus,
@@ -102,6 +103,7 @@ function columnCount(width: number): 1 | 2 | 3 {
 
 export function OpsWallDashboard({ fit = false }: DashboardProps) {
   const t = useHangarTokens();
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
   const c = useOpsStyles({ t });
   const now = useNow(1000);
   const [rootRef, width] = useWidth();
@@ -275,13 +277,13 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
     polledSource(
       'Pipelines',
       runs,
-      'Running and recent Tekton PipelineRuns on kind-dev (finished runs are archived after about an hour).',
+      `Running and recent Tekton PipelineRuns on ${controlPlane ?? 'the control-plane cluster'} (finished runs are archived after about an hour).`,
     ),
     polledSource('History', history, `Finished runs for the last ${opsWindow}, from the Tekton Results archive.`),
     polledSource(
       'Releases',
       records,
-      "Glidepath's release records (upper-environment releases and their state) on kind-dev.",
+      `Glidepath's release records (upper-environment releases and their state) on ${controlPlane ?? 'the control-plane cluster'}.`,
     ),
     polledSource(
       'Release alerts',

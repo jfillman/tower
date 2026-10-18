@@ -29,7 +29,7 @@ describe('ClusterCheckPicker', () => {
       <ClusterCheckPicker
         templates={['pod-health-check', 'error-rate-check', 'latency-check']}
         ctx={ctx}
-        cluster="kind-dev"
+        cluster="example-dev"
         inUse={[]}
         onAdd={() => {}}
       />,
@@ -44,7 +44,7 @@ describe('ClusterCheckPicker', () => {
   it('allows a template outside the catalog, marked not checked, and not one a step already uses', () => {
     const onAdd = jest.fn();
     render(
-      <ClusterCheckPicker templates={['team-smoke', 'no-oom-check']} ctx={ctx} cluster="kind-dev" inUse={['no-oom-check']} onAdd={onAdd} />,
+      <ClusterCheckPicker templates={['team-smoke', 'no-oom-check']} ctx={ctx} cluster="example-dev" inUse={['no-oom-check']} onAdd={onAdd} />,
     );
     expect(screen.getByText('not checked')).toBeTruthy();
     fireEvent.click(add('team-smoke'));
@@ -53,7 +53,7 @@ describe('ClusterCheckPicker', () => {
   });
 
   it('says so when the cluster list could not be read', () => {
-    render(<ClusterCheckPicker templates={undefined} ctx={ctx} cluster="kind-prod" inUse={[]} onAdd={() => {}} />);
+    render(<ClusterCheckPicker templates={undefined} ctx={ctx} cluster="example-prod" inUse={[]} onAdd={() => {}} />);
     expect(screen.getByText(/could not read this cluster/)).toBeTruthy();
   });
 

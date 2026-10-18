@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
+import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { chainIdToSlug } from './chainSlug';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
 
 // Real Tekton PipelineRuns for an app live in `app-<appName>-cicd` on the
-// `kind-dev` cluster - the only cluster actually running Tekton (confirmed
-// live: `kubectl get crd | grep tekton.dev` returns nothing on kind-prod,
-// nothing runs on kind-man at all - see app-config.yaml's own comment on
-// kind-dev's customResources block). User-confirmed, 2026-09-11.
-// Exported for useTektonResultsRuns.ts - archived runs live in the same
-// namespace on the same (only) Tekton-running cluster as their live
+// control-plane (dev) cluster - the only cluster running Tekton (upper
+// clusters run no Tekton at all). Which cluster that is comes from app-config
+// (tower.controlPlaneCluster, platformConfig.ts), never a literal here.
+// Archived runs live in the same namespace on the same cluster as their live
 // counterparts.
-export const TEKTON_CLUSTER = 'kind-dev';
 const POLL_MS = 6000;
 
 // Deliberately NOT fetched via useCustomResources(entity, [...]) the way
@@ -472,6 +470,7 @@ export function useTektonPipelineRuns(
 ): UseTektonPipelineRunsResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const cluster = usePlatformConfig().controlPlaneCluster;
   const [state, setState] = useState<UseTektonPipelineRunsResult>({ loading: Boolean(appName), runs: [] });
 
   useEffect(() => {
@@ -479,7 +478,12 @@ export function useTektonPipelineRuns(
       setState({ loading: false, runs: [] });
       return undefined;
     }
+    if (!cluster) {
+      setState({ loading: false, runs: [], error: NO_CONTROL_PLANE });
+      return undefined;
+    }
     const namespace = `app-${appName}-cicd`;
+    const tektonCluster: string = cluster;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -489,13 +493,13 @@ export function useTektonPipelineRuns(
           k8sProxyGet<{ items: RawPipelineRun[] }>(
             discoveryApi,
             fetchApi,
-            TEKTON_CLUSTER,
+            tektonCluster,
             `/apis/tekton.dev/v1/namespaces/${namespace}/pipelineruns`,
           ),
           k8sProxyGet<{ items: RawTaskRun[] }>(
             discoveryApi,
             fetchApi,
-            TEKTON_CLUSTER,
+            tektonCluster,
             `/apis/tekton.dev/v1/namespaces/${namespace}/taskruns`,
           ),
         ]);
@@ -516,7 +520,7 @@ export function useTektonPipelineRuns(
         // everything else (including genuinely unrelated flows like the
         // tracing pipeline) rather than this hook guessing what to hide.
         const runs = prList.items
-          .map(pr => toPipelineRunSummary(pr, TEKTON_CLUSTER, taskRunsByName))
+          .map(pr => toPipelineRunSummary(pr, tektonCluster, taskRunsByName))
           .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
         linkFlowSlugsByChainId(runs);
         setState({ loading: false, runs });
@@ -532,7 +536,7 @@ export function useTektonPipelineRuns(
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [appName, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
 }

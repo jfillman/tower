@@ -28,7 +28,7 @@ interface RawSlo {
 // resource gets (see this file's own top comment). 2026-09-15: the real
 // fix for "two SLOs with the same name/service in different environments
 // look identical" - environmentRefName carries the full
-// ApplicationEnvironment XR name (e.g. "checkout-api-kind-prod-proofing"),
+// ApplicationEnvironment XR name (e.g. "checkout-api-example-prod-proofing"),
 // not the bare env a user actually thinks in terms of.
 const ENV_LABEL = 'hangar.io/env';
 

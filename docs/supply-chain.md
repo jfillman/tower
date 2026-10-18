@@ -48,4 +48,4 @@ verified, and nothing on the image contradicting it.
   the same.
 - **The image signature's entry is looked up.** Chains logs it to Rekor but doesn't attach the receipt to the image,
   so Tower finds it among the entries next to the image's attestations, by its exact payload hash and signature.
-- **Read only.** Tower reads Rekor through kiac-dev's API server as its read identity, which cannot write to the log.
+- **Read only.** Tower reads Rekor through <dev-cluster>'s API server as its read identity, which cannot write to the log.

@@ -21,7 +21,7 @@ function Harness({ initial = '' }: { initial?: string }) {
   const [text, setText] = useState(initial);
   return (
     <>
-      <SloPresets ctx={ctx} cluster="kind-dev" text={text} onChange={setText} />
+      <SloPresets ctx={ctx} cluster="example-dev" text={text} onChange={setText} />
       <pre data-testid="yaml">{text}</pre>
     </>
   );
@@ -67,15 +67,15 @@ describe('SloPresets', () => {
     expect(sw('Health check latency').disabled).toBe(true);
     expect(sw('Readiness availability').disabled).toBe(false);
     expect(screen.getByText('no data yet')).toBeTruthy();
-    expect(screen.getByText(/No data yet for this workload on kind-dev/)).toBeTruthy();
+    expect(screen.getByText(/No data yet for this workload on example-dev/)).toBeTruthy();
   });
 
-  it('will not turn one on when Prometheus cannot be reached (kind-prod runs none), and says it cannot tell', () => {
+  it('will not turn one on when Prometheus cannot be reached (example-prod runs none), and says it cannot tell', () => {
     answer = { 'readiness-availability': 'unreachable', 'liveness-availability': 'unreachable', 'health-check-latency': 'unreachable' };
     render(<Harness />);
     for (const p of SLO_PRESETS) expect(sw(p.title).disabled).toBe(true);
     expect(screen.getAllByText('cannot check')).toHaveLength(SLO_PRESETS.length);
-    expect(screen.getAllByText(/could not reach Prometheus on kind-dev/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/could not reach Prometheus on example-dev/).length).toBeGreaterThan(0);
   });
 
   it('still lets one that is already on be turned off, whatever Prometheus says', () => {

@@ -34,7 +34,7 @@ const signoff = (over: Partial<SignoffEvaluation>): SignoffEvaluation => ({
   prNumber: 41,
   prUrl: 'https://github.com/o/gitops-bags/pull/41',
   state: 'merged',
-  mergedBy: 'jfillman',
+  mergedBy: 'example-org',
   mergedAt: '2026-10-14T03:00:00Z',
   approvals: [],
   status: 'shipped-without',
@@ -48,7 +48,7 @@ describe('countedSignoffs', () => {
         signoff({
           approvals: [
             { by: 'second', at: 't', beforeMerge: true, counts: true },
-            { by: 'jfillman', at: 't', beforeMerge: true, counts: false },
+            { by: 'example-org', at: 't', beforeMerge: true, counts: false },
           ],
         }),
       ),
@@ -62,14 +62,14 @@ describe('ReleaseDraftEditor', () => {
     const onSave = jest.fn();
     render(
       <ReleaseDraftEditor
-        saved={{ owner: 'jfillman', notes: { fixed: ['Already written'] } }}
+        saved={{ owner: 'example-org', notes: { fixed: ['Already written'] } }}
         suggested={{ added: ['Bag-tag reprint (#12)'], fixed: ['Cutoff timezone (#13)'] }}
         canEdit
         saving={false}
         onSave={onSave}
       />,
     );
-    expect(screen.getByText(/1 note · owner jfillman/)).toBeTruthy();
+    expect(screen.getByText(/1 note · owner example-org/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Notes and owner' }));
     fireEvent.click(screen.getByRole('button', { name: 'Fill empty sections from the merged PRs' }));
     fireEvent.change(screen.getByLabelText('Release owner'), { target: { value: 'second' } });
@@ -129,7 +129,7 @@ describe('ReleaseSignoffPanel', () => {
   it('shows the notes the team wrote and who signed off', () => {
     render(
       <ReleaseSignoffPanel
-        release={{ mode: 'hand-flown', owner: 'jfillman', notes: { added: ['Bag-tag reprint (#12)'] } }}
+        release={{ mode: 'hand-flown', owner: 'example-org', notes: { added: ['Bag-tag reprint (#12)'] } }}
         signoff={signoff({ status: 'signed', approvals: [{ by: 'second', at: '2026-10-14T02:00:00Z', beforeMerge: true, counts: true }] })}
         signoffEnv="prod"
         mode="hand-flown"

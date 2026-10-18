@@ -67,11 +67,11 @@ const sockets: FakeWebSocket[] = [];
 Element.prototype.scrollIntoView = jest.fn();
 
 // The environment has moved on: its only pod is sky-marshall-new; the sessions below were on sky-marshall-old.
-const env = { env: 'prod', cluster: 'kind-prod', namespace: 'app-sky-marshall-prod', appName: 'sky-marshall', pods: [{ name: 'sky-marshall-new' }] } as unknown as EnvironmentSummary;
+const env = { env: 'prod', cluster: 'example-prod', namespace: 'app-sky-marshall-prod', appName: 'sky-marshall', pods: [{ name: 'sky-marshall-new' }] } as unknown as EnvironmentSummary;
 const at = (min: number) => new Date(Date.now() + min * 60_000).toISOString();
 const row = (over: Partial<BreakglassSession>): BreakglassSession => ({
   id: 'k3j9m2p7q1r5', app: 'sky-marshall', env: 'prod', pod: 'sky-marshall-old', container: 'sky-marshall', mode: 'live', processAccess: false,
-  volumeAccess: false, reason: 'hung connection', requester: 'user:default/jfillman', createdAt: at(-30), expiresAt: at(30),
+  volumeAccess: false, reason: 'hung connection', requester: 'user:default/example-org', createdAt: at(-30), expiresAt: at(30),
   state: 'ended', tier: 'flight', durationMinutes: 30, endedAt: at(-1), endReason: 'ended by user', recycled: true,
   recordingKey: 'sky-marshall/prod/k3j9m2p7q1r5.cast', recordingSha256: 'abc', ...over,
 });
@@ -123,7 +123,7 @@ describe('BreakglassEnvironmentCard', () => {
     listBody = { sessions: [row({ state: 'requested', endedAt: undefined })], user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true };
     await renderCard();
     expect(screen.getByTestId('breakglass-needs-you').textContent).toBe('1');
-    expect(screen.getByTestId('breakglass-to-decide').textContent).toContain('jfillman asks for a 30-minute live session');
+    expect(screen.getByTestId('breakglass-to-decide').textContent).toContain('example-org asks for a 30-minute live session');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Deny' })));
     expect(calls.find(c => c.init?.method === 'POST')!.url).toBe('http://be/api/glidepath/breakglass/sessions/k3j9m2p7q1r5/deny');
   });
@@ -142,7 +142,7 @@ describe('BreakglassEnvironmentCard', () => {
   });
 
   it('lets me start my approved request here, which opens the terminal', async () => {
-    listBody = { sessions: [row({ state: 'approved', requester: 'user:default/riley-roooo', approver: 'user:default/jfillman', endedAt: undefined })], user: 'user:default/riley-roooo', recordingsConfigured: true };
+    listBody = { sessions: [row({ state: 'approved', requester: 'user:default/riley-roooo', approver: 'user:default/example-org', endedAt: undefined })], user: 'user:default/riley-roooo', recordingsConfigured: true };
     postResponse = { status: 200, body: { session: row({ state: 'active', requester: 'user:default/riley-roooo', endedAt: undefined }) } };
     await renderCard();
     expect(screen.getByTestId('breakglass-needs-you').textContent).toBe('1');
@@ -156,9 +156,9 @@ describe('BreakglassEnvironmentCard', () => {
     listBody = { sessions: [row({ state: 'active', endedAt: undefined })], user: 'user:default/riley-roooo', recordingsConfigured: true, canTerminate: true };
     await renderCard();
     const active = screen.getByTestId('breakglass-active');
-    expect(active.textContent).toContain('jfillman');
+    expect(active.textContent).toContain('example-org');
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'End' })));
-    expect(screen.getByTestId('breakglass-confirm-end-k3j9m2p7q1r5').textContent).toContain("End jfillman's session now?");
+    expect(screen.getByTestId('breakglass-confirm-end-k3j9m2p7q1r5').textContent).toContain("End example-org's session now?");
     expect(calls.some(c => c.init?.method === 'POST')).toBe(false);
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Confirm' })));
     expect(calls.find(c => c.init?.method === 'POST')!.url).toBe('http://be/api/glidepath/breakglass/sessions/k3j9m2p7q1r5/end');
@@ -192,7 +192,7 @@ describe('BreakglassEnvironmentCard', () => {
 
   it('phase C: the request card shows the image, the held or running app and the Secrets warning; the approver can keep a live Flight pod with a reason', async () => {
     listBody = {
-      sessions: [row({ state: 'requested', endedAt: undefined, tier: 'flight', mode: 'live', processAccess: true, sensitive: true, podImage: 'ghcr.io/jfillman/sky-marshall:1.4.0-abc1234', podImageId: 'ghcr.io/jfillman/sky-marshall@sha256:0123456789abcdef0123' })],
+      sessions: [row({ state: 'requested', endedAt: undefined, tier: 'flight', mode: 'live', processAccess: true, sensitive: true, podImage: 'ghcr.io/example-org/sky-marshall:1.4.0-abc1234', podImageId: 'ghcr.io/example-org/sky-marshall@sha256:0123456789abcdef0123' })],
       user: 'user:default/riley-roooo', recordingsConfigured: true, canReview: true,
     };
     await renderCard();

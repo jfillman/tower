@@ -10,7 +10,7 @@ jest.mock('./PodRestartControl', () => ({ PodRestartControl: () => null }));
 
 const env = {
   env: 'prod',
-  cluster: 'kind-prod',
+  cluster: 'example-prod',
   namespace: 'app-sky-marshall-prod',
   appName: 'sky-marshall',
   pods: [{ name: 'sky-marshall-abc', phase: 'Running', restarts: 0, containers: ['sky-marshall'] }],

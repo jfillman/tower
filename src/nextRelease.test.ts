@@ -7,8 +7,8 @@ import type { EnvironmentSummary } from './types';
 const REPO = 'ghcr.io/o/bags';
 const env = (over: Partial<EnvironmentSummary> & { env: string }): EnvironmentSummary =>
   ({
-    key: `kind-dev/${over.env}`,
-    cluster: 'kind-dev',
+    key: `example-dev/${over.env}`,
+    cluster: 'example-dev',
     namespace: `bags-${over.env}`,
     deployed: true,
     rolloutPhase: 'Healthy',
@@ -46,7 +46,7 @@ const row = (tag: string, cells: ReleaseRow['cells'], introducedAt: string, nick
 // quiet-heron (version not bumped) and amber-finch (live on dev).
 const environments = [
   env({ env: 'dev', image: `${REPO}:1.9.0-a41f9c2` }),
-  env({ env: 'staging', cluster: 'kind-prod', image: `${REPO}:1.8.2-6f1c0aa` }),
+  env({ env: 'staging', cluster: 'example-prod', image: `${REPO}:1.8.2-6f1c0aa` }),
 ];
 const pipelineOrder = { lower: ['dev'], upper: ['staging'] };
 const releases: ReleaseRow[] = [
@@ -215,10 +215,10 @@ describe('readiness from the saved draft and release mode (R2)', () => {
       ['notes', 'todo'],
       ['owner', 'todo'],
     ]);
-    const handFlown = withFlow({ mode: 'hand-flown', signoffEnv: 'prod', draft: { owner: 'jfillman', notes: { added: ['a', 'b'] } } });
+    const handFlown = withFlow({ mode: 'hand-flown', signoffEnv: 'prod', draft: { owner: 'example-org', notes: { added: ['a', 'b'] } } });
     expect(handFlown.map(i => [i.id, i.state, i.detail])).toEqual([
       ['notes', 'ok', '2 entries in the draft'],
-      ['owner', 'ok', 'jfillman'],
+      ['owner', 'ok', 'example-org'],
       ['signoff', 'todo', 'Hand-flown: the prod release PR needs an approving review from someone other than whoever merges it'],
     ]);
   });

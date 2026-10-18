@@ -446,7 +446,7 @@ export interface PromoteRequest {
 export interface PromoteResult {
   // 'pipeline': the release Pipeline started but had not opened its PR yet when the request returned.
   mode: 'pr' | 'direct-commit' | 'pipeline';
-  // The release PipelineRun a Flight promotion started (app-<app>-cicd on kind-dev).
+  // The release PipelineRun a Flight promotion started (app-<app>-cicd on the control-plane cluster).
   pipelineRun?: string;
   prUrl?: string;
   alreadyOpen?: boolean;
@@ -915,7 +915,7 @@ export interface SloSummary {
   // so this is what actually distinguishes two otherwise-identical-looking
   // SLO cards. Prefer this over environmentRefName for display - that field
   // carries the full ApplicationEnvironment XR name (e.g.
-  // "checkout-api-kind-prod-proofing"), not the bare env a user thinks in
+  // "checkout-api-example-prod-proofing"), not the bare env a user thinks in
   // terms of.
   env?: string;
   service: string;

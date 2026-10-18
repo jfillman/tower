@@ -358,7 +358,7 @@ export function validateAddedFlight(before: EnvDef[], after: EnvDef[], target: s
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
   for (const e of addedFlightEnvs(before, after)) {
     if (cloud) continue; // no cluster and no ApplicationEnvironment request: a cloud Flight environment is a release pin
-    if (!e.cluster) out.push(`Flight environment "${e.name}" needs the cluster it runs on, for example kind-prod.`);
+    if (!e.cluster) out.push(`Flight environment "${e.name}" needs the cluster it runs on (its name in the cluster registry).`);
   }
   return out;
 }

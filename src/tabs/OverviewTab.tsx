@@ -17,10 +17,10 @@ import { RefreshButton } from '../RefreshButton';
 import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TextLink } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
+import { usePlatformConfig } from '../platformConfig';
 
-// grafana.{dev,prod}.kiac.local (real Gateway HTTPRoutes - gitops-cluster-dev
-// and gitops-cluster-kind-prod's 60-gateway-routes/50-gateway-routes,
-// fronting each cluster's kube-prometheus-stack Grafana) is as far as
+// Each cluster's Grafana (tower.clusters.<cluster>.grafanaUrl in app-config,
+// fronting that cluster's kube-prometheus-stack Grafana) is as far as
 // per-app monitoring goes today - no per-app dashboard/panel-embed exists
 // anywhere on this platform (the only Grafana dashboards that exist are
 // platform-cicd's own fleet-wide CI/CD & DORA ones, not per-service
@@ -29,10 +29,6 @@ import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSu
 // promising exactly that - an honest link to the real instance beats a
 // stub promising data that has no source (see ComingSoonTab's own
 // comment on this module's "honest, not faked" posture).
-const GRAFANA_HOST_BY_CLUSTER: Record<string, string> = {
-  'kind-dev': 'grafana.dev.kiac.local',
-  'kind-prod': 'grafana.prod.kiac.local',
-};
 
 // Groups consecutive environments running the exact same live image into
 // one "release track" (see the Release Flow Concepts artifact / "Option A",
@@ -359,6 +355,7 @@ function trackRows<T>(envs: T[], gridWidth: number): T[][] {
 
 export function OverviewTab() {
   const t = useHangarTokens();
+  const platform = usePlatformConfig();
   const classes = useStyles({ t });
   // Width of the environment grid, for splitting a release track into rows (see
   // trackRows). A callback-ref state, not useRef, because the grid only mounts after
@@ -768,10 +765,10 @@ export function OverviewTab() {
         </Hint>
         <div className={classes.monitoringLinks}>
           {[...new Set(pipelineEnvs.map(env => env.cluster))]
-            .map(cluster => ({ cluster, host: GRAFANA_HOST_BY_CLUSTER[cluster] }))
-            .filter((c): c is { cluster: string; host: string } => Boolean(c.host))
-            .map(({ cluster, host }) => (
-              <TextLink key={cluster} href={`http://${host}`}>
+            .map(cluster => ({ cluster, url: platform.clusters[cluster]?.grafanaUrl }))
+            .filter((c): c is { cluster: string; url: string } => Boolean(c.url))
+            .map(({ cluster, url }) => (
+              <TextLink key={cluster} href={url}>
                 Open Grafana ({cluster}) ↗
               </TextLink>
             ))}

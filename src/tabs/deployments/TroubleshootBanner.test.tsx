@@ -9,7 +9,7 @@ const env = (over: Partial<EnvironmentSummary> = {}): EnvironmentSummary =>
   ({
     key: 'pre-prod',
     env: 'pre-prod',
-    cluster: 'kind-prod',
+    cluster: 'example-prod',
     namespace: 'app-boarding-api-pre-prod',
     drift: false,
     pods: [],
@@ -24,7 +24,7 @@ const env = (over: Partial<EnvironmentSummary> = {}): EnvironmentSummary =>
 const ago = (min: number) => new Date(Date.now() - min * 60000).toISOString();
 const podPulling: RawPod = {
   metadata: { name: 'boarding-api-7d9f-abcde', creationTimestamp: ago(3) },
-  status: { phase: 'Pending', containerStatuses: [{ name: 'boarding-api', restartCount: 0, state: { waiting: { reason: 'ImagePullBackOff', message: 'Back-off pulling image "ghcr.io/jfillman/boarding-api:1.1.2"' } } }] },
+  status: { phase: 'Pending', containerStatuses: [{ name: 'boarding-api', restartCount: 0, state: { waiting: { reason: 'ImagePullBackOff', message: 'Back-off pulling image "ghcr.io/example-org/boarding-api:1.1.2"' } } }] },
 };
 const podUnschedulable: RawPod = {
   metadata: { name: 'boarding-api-7d9f-fghij', creationTimestamp: ago(3) },
@@ -39,7 +39,7 @@ describe('the banner for a deployment that is not coming up', () => {
     expect(screen.getByText('1 pod is affected. What Kubernetes reports, and what to try first, is listed below.')).toBeTruthy();
     expect(screen.queryByText(/Canary rollout in progress/)).toBeNull();
     const details = within(screen.getByLabelText('What Kubernetes reports'));
-    expect(details.getByText(/Back-off pulling image "ghcr.io\/jfillman\/boarding-api:1.1.2"/)).toBeTruthy();
+    expect(details.getByText(/Back-off pulling image "ghcr.io\/example-org\/boarding-api:1.1.2"/)).toBeTruthy();
     expect(details.getByText(/registry credentials/)).toBeTruthy(); // the next step, in plain words
     expect(details.getByText(/1 pod: boarding-api-7d9f-abcde/)).toBeTruthy();
   });

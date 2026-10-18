@@ -537,7 +537,7 @@ function useDataKit() {
 }
 
 /**
- * A label over its value (Source repo / jfillman/boarding-api), or `inline`: label left, value right, rows ruled
+ * A label over its value (Source repo / example-org/boarding-api), or `inline`: label left, value right, rows ruled
  * (an environment card's Replicas 2 / 2). Put stacked facts in a `FactGrid`.
  */
 export function Fact({ label, inline, title, children }: { label: ReactNode; inline?: boolean; title?: string; children: ReactNode }) {

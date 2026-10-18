@@ -17,8 +17,8 @@ const renderPanel = () =>
     </MemoryRouter>,
   );
 
-const newShape = { values: { deploy: { environments: [{ name: 'dev', tier: 'ground' }, { name: 'test', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'kind-prod' }, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }] } } };
-const oldShape = { values: { deploy: { lowerEnvironments: ['dev'], upperEnvironments: [{ name: 'staging', cluster: 'kind-prod' }, 'prod'], promotionOrder: ['dev', 'staging', 'prod'] } } };
+const newShape = { values: { deploy: { environments: [{ name: 'dev', tier: 'ground' }, { name: 'test', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'example-prod' }, { name: 'prod', tier: 'flight', cluster: 'example-prod' }] } } };
+const oldShape = { values: { deploy: { lowerEnvironments: ['dev'], upperEnvironments: [{ name: 'staging', cluster: 'example-prod' }, 'prod'], promotionOrder: ['dev', 'staging', 'prod'] } } };
 
 describe('Glidepath at a glance', () => {
   it('always shows every environment in promotion order with its tier, Ground and Flight', () => {
@@ -46,7 +46,7 @@ describe('Glidepath at a glance', () => {
     expect(screen.queryByText(/upper env/i)).toBeNull();
     expect(screen.getByText('glidepath/envs/dev.yaml')).toBeTruthy(); // a Ground environment with a values file
     expect(screen.getByText('chart defaults, no values file yet')).toBeTruthy(); // test has none
-    expect(screen.getAllByText('kind-prod · gitops values')).toHaveLength(2);
+    expect(screen.getAllByText('example-prod · gitops values')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Hide details' }));
     expect(screen.queryByText('glidepath/envs/dev.yaml')).toBeNull();
   });

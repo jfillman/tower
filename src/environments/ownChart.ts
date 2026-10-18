@@ -11,7 +11,9 @@ export interface ChartRef {
   targetRevision?: string;
 }
 
-const AIRFRAME = { repoURL: 'https://github.com/jfillman/airframe.git', path: 'charts/airframe-application' };
+// The fleet's Airframe chart comes from app-config (tower.airframe, platformConfig.ts). Without it only the path is
+// known: an environment that names any repoURL is then treated as rendering its own chart (edited as raw YAML).
+const AIRFRAME_PATH = 'charts/airframe-application';
 
 function over(base: ChartRef, o: ChartRef | undefined): ChartRef {
   if (!o) return base;
@@ -29,11 +31,15 @@ function over(base: ChartRef, o: ChartRef | undefined): ChartRef {
   return r;
 }
 
-export function ownChartOf(deploy: Deploy | undefined, env: string): ChartRef | undefined {
+export function ownChartOf(
+  deploy: Deploy | undefined,
+  env: string,
+  airframe: ChartRef = { path: AIRFRAME_PATH },
+): ChartRef | undefined {
   const d = deploy as (Deploy & { chart?: ChartRef; target?: string; environments?: Array<{ name: string; chart?: ChartRef }> }) | undefined;
   if ((d?.target ?? 'k8s-rollout') !== 'k8s-rollout') return undefined;
-  const r = over(over(AIRFRAME, d?.chart), d?.environments?.find((e: { name: string }) => e.name === env)?.chart);
-  return r.repoURL === AIRFRAME.repoURL && !r.chart && r.path === AIRFRAME.path ? undefined : r;
+  const r = over(over(airframe, d?.chart), d?.environments?.find((e: { name: string }) => e.name === env)?.chart);
+  return r.repoURL === airframe.repoURL && !r.chart && r.path === airframe.path ? undefined : r;
 }
 
 export function describeChart(c: ChartRef): string {

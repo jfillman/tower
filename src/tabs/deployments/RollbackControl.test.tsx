@@ -15,13 +15,13 @@ jest.mock('@backstage/core-plugin-api', () => ({
 }));
 
 const plan = {
-  current: { releaseId: 'bad:kind-prod/staging', image: 'ghcr.io/o/sky-marshall:0.1.3-ccc', state: 'aborted' },
+  current: { releaseId: 'bad:example-prod/staging', image: 'ghcr.io/o/sky-marshall:0.1.3-ccc', state: 'aborted' },
   targets: [
-    { releaseId: 'good:kind-prod/staging', image: 'ghcr.io/o/sky-marshall:0.1.2-bbb', healthyAt: '2026-10-09T00:00:00Z', state: 'superseded' },
+    { releaseId: 'good:example-prod/staging', image: 'ghcr.io/o/sky-marshall:0.1.2-bbb', healthyAt: '2026-10-09T00:00:00Z', state: 'superseded' },
   ],
 };
 const renderIt = (allowed = true) =>
-  render(<RollbackControl owner="jfillman" appName="sky-marshall" env="staging" cluster="kind-prod" allowed={allowed} />);
+  render(<RollbackControl owner="example-org" appName="sky-marshall" env="staging" cluster="example-prod" allowed={allowed} />);
 
 beforeEach(() => {
   calls.length = 0;
@@ -32,7 +32,7 @@ describe('RollbackControl', () => {
     mockPlan = plan;
     renderIt();
     await screen.findByText('0.1.3-ccc');
-    expect(calls[0].url).toBe('http://be/api/glidepath/release/rollback-plan?appName=sky-marshall&env=staging&cluster=kind-prod');
+    expect(calls[0].url).toBe('http://be/api/glidepath/release/rollback-plan?appName=sky-marshall&env=staging&cluster=example-prod');
     expect(screen.getByRole('option').textContent).toMatch(/^0\.1\.2-bbb - healthy/);
   });
 
@@ -51,11 +51,11 @@ describe('RollbackControl', () => {
     const post = calls.find(c => c.init?.method === 'POST')!;
     expect(post.url).toBe('http://be/api/glidepath/release/rollback');
     expect(JSON.parse(String(post.init!.body))).toEqual({
-      owner: 'jfillman',
+      owner: 'example-org',
       appName: 'sky-marshall',
       env: 'staging',
-      cluster: 'kind-prod',
-      targetReleaseId: 'good:kind-prod/staging',
+      cluster: 'example-prod',
+      targetReleaseId: 'good:example-prod/staging',
       reason: 'canary aborted on error rate',
     });
     await screen.findByText(/Rollback PR opened/);

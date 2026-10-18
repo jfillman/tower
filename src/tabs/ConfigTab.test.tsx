@@ -10,7 +10,7 @@ const files: Record<string, any> = {
 jest.mock('../useReleaseContext', () => ({ useReleaseContext: () => ({ owner: 'o', appName: 'boarding-api', loading: false }) }));
 jest.mock('../values/annotatedValues', () => ({ ...jest.requireActual('../values/annotatedValues'), useChartValues: () => undefined }));
 jest.mock('../values/componentCatalog', () => ({ ...jest.requireActual('../values/componentCatalog'), useComponentCatalog: () => undefined }));
-const DEFAULT_DEPLOY = { environments: [{ name: 'dev', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'kind-prod' }, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }] };
+const DEFAULT_DEPLOY = { environments: [{ name: 'dev', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'example-prod' }, { name: 'prod', tier: 'flight', cluster: 'example-prod' }] };
 let deploy: any = DEFAULT_DEPLOY;
 const flightTargets: any[] = [];
 const submitFlight = jest.fn();
@@ -18,7 +18,7 @@ jest.mock('../useConfigData', () => ({
   useCicdConfig: () => ({ loading: false, data: { values: { deploy } } }),
   useFlightBase: (target: any) => {
     flightTargets.push(target);
-    return { loading: false, data: { values: { rollout: { replicas: 3 } }, raw: 'rollout:\n  replicas: 3\n', path: 'kind-prod/base.yaml' } };
+    return { loading: false, data: { values: { rollout: { replicas: 3 } }, raw: 'rollout:\n  replicas: 3\n', path: 'example-prod/base.yaml' } };
   },
   useSubmitFlightBase: () => ({ loading: false, submit: submitFlight, reset: jest.fn() }),
   usePlatformFile: (target: any) => {
@@ -48,24 +48,24 @@ describe('App Configuration', () => {
     expect(selectors[selectors.length - 1]).toEqual({ kind: 'pr-env' });
     expect((screen.getByRole('spinbutton', { name: /^Replicas$/ }) as HTMLInputElement).value).toBe('2');
     fireEvent.click(screen.getByRole('tab', { name: 'Flight shared values' }));
-    expect(flightTargets[flightTargets.length - 1]).toEqual({ owner: 'o', appName: 'boarding-api', cluster: 'kind-prod' });
-    expect(screen.getByText('gitops-boarding-api/kind-prod/base.yaml')).toBeTruthy();
+    expect(flightTargets[flightTargets.length - 1]).toEqual({ owner: 'o', appName: 'boarding-api', cluster: 'example-prod' });
+    expect(screen.getByText('gitops-boarding-api/example-prod/base.yaml')).toBeTruthy();
     expect((screen.getByRole('spinbutton', { name: /^Replicas$/ }) as HTMLInputElement).value).toBe('3');
   });
 
   it('names each cluster when Flight environments span several', () => {
-    deploy = { environments: [{ name: 'staging', tier: 'flight', cluster: 'kind-prod' }, { name: 'eu', tier: 'flight', cluster: 'kind-eu' }] };
+    deploy = { environments: [{ name: 'staging', tier: 'flight', cluster: 'example-prod' }, { name: 'eu', tier: 'flight', cluster: 'kind-eu' }] };
     renderTab();
     expect(sectionTabs()).toEqual([
       'Ground shared values',
-      'Flight shared values (kind-prod)',
+      'Flight shared values (example-prod)',
       'Flight shared values (kind-eu)',
       'Preview environments',
     ]);
   });
 
   it('edits shared values as raw YAML for an app on its own chart, but keeps the form for the preview template', () => {
-    deploy = { chart: { repoURL: 'https://github.com/o/charts.git', path: 'web', targetRevision: 'v1' }, environments: [{ name: 'prod', tier: 'flight', cluster: 'kind-prod' }] };
+    deploy = { chart: { repoURL: 'https://github.com/o/charts.git', path: 'web', targetRevision: 'v1' }, environments: [{ name: 'prod', tier: 'flight', cluster: 'example-prod' }] };
     renderTab();
     expect(screen.queryByRole('spinbutton', { name: /^Replicas$/ })).toBeNull();
     expect(screen.getByText(/github.com\/o\/charts.git web@v1/)).toBeTruthy();

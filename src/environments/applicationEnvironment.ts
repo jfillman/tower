@@ -17,7 +17,7 @@ const ENV_NAME = /^[a-z][a-z0-9-]{0,30}$/;
 export interface LaunchEnvironmentInput {
   appName: string;
   env: string;
-  /** The registered upper cluster the environment runs on, for example kind-prod. */
+  /** The registered upper cluster the environment runs on (its cluster-registry name). */
   cluster: string;
 }
 

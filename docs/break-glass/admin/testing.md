@@ -20,10 +20,10 @@ A dry run goes through admission like a real request, so it tests the **live** p
 **As Backstage**, for rules that depend on the requester (RoleBindings, pod deletes):
 
 ```bash
-SA=system:serviceaccount:backstage:backstage-ingestor   # kind-prod
-# kiac-dev: --as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod, and a User subject:
-#   subjects: [{kind: User, apiGroup: rbac.authorization.k8s.io, name: hangar:kind-prod:tower-actor}]
-cat <<EOF | kubectl --context kind-prod --as=$SA create --dry-run=server -f -
+SA=system:serviceaccount:backstage:backstage-ingestor   # <prod-cluster>
+# <dev-cluster>: --as=hangar:<prod-cluster>:tower-actor --as-group=hangar:<prod-cluster>, and a User subject:
+#   subjects: [{kind: User, apiGroup: rbac.authorization.k8s.io, name: hangar:<prod-cluster>:tower-actor}]
+cat <<EOF | kubectl --context <prod-cluster> --as=$SA create --dry-run=server -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -48,12 +48,12 @@ so an admin's dry run exercises it with no grant needed. Vary one field per run 
 | `runAsGroup: 0`, or a capability added, or a writable mount | denied |
 | `hostNetwork: true` (Flight) | denied: no host namespaces |
 
-On kiac-dev the debug-container rules exempt `system:masters`, so test them as Backstage under a real copy grant: create a
+On <dev-cluster> the debug-container rules exempt `system:masters`, so test them as Backstage under a real copy grant: create a
 `tower-breakglass-<name>` RoleBinding with a `15m` TTL as Backstage, run the dry runs as Backstage, delete the binding.
 
 ## Testing a policy rule in isolation
 
-Before changing a rule, test the exact CEL on kiac-dev without touching the live policies:
+Before changing a rule, test the exact CEL on <dev-cluster> without touching the live policies:
 
 1. Extract the rule into a throwaway ValidatingAdmissionPolicy, bound with `matchResources.namespaceSelector` to a
    scratch namespace only.
@@ -62,7 +62,7 @@ Before changing a rule, test the exact CEL on kiac-dev without touching the live
 3. Dry-run every allow and every deny case into the scratch namespace.
 4. Delete the namespace, the policy and the binding.
 
-For example, the glass-broken approver rule (kind-prod#270) was tested this way against eight cases: a distinct
+For example, the glass-broken approver rule (<prod-cluster>#270) was tested this way against eight cases: a distinct
 approver, glass broken with no approver (both admitted); approver equal to the requester, glass broken plus an approver,
 glass broken `"false"`, neither, no requester, no annotations (all refused).
 
@@ -75,13 +75,13 @@ identity** on each cluster, so the real RBAC and the real policies apply.
 2. **Impersonating proxies**, one per cluster:
 
    ```bash
-   kubectl --context kiac-dev  --as=hangar:kind-prod:tower-actor --as-group=hangar:kind-prod proxy --port=8013 --reject-paths='^/never$' &
-   kubectl --context kind-prod --as=system:serviceaccount:backstage:backstage-ingestor        proxy --port=8014 --reject-paths='^/never$' &
+   kubectl --context <dev-cluster>  --as=hangar:<prod-cluster>:tower-actor --as-group=hangar:<prod-cluster> proxy --port=8013 --reject-paths='^/never$' &
+   kubectl --context <prod-cluster> --as=system:serviceaccount:backstage:backstage-ingestor        proxy --port=8014 --reject-paths='^/never$' &
    ```
 
    `--reject-paths` replaces kubectl proxy's default, which blocks `attach` and `exec`. Point the config's clusters
-   (`kind-dev`, `kind-prod`) at `http://localhost:8013` and `:8014`.
-3. **A throwaway recordings store**: a MinIO pod in a scratch namespace on kiac-dev, port-forwarded to `:9000`, with a
+   (`<dev-cluster>`, `<prod-cluster>`) at `http://localhost:8013` and `:8014`.
+3. **A throwaway recordings store**: a MinIO pod in a scratch namespace on <dev-cluster>, port-forwarded to `:9000`, with a
    `tower-breakglass` bucket. Set `glidepath.breakglass.recordings.endpoint: http://127.0.0.1:9000` and the
    `TOWER_BREAKGLASS_MINIO_*` variables to its own (generated) credentials. Never the real key.
 4. **A file-backed database** (`backend.database.client: better-sqlite3`, `connection.directory: <dir>`) so sessions

@@ -9,7 +9,7 @@ import type { EnvironmentSummary } from '../types';
 
 const env = (over: Partial<EnvironmentSummary> & { env: string }): EnvironmentSummary => ({
   key: over.env,
-  cluster: 'kind-dev',
+  cluster: 'example-dev',
   namespace: `app-x-${over.env}`,
   drift: false,
   pods: [],
@@ -23,9 +23,9 @@ let cicdData: any;
 let submitState: any;
 let platformFile: any;
 // Stable objects: the form re-initialises whenever the data object changes, as the real hooks' state does not.
-const flightConfig = { loading: false, data: { values: { rollout: { replicas: 2 } }, raw: 'rollout:\n  replicas: 2\n', path: 'gitops-air-traffic-api/kind-prod/staging/values.yaml' } };
+const flightConfig = { loading: false, data: { values: { rollout: { replicas: 2 } }, raw: 'rollout:\n  replicas: 2\n', path: 'gitops-air-traffic-api/example-prod/staging/values.yaml' } };
 const envXr = { loading: false, data: { env: 'staging', path: 'p', configMapGenerator: false } };
-const configMapFiles = { loading: false, data: { cluster: 'kind-prod', env: 'staging', path: 'p', files: [] } };
+const configMapFiles = { loading: false, data: { cluster: 'example-prod', env: 'staging', path: 'p', files: [] } };
 const platformSubmitMock = jest.fn();
 const submitMock = jest.fn();
 const resetMock = jest.fn();
@@ -75,7 +75,7 @@ const renderTab = () => {
 };
 const rerenderTab = () => rerenderFn(tabUi());
 
-const base = { loading: false, error: undefined, owner: 'jfillman', appName: 'air-traffic-api' };
+const base = { loading: false, error: undefined, owner: 'example-org', appName: 'air-traffic-api' };
 
 beforeEach(() => {
   submitMock.mockReset();
@@ -95,7 +95,7 @@ const k8sOld = () => {
   ctx = {
     ...base,
     pipelineOrder: { lower: ['dev', 'test'], upper: ['staging'] },
-    environments: [env({ env: 'dev' }), env({ env: 'test' }), env({ env: 'staging', cluster: 'kind-prod' })],
+    environments: [env({ env: 'dev' }), env({ env: 'test' }), env({ env: 'staging', cluster: 'example-prod' })],
   };
   cicdData = {
     values: {
@@ -103,7 +103,7 @@ const k8sOld = () => {
         environments: [
           { name: 'dev', tier: 'ground' },
           { name: 'test', tier: 'ground' },
-          { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+          { name: 'staging', tier: 'flight', cluster: 'example-prod' },
         ],
         strategy: 'rollout',
       },
@@ -173,7 +173,7 @@ describe('EnvironmentsTab: reading', () => {
       pipelineOrder: { lower: ['dev'], upper: ['staging'] },
       environments: [
         env({ env: 'dev', image: 'ghcr.io/o/x:0.1.0-39c3455', deployed: true, deployedAt: new Date().toISOString(), rolloutPhase: 'Healthy', desiredReplicas: 2, availableReplicas: 2 }),
-        env({ env: 'staging', cluster: 'kind-prod', deployed: false }),
+        env({ env: 'staging', cluster: 'example-prod', deployed: false }),
       ],
     };
     renderTab();
@@ -183,12 +183,12 @@ describe('EnvironmentsTab: reading', () => {
     expect(dev.getByText('dev')).toBeTruthy();
     expect(dev.getByText('Ground')).toBeTruthy();
     expect(dev.getByText('Kubernetes')).toBeTruthy();
-    expect(dev.getByText('kind-dev')).toBeTruthy();
+    expect(dev.getByText('example-dev')).toBeTruthy();
     expect(dev.getByText('Healthy')).toBeTruthy();
     expect(dev.getByText('0.1.0-39c3455')).toBeTruthy();
     const staging = within(rows[1]);
     expect(staging.getByText('Flight')).toBeTruthy();
-    expect(staging.getByText('kind-prod')).toBeTruthy();
+    expect(staging.getByText('example-prod')).toBeTruthy();
     expect(staging.getByText('not deployed yet')).toBeTruthy();
   });
 
@@ -248,7 +248,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
     expect(submitMock).toHaveBeenCalledTimes(1);
     const req = submitMock.mock.calls[0][0];
-    expect(req.owner).toBe('jfillman');
+    expect(req.owner).toBe('example-org');
     expect(req.appName).toBe('air-traffic-api');
     expect(req.patch.deploy).toEqual({
       strategy: 'rollout',
@@ -256,7 +256,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
         { name: 'dev', tier: 'ground' },
         { name: 'test', tier: 'ground' },
         { name: 'qa', tier: 'ground' },
-        { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+        { name: 'staging', tier: 'flight', cluster: 'example-prod' },
       ],
     });
     expect(req.summary).toEqual(['Add environment qa']);
@@ -313,9 +313,9 @@ describe('EnvironmentsTab: reordering', () => {
 
   it('reorders Flight environments too, and says the pipeline order is separate', async () => {
     k8sOld();
-    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }];
+    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'example-prod' }];
     ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
-    ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
+    ctx.environments.push(env({ env: 'prod', cluster: 'example-prod' }));
     renderTab();
     await chooseAction('prod', 'Move earlier');
     expect(panel().getByText('dev to test to prod to staging')).toBeTruthy();
@@ -359,9 +359,9 @@ describe('EnvironmentsTab: reordering', () => {
 
   it('drags a Flight environment onto another Flight environment', () => {
     k8sOld();
-    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'kind-prod' }];
+    cicdData.values.deploy.environments = [...cicdData.values.deploy.environments, { name: 'prod', tier: 'flight', cluster: 'example-prod' }];
     ctx.pipelineOrder = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
-    ctx.environments.push(env({ env: 'prod', cluster: 'kind-prod' }));
+    ctx.environments.push(env({ env: 'prod', cluster: 'example-prod' }));
     renderTab();
     dragRow('prod', 'staging');
     expect(panel().getByText('dev to test to prod to staging')).toBeTruthy();
@@ -419,7 +419,7 @@ describe('EnvironmentsTab: the result', () => {
     k8sOld();
     renderTab();
     await stageAdd('qa');
-    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9', alreadyOpen: false } };
     rerenderTab();
     expect(screen.getByText(/pull\/9/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
@@ -438,7 +438,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(screen.getByLabelText('Cluster')).toBeTruthy();
     expect(screen.getByText(/opens two pull requests/)).toBeTruthy();
     // clusters this app's Flight environments already use are offered as suggestions
-    expect(document.querySelector('datalist#flight-clusters option')?.getAttribute('value')).toBe('kind-prod');
+    expect(document.querySelector('datalist#flight-clusters option')?.getAttribute('value')).toBe('example-prod');
   });
 
   it('offers Flight for a cloud app as a release pin environment, with no cluster and no tenants request', () => {
@@ -479,12 +479,12 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
   it('lists both pull requests in the order they open, and says which to merge first', async () => {
     k8sOld();
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     expect(panel().getByText('Add environment prod')).toBeTruthy();
     expect(panel().getByText('Pull requests this opens, in this order')).toBeTruthy();
     expect(panel().getByText('tenants repo')).toBeTruthy();
     expect(panel().getByText('ApplicationEnvironment request for prod')).toBeTruthy();
-    expect(panel().getByText('jfillman/air-traffic-api')).toBeTruthy();
+    expect(panel().getByText('example-org/air-traffic-api')).toBeTruthy();
     expect(panel().getByText('1')).toBeTruthy(); // numbered in the order they open
     expect(panel().getByText('2')).toBeTruthy();
     expect(panel().getByText(/Merge that one before the cicd\.yaml change/)).toBeTruthy();
@@ -496,22 +496,22 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('launches the ApplicationEnvironment request first, then submits cicd.yaml with the Flight entry', async () => {
     k8sOld();
-    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42' });
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
-    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'kind-prod' });
+    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod' });
     expect(launchMock.mock.invocationCallOrder[0]).toBeLessThan(submitMock.mock.invocationCallOrder[0]);
     const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
-    expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'kind-prod' });
+    expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'example-prod' });
   });
 
   it('opens no cicd.yaml change when the request fails, says so, and keeps what was staged', async () => {
     k8sOld();
     launchMock.mockResolvedValue({ status: 'failed', error: 'cluster not registered' });
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     expect(await screen.findByText(/Creating prod failed: cluster not registered/)).toBeTruthy();
     expect(screen.getByText(/Nothing was changed in cicd\.yaml/)).toBeTruthy();
@@ -523,7 +523,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('does not open the request twice when only the cicd.yaml step has to be retried', async () => {
     k8sOld();
-    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42' });
     submitMock.mockImplementationOnce(async () => {
       submitState = { loading: false, error: 'GitHub is unavailable' };
     });
@@ -531,7 +531,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
       submitState = { loading: false };
     });
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     // the request opened, then cicd.yaml failed: both facts are shown
     expect(await screen.findByText(/GitHub is unavailable/)).toBeTruthy();
@@ -548,12 +548,12 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
 
   it('shows both pull requests and the merge order once everything opened', async () => {
     k8sOld();
-    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/jfillman/gitops-cluster-dev-tenants/pull/42' });
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42' });
     submitMock.mockImplementationOnce(async () => {
-      submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+      submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9', alreadyOpen: false } };
     });
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     expect(await screen.findByText(/Pull requests opened/)).toBeTruthy();
     const dialog = within(screen.getByRole('dialog'));
@@ -645,7 +645,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Danger zone' }));
     expect(screen.getByText('Removing a Flight environment')).toBeTruthy();
     expect(screen.getByText('tenants/air-traffic-api/staging/')).toBeTruthy();
-    expect(screen.getByText('kind-prod/staging/')).toBeTruthy();
+    expect(screen.getByText('example-prod/staging/')).toBeTruthy();
   });
 });
 
@@ -685,7 +685,7 @@ describe('EnvironmentsTab: the values of a Ground environment', () => {
     fireEvent.click(values.getByRole('button', { name: 'Open pull request' }));
     await waitFor(() => expect(platformSubmitMock).toHaveBeenCalledTimes(1));
     const req = platformSubmitMock.mock.calls[0][0];
-    expect(req).toMatchObject({ owner: 'jfillman', appName: 'air-traffic-api', selector: { kind: 'env', env: 'test' } });
+    expect(req).toMatchObject({ owner: 'example-org', appName: 'air-traffic-api', selector: { kind: 'env', env: 'test' } });
     expect(req.patch.rollout.replicas).toBe(3);
     expect(submitMock).not.toHaveBeenCalled();
   });
@@ -729,7 +729,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
   it('is offered on, and staged as its own line in the panel', async () => {
     withPipeline();
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     expect(panel().getByText('Add a release step for prod')).toBeTruthy();
     expect(panel().getByText(/pipeline ci, after the step for staging/)).toBeTruthy();
   });
@@ -738,7 +738,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
     withPipeline();
     launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/o/tenants/pull/1' });
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(panel().getByRole('button', { name: 'Open pull requests' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     const req = submitMock.mock.calls[0][0];
@@ -753,7 +753,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
     fireEvent.click(screen.getByLabelText(/^Flight/));
-    fireEvent.change(screen.getByLabelText('Cluster'), { target: { value: 'kind-prod' } });
+    fireEvent.change(screen.getByLabelText('Cluster'), { target: { value: 'example-prod' } });
     fireEvent.click(screen.getByLabelText('Also add a release step for it to the pipeline'));
     fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -766,7 +766,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
   it('says so when there is no pipeline to add it to, and still opens the environment change', async () => {
     k8sOld();
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     expect(panel().getByText(/No release step added for prod/)).toBeTruthy();
     expect(panel().queryByText('Add a release step for prod')).toBeNull();
   });
@@ -781,7 +781,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
   it('un-staging the environment drops its release step too', async () => {
     withPipeline();
     renderTab();
-    await stageFlight('prod', 'kind-prod');
+    await stageFlight('prod', 'example-prod');
     fireEvent.click(panel().getByRole('button', { name: 'Discard all' }));
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
   });
@@ -856,7 +856,7 @@ describe('EnvironmentsTab: the table', () => {
 describe('EnvironmentsTab: after a pull request is opened', () => {
   const openAndClose = async () => {
     await stageAdd('qa');
-    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9', alreadyOpen: false } };
     rerenderTab();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     submitState = { loading: false };
@@ -870,7 +870,7 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
     const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'qaPR open', 'staging']); // a Ground environment goes before the Flight ones
     const open = within(screen.getByRole('region', { name: 'Open pull requests' }));
-    expect(open.getByRole('link', { name: 'cicd.yaml pull request' }).getAttribute('href')).toBe('https://github.com/jfillman/air-traffic-api/pull/9');
+    expect(open.getByRole('link', { name: 'cicd.yaml pull request' }).getAttribute('href')).toBe('https://github.com/example-org/air-traffic-api/pull/9');
     expect(open.getByText(/Add environment qa/)).toBeTruthy();
   });
 
@@ -897,7 +897,7 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
             { name: 'dev', tier: 'ground' },
             { name: 'test', tier: 'ground' },
             { name: 'qa', tier: 'ground' },
-            { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+            { name: 'staging', tier: 'flight', cluster: 'example-prod' },
           ],
         },
       },
@@ -932,7 +932,7 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
     k8sOld();
     renderTab();
     await confirmRemoveFromMenu('test');
-    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/10', alreadyOpen: false } };
+    submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/10', alreadyOpen: false } };
     rerenderTab();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     submitState = { loading: false };
@@ -1007,7 +1007,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     expect(panel().getByText('Add environment qa')).toBeTruthy();
     fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
-    expect(loadValuesMock).toHaveBeenCalledWith({ owner: 'jfillman', appName: 'air-traffic-api', env: 'test', tier: 'ground', cluster: undefined });
+    expect(loadValuesMock).toHaveBeenCalledWith({ owner: 'example-org', appName: 'air-traffic-api', env: 'test', tier: 'ground', cluster: undefined });
     const req = submitMock.mock.calls[0][0];
     expect(req.createFiles).toHaveLength(1);
     expect(req.createFiles[0].path).toBe('glidepath/envs/qa.yaml');
@@ -1046,7 +1046,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     renderTab();
     openMenu('staging');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
-    expect((screen.getByLabelText('Cluster') as HTMLInputElement).value).toBe('kind-prod');
+    expect((screen.getByLabelText('Cluster') as HTMLInputElement).value).toBe('example-prod');
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
     await stage();
     expect(panel().getByText(/prod is a copy of staging/)).toBeTruthy();
@@ -1071,7 +1071,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     k8sOld();
     renderTab();
     await stageAdd('qa');
-    submitState = { loading: false, result: { prUrl: 'https://github.com/jfillman/air-traffic-api/pull/9', alreadyOpen: false } };
+    submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9', alreadyOpen: false } };
     rerenderTab();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     submitState = { loading: false };

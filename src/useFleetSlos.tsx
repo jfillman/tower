@@ -9,8 +9,8 @@ import type { PrometheusSample } from './usePrometheusQuery';
 // fleet-wide would be N Prometheus calls). Sloth's recording rules already
 // carry sloth_service/sloth_slo as labels on every sample, so dropping the
 // selector entirely and querying once PER CLUSTER returns every SLO on that
-// cluster in one shot - with this platform's real 1-2 registered clusters
-// (kind-dev/kind-prod), that's 1-2 total Prometheus calls for the entire
+// cluster in one shot - with a fleet of 1-2 registered clusters
+// (a dev and a prod cluster), that's 1-2 total Prometheus calls for the entire
 // fleet, not one per app. New query shape (broader than any existing call in
 // this codebase) - live-verify against a real cluster before trusting the
 // numbers it produces.

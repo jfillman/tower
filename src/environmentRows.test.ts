@@ -3,7 +3,7 @@ import type { EnvironmentSummary } from './types';
 
 const env = (over: Partial<EnvironmentSummary> & { env: string }): EnvironmentSummary => ({
   key: over.env,
-  cluster: 'kind-dev',
+  cluster: 'example-dev',
   namespace: `app-x-${over.env}`,
   drift: false,
   pods: [],
@@ -17,11 +17,11 @@ const order = { lower: ['dev', 'test'], upper: ['staging', 'prod'] };
 describe('buildEnvironmentRows', () => {
   it('keeps the given (promotion) order and classes each environment by the app\'s own cicd.yaml', () => {
     const rows = buildEnvironmentRows(
-      [env({ env: 'dev' }), env({ env: 'test' }), env({ env: 'staging', cluster: 'kind-prod' }), env({ env: 'prod', cluster: 'kind-prod' })],
+      [env({ env: 'dev' }), env({ env: 'test' }), env({ env: 'staging', cluster: 'example-prod' }), env({ env: 'prod', cluster: 'example-prod' })],
       order,
     );
     expect(rows.map(r => `${r.name}:${r.tier}`)).toEqual(['dev:ground', 'test:ground', 'staging:flight', 'prod:flight']);
-    expect(rows[2].where).toBe('kind-prod');
+    expect(rows[2].where).toBe('example-prod');
     expect(rows[2].target).toBe('Kubernetes');
   });
 
@@ -82,7 +82,7 @@ describe('envListsOf', () => {
       envListsOf({
         environments: [
           { name: 'dev', tier: 'ground' },
-          { name: 'staging', tier: 'flight', cluster: 'kind-prod' },
+          { name: 'staging', tier: 'flight', cluster: 'example-prod' },
         ],
       }),
     ).toEqual({ lower: ['dev'], order: ['dev', 'staging'] });

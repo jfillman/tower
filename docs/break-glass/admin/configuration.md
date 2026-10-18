@@ -7,11 +7,11 @@ Everything break-glass reads, sets or names, in one place. Source of truth: back
 
 | Key | Default | Meaning |
 |---|---|---|
-| `glidepath.breakglass.groundClusters` | `[kind-dev]` | Clusters whose environments are Ground when the app's `cicd.yaml` does not name the environment (infra services). Every other cluster is Flight. |
-| `glidepath.breakglass.recordings.endpoint` | `http://minio.dev.kiac.local:8080` | S3 endpoint of the recordings store (path-style). |
+| `glidepath.breakglass.groundClusters` | `[<dev-cluster>]` | Clusters whose environments are Ground when the app's `cicd.yaml` does not name the environment (infra services). Every other cluster is Flight. |
+| `glidepath.breakglass.recordings.endpoint` | `http://minio.<dev-domain>:8080` | S3 endpoint of the recordings store (path-style). |
 | `glidepath.breakglass.recordings.bucket` | `tower-breakglass` | Where new recordings go. Set it to the object-locked `tower-breakglass-v2` once the key's policy covers it; a session refuses to start if the first object cannot be written. |
 | `glidepath.breakglass.recordings.legacyBucket` | `tower-breakglass` when `bucket` is another | Where rows without a `recording_bucket` (written before phase B) are read from. |
-| `glidepath.breakglass.anchor.rekorUrl` | `http://rekor.dev.kiac.local:8080` | The Rekor the recording hashes are anchored in. |
+| `glidepath.breakglass.anchor.rekorUrl` | `http://rekor.<dev-domain>:8080` | The Rekor the recording hashes are anchored in. |
 | `glidepath.breakglass.anchor.privateKey` | none | The anchor key (ECDSA, PEM). Prefer the environment variable below. |
 | `glidepath.breakglass.reviewers` | `[group:default/admins]` | Groups whose members may **review** a glass-broken session on any app (never approve or start one), besides the app's owners and the admins. This platform: `[group:default/breakglass-reviewers]` (examples/org.yaml). |
 | `glidepath.breakglass.recordings.region` | `us-east-1` | S3 region (MinIO ignores it; the SDK needs one). |
@@ -57,7 +57,7 @@ Compiled into the backend; changing one is a code change (and, for the TTLs, a p
 
 | Setting | Value |
 |---|---|
-| Image | `ghcr.io/jfillman/tower-debug@sha256:5554edfd06b79c0bb295d4df063107016abc48334614c9e34440bc099b497b8c` (`DEBUG_IMAGE`) |
+| Image | `ghcr.io/<owner>/tower-debug@sha256:5554edfd06b79c0bb295d4df063107016abc48334614c9e34440bc099b497b8c` (`DEBUG_IMAGE`) |
 | Name | `debug-<session id>` |
 | Command | `sh`, stdin and TTY |
 | User, group | 65532, 65532, `runAsNonRoot: true` |
