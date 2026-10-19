@@ -25,8 +25,56 @@ function worstVerdict(atts) {
   if (vs.includes("unverified")) return "unverified";
   return "verified";
 }
+function tasksOf(a) {
+  if (!a || a.predicateType !== SLSA_PROVENANCE) return [];
+  return (a.predicate?.buildConfig?.tasks ?? []).filter(Boolean);
+}
+function resultOf(a, task, name) {
+  return tasksOf(a).find((t) => t.name === task)?.results?.find((r) => r.name === name)?.value;
+}
+function isBuildProvenance(a) {
+  return a.predicateType === SLSA_PROVENANCE && tasksOf(a).some((t) => t.name === "build-image");
+}
+function isTestProvenance(a) {
+  return a.predicateType === SLSA_PROVENANCE && tasksOf(a).some((t) => t.name === "run-testworkflow");
+}
 function findSlsa(p) {
-  return p?.attestations.find((a) => a.predicateType === SLSA_PROVENANCE);
+  const slsa = p?.attestations.filter((a) => a.predicateType === SLSA_PROVENANCE) ?? [];
+  return slsa.find(isBuildProvenance) ?? slsa.find((a) => !isTestProvenance(a)) ?? slsa[0];
+}
+function num(v) {
+  if (v === void 0 || v === "") return void 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : void 0;
+}
+function testRunOf(a) {
+  if (!isTestProvenance(a)) return void 0;
+  const r = (name) => resultOf(a, "run-testworkflow", name);
+  return {
+    attestation: a,
+    role: r("role") ?? "test",
+    outcome: r("outcome") ?? "",
+    testsTotal: num(r("tests-total")),
+    testsPassed: num(r("tests-passed")),
+    testsFailed: num(r("tests-failed")),
+    testsSkipped: num(r("tests-skipped")),
+    workflowSource: r("workflow-source") || void 0,
+    workflowDigest: r("workflow-digest") || void 0,
+    executionId: r("execution-id") || void 0,
+    reportPath: r("report-path") || void 0,
+    finishedOn: a.predicate?.metadata?.buildFinishedOn
+  };
+}
+function findTestRuns(p) {
+  const runs = (p?.attestations ?? []).map(testRunOf).filter((r) => !!r);
+  return runs.sort((x, y) => (y.finishedOn ?? "").localeCompare(x.finishedOn ?? ""));
+}
+function isSharedCheckRide(r) {
+  return r.role === "check-ride" && (r.workflowSource?.startsWith("argocd:") ?? false);
+}
+function findCheckRide(p) {
+  const rides = findTestRuns(p).filter((r) => r.role === "check-ride");
+  return rides.find((r) => r.outcome === "passed" && verdictOf(r.attestation) === "verified") ?? rides[0];
 }
 function findSbom(p) {
   return p?.attestations.find((a) => /cyclonedx|spdx/i.test(a.predicateType));
@@ -108,5 +156,5 @@ function explain(a, what) {
   }
 }
 
-export { SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findSbom, findSignature, findSlsa, isSignedAndAttested, verdictOf, worstVerdict };
+export { SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findCheckRide, findSbom, findSignature, findSlsa, findTestRuns, isBuildProvenance, isSharedCheckRide, isSignedAndAttested, isTestProvenance, testRunOf, verdictOf, worstVerdict };
 //# sourceMappingURL=supplyChain.esm.js.map
