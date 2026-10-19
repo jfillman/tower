@@ -22,6 +22,14 @@ function layoutPipelineGraph(run) {
     return depth;
   }
   run.tasks.forEach((t) => depthOfTask(t.name));
+  const successors = /* @__PURE__ */ new Map();
+  run.tasks.forEach((t) => t.runAfter.forEach((dep) => successors.set(dep, [...successors.get(dep) ?? [], t.name])));
+  [...run.tasks].sort((a, b) => (depthOf.get(b.name) ?? 0) - (depthOf.get(a.name) ?? 0)).forEach((t) => {
+    const next = (successors.get(t.name) ?? []).filter((n) => byName.has(n));
+    if (next.length === 0) return;
+    const latest = Math.min(...next.map((n) => depthOf.get(n) ?? 0)) - 1;
+    if (latest > (depthOf.get(t.name) ?? 0)) depthOf.set(t.name, latest);
+  });
   const maxDepth = run.tasks.length ? Math.max(...run.tasks.map((t) => depthOf.get(t.name) ?? 0)) : -1;
   const finallyColStart = maxDepth + 1;
   const byDepth = /* @__PURE__ */ new Map();
