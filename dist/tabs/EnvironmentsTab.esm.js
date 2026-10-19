@@ -9,6 +9,7 @@ import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, envFilePaths, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
+import { useProvisionedEnvs, unlistedProvisioned } from '../environments/provisionedEnvs.esm.js';
 import { dump } from 'js-yaml';
 import { useEnvValuesLoader } from '../values/sources.esm.js';
 import { loadSubmitted, pendingFrom, saveSubmitted } from '../environments/submitted.esm.js';
@@ -17,7 +18,7 @@ import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
-import { PageHeader, Button, Hint, FilterBar, FilterChips, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
+import { PageHeader, Button, Hint, Callout, FilterBar, FilterChips, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
 import { PendingChanges } from './environments/PendingChanges.esm.js';
 import { RowDetail } from './environments/RowDetail.esm.js';
@@ -62,7 +63,8 @@ const useStyles = makeStyles(() => ({
   nameRemoved: { textDecoration: "line-through", color: ({ t }) => t.textLo },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   health: { display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 },
-  empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: "center", fontSize: 13 }
+  empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: "center", fontSize: 13 },
+  unlisted: { marginBottom: 12 }
 }));
 const STATE_CLASS = { new: "rowNew", edited: "rowEdited", removed: "rowRemoved", "pr-open": "rowPending", "removal-pr": "rowRemoved" };
 const STATE_TONE = { new: "ok", edited: "flight", removed: "bad", "pr-open": "ground", "removal-pr": "bad" };
@@ -106,7 +108,9 @@ function EnvironmentsTab() {
   const targetLabel = DEPLOY_TARGETS[targetId]?.label ?? targetId;
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
+  const provisioned = useProvisionedEnvs(appName, canEdit && !cloudBlock, nonce);
   const pending = useMemo(() => canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }, [canEdit, submitted, before]);
+  const unlisted = unlistedProvisioned(provisioned, [...after.map((e) => e.name), ...pending.adds.map((a) => a.env.name)]);
   useEffect(() => {
     if (!canEdit || !owner || !appName) return;
     if (pending.records.length !== submitted.length) {
@@ -359,6 +363,30 @@ function EnvironmentsTab() {
     !canEdit && /* @__PURE__ */ jsx(Hint, { style: { marginBottom: 12 }, children: "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
     /* @__PURE__ */ jsxs("div", { className: canEdit ? c.layout : void 0, children: [
       /* @__PURE__ */ jsxs("div", { className: c.main, children: [
+        unlisted.map((p) => /* @__PURE__ */ jsxs(
+          Callout,
+          {
+            tone: "warn",
+            label: "Not in cicd.yaml",
+            title: `${p.env} is provisioned on ${p.cluster}, but cicd.yaml does not name it`,
+            actions: /* @__PURE__ */ jsx(
+              Button,
+              {
+                onClick: () => setStaged((s) => [...s, { kind: "add", env: { name: p.env, tier: "flight", cluster: p.cluster }, pipelineStep: true }]),
+                children: "Add to cicd.yaml"
+              }
+            ),
+            className: c.unlisted,
+            children: [
+              "Its ApplicationEnvironment (",
+              p.xrName,
+              ") ",
+              p.ready ? "is ready" : "is not ready yet",
+              ", but nothing releases to it until cicd.yaml lists it. Adding it stages the entry and a release step; the pull request reuses the existing request, so only the cicd.yaml change opens."
+            ]
+          },
+          p.env
+        )),
         /* @__PURE__ */ jsx(FilterBar, { end: canEdit && /* @__PURE__ */ jsx(Hint, { children: "Drag the handle to reorder" }), children: /* @__PURE__ */ jsx(
           FilterChips,
           {
