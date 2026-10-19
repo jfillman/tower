@@ -80,6 +80,7 @@ function EnvironmentsTab() {
   const [duplicating, setDuplicating] = useState();
   const [phase, setPhase] = useState("idle");
   const [launched, setLaunched] = useState({});
+  const [reused, setReused] = useState({});
   const [failure, setFailure] = useState();
   const [staged, setStaged] = useState([]);
   const [adding, setAdding] = useState(false);
@@ -251,10 +252,11 @@ function EnvironmentsTab() {
     if (!owner || !appName) return;
     setFailure(void 0);
     const done = { ...launched };
+    const reusedNow = { ...reused };
     for (const e of flightAdds) {
       if (done[e.name]) continue;
       setPhase("launching");
-      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster });
+      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster, owner });
       if (r.status !== "done") {
         setLaunched(done);
         setPhase("idle");
@@ -264,6 +266,8 @@ function EnvironmentsTab() {
         return;
       }
       done[e.name] = r.prUrl;
+      if (r.existing) reusedNow[e.name] = r.existing;
+      setReused(reusedNow);
     }
     setLaunched(done);
     const createFiles = [];
@@ -315,6 +319,7 @@ function EnvironmentsTab() {
     if (succeeded) {
       setStaged([]);
       setLaunched({});
+      setReused({});
       setNonce((n) => n + 1);
     }
   };
@@ -581,7 +586,7 @@ function EnvironmentsTab() {
     (submit.result || submit.error || failure) && /* @__PURE__ */ jsx(
       ChangeResultDialog,
       {
-        requests: flightAdds.filter((e) => launched[e.name]).map((e) => ({ env: e.name, url: launched[e.name] })),
+        requests: flightAdds.filter((e) => launched[e.name]).map((e) => ({ env: e.name, url: launched[e.name], existing: reused[e.name] })),
         cicdPrUrl: submit.result?.prUrl,
         error: failure ?? submit.error,
         onClose: closeResult

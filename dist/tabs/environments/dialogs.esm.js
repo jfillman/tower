@@ -1,5 +1,5 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
@@ -12,6 +12,7 @@ import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
+import { useRegisteredClusters, flightClusterOptions, flightClusterProblem } from '../../environments/registeredClusters.esm.js';
 import { applyStaged, validateEnvironments, validateAddedFlight } from '../../environments/stagedChanges.esm.js';
 import { Field, Hint, Button } from '../../ui/index.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
@@ -47,7 +48,16 @@ function AddEnvironmentDialog({
   const [pipelineStep, setPipelineStep] = useState(true);
   const [copyValues, setCopyValues] = useState(true);
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : void 0;
-  const knownClusters = [...new Set(current.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))];
+  const usedBy = {};
+  for (const e of current) if (e.tier === "flight" && e.cluster) (usedBy[e.cluster] ??= []).push(e.name);
+  const knownClusters = Object.keys(usedBy);
+  const registry = useRegisteredClusters(open && !cloudBlock);
+  const clusterChoices = registry.status === "ready" ? flightClusterOptions(registry.clusters, usedBy) : [];
+  const clusterPicker = registry.status === "loading" || clusterChoices.length > 0;
+  const onlyChoice = clusterChoices.length === 1 ? clusterChoices[0].value : "";
+  useEffect(() => {
+    if (onlyChoice && !cluster) setCluster(onlyChoice);
+  }, [onlyChoice]);
   const candidate = { name: name.trim(), tier };
   if (tier === "flight" && !cloudBlock && cluster.trim()) candidate.cluster = cluster.trim();
   if (cloudBlock && mainField && override.trim()) candidate[cloudBlock] = { [mainField]: override.trim() };
@@ -57,9 +67,12 @@ function AddEnvironmentDialog({
     if (Object.keys(candidate[cloudBlock]).length === 0) delete candidate[cloudBlock];
   }
   const withCandidate = applyStaged(current, [{ kind: "add", env: candidate }]);
-  const fresh = name.trim() ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
-    (p) => !problems.includes(p)
-  ) : [];
+  const clusterProblem = tier === "flight" && !cloudBlock ? flightClusterProblem(registry, cluster.trim()) : void 0;
+  const fresh = name.trim() ? [
+    ...validateEnvironments(withCandidate, targetId),
+    ...validateAddedFlight(current, withCandidate, targetId),
+    ...clusterProblem ? [clusterProblem] : []
+  ].filter((p) => !problems.includes(p)) : [];
   const ok = Boolean(name.trim()) && fresh.length === 0;
   const reset = () => {
     setName("");
@@ -111,9 +124,18 @@ function AddEnvironmentDialog({
         )
       ] }),
       tier === "flight" && !cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsx("input", { ...p, list: "flight-clusters", value: cluster, onChange: (e) => setCluster(e.target.value) }) }),
-        /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((k) => /* @__PURE__ */ jsx("option", { value: k }, k)) }),
-        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "The registered upper cluster it runs on (its name in the cluster registry)." }),
+        clusterPicker ? /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsxs("select", { ...p, disabled: registry.status === "loading", value: cluster, onChange: (e) => setCluster(e.target.value), children: [
+            /* @__PURE__ */ jsx("option", { value: "", disabled: true, children: registry.status === "loading" ? "Reading the cluster registry\u2026" : "Choose a cluster" }),
+            cluster && !clusterChoices.some((o) => o.value === cluster) && /* @__PURE__ */ jsx("option", { value: cluster, children: cluster }),
+            clusterChoices.map((o) => /* @__PURE__ */ jsx("option", { value: o.value, children: o.label }, o.value))
+          ] }) }),
+          /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "The registered upper clusters that can run a Flight environment, from the cluster registry." })
+        ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+          /* @__PURE__ */ jsx(Field, { id: "add-env-cluster", label: "Cluster", children: (p) => /* @__PURE__ */ jsx("input", { ...p, list: "flight-clusters", value: cluster, onChange: (e) => setCluster(e.target.value) }) }),
+          /* @__PURE__ */ jsx("datalist", { id: "flight-clusters", children: knownClusters.map((k) => /* @__PURE__ */ jsx("option", { value: k }, k)) }),
+          /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: registry.status === "failed" ? "The cluster registry could not be read: type the registered upper cluster it runs on." : "The cluster registry lists no upper cluster that can run a Flight environment yet: type its registered name." })
+        ] }),
         /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo, then the cicd.yaml change. Merge the request first." }),
         /* @__PURE__ */ jsx(
           FormControlLabel,
@@ -229,6 +251,7 @@ function RemoveEnvironmentDialog({
     ] })
   ] });
 }
+const EXISTING_NOTE = { merged: " (already in the tenants repo, nothing new opened)", open: " (already open)" };
 function ChangeResultDialog({
   requests,
   cicdPrUrl,
@@ -244,6 +267,7 @@ function ChangeResultDialog({
         i + 1,
         ". ApplicationEnvironment request for ",
         r.env,
+        r.existing ? EXISTING_NOTE[r.existing] : "",
         ":",
         " ",
         /* @__PURE__ */ jsx(Link, { href: r.url, target: "_blank", rel: "noopener noreferrer", children: r.url })
@@ -254,7 +278,7 @@ function ChangeResultDialog({
         " ",
         /* @__PURE__ */ jsx(Link, { href: cicdPrUrl, target: "_blank", rel: "noopener noreferrer", children: cicdPrUrl })
       ] }),
-      requests.length > 0 && cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "Merge the ApplicationEnvironment request first, then the cicd.yaml change." }),
+      requests.some((r) => r.existing !== "merged") && cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "Merge the ApplicationEnvironment request first, then the cicd.yaml change." }),
       error && requests.length > 0 && !cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "The request(s) above are already open and will not be opened again if you try again." })
     ] }),
     /* @__PURE__ */ jsx(DialogActions, { children: /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" }) })

@@ -76,6 +76,29 @@ async function waitForTask({ discoveryApi, fetchApi }, taskId, timeoutMs = 12e4)
   }
   return { ok: false, error: "The template run did not finish in time. Check it in the Create page." };
 }
+function existingPrFrom(error) {
+  return /Pull request already exists:\s*(https:\/\/\S+?\/pull\/\d+)/.exec(error)?.[1];
+}
+async function findExistingRequest({ discoveryApi, fetchApi }, owner, appName, env) {
+  const base = await discoveryApi.getBaseUrl("glidepath");
+  const res = await fetchApi.fetch(`${base}/config/env-xr?${new URLSearchParams({ owner, appName, env }).toString()}`);
+  if (res.status === 404) return void 0;
+  if (!res.ok) throw new Error(`Looking up the existing request failed with ${res.status}.`);
+  const body = await res.json();
+  const url = body.url ?? body.path;
+  if (!url) throw new Error("The existing request lookup returned no file.");
+  return { url, ...body.cluster ? { cluster: body.cluster } : {} };
+}
+function reuseExisting(input, existing) {
+  if (!existing) return void 0;
+  if (existing.cluster && existing.cluster !== input.cluster) {
+    return {
+      status: "failed",
+      error: `${input.env} already has an ApplicationEnvironment request for cluster ${existing.cluster} (${existing.url}), not ${input.cluster}. Choose ${existing.cluster}, or change that request first.`
+    };
+  }
+  return { status: "done", prUrl: existing.url, existing: "merged" };
+}
 function useLaunchApplicationEnvironment() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -84,11 +107,26 @@ function useLaunchApplicationEnvironment() {
     async (input) => {
       setState({ status: "running" });
       let result;
+      const api = { discoveryApi, fetchApi };
+      let reused;
+      if (input.owner) {
+        try {
+          reused = reuseExisting(input, await findExistingRequest(api, input.owner, input.appName, input.env));
+        } catch {
+        }
+      }
+      if (reused) {
+        setState(reused);
+        return reused;
+      }
       try {
-        const api = { discoveryApi, fetchApi };
         const taskId = await launchApplicationEnvironment(api, input);
         const outcome = await waitForTask(api, taskId);
-        result = outcome.ok ? { status: "done", prUrl: outcome.prUrl } : { status: "failed", error: outcome.error };
+        if (outcome.ok) result = { status: "done", prUrl: outcome.prUrl };
+        else {
+          const open = existingPrFrom(outcome.error ?? "");
+          result = open ? { status: "done", prUrl: open, existing: "open" } : { status: "failed", error: outcome.error };
+        }
       } catch (e) {
         result = { status: "failed", error: e.message };
       }
@@ -100,5 +138,5 @@ function useLaunchApplicationEnvironment() {
   return { state, launch, reset: () => setState({ status: "idle" }) };
 }
 
-export { APPLICATION_ENVIRONMENT_TEMPLATE, failureFromEvents, launchApplicationEnvironment, prUrlFromEvents, templateValues, useLaunchApplicationEnvironment, validateLaunchInput, waitForTask };
+export { APPLICATION_ENVIRONMENT_TEMPLATE, existingPrFrom, failureFromEvents, findExistingRequest, launchApplicationEnvironment, prUrlFromEvents, reuseExisting, templateValues, useLaunchApplicationEnvironment, validateLaunchInput, waitForTask };
 //# sourceMappingURL=applicationEnvironment.esm.js.map
