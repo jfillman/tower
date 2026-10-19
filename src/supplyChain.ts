@@ -1,4 +1,4 @@
-import type { Attestation, ProvenanceResponse } from './types';
+import type { Attestation, ProvenanceResponse, SlsaProvenanceV02Predicate } from './types';
 
 // What an image's signatures and attestations mean, in one place (2026-10-14). Every view that says "signed",
 // "verified" or colours a supply-chain step reads it from here, so the colour always means the same thing:
@@ -47,8 +47,98 @@ export function worstVerdict(atts: Attestation[]): Verdict {
   return 'verified';
 }
 
+function tasksOf(a: Attestation | undefined) {
+  if (!a || a.predicateType !== SLSA_PROVENANCE) return [];
+  return ((a.predicate as SlsaProvenanceV02Predicate | undefined)?.buildConfig?.tasks ?? []).filter(Boolean);
+}
+function resultOf(a: Attestation, task: string, name: string): string | undefined {
+  return tasksOf(a).find(t => t.name === task)?.results?.find(r => r.name === name)?.value;
+}
+
+/** The build's SLSA provenance: the one whose pipeline built the image (build-image). */
+export function isBuildProvenance(a: Attestation): boolean {
+  return a.predicateType === SLSA_PROVENANCE && tasksOf(a).some(t => t.name === 'build-image');
+}
+/**
+ * A test stage's SLSA provenance (Glidepath test framework, 2026-10-19): Tekton Chains attaches every test
+ * PipelineRun's provenance to the tested image, and its run-testworkflow entry carries the result.
+ */
+export function isTestProvenance(a: Attestation): boolean {
+  return a.predicateType === SLSA_PROVENANCE && tasksOf(a).some(t => t.name === 'run-testworkflow');
+}
+
+/**
+ * The build provenance. Since test runs are attested onto the same digest, "the first SLSA attestation" can be a test
+ * run's: prefer the one that built the image, then any that isn't a test run, then whatever is there.
+ */
 export function findSlsa(p?: ProvenanceResponse) {
-  return p?.attestations.find(a => a.predicateType === SLSA_PROVENANCE);
+  const slsa = p?.attestations.filter(a => a.predicateType === SLSA_PROVENANCE) ?? [];
+  return slsa.find(isBuildProvenance) ?? slsa.find(a => !isTestProvenance(a)) ?? slsa[0];
+}
+
+/** One attested test run, read out of its provenance's run-testworkflow results (glidepath docs/admin/testing.md). */
+export interface TestRunEvidence {
+  attestation: Attestation;
+  /** test, execute or check-ride. */
+  role: string;
+  /** passed, failed, timeout or skipped; empty on a run that never wrote it. */
+  outcome: string;
+  testsTotal?: number;
+  testsPassed?: number;
+  testsFailed?: number;
+  testsSkipped?: number;
+  /** argocd:<application> for a synced check ride, repo:<url>@<rev> for the app's own workflow, script for integration-test.sh. */
+  workflowSource?: string;
+  workflowDigest?: string;
+  executionId?: string;
+  reportPath?: string;
+  /** The provenance's buildFinishedOn: when the run ended. */
+  finishedOn?: string;
+}
+
+function num(v: string | undefined): number | undefined {
+  if (v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export function testRunOf(a: Attestation): TestRunEvidence | undefined {
+  if (!isTestProvenance(a)) return undefined;
+  const r = (name: string) => resultOf(a, 'run-testworkflow', name);
+  return {
+    attestation: a,
+    role: r('role') ?? 'test',
+    outcome: r('outcome') ?? '',
+    testsTotal: num(r('tests-total')),
+    testsPassed: num(r('tests-passed')),
+    testsFailed: num(r('tests-failed')),
+    testsSkipped: num(r('tests-skipped')),
+    workflowSource: r('workflow-source') || undefined,
+    workflowDigest: r('workflow-digest') || undefined,
+    executionId: r('execution-id') || undefined,
+    reportPath: r('report-path') || undefined,
+    finishedOn: (a.predicate as SlsaProvenanceV02Predicate | undefined)?.metadata?.buildFinishedOn,
+  };
+}
+
+/** Every attested test run on the image, newest first. */
+export function findTestRuns(p?: ProvenanceResponse): TestRunEvidence[] {
+  const runs = (p?.attestations ?? []).map(testRunOf).filter((r): r is TestRunEvidence => !!r);
+  return runs.sort((x, y) => (y.finishedOn ?? '').localeCompare(x.finishedOn ?? ''));
+}
+
+/** A run is from the shared check-rides repository (synced by Argo CD), not a file in the app repo. */
+export function isSharedCheckRide(r: TestRunEvidence): boolean {
+  return r.role === 'check-ride' && (r.workflowSource?.startsWith('argocd:') ?? false);
+}
+
+/**
+ * The check ride the release depends on: the newest verified, passed one; else the newest check ride at all, so a
+ * failure is shown rather than hidden behind an older pass.
+ */
+export function findCheckRide(p?: ProvenanceResponse): TestRunEvidence | undefined {
+  const rides = findTestRuns(p).filter(r => r.role === 'check-ride');
+  return rides.find(r => r.outcome === 'passed' && verdictOf(r.attestation) === 'verified') ?? rides[0];
 }
 export function findSbom(p?: ProvenanceResponse) {
   return p?.attestations.find(a => /cyclonedx|spdx/i.test(a.predicateType));

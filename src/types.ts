@@ -24,6 +24,8 @@ export interface SlsaProvenanceV02Predicate {
   metadata?: { buildStartedOn?: string; buildFinishedOn?: string };
   buildConfig?: {
     tasks?: Array<{
+      /** Chains' own pipeline-task name (build-image, run-testworkflow, ...): the stable key, not the Task CRD label. */
+      name?: string;
       invocation?: { environment?: { labels?: Record<string, string> } };
       results?: Array<{ name?: string; value?: string }>;
     }>;

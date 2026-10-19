@@ -1,7 +1,7 @@
 # Supply chain
 
 Every image Tower shows (the Release matrix, Deployments, a release record) has a supply-chain strip: **Build →
-SAST / SBOM → Signature → Sign + Attest → Rekor**, then the environments. Tower checks each signature itself, in
+SAST / SBOM → Signature → Tests → Sign + Attest → Rekor**, then the environments. Tower checks each signature itself, in
 Backstage's backend, against this platform's own Fulcio root and Rekor log; it does not take the image's word for it.
 
 ## What the steps are
@@ -11,6 +11,7 @@ Backstage's backend, against this platform's own Fulcio root and Rekor log; it d
 | **Build** | The SLSA build provenance Tekton Chains signs: which pipeline run built the image, from which commit. The release gate checks this one. |
 | **SAST / SBOM** | The CycloneDX software bill of materials attached to the image. |
 | **Signature** | The `cosign sign` signature on the image manifest itself. |
+| **Tests** | The attested test runs on the image (since 2026-10-19 Tekton Chains attaches every Glidepath test stage's provenance to the image it tested). The step stands for the **check ride**, the run from the shared check-rides repository that the qa release gate reads; the team's own runs are listed in its detail, each with its counts, its Testkube execution and a download of the attestation document. |
 | **Sign + Attest** | All of the above together: "n of m verified". |
 | **Rekor** | Their entries in the platform's transparency log, which show each signature was made while its 10-minute signing certificate was valid. |
 
@@ -25,6 +26,18 @@ Backstage's backend, against this platform's own Fulcio root and Rekor log; it d
 
 A step is green only when what it stands for verified. Before 2026-10-14 the first four turned green as soon as the
 item existed, and Sign + Attest when any one attestation verified.
+
+**Tests** reads its colour from the run, not only the signature: green is a verified, passed check ride from the shared
+repository; amber is tests that passed with no check ride, a check ride not from the shared repository, or a passed
+ride whose attestation didn't verify; red is a latest check ride that failed; grey is no attested run. When a digest
+carries several check rides, the newest verified pass is the one shown, so a flaky re-run never hides the evidence.
+Since test runs are attested onto the same digest as the build, Tower identifies the **build** provenance by its
+`build-image` task rather than taking the first SLSA attestation it finds.
+
+The download on each test run is the provenance document (the SLSA statement's predicate), whose
+`buildConfig.tasks[]` entry named `run-testworkflow` carries the result: `outcome`, `role`, `tests-total`,
+`tests-passed`, `tests-failed`, `tests-skipped`, `workflow-source`, `workflow-digest`, `execution-id`. The qa
+release gate verifies the same document. See Glidepath's `docs/admin/testing.md`.
 
 "Signed and attested", as the readiness score and the record count it, means: the build provenance
 verified, and nothing on the image contradicting it.
