@@ -25,7 +25,7 @@ import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
-import { declaredComponents, matchComponentOutput, outputsOf } from './components';
+import { declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
 import { workloadOn, workloadStatus, type LiveWorkload, type WorkloadView } from './workload';
 import {
@@ -1263,6 +1263,8 @@ export function ConfigEditor({
   const [tab, setTab] = useState<ValuesTab>('workload');
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
+  // The env vars dropped with the last component removed, shown under the Components section until the next edit there.
+  const [removedEnv, setRemovedEnv] = useState<{ component: string; names: string[] } | undefined>();
   const chartReplicas = (chart?.defaults as { rollout?: { replicas?: unknown } } | undefined)?.rollout?.replicas;
   const [originalForm, setOriginalForm] = useState<FormState | undefined>(undefined);
   // The Deployment switch is the workload shape (2026-10-10, airframe rollout.enabled): does this environment run a
@@ -1423,6 +1425,7 @@ export function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
+    setRemovedEnv(undefined);
     const rolloutIsSet = workloadOn(cfg.data!.values.rollout, inheritedShape);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
@@ -2448,7 +2451,27 @@ export function ConfigEditor({
             Backing services attached to this environment: a cache, a database, a message broker. Each is created next to your app and
             hands it a connection through a Secret or ConfigMap.
           </Typography>
-          <ComponentsEditor text={advanced.components} onChange={text => setAdv('components', text)} defs={componentCatalog} />
+          <ComponentsEditor
+            text={advanced.components}
+            onChange={text => {
+              setAdv('components', text);
+              setRemovedEnv(undefined);
+            }}
+            defs={componentCatalog}
+            onRemove={removed => {
+              // The env vars that read from it go with it: left behind they point at objects that no longer exist.
+              const { kept, dropped } = withoutComponentEnv(form.envVars, { name: removed.name, type: removed.type });
+              if (dropped.length > 0) setF('envVars', kept, 'env');
+              setRemovedEnv(dropped.length > 0 ? { component: removed.name, names: dropped } : undefined);
+            }}
+          />
+          {removedEnv && (
+            <Typography className={classes.hint} role="status" style={{ marginTop: 10 }}>
+              Also removed {removedEnv.names.length === 1 ? 'the environment variable' : 'the environment variables'}{' '}
+              {removedEnv.names.join(', ')}, which took {removedEnv.names.length === 1 ? 'its value' : 'their values'} from{' '}
+              {removedEnv.component}. Discard undoes both.
+            </Typography>
+          )}
         </Section>
       )}
 

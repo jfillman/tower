@@ -41,7 +41,18 @@ export function dumpComponents(rows: ComponentRow[]): string {
 
 const resolve = (template: string | undefined, name: string) => (template ?? '').replace('{name}', name);
 
-export function ComponentsEditor({ text, onChange, defs }: { text: string; onChange: (text: string) => void; defs?: ComponentDefinition[] }) {
+export function ComponentsEditor({
+  text,
+  onChange,
+  defs,
+  onRemove,
+}: {
+  text: string;
+  onChange: (text: string) => void;
+  defs?: ComponentDefinition[];
+  /** Called after a component is removed with its Remove button (not when its name is edited). */
+  onRemove?: (removed: ComponentRow) => void;
+}) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const ui = useUi({ t });
@@ -73,7 +84,11 @@ export function ComponentsEditor({ text, onChange, defs }: { text: string; onCha
               <input className={classes.input} aria-label={`Component ${i + 1} name`} placeholder="not set: a name, for example cache" value={r.name} onChange={e => update(i, { name: e.target.value })} style={{ maxWidth: 260 }} />
               <Chip tone="ground">{def?.kind ?? r.type}</Chip>
               <span style={{ flex: 1 }} />
-              <button type="button" className={classes.removeBtn} onClick={() => set(rows.filter((_, j) => j !== i))}>
+              <button type="button" className={classes.removeBtn} onClick={() => {
+                  set(rows.filter((_, j) => j !== i));
+                  onRemove?.(r);
+                }}
+              >
                 Remove
               </button>
             </div>

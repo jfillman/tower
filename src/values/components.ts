@@ -85,3 +85,27 @@ export function matchComponentOutput(
   }
   return undefined;
 }
+
+/**
+ * Env rows that still read from a component once it is removed: `fromComponent: {name}` rows, and Secret/ConfigMap refs
+ * to one of its outputs by its derived name. Removing a component without them left env vars pointing at objects that
+ * are gone (the chart refuses a fromComponent naming an undeclared component). Returns the rows to keep and the names
+ * of the ones dropped.
+ */
+export function withoutComponentEnv<R extends { name: string; kind: string; component: string; refName: string; refKey: string }>(
+  rows: R[],
+  component: DeclaredComponent,
+): { kept: R[]; dropped: string[] } {
+  const kept: R[] = [];
+  const dropped: string[] = [];
+  for (const r of rows) {
+    const ref = r.kind === 'configMap' || r.kind === 'secret';
+    const belongs =
+      (r.kind === 'component' && r.component.trim() === component.name) ||
+      (ref &&
+        matchComponentOutput([component], r.kind === 'configMap' ? 'configMapKeyRef' : 'secretKeyRef', r.refName.trim(), r.refKey.trim()) !== undefined);
+    if (belongs) dropped.push(r.name || '(unnamed)');
+    else kept.push(r);
+  }
+  return { kept, dropped };
+}

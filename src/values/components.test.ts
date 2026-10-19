@@ -1,4 +1,4 @@
-import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf } from './components';
+import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv } from './components';
 
 const comps = [
   { name: 'board-mq', type: 'rabbitmq' },
@@ -35,5 +35,29 @@ describe('declaredComponents and outputsOf', () => {
         if (o.kind !== 'literal') expect([type, name, Boolean(o.object && o.key)]).toEqual([type, name, true]);
       }
     }
+  });
+});
+
+describe('withoutComponentEnv', () => {
+  const row = (name: string, kind: string, extra: Partial<{ component: string; refName: string; refKey: string }> = {}) => ({
+    name,
+    kind,
+    component: '',
+    refName: '',
+    refKey: '',
+    ...extra,
+  });
+
+  it('drops the env rows that read from the removed component, and only those', () => {
+    const rows = [
+      row('REDIS_URL', 'component', { component: 'cache' }),
+      row('REDIS_PASSWORD', 'secret', { refName: 'cache-connection', refKey: 'password' }),
+      row('MQ_HOST', 'component', { component: 'board-mq' }),
+      row('OTHER_SECRET', 'secret', { refName: 'cache-connection-old', refKey: 'password' }),
+      row('LOG_LEVEL', 'value'),
+    ];
+    const { kept, dropped } = withoutComponentEnv(rows, { name: 'cache', type: 'redis' });
+    expect(dropped).toEqual(['REDIS_URL', 'REDIS_PASSWORD']);
+    expect(kept.map(r => r.name)).toEqual(['MQ_HOST', 'OTHER_SECRET', 'LOG_LEVEL']);
   });
 });
