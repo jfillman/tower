@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Typography from '@material-ui/core/Typography';
 import { dump as dumpYaml, load as loadYaml } from 'js-yaml';
 import { useHangarTokens } from '../brand/tokens';
@@ -46,17 +46,27 @@ export function ComponentsEditor({
   onChange,
   defs,
   onRemove,
+  wired,
+  onWire,
+  onRename,
 }: {
   text: string;
   onChange: (text: string) => void;
   defs?: ComponentDefinition[];
   /** Called after a component is removed with its Remove button (not when its name is edited). */
   onRemove?: (removed: ComponentRow) => void;
+  /** Output -> env var names reading it (fromComponent), per component name: shown next to each output. */
+  wired?: (component: string) => Record<string, string[]>;
+  /** Add fromComponent env vars for these outputs of a component. Also called for every output of a component just added. */
+  onWire?: (component: string, outputs: string[]) => void;
+  /** A component's name changed in the form: env vars reading it should follow. */
+  onRename?: (from: string, to: string) => void;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const ui = useUi({ t });
   const [addType, setAddType] = useState('');
+  const renamingFrom = useRef<string | undefined>(undefined);
   const rows = parseComponents(text);
 
   if (!defs) {
@@ -81,7 +91,18 @@ export function ComponentsEditor({
         return (
           <div key={i} className={classes.stepCard}>
             <div className={classes.row} style={{ alignItems: 'center' }}>
-              <input className={classes.input} aria-label={`Component ${i + 1} name`} placeholder="not set: a name, for example cache" value={r.name} onChange={e => update(i, { name: e.target.value })} style={{ maxWidth: 260 }} />
+              <input className={classes.input} aria-label={`Component ${i + 1} name`} placeholder="not set: a name, for example cache" value={r.name} onChange={e => update(i, { name: e.target.value })}
+                // Env vars follow a rename once the name is finished (on blur), not per keystroke: a name typed through
+                // an empty or partial value would otherwise lose track of which rows were this component's.
+                onFocus={() => {
+                  renamingFrom.current = r.name;
+                }}
+                onBlur={e => {
+                  const from = renamingFrom.current;
+                  renamingFrom.current = undefined;
+                  const to = e.target.value.trim();
+                  if (from && to && from !== to) onRename?.(from, to);
+                }} style={{ maxWidth: 260 }} />
               <Chip tone="ground">{def?.kind ?? r.type}</Chip>
               <span style={{ flex: 1 }} />
               <button type="button" className={classes.removeBtn} onClick={() => {
@@ -96,26 +117,41 @@ export function ComponentsEditor({
               <>
                 {def.summary && <div className={ui.note} style={{ margin: '8px 0' }}>{def.summary}</div>}
                 <SchemaFields def={def} spec={r.spec} idPrefix={`Component ${i + 1}`} onChange={spec => update(i, { spec })} />
-                {Object.keys(def.outputs).length > 0 && r.name && (
-                  <div style={{ marginTop: 10 }}>
-                    <Typography className={classes.fieldLabel}>What it gives the app</Typography>
-                    <div className={ui.note}>
-                      Use these as environment variables with <b>From component</b> (Config tab), so a rename cannot break them.
+                {Object.keys(def.outputs).length > 0 && r.name && (() => {
+                  const reading = wired?.(r.name) ?? {};
+                  const unwired = Object.keys(def.outputs).filter(k => !(reading[k]?.length > 0));
+                  return (
+                    <div style={{ marginTop: 10 }}>
+                      <Typography className={classes.fieldLabel}>What it gives the app</Typography>
+                      <div className={ui.note}>
+                        Each output reaches the app as an environment variable with <b>From component</b> (Config tab), so a rename
+                        cannot break it. Adding a component adds one for each output; the right column shows which variable reads it.
+                      </div>
+                      <table style={{ marginTop: 4, fontSize: 12, borderCollapse: 'collapse' }}>
+                        <tbody>
+                          {Object.entries(def.outputs).map(([k, o]) => (
+                            <tr key={k}>
+                              <td style={{ padding: '2px 14px 2px 0', fontWeight: 600 }}>{k}</td>
+                              <td style={{ padding: '2px 14px 2px 0', opacity: 0.8 }}>
+                                {o.kind === 'literal' ? 'a plain value' : `${o.kind === 'secretKeyRef' ? 'Secret' : 'ConfigMap'} ${resolve(o.secret ?? o.configMap, r.name)}, key ${o.key}`}
+                              </td>
+                              {wired && (
+                                <td style={{ padding: '2px 0', fontFamily: 'monospace' }} aria-label={`Env vars reading ${k}`}>
+                                  {reading[k]?.length ? `→ ${reading[k].join(', ')}` : <span style={{ opacity: 0.6 }}>not used</span>}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {onWire && unwired.length > 0 && (
+                        <button type="button" className={classes.addBtn} style={{ marginTop: 6 }} onClick={() => onWire(r.name, unwired)}>
+                          + Add environment variables for {unwired.join(', ')}
+                        </button>
+                      )}
                     </div>
-                    <table style={{ marginTop: 4, fontSize: 12, borderCollapse: 'collapse' }}>
-                      <tbody>
-                        {Object.entries(def.outputs).map(([k, o]) => (
-                          <tr key={k}>
-                            <td style={{ padding: '2px 14px 2px 0', fontWeight: 600 }}>{k}</td>
-                            <td style={{ padding: '2px 0', opacity: 0.8 }}>
-                              {o.kind === 'literal' ? 'a plain value' : `${o.kind === 'secretKeyRef' ? 'Secret' : 'ConfigMap'} ${resolve(o.secret ?? o.configMap, r.name)}, key ${o.key}`}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                  );
+                })()}
               </>
             ) : (
               <div className={ui.problem} style={{ marginTop: 8 }}>
@@ -141,8 +177,10 @@ export function ComponentsEditor({
           onClick={() => {
             const def = defs.find(d => d.type === addType);
             if (!def) return;
-            set([...rows, { type: def.type, name: uniqueName(def.type), spec: newSpec(def) }]);
+            const name = uniqueName(def.type);
+            set([...rows, { type: def.type, name, spec: newSpec(def) }]);
             setAddType('');
+            onWire?.(name, Object.keys(def.outputs));
           }}
         >
           + Add component

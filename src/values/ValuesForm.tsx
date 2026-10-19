@@ -25,7 +25,7 @@ import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
-import { declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv } from './components';
+import { componentEnvRows, declaredComponents, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
 import { workloadOn, workloadStatus, type LiveWorkload, type WorkloadView } from './workload';
 import {
@@ -1263,8 +1263,8 @@ export function ConfigEditor({
   const [tab, setTab] = useState<ValuesTab>('workload');
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
-  // The env vars dropped with the last component removed, shown under the Components section until the next edit there.
-  const [removedEnv, setRemovedEnv] = useState<{ component: string; names: string[] } | undefined>();
+  // What the last component add/remove/rename did to the env vars, shown under the Components section until the next edit there.
+  const [componentNote, setComponentNote] = useState<string | undefined>();
   const chartReplicas = (chart?.defaults as { rollout?: { replicas?: unknown } } | undefined)?.rollout?.replicas;
   const [originalForm, setOriginalForm] = useState<FormState | undefined>(undefined);
   // The Deployment switch is the workload shape (2026-10-10, airframe rollout.enabled): does this environment run a
@@ -1425,7 +1425,7 @@ export function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
-    setRemovedEnv(undefined);
+    setComponentNote(undefined);
     const rolloutIsSet = workloadOn(cfg.data!.values.rollout, inheritedShape);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
@@ -2455,21 +2455,44 @@ export function ConfigEditor({
             text={advanced.components}
             onChange={text => {
               setAdv('components', text);
-              setRemovedEnv(undefined);
+              setComponentNote(undefined);
             }}
             defs={componentCatalog}
+            wired={name => wiredOutputs(form.envVars, name)}
+            onWire={(name, outputs) => {
+              // One From component env var per output, named <COMPONENT>_<OUTPUT>; a name already in use is left alone.
+              const { add, skipped } = componentEnvRows(form.envVars, name, outputs);
+              if (add.length > 0) {
+                const blank = { value: '', refName: '', refKey: '' };
+                setF('envVars', [...form.envVars, ...add.map(a => ({ ...blank, kind: 'component' as const, ...a }))], 'env');
+              }
+              const parts = [
+                add.length > 0 ? `Added ${add.map(a => a.name).join(', ')} (Config tab), reading from ${name}.` : '',
+                skipped.length > 0 ? `${skipped.join(', ')} already ${skipped.length === 1 ? 'exists' : 'exist'}, so ${skipped.length === 1 ? 'it was' : 'they were'} left alone.` : '',
+              ].filter(Boolean);
+              setComponentNote(parts.length > 0 ? `${parts.join(' ')} Discard undoes it.` : undefined);
+            }}
+            onRename={(from, to) => {
+              const next = renameComponentEnv(form.envVars, from, to);
+              if (next !== form.envVars && next.some((r, k) => r !== form.envVars[k])) {
+                setF('envVars', next, 'env');
+                setComponentNote(`The environment variables that read from ${from} now read from ${to}.`);
+              }
+            }}
             onRemove={removed => {
               // The env vars that read from it go with it: left behind they point at objects that no longer exist.
               const { kept, dropped } = withoutComponentEnv(form.envVars, { name: removed.name, type: removed.type });
               if (dropped.length > 0) setF('envVars', kept, 'env');
-              setRemovedEnv(dropped.length > 0 ? { component: removed.name, names: dropped } : undefined);
+              setComponentNote(
+                dropped.length > 0
+                  ? `Also removed ${dropped.length === 1 ? 'the environment variable' : 'the environment variables'} ${dropped.join(', ')}, which took ${dropped.length === 1 ? 'its value' : 'their values'} from ${removed.name}. Discard undoes both.`
+                  : undefined,
+              );
             }}
           />
-          {removedEnv && (
+          {componentNote && (
             <Typography className={classes.hint} role="status" style={{ marginTop: 10 }}>
-              Also removed {removedEnv.names.length === 1 ? 'the environment variable' : 'the environment variables'}{' '}
-              {removedEnv.names.join(', ')}, which took {removedEnv.names.length === 1 ? 'its value' : 'their values'} from{' '}
-              {removedEnv.component}. Discard undoes both.
+              {componentNote}
             </Typography>
           )}
         </Section>

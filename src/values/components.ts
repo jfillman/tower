@@ -109,3 +109,55 @@ export function withoutComponentEnv<R extends { name: string; kind: string; comp
   }
   return { kept, dropped };
 }
+
+/** `board-mq` + `password` -> `BOARD_MQ_PASSWORD`: the env var name Tower suggests for a component output. */
+export function envNameFor(component: string, output: string): string {
+  const snake = (v: string) =>
+    v
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toUpperCase();
+  return `${snake(component)}_${snake(output)}`;
+}
+
+/**
+ * fromComponent env rows for the outputs of a component that nothing reads yet. An output already read by some row is
+ * left alone, and so is a suggested name another row already uses (never overwritten): those come back as `skipped`.
+ */
+export function componentEnvRows(
+  rows: Array<{ name: string; kind: string; component: string; output: string }>,
+  component: string,
+  outputs: string[],
+): { add: Array<{ name: string; component: string; output: string }>; skipped: string[] } {
+  const add: Array<{ name: string; component: string; output: string }> = [];
+  const skipped: string[] = [];
+  const taken = new Set(rows.map(r => r.name.trim()));
+  for (const output of outputs) {
+    if (rows.some(r => r.kind === 'component' && r.component.trim() === component && r.output.trim() === output)) continue;
+    const name = envNameFor(component, output);
+    if (taken.has(name)) {
+      skipped.push(name);
+      continue;
+    }
+    taken.add(name);
+    add.push({ name, component, output });
+  }
+  return { add, skipped };
+}
+
+/** Output -> the env var names reading it with fromComponent, for one component. */
+export function wiredOutputs(rows: Array<{ name: string; kind: string; component: string; output: string }>, component: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const r of rows) {
+    if (r.kind !== 'component' || r.component.trim() !== component || !r.name.trim()) continue;
+    (out[r.output.trim()] ??= []).push(r.name.trim());
+  }
+  return out;
+}
+
+/** Points fromComponent rows at a component's new name. */
+export function renameComponentEnv<R extends { kind: string; component: string }>(rows: R[], from: string, to: string): R[] {
+  if (!from || from === to) return rows;
+  return rows.map(r => (r.kind === 'component' && r.component.trim() === from ? { ...r, component: to } : r));
+}

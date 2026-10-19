@@ -614,22 +614,26 @@ describe('values form: components', () => {
     ]);
   });
 
-  it('adding a component stages it and the env rows can then take its outputs from the catalog', () => {
+  it('adding a component stages it with a From component env var per output, and more rows can take its outputs', () => {
     open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }] } }, { componentCatalog: catalog });
     tab('Components');
     edit(() => screen.getByLabelText('Component type to add'), 'postgresql');
     fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
     tab('Config');
     fireEvent.click(screen.getByRole('button', { name: '+ Add variable' }));
-    edit(() => screen.getByLabelText('Variable 1 name'), 'DATABASE_URL');
-    edit(() => screen.getByLabelText('Variable 1 source'), 'component');
-    edit(() => screen.getByLabelText('Variable 1 component'), 'postgresql');
-    const outputs = [...(screen.getByLabelText('Variable 1 output') as HTMLSelectElement).options].map(o => o.value).filter(Boolean);
+    edit(() => screen.getByLabelText('Variable 8 name'), 'DATABASE_URL');
+    edit(() => screen.getByLabelText('Variable 8 source'), 'component');
+    edit(() => screen.getByLabelText('Variable 8 component'), 'postgresql');
+    const outputs = [...(screen.getByLabelText('Variable 8 output') as HTMLSelectElement).options].map(o => o.value).filter(Boolean);
     expect(outputs).toEqual(['host', 'port', 'username', 'password', 'database', 'uri', 'jdbcUri']);
-    edit(() => screen.getByLabelText('Variable 1 output'), 'uri');
+    edit(() => screen.getByLabelText('Variable 8 output'), 'uri');
     const out = patchOf();
     expect(out.components).toEqual([{ type: 'postgresql', name: 'postgresql' }]);
-    expect(out.env).toEqual([{ name: 'DATABASE_URL', fromComponent: { name: 'postgresql', output: 'uri' } }]);
+    const auto = ['host', 'port', 'username', 'password', 'database', 'uri', 'jdbcUri'].map(o => ({
+      name: `POSTGRESQL_${o.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase()}`,
+      fromComponent: { name: 'postgresql', output: o },
+    }));
+    expect(out.env).toEqual([...auto, { name: 'DATABASE_URL', fromComponent: { name: 'postgresql', output: 'uri' } }]);
   });
 
   it('blocks the pull request while a component is incomplete, naming what it needs', () => {
