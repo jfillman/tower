@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ConfigEditor } from './ValuesForm';
 import type { ValuesSource } from './sources';
+import catalogJson from './__fixtures__/componentCatalog.json';
+import type { ComponentDefinition } from './componentCatalog';
 
 jest.mock('@backstage/core-components', () => ({
   Progress: () => <div>loading</div>,
@@ -239,5 +241,41 @@ describe('values form Deployment switch (rollout.enabled, 2026-10-10)', () => {
     const { before, patch } = flip({ ...empty, path: 'glidepath/envs/test.yaml' }, { workload: inheritsNone });
     expect(before).toBe(false);
     expect(patch.rollout.enabled).toBe(true);
+  });
+});
+
+describe('removing a component', () => {
+  it('removes the env vars that took their values from it', () => {
+    // boarding-api dev, 2026-10-19: components were removed but REDIS_URL etc. stayed, pointing at nothing.
+    const withComponents = {
+      values: {
+        rollout: { replicas: 1 },
+        components: [{ type: 'redis', name: 'cache', spec: { size: 'small' } }],
+        env: [
+          { name: 'REDIS_URL', fromComponent: { name: 'cache', output: 'url' } },
+          { name: 'REDIS_PASSWORD', valueFrom: { secretKeyRef: { name: 'cache-connection', key: 'password' } } },
+          { name: 'LOG_LEVEL', value: 'info' },
+        ],
+      },
+      raw: 'rollout:\n  replicas: 1\n',
+      path: 'glidepath/envs/dev.yaml',
+    };
+    render(
+      <ConfigEditor
+        owner="o"
+        appName="app"
+        source={source({ data: withComponents })}
+        title="TEST"
+        layout="side"
+        componentCatalog={catalogJson as unknown as ComponentDefinition[]}
+      />,
+    );
+    fireEvent.click(tab('Components'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.getByRole('status').textContent).toMatch(/REDIS_URL, REDIS_PASSWORD, which took their values from cache/);
+    fireEvent.click(tab('Config'));
+    expect(screen.queryByDisplayValue('REDIS_URL')).toBeNull();
+    expect(screen.queryByDisplayValue('REDIS_PASSWORD')).toBeNull();
+    expect(screen.getByDisplayValue('LOG_LEVEL')).toBeTruthy();
   });
 });
