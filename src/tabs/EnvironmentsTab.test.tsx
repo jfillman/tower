@@ -50,6 +50,11 @@ jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ 
 // The cluster registry: unreadable by default, so the dialog shows its free-text fallback (the tests below that set it
 // ready cover the dropdown).
 let registryState: any = { status: 'failed' };
+let provisionedEnvs: any[] = [];
+jest.mock('../environments/provisionedEnvs', () => ({
+  ...jest.requireActual('../environments/provisionedEnvs'),
+  useProvisionedEnvs: () => provisionedEnvs,
+}));
 jest.mock('../environments/registeredClusters', () => ({
   ...jest.requireActual('../environments/registeredClusters'),
   useRegisteredClusters: () => registryState,
@@ -92,6 +97,7 @@ beforeEach(() => {
   loadValuesMock.mockReset();
   clusterTemplates = undefined;
   registryState = { status: 'failed' };
+  provisionedEnvs = [];
   window.localStorage.clear();
   resetMock.mockReset();
   launchMock.mockReset();
@@ -555,6 +561,27 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     expect(launchMock.mock.invocationCallOrder[0]).toBeLessThan(submitMock.mock.invocationCallOrder[0]);
+    const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
+    expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'example-prod' });
+  });
+
+  it('lists a provisioned Flight environment cicd.yaml does not name, and stages it in one click', async () => {
+    k8sOld();
+    provisionedEnvs = [
+      { env: 'prod', cluster: 'example-prod', xrName: 'air-traffic-api-example-prod-prod', ready: true },
+      { env: 'staging', cluster: 'example-prod', xrName: 'air-traffic-api-example-prod-staging', ready: true },
+    ];
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/tenants/blob/main/p.yaml', existing: 'merged' });
+    renderTab();
+    // staging is already in cicd.yaml: only prod is called out
+    expect(screen.getByText('prod is provisioned on example-prod, but cicd.yaml does not name it')).toBeTruthy();
+    expect(screen.queryByText(/staging is provisioned/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to cicd.yaml' }));
+    expect(panel().getByText('Add environment prod')).toBeTruthy();
+    expect(screen.queryByText(/prod is provisioned on/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
     expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'example-prod' });
   });
