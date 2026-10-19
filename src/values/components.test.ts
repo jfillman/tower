@@ -1,4 +1,4 @@
-import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv } from './components';
+import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv, componentEnvRows, envNameFor, renameComponentEnv, wiredOutputs } from './components';
 
 const comps = [
   { name: 'board-mq', type: 'rabbitmq' },
@@ -59,5 +59,31 @@ describe('withoutComponentEnv', () => {
     const { kept, dropped } = withoutComponentEnv(rows, { name: 'cache', type: 'redis' });
     expect(dropped).toEqual(['REDIS_URL', 'REDIS_PASSWORD']);
     expect(kept.map(r => r.name)).toEqual(['MQ_HOST', 'OTHER_SECRET', 'LOG_LEVEL']);
+  });
+});
+
+describe('wiring a component into env vars', () => {
+  const env = (name: string, component = '', output = '') => ({ name, kind: component ? 'component' : 'value', component, output });
+
+  it('names a variable <COMPONENT>_<OUTPUT>', () => {
+    expect(envNameFor('redis', 'url')).toBe('REDIS_URL');
+    expect(envNameFor('board-mq', 'vhost')).toBe('BOARD_MQ_VHOST');
+    expect(envNameFor('oauth', 'clientSecret')).toBe('OAUTH_CLIENT_SECRET');
+  });
+
+  it('adds one per unread output and never overwrites a name in use', () => {
+    const rows = [env('REDIS_PASSWORD'), env('CACHE', 'redis', 'url')];
+    const { add, skipped } = componentEnvRows(rows, 'redis', ['host', 'port', 'url', 'password']);
+    expect(add).toEqual([
+      { name: 'REDIS_HOST', component: 'redis', output: 'host' },
+      { name: 'REDIS_PORT', component: 'redis', output: 'port' },
+    ]);
+    expect(skipped).toEqual(['REDIS_PASSWORD']);
+  });
+
+  it('lists which variables read each output, and follows a rename', () => {
+    const rows = [env('A', 'redis', 'url'), env('B', 'redis', 'url'), env('C', 'mq', 'host'), env('D')];
+    expect(wiredOutputs(rows, 'redis')).toEqual({ url: ['A', 'B'] });
+    expect(renameComponentEnv(rows, 'redis', 'cache').map(r => r.component)).toEqual(['cache', 'cache', 'mq', '']);
   });
 });

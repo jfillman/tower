@@ -279,3 +279,43 @@ describe('removing a component', () => {
     expect(screen.getByDisplayValue('LOG_LEVEL')).toBeTruthy();
   });
 });
+
+describe('adding a component', () => {
+  it('adds a From component env var for each of its outputs and shows which variable reads each', () => {
+    // boarding-api, 2026-10-19: adding redis listed host/port/url/password but wired nothing.
+    render(
+      <ConfigEditor
+        owner="o"
+        appName="app"
+        source={source()}
+        title="TEST"
+        layout="side"
+        componentCatalog={catalogJson as unknown as ComponentDefinition[]}
+      />,
+    );
+    fireEvent.click(tab('Components'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Component type to add' }), { target: { value: 'redis' } });
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    expect(screen.getByRole('status').textContent).toMatch(/^Added REDIS_HOST, REDIS_PORT, REDIS_URL, REDIS_PASSWORD/);
+    expect(screen.getByLabelText('Env vars reading url').textContent).toBe('→ REDIS_URL');
+    expect(screen.queryByRole('button', { name: /Add environment variables for/ })).toBeNull();
+    fireEvent.click(tab('Config'));
+    for (const name of ['LOG_LEVEL', 'REDIS_HOST', 'REDIS_PORT', 'REDIS_URL', 'REDIS_PASSWORD']) expect(screen.getByDisplayValue(name)).toBeTruthy();
+  });
+
+  it('points the env vars at a component\'s new name once the rename is finished', () => {
+    render(
+      <ConfigEditor owner="o" appName="app" source={source()} title="TEST" layout="side" componentCatalog={catalogJson as unknown as ComponentDefinition[]} />,
+    );
+    fireEvent.click(tab('Components'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Component type to add' }), { target: { value: 'redis' } });
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    const name = screen.getByLabelText('Component 1 name');
+    fireEvent.focus(name);
+    fireEvent.change(name, { target: { value: '' } });
+    fireEvent.change(name, { target: { value: 'cache' } });
+    fireEvent.blur(name);
+    expect(screen.getByRole('status').textContent).toBe('The environment variables that read from redis now read from cache.');
+    expect(screen.getByLabelText('Env vars reading url').textContent).toBe('→ REDIS_URL');
+  });
+});
