@@ -4,7 +4,8 @@ import type { GraphEdge, GraphNode, PipelineGraphLayout, PipelineRunSummary, Tas
 // this was built against (the dev cluster, app-backstage-cicd) has 11 tasks across 7
 // dependency-depth levels plus 4 finally tasks, and other apps' pipelines will
 // differ again. So this lays out whatever `runAfter` graph the pipeline
-// actually declares - depth-first columns by real dependency depth, not
+// actually declares - columns by real dependency depth (a task is pulled right to just before what
+// waits on it), not
 // hand-placed coordinates - the same shape Tekton's own dashboard draws a
 // PipelineRun DAG in.
 
@@ -38,6 +39,21 @@ export function layoutPipelineGraph(run: PipelineRunSummary): PipelineGraphLayou
     return depth;
   }
   run.tasks.forEach(t => depthOfTask(t.name));
+
+  // Pull a task right to sit just before the earliest task that waits on it, so a task with no runAfter is not
+  // stranded in the first column far from what it feeds (Glidepath's deploy pipeline: resolve-image-ref has no
+  // runAfter but only feeds the deploy steps, so it belongs beside resolve-deploy-target, not beside preflight).
+  // Leaves keep their depth. Visited deepest first, so each task sees its successors' final columns.
+  const successors = new Map<string, string[]>();
+  run.tasks.forEach(t => t.runAfter.forEach(dep => successors.set(dep, [...(successors.get(dep) ?? []), t.name])));
+  [...run.tasks]
+    .sort((a, b) => (depthOf.get(b.name) ?? 0) - (depthOf.get(a.name) ?? 0))
+    .forEach(t => {
+      const next = (successors.get(t.name) ?? []).filter(n => byName.has(n));
+      if (next.length === 0) return;
+      const latest = Math.min(...next.map(n => depthOf.get(n) ?? 0)) - 1;
+      if (latest > (depthOf.get(t.name) ?? 0)) depthOf.set(t.name, latest);
+    });
 
   const maxDepth = run.tasks.length ? Math.max(...run.tasks.map(t => depthOf.get(t.name) ?? 0)) : -1;
   const finallyColStart = maxDepth + 1;
