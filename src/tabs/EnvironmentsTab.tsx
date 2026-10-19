@@ -17,10 +17,12 @@ import {
   describeChanges,
   envFilePaths,
   followUps,
+  leftoverGroundEnvs,
   pipelinesNamingEnv,
   planPipelineSteps,
   readEnvironments,
   pipelineStepEnvs,
+  purgedEnvs,
   stageSetBlock,
   validateAddedFlight,
   validateEnvironments,
@@ -40,6 +42,7 @@ import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
+import { usePlatformConfig } from '../platformConfig';
 import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
@@ -167,6 +170,22 @@ export function EnvironmentsTab() {
   const pending = useMemo(() => (canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }), [canEdit, submitted, before]);
   // An environment whose cicd.yaml pull request is already open is not "missing" either.
   const unlisted = unlistedProvisioned(provisioned, [...after.map(e => e.name), ...pending.adds.map(a => a.env.name)]);
+  // Ground environments still running on the control-plane cluster after cicd.yaml stopped naming them: their values
+  // files were left behind, so Argo CD keeps them. Deleting the files is staged like any other change.
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
+  const purged = useMemo(() => purgedEnvs(staged), [staged]);
+  const leftovers = useMemo(
+    () =>
+      canEdit && !cloudBlock
+        ? leftoverGroundEnvs(liveRows, {
+            declared: [...before.map(e => e.name), ...after.map(e => e.name)],
+            controlPlane,
+            provisioned: provisioned.map(p => p.env),
+            inFlight: [...pending.adds.map(a => a.env.name), ...pending.removals, ...purged],
+          })
+        : [],
+    [canEdit, cloudBlock, liveRows, before, after, controlPlane, provisioned, pending, purged],
+  );
   // A merged pull request ends its record. Drop finished ones, and ask again every half minute while any is open.
   useEffect(() => {
     if (!canEdit || !owner || !appName) return;
@@ -202,7 +221,16 @@ export function EnvironmentsTab() {
       })),
     [releasePlan],
   );
-  const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const purgeLines = useMemo(
+    () =>
+      purged.map(name => ({
+        kind: 'remove' as const,
+        title: `Delete the leftover files of ${name}`,
+        detail: `${envFilePaths(name).join(', ')} (cicd.yaml already leaves it out)`,
+      })),
+    [purged],
+  );
+  const changes = useMemo(() => [...envChanges, ...releaseLines, ...purgeLines], [envChanges, releaseLines, purgeLines]);
   // What the remove dialog says the pull request deletes: a Kubernetes app's values files, a cloud app's Flight pin and flow.
   const removalFiles = (name: string): string[] => {
     if (!cloudBlock) return envFilePaths(name);
@@ -217,6 +245,10 @@ export function EnvironmentsTab() {
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...purged.map(
+        name =>
+          `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`,
+      ),
       ...copiedEnvs(staged, after)
         .filter(x => x.env.tier === 'flight')
         .map(x => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
@@ -225,9 +257,9 @@ export function EnvironmentsTab() {
         : []),
       ...releasePlan.skipped.map(k => `No ${k.stage} step added for ${k.env}: ${k.reason}.`),
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged],
+    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged, purged],
   );
-  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
+  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId, purged), [before, after, targetId, purged]);
 
   const rows: DisplayRow[] = useMemo(() => {
     const live = new Map(liveRows.map(r => [r.name, r]));
@@ -479,6 +511,20 @@ export function EnvironmentsTab() {
               Its ApplicationEnvironment ({p.xrName}) {p.ready ? 'is ready' : 'is not ready yet'}, but nothing releases to it until
               cicd.yaml lists it. Adding it stages the entry and a release step; the pull request reuses the existing request, so
               only the cicd.yaml change opens.
+            </Callout>
+          ))}
+          {leftovers.map(name => (
+            <Callout
+              key={name}
+              tone="warn"
+              label="Not in cicd.yaml"
+              title={`${name} is still running, but cicd.yaml does not name it`}
+              actions={<Button onClick={() => setStaged(s => [...s, { kind: 'purge', name }])}>Delete its files</Button>}
+              className={c.unlisted}
+            >
+              It was taken out of cicd.yaml without Remove, so {envFilePaths(name)[0]} is still in the repo and Argo CD keeps
+              the environment. Deleting its files stages a pull request that removes them; once it merges Argo CD deletes the
+              environment and everything running in it.
             </Callout>
           ))}
           <FilterBar end={canEdit && <Hint>Drag the handle to reorder</Hint>}>

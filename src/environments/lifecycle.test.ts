@@ -39,6 +39,27 @@ describe('Flight environment lifecycle', () => {
     expect(files.detail).toBe('1 of 2 written.');
   });
 
+  it('counts the request as merged once its XR exists, even when the pull request was not found', () => {
+    // boarding-api prod, 2026-10-19: the tenants repo lookup failed, so the step sat empty under a green "Applied".
+    const s = deriveEnvLifecycle({ ...base, declared: true, xr: { found: true, synced: true }, tenantsRepoUrl: 'https://github.com/o/t' }).find(x => x.id === 'request')!;
+    expect(s.state).toBe('done');
+    expect(s.detail).toBeUndefined();
+    expect(s.links).toEqual([{ label: 'Tenants repo', url: 'https://github.com/o/t' }]);
+  });
+
+  it('marks a remembered open request link merged once the XR exists', () => {
+    const s = deriveEnvLifecycle({ ...base, requestPr: pr('open'), xr: { found: true, synced: false } }).find(x => x.id === 'request')!;
+    expect(s.state).toBe('done');
+    expect(s.links).toEqual([{ label: 'PR #7', url: 'https://github.com/o/t/pull/7', state: 'merged' }]);
+  });
+
+  it('says how the request gets opened while there is none', () => {
+    const s = deriveEnvLifecycle(base).find(x => x.id === 'request')!;
+    expect(s.state).toBe('pend');
+    expect(s.desc).toBe('A pull request on the tenants repo that requests the environment.');
+    expect(s.detail).toMatch(/^Not found yet/);
+  });
+
   it('shows a closed request pull request as failed', () => {
     const s = deriveEnvLifecycle({ ...base, requestPr: pr('closed') }).find(x => x.id === 'request')!;
     expect(s.state).toBe('fail');

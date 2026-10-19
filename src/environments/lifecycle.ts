@@ -108,13 +108,25 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
   }
 
   // Flight
-  const request = prStep(
+  let request = prStep(
     'request',
     'ApplicationEnvironment request',
-    'A request pull request on the tenants repo asks for the environment.',
+    'A pull request on the tenants repo that requests the environment.',
     i.requestPr,
-    'Opened with the cicd.yaml change.',
+    'Not found yet: Add environment opens it together with the cicd.yaml change.',
   );
+  // The XR exists only once its request has merged and Argo CD applied it, so a found XR settles this step even when
+  // the pull request cannot be looked up (another tenants repo, a hand-applied XR, GitHub unreachable).
+  if (i.xr?.found && request.state !== 'done') {
+    request = {
+      ...request,
+      state: 'done',
+      detail: undefined,
+      links: request.links
+        ?.filter(l => l.state !== 'closed')
+        .map(l => ({ ...l, state: 'merged' as const })),
+    };
+  }
   if (i.tenantsRepoUrl && !request.links) request.links = [{ label: 'Tenants repo', url: i.tenantsRepoUrl }];
 
   let applied: EnvLifecycleStep = {
