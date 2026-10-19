@@ -52,6 +52,49 @@ function matchComponentOutput(components, kind, refName, refKey) {
   }
   return void 0;
 }
+function withoutComponentEnv(rows, component) {
+  const kept = [];
+  const dropped = [];
+  for (const r of rows) {
+    const ref = r.kind === "configMap" || r.kind === "secret";
+    const belongs = r.kind === "component" && r.component.trim() === component.name || ref && matchComponentOutput([component], r.kind === "configMap" ? "configMapKeyRef" : "secretKeyRef", r.refName.trim(), r.refKey.trim()) !== void 0;
+    if (belongs) dropped.push(r.name || "(unnamed)");
+    else kept.push(r);
+  }
+  return { kept, dropped };
+}
+function envNameFor(component, output) {
+  const snake = (v) => v.replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
+  return `${snake(component)}_${snake(output)}`;
+}
+function componentEnvRows(rows, component, outputs) {
+  const add = [];
+  const skipped = [];
+  const taken = new Set(rows.map((r) => r.name.trim()));
+  for (const output of outputs) {
+    if (rows.some((r) => r.kind === "component" && r.component.trim() === component && r.output.trim() === output)) continue;
+    const name = envNameFor(component, output);
+    if (taken.has(name)) {
+      skipped.push(name);
+      continue;
+    }
+    taken.add(name);
+    add.push({ name, component, output });
+  }
+  return { add, skipped };
+}
+function wiredOutputs(rows, component) {
+  const out = {};
+  for (const r of rows) {
+    if (r.kind !== "component" || r.component.trim() !== component || !r.name.trim()) continue;
+    (out[r.output.trim()] ??= []).push(r.name.trim());
+  }
+  return out;
+}
+function renameComponentEnv(rows, from, to) {
+  if (!from || from === to) return rows;
+  return rows.map((r) => r.kind === "component" && r.component.trim() === from ? { ...r, component: to } : r);
+}
 
-export { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf };
+export { COMPONENT_OUTPUTS, componentEnvRows, declaredComponents, envNameFor, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv };
 //# sourceMappingURL=components.esm.js.map

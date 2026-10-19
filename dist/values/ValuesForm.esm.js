@@ -23,7 +23,7 @@ import { parseComponents, ComponentsEditor } from './ComponentsEditor.esm.js';
 import { componentProblems, catalogOutputs } from './componentCatalog.esm.js';
 import { annotateValues, mergeValues } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
-import { declaredComponents, outputsOf, matchComponentOutput } from './components.esm.js';
+import { declaredComponents, withoutComponentEnv, renameComponentEnv, componentEnvRows, wiredOutputs, outputsOf, matchComponentOutput } from './components.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
 import { workloadOn, workloadStatus } from './workload.esm.js';
 import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
@@ -888,6 +888,7 @@ function ConfigEditor({
   const schema = useValuesSchema(owner);
   const [tab, setTab] = useState("workload");
   const [form, setForm] = useState(void 0);
+  const [componentNote, setComponentNote] = useState();
   const chartReplicas = chart?.defaults?.rollout?.replicas;
   const [originalForm, setOriginalForm] = useState(void 0);
   const inheritedShape = workload?.view?.inherited ?? "service";
@@ -1011,6 +1012,7 @@ function ConfigEditor({
     setOriginalForm(builtForm);
     setAdvanced(builtAdvanced);
     setOriginalAdvanced(builtAdvanced);
+    setComponentNote(void 0);
     const rolloutIsSet = workloadOn(cfg.data.values.rollout, inheritedShape);
     setRolloutEnabled(rolloutIsSet);
     setOriginalRolloutEnabled(rolloutIsSet);
@@ -1821,7 +1823,45 @@ function ConfigEditor({
       tab === "access" && /* @__PURE__ */ jsx(Section, { title: "Secrets", dirty: dirty.has("secrets"), classes, children: /* @__PURE__ */ jsx(SecretsSection, { rows: form.secrets, onChange: (rows) => setF("secrets", rows), classes }) }),
       tab === "components" && /* @__PURE__ */ jsxs(Section, { title: "Components", dirty: dirty.has("components"), classes, children: [
         /* @__PURE__ */ jsx(Typography, { className: classes.hint, style: { marginTop: 0, marginBottom: 10 }, children: "Backing services attached to this environment: a cache, a database, a message broker. Each is created next to your app and hands it a connection through a Secret or ConfigMap." }),
-        /* @__PURE__ */ jsx(ComponentsEditor, { text: advanced.components, onChange: (text) => setAdv("components", text), defs: componentCatalog })
+        /* @__PURE__ */ jsx(
+          ComponentsEditor,
+          {
+            text: advanced.components,
+            onChange: (text) => {
+              setAdv("components", text);
+              setComponentNote(void 0);
+            },
+            defs: componentCatalog,
+            wired: (name) => wiredOutputs(form.envVars, name),
+            onWire: (name, outputs) => {
+              const { add, skipped } = componentEnvRows(form.envVars, name, outputs);
+              if (add.length > 0) {
+                const blank = { value: "", refName: "", refKey: "" };
+                setF("envVars", [...form.envVars, ...add.map((a) => ({ ...blank, kind: "component", ...a }))], "env");
+              }
+              const parts = [
+                add.length > 0 ? `Added ${add.map((a) => a.name).join(", ")} (Config tab), reading from ${name}.` : "",
+                skipped.length > 0 ? `${skipped.join(", ")} already ${skipped.length === 1 ? "exists" : "exist"}, so ${skipped.length === 1 ? "it was" : "they were"} left alone.` : ""
+              ].filter(Boolean);
+              setComponentNote(parts.length > 0 ? `${parts.join(" ")} Discard undoes it.` : void 0);
+            },
+            onRename: (from, to) => {
+              const next = renameComponentEnv(form.envVars, from, to);
+              if (next !== form.envVars && next.some((r, k) => r !== form.envVars[k])) {
+                setF("envVars", next, "env");
+                setComponentNote(`The environment variables that read from ${from} now read from ${to}.`);
+              }
+            },
+            onRemove: (removed) => {
+              const { kept, dropped } = withoutComponentEnv(form.envVars, { name: removed.name, type: removed.type });
+              if (dropped.length > 0) setF("envVars", kept, "env");
+              setComponentNote(
+                dropped.length > 0 ? `Also removed ${dropped.length === 1 ? "the environment variable" : "the environment variables"} ${dropped.join(", ")}, which took ${dropped.length === 1 ? "its value" : "their values"} from ${removed.name}. Discard undoes both.` : void 0
+              );
+            }
+          }
+        ),
+        componentNote && /* @__PURE__ */ jsx(Typography, { className: classes.hint, role: "status", style: { marginTop: 10 }, children: componentNote })
       ] }),
       Object.keys(ADVANCED_META).filter((key) => ADVANCED_TAB[key] === tab).map((key) => renderAdvancedSection(key))
     ] }),
