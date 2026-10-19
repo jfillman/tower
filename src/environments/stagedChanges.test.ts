@@ -7,6 +7,8 @@ import {
   envFilePaths,
   followUps,
   isUnchanged,
+  leftoverGroundEnvs,
+  purgedEnvs,
   planPipelineSteps,
   pipelineStepEnvs,
   pipelinesNamingEnv,
@@ -427,5 +429,33 @@ describe('release steps for new Flight environments', () => {
     const plan = planPipelineSteps({ ci }, withTest, ['test']);
     expect((plan.pipelines as any).ci.steps).toEqual([{ stage: 'build' }, { stage: 'deploy', env: 'dev' }, { stage: 'deploy', env: 'test' }, { stage: 'release', env: 'staging' }]);
     expect(plan.added).toEqual([{ env: 'test', stage: 'deploy', pipeline: 'ci', after: 'dev' }]);
+  });
+});
+
+describe('leftover Ground environment files', () => {
+  const live = (name: string, where = 'hangar-dev', tier: 'ground' | 'flight' = 'ground') => ({ name, tier, target: 'Kubernetes', where });
+  const opts = { declared: ['dev', 'prod'], controlPlane: 'hangar-dev', provisioned: ['prod'], inFlight: [] as string[] };
+
+  it('finds a live Ground environment on the control plane that cicd.yaml no longer names', () => {
+    // boarding-api test, 2026-10-19: taken out of cicd.yaml by hand, glidepath/envs/test.yaml left, still running.
+    expect(leftoverGroundEnvs([live('dev'), live('test'), live('prod', 'hangar-prod')], opts)).toEqual(['test']);
+  });
+
+  it('skips Flight clusters, provisioned environments, ones a pull request is handling, and an unknown control plane', () => {
+    expect(leftoverGroundEnvs([live('staging', 'hangar-prod')], opts)).toEqual([]);
+    expect(leftoverGroundEnvs([live('qa')], { ...opts, provisioned: ['qa'] })).toEqual([]);
+    expect(leftoverGroundEnvs([live('test')], { ...opts, inFlight: ['test'] })).toEqual([]);
+    expect(leftoverGroundEnvs([live('test')], { ...opts, controlPlane: undefined })).toEqual([]);
+  });
+
+  it('stages a purge that deletes the files without touching the environment list', () => {
+    const before = [ground('dev')];
+    const staged = [{ kind: 'purge' as const, name: 'test' }, { kind: 'purge' as const, name: 'test' }];
+    const after = applyStaged(before, staged);
+    expect(after).toEqual(before);
+    expect(isUnchanged(before, after)).toBe(true);
+    expect(purgedEnvs(staged)).toEqual(['test']);
+    expect(deleteFilesFor(before, after, 'k8s-rollout', purgedEnvs(staged))).toEqual(envFilePaths('test'));
+    expect(deleteFilesFor(before, after, 'aws-lambda', purgedEnvs(staged))).toEqual([]);
   });
 });

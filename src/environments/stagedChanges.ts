@@ -79,7 +79,13 @@ export type Staged =
   | { kind: 'add'; env: EnvDef; pipelineStep?: boolean; copyValuesFrom?: string }
   | { kind: 'move'; name: string; direction: 'up' | 'down' }
   | { kind: 'setBlock'; name: string; block: CloudBlock; value: Block | undefined }
-  | { kind: 'remove'; name: string };
+  | { kind: 'remove'; name: string }
+  /**
+   * Delete the files of a Ground environment cicd.yaml no longer names (edited by hand, not with Remove): its
+   * glidepath/envs/<env>.yaml keeps the lower-envs ApplicationSet generating its Application, so it keeps running.
+   * Changes nothing in the environment list.
+   */
+  | { kind: 'purge'; name: string };
 
 const firstIndexOfTier = (envs: EnvDef[], tier: Tier) => envs.findIndex(e => e.tier === tier);
 
@@ -93,6 +99,8 @@ export function applyStaged(envs: EnvDef[], staged: Staged[]): EnvDef[] {
       else out.splice(at, 0, { ...s.env });
     } else if (s.kind === 'remove') {
       out = out.filter(e => e.name !== s.name);
+    } else if (s.kind === 'purge') {
+      continue;
     } else if (s.kind === 'setBlock') {
       out = out.map(e => {
         if (e.name !== s.name) return e;
@@ -296,12 +304,34 @@ export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: u
  * The files to delete in the same pull request: a removed Ground environment's values files on a Kubernetes app, a removed
  * Flight environment's release pin and promote flow on a cloud app.
  */
-export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string | undefined): string[] {
+export function deleteFilesFor(before: EnvDef[], after: EnvDef[], target: string | undefined, purged: string[] = []): string[] {
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
-  return removedEnvs(before, after).flatMap(e => {
+  const removed = removedEnvs(before, after).flatMap(e => {
     if (cloud) return e.tier === 'flight' ? cloudFlightFilePaths(e.name) : [];
     return e.tier === 'ground' ? envFilePaths(e.name) : [];
   });
+  return [...removed, ...(cloud ? [] : purged.filter(n => !after.some(e => e.name === n)).flatMap(envFilePaths))];
+}
+
+/** The environments staged for a leftover-files delete (see the `purge` kind). */
+export function purgedEnvs(staged: Staged[]): string[] {
+  return [...new Set(staged.flatMap(s => (s.kind === 'purge' ? [s.name] : [])))];
+}
+
+/**
+ * Live Ground environments on the control-plane cluster that cicd.yaml does not name: removed from cicd.yaml by hand
+ * (boarding-api test, 2026-10-19), so their values file is still there and Argo CD keeps them running. Not a Flight
+ * environment (those are listed from their ApplicationEnvironment) and not one a pull request is adding or removing.
+ */
+export function leftoverGroundEnvs(
+  live: Array<{ name: string; tier: Tier; target: string; where: string }>,
+  opts: { declared: string[]; controlPlane?: string; provisioned: string[]; inFlight: string[] },
+): string[] {
+  if (!opts.controlPlane) return [];
+  const skip = new Set([...opts.declared, ...opts.provisioned, ...opts.inFlight]);
+  return live
+    .filter(r => r.tier === 'ground' && r.target === 'Kubernetes' && r.where === opts.controlPlane && !skip.has(r.name))
+    .map(r => r.name);
 }
 
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */

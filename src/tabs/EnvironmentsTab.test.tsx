@@ -55,6 +55,8 @@ jest.mock('../environments/provisionedEnvs', () => ({
   ...jest.requireActual('../environments/provisionedEnvs'),
   useProvisionedEnvs: () => provisionedEnvs,
 }));
+let platformConfig: any = { clusters: {} };
+jest.mock('../platformConfig', () => ({ ...jest.requireActual('../platformConfig'), usePlatformConfig: () => platformConfig }));
 jest.mock('../environments/registeredClusters', () => ({
   ...jest.requireActual('../environments/registeredClusters'),
   useRegisteredClusters: () => registryState,
@@ -98,6 +100,7 @@ beforeEach(() => {
   clusterTemplates = undefined;
   registryState = { status: 'failed' };
   provisionedEnvs = [];
+  platformConfig = { clusters: {} };
   window.localStorage.clear();
   resetMock.mockReset();
   launchMock.mockReset();
@@ -584,6 +587,34 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
     expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'example-prod' });
+  });
+
+  it('calls out a Ground environment still running after cicd.yaml dropped it, and stages deleting its files', async () => {
+    // boarding-api test, 2026-10-19: removed from cicd.yaml by hand, glidepath/envs/test.yaml left, so Argo CD kept it.
+    k8sOld();
+    platformConfig = { controlPlaneCluster: 'example-dev', clusters: {} };
+    cicdData = {
+      values: {
+        deploy: {
+          environments: [
+            { name: 'dev', tier: 'ground' },
+            { name: 'staging', tier: 'flight', cluster: 'example-prod' },
+          ],
+        },
+      },
+    };
+    submitMock.mockResolvedValue(undefined);
+    renderTab();
+    expect(screen.getByText('test is still running, but cicd.yaml does not name it')).toBeTruthy();
+    expect(screen.queryByText(/staging is still running/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete its files' }));
+    expect(panel().getByText('Delete the leftover files of test')).toBeTruthy();
+    expect(screen.queryByText(/test is still running/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    const req = submitMock.mock.calls[0][0];
+    expect(req.deleteFiles).toEqual(['glidepath/envs/test.yaml', 'glidepath/envs/test.release.yaml']);
+    expect(req.patch.deploy.environments).toEqual(cicdData.values.deploy.environments);
   });
 
   it('goes on to cicd.yaml when the request already exists, and says nothing new was opened for it', async () => {

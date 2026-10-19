@@ -8,7 +8,7 @@ import {
   type SecretsSnapshot,
   type XrCondition,
 } from '../provisioning/deriveProvisioning';
-import { latestOnboardingPr, toManaged, toSecrets } from '../provisioning/useProvisioning';
+import { latestOnboardingPr, parseTenantsRepo, toManaged, toSecrets } from '../provisioning/useProvisioning';
 import { usePlatformConfig } from '../platformConfig';
 import { deriveEnvLifecycle, type EnvLifecycleInputs, type EnvLifecycleStep } from './lifecycle';
 import { ENVS_ROOT } from '../types';
@@ -24,8 +24,8 @@ interface ListResponse<T> {
   items?: T[];
 }
 interface RawXr {
-  metadata: { name: string };
-  spec?: { crossplane?: { resourceRefs?: { kind: string; name: string }[] } };
+  metadata: { name: string; annotations?: Record<string, string> };
+  spec?: { appType?: string; crossplane?: { resourceRefs?: { kind: string; name: string }[] } };
   status?: { conditions?: XrCondition[] };
 }
 interface RawManaged {
@@ -76,14 +76,19 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       return undefined;
     }
     let cancelled = false;
-    const github: { at: number; busy: boolean; requestPr?: PrSnapshot; onboardingPr?: PrSnapshot } = { at: 0, busy: false };
+    const github: {
+      at: number;
+      busy: boolean;
+      requestPr?: PrSnapshot;
+      onboardingPr?: PrSnapshot;
+      tenants?: { owner: string; repo: string };
+    } = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
     const ns = `app-${appName}-cicd`;
-    const tenants = tenantsRepo;
 
-    const optional = async <T,>(path: string): Promise<T | undefined> => {
+    const optional = async <T,>(path: string, on: string = XR_CLUSTER): Promise<T | undefined> => {
       try {
-        return await k8sProxyGet<T>(discoveryApi, fetchApi, XR_CLUSTER, path);
+        return await k8sProxyGet<T>(discoveryApi, fetchApi, on, path);
       } catch {
         return undefined;
       }
@@ -102,6 +107,8 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       github.busy = true;
       try {
         const prBase = await discoveryApi.getBaseUrl('pull-requests');
+        // The XR names the tenants repo it was applied from (source-info), which beats app-config.
+        const tenants = github.tenants ?? tenantsRepo;
         if (tier === 'flight' && tenants) {
           const r = await getJson<{ pr: PrSnapshot | null }>(
             `${prBase}/request-pr?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo, kind: 'ApplicationEnvironment', name: xrName })}`,
@@ -127,12 +134,12 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       if (tier === 'flight') {
         const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${ns}`;
         const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${xrName}`)}`;
-        const [xr, files, stores] = await Promise.all([
+        const [xr, files] = await Promise.all([
           optional<RawXr>(`${nsBase}/applicationenvironments/${encodeURIComponent(xrName)}`),
           optional<ListResponse<RawManaged>>(`/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${ns}/repositoryfiles?${selector}`),
-          optional<ListResponse<RawManaged & { status?: { conditions?: XrCondition[] } }>>(`${nsBase}/secretstores`),
         ]);
         if (xr) {
+          github.tenants = parseTenantsRepo(xr.metadata.annotations?.['terasky.backstage.io/source-info']) ?? github.tenants;
           const cond = (t: string) => xr.status?.conditions?.find(c => c.type === t);
           const synced = cond('Synced');
           const workload = cond('WorkloadDeployed');
@@ -147,19 +154,36 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
         } else {
           next.xr = { found: false };
         }
-        const store = stores?.items?.find(s => s.metadata.name === xrName);
-        next.secrets = toSecrets(store as never, stores !== undefined) as SecretsSnapshot | undefined;
-        if (store) {
-          const projects = await optional<ListResponse<RawManaged>>(
-            `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${ns}/projects`,
+        // The SecretStore requests the XR commits (secretstore-<env>.yaml, secretstore-shared.yaml) are applied by the
+        // environment's own cluster's xr-requests ApplicationSet into <appType>-<app>-xrs, not on the control plane.
+        // The per-env store (<app>-<cluster>-<env>) is this environment's; the shared one (<app>-<cluster>) owns the
+        // Infisical project.
+        if (cluster) {
+          const xrsNs = `${xr?.spec?.appType || 'app'}-${appName}-xrs`;
+          const stores = await optional<ListResponse<RawManaged & { status?: { conditions?: XrCondition[] } }>>(
+            `/apis/catalog.hangar.io/v1alpha1/namespaces/${xrsNs}/secretstores`,
+            cluster,
           );
-          const id = projects?.items?.find(p => p.metadata.name === store.metadata.name)?.metadata.annotations?.['crossplane.io/external-name'];
-          if (id) next.infisicalUrl = infisicalProjectUrl(devLinks?.infisicalUrl, id);
+          const store = stores?.items?.find(s => s.metadata.name === xrName);
+          next.secrets = toSecrets(store as never, stores !== undefined) as SecretsSnapshot | undefined;
+          if (store) {
+            const projects = await optional<ListResponse<RawManaged>>(
+              `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${xrsNs}/projects`,
+              cluster,
+            );
+            const id = projects?.items?.find(p => p.metadata.name === `${appName}-${cluster}`)?.metadata.annotations?.['crossplane.io/external-name'];
+            if (id) next.infisicalUrl = infisicalProjectUrl(platform.clusters[cluster]?.infisicalUrl ?? devLinks?.infisicalUrl, id);
+          }
         }
       }
       void refreshGithub();
       if (cancelled) return;
-      setExtra({ ...next, requestPr: github.requestPr, onboardingPr: github.onboardingPr });
+      setExtra({
+        ...next,
+        requestPr: github.requestPr,
+        onboardingPr: github.onboardingPr,
+        ...(github.tenants ? { tenantsRepoUrl: `https://github.com/${github.tenants.owner}/${github.tenants.repo}` } : {}),
+      });
       setLoading(false);
     };
 
@@ -169,7 +193,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestPr: PrSnapshot | undefined =
     extra.requestPr ??
