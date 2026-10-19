@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Dialog from '@material-ui/core/Dialog';
@@ -12,6 +12,7 @@ import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
+import { flightClusterOptions, flightClusterProblem, useRegisteredClusters } from '../../environments/registeredClusters';
 import { applyStaged, validateAddedFlight, validateEnvironments, type CloudBlock, type EnvDef } from '../../environments/stagedChanges';
 import { Button, Field, Hint } from '../../ui';
 import { useUi } from '../../ui/styles';
@@ -63,8 +64,20 @@ export function AddEnvironmentDialog({
   const mainField = cloudBlock ? MAIN_FIELD[cloudBlock] : undefined;
   // A cloud Flight environment is approved by a release pin PR on the source repo (glidepath ADR-0020).
   const flightAllowed = true;
-  // Clusters this app's Flight environments already run on, as suggestions (any registered upper cluster works).
-  const knownClusters = [...new Set(current.filter(e => e.tier === 'flight' && e.cluster).map(e => e.cluster as string))];
+  // Clusters this app's Flight environments already run on: marked in the list, and the only suggestions when the
+  // registry cannot be read.
+  const usedBy: Record<string, string[]> = {};
+  for (const e of current) if (e.tier === 'flight' && e.cluster) (usedBy[e.cluster] ??= []).push(e.name);
+  const knownClusters = Object.keys(usedBy);
+  // The registered clusters a Flight environment can run on, read only while this dialog could need them.
+  const registry = useRegisteredClusters(open && !cloudBlock);
+  const clusterChoices = registry.status === 'ready' ? flightClusterOptions(registry.clusters, usedBy) : [];
+  const clusterPicker = registry.status === 'loading' || clusterChoices.length > 0;
+  // One cluster to choose from: choose it.
+  const onlyChoice = clusterChoices.length === 1 ? clusterChoices[0].value : '';
+  useEffect(() => {
+    if (onlyChoice && !cluster) setCluster(onlyChoice);
+  }, [onlyChoice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const candidate: EnvDef = { name: name.trim(), tier };
   if (tier === 'flight' && !cloudBlock && cluster.trim()) candidate.cluster = cluster.trim();
@@ -77,10 +90,13 @@ export function AddEnvironmentDialog({
     if (Object.keys(candidate[cloudBlock] as object).length === 0) delete candidate[cloudBlock];
   }
   const withCandidate = applyStaged(current, [{ kind: 'add', env: candidate }]);
+  const clusterProblem = tier === 'flight' && !cloudBlock ? flightClusterProblem(registry, cluster.trim()) : undefined;
   const fresh = name.trim()
-    ? [...validateEnvironments(withCandidate, targetId), ...validateAddedFlight(current, withCandidate, targetId)].filter(
-        p => !problems.includes(p),
-      )
+    ? [
+        ...validateEnvironments(withCandidate, targetId),
+        ...validateAddedFlight(current, withCandidate, targetId),
+        ...(clusterProblem ? [clusterProblem] : []),
+      ].filter(p => !problems.includes(p))
     : [];
   const ok = Boolean(name.trim()) && fresh.length === 0;
 
@@ -144,17 +160,45 @@ export function AddEnvironmentDialog({
           )}
           {tier === 'flight' && !cloudBlock && (
             <>
-              <Field id="add-env-cluster" label="Cluster">
-                {p => <input {...p} list="flight-clusters" value={cluster} onChange={e => setCluster(e.target.value)} />}
-              </Field>
-              <datalist id="flight-clusters">
-                {knownClusters.map(k => (
-                  <option key={k} value={k} />
-                ))}
-              </datalist>
-              <Hint className={c.noteGap} style={{ marginTop: -6 }}>
-                The registered upper cluster it runs on (its name in the cluster registry).
-              </Hint>
+              {clusterPicker ? (
+                <>
+                  <Field id="add-env-cluster" label="Cluster">
+                    {p => (
+                      <select {...p} disabled={registry.status === 'loading'} value={cluster} onChange={e => setCluster(e.target.value)}>
+                        <option value="" disabled>
+                          {registry.status === 'loading' ? 'Reading the cluster registry…' : 'Choose a cluster'}
+                        </option>
+                        {/* A duplicated environment's cluster stays visible even if the registry no longer offers it. */}
+                        {cluster && !clusterChoices.some(o => o.value === cluster) && <option value={cluster}>{cluster}</option>}
+                        {clusterChoices.map(o => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                  <Hint className={c.noteGap} style={{ marginTop: -6 }}>
+                    The registered upper clusters that can run a Flight environment, from the cluster registry.
+                  </Hint>
+                </>
+              ) : (
+                <>
+                  <Field id="add-env-cluster" label="Cluster">
+                    {p => <input {...p} list="flight-clusters" value={cluster} onChange={e => setCluster(e.target.value)} />}
+                  </Field>
+                  <datalist id="flight-clusters">
+                    {knownClusters.map(k => (
+                      <option key={k} value={k} />
+                    ))}
+                  </datalist>
+                  <Hint className={c.noteGap} style={{ marginTop: -6 }}>
+                    {registry.status === 'failed'
+                      ? 'The cluster registry could not be read: type the registered upper cluster it runs on.'
+                      : 'The cluster registry lists no upper cluster that can run a Flight environment yet: type its registered name.'}
+                  </Hint>
+                </>
+              )}
               <Hint className={c.noteGap}>
                 Creating a Flight environment opens two pull requests: an ApplicationEnvironment request on the tenants repo,
                 then the cicd.yaml change. Merge the request first.

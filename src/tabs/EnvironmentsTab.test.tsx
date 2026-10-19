@@ -47,6 +47,13 @@ jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources
 let workloadView: { data?: unknown } = { data: { shape: 'service', shapeFrom: 'default', inherited: 'service', legacyNull: false, release: null } };
 jest.mock('../values/workload', () => ({ ...jest.requireActual('../values/workload'), useWorkloadView: () => workloadView }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
+// The cluster registry: unreadable by default, so the dialog shows its free-text fallback (the tests below that set it
+// ready cover the dropdown).
+let registryState: any = { status: 'failed' };
+jest.mock('../environments/registeredClusters', () => ({
+  ...jest.requireActual('../environments/registeredClusters'),
+  useRegisteredClusters: () => registryState,
+}));
 jest.mock('../useConfigData', () => ({
   
   useCicdConfig: () => ({ loading: false, data: cicdData }),
@@ -84,6 +91,7 @@ beforeEach(() => {
   lifecycleSteps = [];
   loadValuesMock.mockReset();
   clusterTemplates = undefined;
+  registryState = { status: 'failed' };
   window.localStorage.clear();
   resetMock.mockReset();
   launchMock.mockReset();
@@ -437,8 +445,52 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     fireEvent.click(screen.getByLabelText(/^Flight/));
     expect(screen.getByLabelText('Cluster')).toBeTruthy();
     expect(screen.getByText(/opens two pull requests/)).toBeTruthy();
-    // clusters this app's Flight environments already use are offered as suggestions
+    // registry unreadable: clusters this app's Flight environments already use are offered as suggestions
     expect(document.querySelector('datalist#flight-clusters option')?.getAttribute('value')).toBe('example-prod');
+    expect(screen.getByText(/cluster registry could not be read/)).toBeTruthy();
+  });
+
+  const registry = (...clusters: Array<{ name: string; flight: boolean }>) => ({
+    status: 'ready',
+    clusters: clusters.map(c => ({ type: c.flight ? 'upper' : 'dev', zone: c.flight ? 'upper' : 'lower', roles: ['workloads'], onboarding: !c.flight, ...c })),
+  });
+
+  it('offers the registered upper clusters as a list, marking the ones this app already uses', () => {
+    k8sOld();
+    registryState = registry({ name: 'example-prod', flight: true }, { name: 'edge-2', flight: true }, { name: 'hub-dev', flight: false });
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    const select = screen.getByLabelText('Cluster') as HTMLSelectElement;
+    expect(select.tagName).toBe('SELECT');
+    const labels = [...select.options].filter(o => o.value).map(o => o.textContent);
+    expect(labels).toEqual(['example-prod (upper · workloads, used by staging)', 'edge-2 (upper · workloads)']);
+    expect(document.querySelector('datalist#flight-clusters')).toBeNull();
+  });
+
+  it('chooses the only registered upper cluster for you', () => {
+    k8sOld();
+    registryState = registry({ name: 'example-prod', flight: true }, { name: 'hub-dev', flight: false });
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Add environment' }));
+    fireEvent.click(screen.getByLabelText(/^Flight/));
+    expect((screen.getByLabelText('Cluster') as HTMLSelectElement).value).toBe('example-prod');
+  });
+
+  it('refuses a cluster the registry says cannot host a Flight environment, before any pull request', () => {
+    k8sOld();
+    // staging runs on example-prod, which the registry no longer offers for Flight: duplicating keeps it visible, refused
+    registryState = registry({ name: 'example-prod', flight: false }, { name: 'edge-2', flight: true });
+    renderTab();
+    openMenu('staging');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    expect((screen.getByLabelText('Cluster') as HTMLSelectElement).value).toBe('example-prod');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'prod' } });
+    expect(screen.getByText(/"example-prod" is registered but cannot host a Flight environment/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Stage duplicate' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Cluster'), { target: { value: 'edge-2' } });
+    expect(screen.queryByText(/cannot host a Flight environment/)).toBeNull();
+    expect((screen.getByRole('button', { name: 'Stage duplicate' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('offers Flight for a cloud app as a release pin environment, with no cluster and no tenants request', () => {
