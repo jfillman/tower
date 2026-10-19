@@ -126,6 +126,8 @@ export function EnvironmentsTab() {
   // env name -> the ApplicationEnvironment request PR already opened for it. Kept so a retry after a later
   // failure does not open a second request for an environment that already has one.
   const [launched, setLaunched] = useState<Record<string, string>>({});
+  // env name -> how a request that was reused (not opened now) exists: already on main, or already an open PR.
+  const [reused, setReused] = useState<Record<string, 'merged' | 'open'>>({});
   const [failure, setFailure] = useState<string | undefined>();
   const [staged, setStaged] = useState<Staged[]>([]);
   const [adding, setAdding] = useState(false);
@@ -329,10 +331,11 @@ export function EnvironmentsTab() {
     setFailure(undefined);
     // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
     const done = { ...launched };
+    const reusedNow = { ...reused };
     for (const e of flightAdds) {
       if (done[e.name]) continue;
       setPhase('launching');
-      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster as string });
+      const r = await launcher.launch({ appName, env: e.name, cluster: e.cluster as string, owner });
       if (r.status !== 'done') {
         setLaunched(done);
         setPhase('idle');
@@ -342,6 +345,8 @@ export function EnvironmentsTab() {
         return;
       }
       done[e.name] = r.prUrl;
+      if (r.existing) reusedNow[e.name] = r.existing;
+      setReused(reusedNow);
     }
     setLaunched(done);
     // A Ground environment staged as a copy gets its values file in the same pull request: read the source's values now.
@@ -397,6 +402,7 @@ export function EnvironmentsTab() {
     if (succeeded) {
       setStaged([]);
       setLaunched({});
+      setReused({});
       setNonce(n => n + 1);
     }
   };
@@ -699,7 +705,7 @@ export function EnvironmentsTab() {
       )}
       {(submit.result || submit.error || failure) && (
         <ChangeResultDialog
-          requests={flightAdds.filter(e => launched[e.name]).map(e => ({ env: e.name, url: launched[e.name] }))}
+          requests={flightAdds.filter(e => launched[e.name]).map(e => ({ env: e.name, url: launched[e.name], existing: reused[e.name] }))}
           cicdPrUrl={submit.result?.prUrl}
           error={failure ?? submit.error}
           onClose={closeResult}
