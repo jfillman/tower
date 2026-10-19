@@ -7,7 +7,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, envFilePaths, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, purgedEnvs, leftoverGroundEnvs, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, envFilePaths, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { useProvisionedEnvs, unlistedProvisioned } from '../environments/provisionedEnvs.esm.js';
 import { dump } from 'js-yaml';
@@ -18,6 +18,7 @@ import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { usePlatformConfig } from '../platformConfig.esm.js';
 import { PageHeader, Button, Hint, Callout, FilterBar, FilterChips, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
 import { PendingChanges } from './environments/PendingChanges.esm.js';
@@ -111,6 +112,17 @@ function EnvironmentsTab() {
   const provisioned = useProvisionedEnvs(appName, canEdit && !cloudBlock, nonce);
   const pending = useMemo(() => canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }, [canEdit, submitted, before]);
   const unlisted = unlistedProvisioned(provisioned, [...after.map((e) => e.name), ...pending.adds.map((a) => a.env.name)]);
+  const controlPlane = usePlatformConfig().controlPlaneCluster;
+  const purged = useMemo(() => purgedEnvs(staged), [staged]);
+  const leftovers = useMemo(
+    () => canEdit && !cloudBlock ? leftoverGroundEnvs(liveRows, {
+      declared: [...before.map((e) => e.name), ...after.map((e) => e.name)],
+      controlPlane,
+      provisioned: provisioned.map((p) => p.env),
+      inFlight: [...pending.adds.map((a) => a.env.name), ...pending.removals, ...purged]
+    }) : [],
+    [canEdit, cloudBlock, liveRows, before, after, controlPlane, provisioned, pending, purged]
+  );
   useEffect(() => {
     if (!canEdit || !owner || !appName) return;
     if (pending.records.length !== submitted.length) {
@@ -142,7 +154,15 @@ function EnvironmentsTab() {
     })),
     [releasePlan]
   );
-  const changes = useMemo(() => [...envChanges, ...releaseLines], [envChanges, releaseLines]);
+  const purgeLines = useMemo(
+    () => purged.map((name) => ({
+      kind: "remove",
+      title: `Delete the leftover files of ${name}`,
+      detail: `${envFilePaths(name).join(", ")} (cicd.yaml already leaves it out)`
+    })),
+    [purged]
+  );
+  const changes = useMemo(() => [...envChanges, ...releaseLines, ...purgeLines], [envChanges, releaseLines, purgeLines]);
   const removalFiles = (name) => {
     if (!cloudBlock) return envFilePaths(name);
     return before.find((e) => e.name === name)?.tier === "flight" ? cloudFlightFilePaths(name) : [];
@@ -154,13 +174,16 @@ function EnvironmentsTab() {
   const notes = useMemo(
     () => [
       ...followUps(before, after, targetId, appName),
+      ...purged.map(
+        (name) => `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`
+      ),
       ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No ${k.stage} step added for ${k.env}: ${k.reason}.`)
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged]
+    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged, purged]
   );
-  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId), [before, after, targetId]);
+  const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId, purged), [before, after, targetId, purged]);
   const rows = useMemo(() => {
     const live = new Map(liveRows.map((r) => [r.name, r]));
     if (!canEdit) return liveRows.map((r) => ({ ...r }));
@@ -386,6 +409,22 @@ function EnvironmentsTab() {
             ]
           },
           p.env
+        )),
+        leftovers.map((name) => /* @__PURE__ */ jsxs(
+          Callout,
+          {
+            tone: "warn",
+            label: "Not in cicd.yaml",
+            title: `${name} is still running, but cicd.yaml does not name it`,
+            actions: /* @__PURE__ */ jsx(Button, { onClick: () => setStaged((s) => [...s, { kind: "purge", name }]), children: "Delete its files" }),
+            className: c.unlisted,
+            children: [
+              "It was taken out of cicd.yaml without Remove, so ",
+              envFilePaths(name)[0],
+              " is still in the repo and Argo CD keeps the environment. Deleting its files stages a pull request that removes them; once it merges Argo CD deletes the environment and everything running in it."
+            ]
+          },
+          name
         )),
         /* @__PURE__ */ jsx(FilterBar, { end: canEdit && /* @__PURE__ */ jsx(Hint, { children: "Drag the handle to reorder" }), children: /* @__PURE__ */ jsx(
           FilterChips,

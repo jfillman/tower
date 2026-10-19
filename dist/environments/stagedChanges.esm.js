@@ -42,6 +42,8 @@ function applyStaged(envs, staged) {
       else out.splice(at, 0, { ...s.env });
     } else if (s.kind === "remove") {
       out = out.filter((e) => e.name !== s.name);
+    } else if (s.kind === "purge") {
+      continue;
     } else if (s.kind === "setBlock") {
       out = out.map((e) => {
         if (e.name !== s.name) return e;
@@ -190,12 +192,21 @@ function validateRemovals(before, after, pipelines, target) {
   }
   return problems;
 }
-function deleteFilesFor(before, after, target) {
+function deleteFilesFor(before, after, target, purged = []) {
   const cloud = (target) !== "k8s-rollout";
-  return removedEnvs(before, after).flatMap((e) => {
+  const removed = removedEnvs(before, after).flatMap((e) => {
     if (cloud) return e.tier === "flight" ? cloudFlightFilePaths(e.name) : [];
     return e.tier === "ground" ? envFilePaths(e.name) : [];
   });
+  return [...removed, ...cloud ? [] : purged.filter((n) => !after.some((e) => e.name === n)).flatMap(envFilePaths)];
+}
+function purgedEnvs(staged) {
+  return [...new Set(staged.flatMap((s) => s.kind === "purge" ? [s.name] : []))];
+}
+function leftoverGroundEnvs(live, opts) {
+  if (!opts.controlPlane) return [];
+  const skip = /* @__PURE__ */ new Set([...opts.declared, ...opts.provisioned, ...opts.inFlight]);
+  return live.filter((r) => r.tier === "ground" && r.target === "Kubernetes" && r.where === opts.controlPlane && !skip.has(r.name)).map((r) => r.name);
 }
 function followUps(before, after, target, appName) {
   const out = [];
@@ -320,5 +331,5 @@ function copiedEnvs(staged, after) {
   });
 }
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, cloudFlightFilePaths, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, pipelineStepEnvs, pipelinesNamingEnv, planPipelineSteps, readEnvironments, removedEnvs, stageForTier, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, cloudFlightFilePaths, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, leftoverGroundEnvs, pipelineStepEnvs, pipelinesNamingEnv, planPipelineSteps, purgedEnvs, readEnvironments, removedEnvs, stageForTier, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map

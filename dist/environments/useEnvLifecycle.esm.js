@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { infisicalProjectUrl } from '../provisioning/deriveProvisioning.esm.js';
-import { toManaged, toSecrets, latestOnboardingPr } from '../provisioning/useProvisioning.esm.js';
+import { parseTenantsRepo, toManaged, toSecrets, latestOnboardingPr } from '../provisioning/useProvisioning.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
 import { deriveEnvLifecycle } from './lifecycle.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
@@ -29,10 +29,9 @@ function useEnvLifecycle(target, enabled) {
     const github = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
     const ns = `app-${appName}-cicd`;
-    const tenants = tenantsRepo;
-    const optional = async (path) => {
+    const optional = async (path, on = XR_CLUSTER) => {
       try {
-        return await k8sProxyGet(discoveryApi, fetchApi, XR_CLUSTER, path);
+        return await k8sProxyGet(discoveryApi, fetchApi, on, path);
       } catch {
         return void 0;
       }
@@ -50,6 +49,7 @@ function useEnvLifecycle(target, enabled) {
       github.busy = true;
       try {
         const prBase = await discoveryApi.getBaseUrl("pull-requests");
+        const tenants = github.tenants ?? tenantsRepo;
         if (tier === "flight" && tenants) {
           const r = await getJson(
             `${prBase}/request-pr?${new URLSearchParams({ owner: tenants.owner, repo: tenants.repo, kind: "ApplicationEnvironment", name: xrName })}`
@@ -73,12 +73,12 @@ function useEnvLifecycle(target, enabled) {
       if (tier === "flight") {
         const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${ns}`;
         const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${xrName}`)}`;
-        const [xr, files, stores] = await Promise.all([
+        const [xr, files] = await Promise.all([
           optional(`${nsBase}/applicationenvironments/${encodeURIComponent(xrName)}`),
-          optional(`/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${ns}/repositoryfiles?${selector}`),
-          optional(`${nsBase}/secretstores`)
+          optional(`/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${ns}/repositoryfiles?${selector}`)
         ]);
         if (xr) {
+          github.tenants = parseTenantsRepo(xr.metadata.annotations?.["terasky.backstage.io/source-info"]) ?? github.tenants;
           const cond = (t) => xr.status?.conditions?.find((c) => c.type === t);
           const synced = cond("Synced");
           const workload = cond("WorkloadDeployed");
@@ -93,19 +93,32 @@ function useEnvLifecycle(target, enabled) {
         } else {
           next.xr = { found: false };
         }
-        const store = stores?.items?.find((s) => s.metadata.name === xrName);
-        next.secrets = toSecrets(store, stores !== void 0);
-        if (store) {
-          const projects = await optional(
-            `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${ns}/projects`
+        if (cluster) {
+          const xrsNs = `${xr?.spec?.appType || "app"}-${appName}-xrs`;
+          const stores = await optional(
+            `/apis/catalog.hangar.io/v1alpha1/namespaces/${xrsNs}/secretstores`,
+            cluster
           );
-          const id2 = projects?.items?.find((p) => p.metadata.name === store.metadata.name)?.metadata.annotations?.["crossplane.io/external-name"];
-          if (id2) next.infisicalUrl = infisicalProjectUrl(devLinks?.infisicalUrl, id2);
+          const store = stores?.items?.find((s) => s.metadata.name === xrName);
+          next.secrets = toSecrets(store, stores !== void 0);
+          if (store) {
+            const projects = await optional(
+              `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${xrsNs}/projects`,
+              cluster
+            );
+            const id2 = projects?.items?.find((p) => p.metadata.name === `${appName}-${cluster}`)?.metadata.annotations?.["crossplane.io/external-name"];
+            if (id2) next.infisicalUrl = infisicalProjectUrl(platform.clusters[cluster]?.infisicalUrl ?? devLinks?.infisicalUrl, id2);
+          }
         }
       }
       void refreshGithub();
       if (cancelled) return;
-      setExtra({ ...next, requestPr: github.requestPr, onboardingPr: github.onboardingPr });
+      setExtra({
+        ...next,
+        requestPr: github.requestPr,
+        onboardingPr: github.onboardingPr,
+        ...github.tenants ? { tenantsRepoUrl: `https://github.com/${github.tenants.owner}/${github.tenants.repo}` } : {}
+      });
       setLoading(false);
     };
     void load();
@@ -114,7 +127,7 @@ function useEnvLifecycle(target, enabled) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl]);
+  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]);
   const requestPr = extra.requestPr ?? (target.knownRequestUrl ? { number: Number(target.knownRequestUrl.split("/").pop()) || 0, url: target.knownRequestUrl, state: "open" } : void 0);
   const steps = deriveEnvLifecycle({
     tier,

@@ -52,13 +52,21 @@ function deriveEnvLifecycle(i) {
     };
     return [cicd, onboarding, file, live];
   }
-  const request = prStep(
+  let request = prStep(
     "request",
     "ApplicationEnvironment request",
-    "A request pull request on the tenants repo asks for the environment.",
+    "A pull request on the tenants repo that requests the environment.",
     i.requestPr,
-    "Opened with the cicd.yaml change."
+    "Not found yet: Add environment opens it together with the cicd.yaml change."
   );
+  if (i.xr?.found && request.state !== "done") {
+    request = {
+      ...request,
+      state: "done",
+      detail: void 0,
+      links: request.links?.filter((l) => l.state !== "closed").map((l) => ({ ...l, state: "merged" }))
+    };
+  }
   if (i.tenantsRepoUrl && !request.links) request.links = [{ label: "Tenants repo", url: i.tenantsRepoUrl }];
   let applied = {
     id: "applied",
