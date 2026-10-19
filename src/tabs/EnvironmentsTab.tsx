@@ -31,6 +31,7 @@ import {
   type Staged,
 } from '../environments/stagedChanges';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
+import { unlistedProvisioned, useProvisionedEnvs } from '../environments/provisionedEnvs';
 import { dump as dumpYaml } from 'js-yaml';
 import { useEnvValuesLoader } from '../values/sources';
 import { loadSubmitted, pendingFrom, saveSubmitted, type SubmittedChange } from '../environments/submitted';
@@ -39,7 +40,7 @@ import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
-import { Button, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
+import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
@@ -105,6 +106,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   health: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 },
   empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: 'center', fontSize: 13 },
+  unlisted: { marginBottom: 12 },
 }));
 
 const STATE_CLASS = { new: 'rowNew', edited: 'rowEdited', removed: 'rowRemoved', 'pr-open': 'rowPending', 'removal-pr': 'rowRemoved' } as const;
@@ -159,7 +161,12 @@ export function EnvironmentsTab() {
 
   const { shape, envs: before } = useMemo(() => readEnvironments(deploy), [deploy]);
   const after = useMemo(() => applyStaged(before, staged), [before, staged]);
+  // Flight environments already provisioned (their ApplicationEnvironment exists) that cicd.yaml, staged changes
+  // included, does not name: created with the Backstage template, which stops before cicd.yaml.
+  const provisioned = useProvisionedEnvs(appName, canEdit && !cloudBlock, nonce);
   const pending = useMemo(() => (canEdit ? pendingFrom(submitted, before) : { records: [], adds: [], removals: [] }), [canEdit, submitted, before]);
+  // An environment whose cicd.yaml pull request is already open is not "missing" either.
+  const unlisted = unlistedProvisioned(provisioned, [...after.map(e => e.name), ...pending.adds.map(a => a.env.name)]);
   // A merged pull request ends its record. Drop finished ones, and ask again every half minute while any is open.
   useEffect(() => {
     if (!canEdit || !owner || !appName) return;
@@ -454,6 +461,26 @@ export function EnvironmentsTab() {
       )}
       <div className={canEdit ? c.layout : undefined}>
         <div className={c.main}>
+          {unlisted.map(p => (
+            <Callout
+              key={p.env}
+              tone="warn"
+              label="Not in cicd.yaml"
+              title={`${p.env} is provisioned on ${p.cluster}, but cicd.yaml does not name it`}
+              actions={
+                <Button
+                  onClick={() => setStaged(s => [...s, { kind: 'add', env: { name: p.env, tier: 'flight', cluster: p.cluster }, pipelineStep: true }])}
+                >
+                  Add to cicd.yaml
+                </Button>
+              }
+              className={c.unlisted}
+            >
+              Its ApplicationEnvironment ({p.xrName}) {p.ready ? 'is ready' : 'is not ready yet'}, but nothing releases to it until
+              cicd.yaml lists it. Adding it stages the entry and a release step; the pull request reuses the existing request, so
+              only the cicd.yaml change opens.
+            </Callout>
+          ))}
           <FilterBar end={canEdit && <Hint>Drag the handle to reorder</Hint>}>
             <FilterChips<Filter>
               label="Tier"
