@@ -12,11 +12,26 @@ import ReceiptIcon from '@material-ui/icons/Receipt';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import HistoryIcon from '@material-ui/icons/History';
 import LockIcon from '@material-ui/icons/Lock';
+import AssignmentTurnedInIcon from '@material-ui/icons/AssignmentTurnedIn';
 import { formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { JsonDocumentView } from './ResourceInspector';
 import type { Attestation, ProvenanceResponse } from './types';
-import { explain, findSbom, findSignature, findSlsa, SIMPLE_SIGNING, verdictOf, worstVerdict, type Verdict } from './supplyChain';
+import {
+  explain,
+  findCheckRide,
+  findSbom,
+  findSignature,
+  findSlsa,
+  findTestRuns,
+  isSharedCheckRide,
+  SIMPLE_SIGNING,
+  testRunOf,
+  verdictOf,
+  worstVerdict,
+  type TestRunEvidence,
+  type Verdict,
+} from './supplyChain';
 
 // The graphical, process-flowing supply-chain visualization the user asked
 // for in place of the mockup's compact segmented progress bar (see
@@ -63,6 +78,14 @@ export function buildSupplyChainStages(
   const signature = findSignature(provenance);
   const all = provenance?.attestations ?? [];
   const logged = all.filter(a => a.transparencyLog);
+  // Attested test runs (Glidepath test framework, 2026-10-19): Chains attaches every test stage's provenance to the
+  // tested image. The step stands for the check ride, the run a release depends on; the team's own runs are listed in
+  // its detail. Green: a verified, passed check ride. Amber: tests ran and passed but no check ride, or the ride
+  // passed but its signature didn't verify. Red: the latest check ride failed, or its provenance contradicts the
+  // image. Grey: nothing attested.
+  const testRuns = findTestRuns(provenance);
+  const checkRide = findCheckRide(provenance);
+  const primaryRun = checkRide ?? testRuns[0];
 
   function statusOf(verdict: Verdict): StageStatus {
     if (loading || !provenance) return 'pending';
@@ -76,10 +99,26 @@ export function buildSupplyChainStages(
   const weakest = (atts: Attestation[]) =>
     atts.find(a => verdictOf(a) === 'contradicted') ?? atts.find(a => verdictOf(a) === 'unverified') ?? atts[0];
 
+  function testsStatus(): StageStatus {
+    if (loading || !provenance || !primaryRun) return 'pending';
+    if (primaryRun.outcome !== 'passed') return 'fail';
+    const s = statusOf(verdictOf(primaryRun.attestation));
+    if (s === 'done' && !(checkRide && isSharedCheckRide(checkRide))) return 'warn';
+    return s;
+  }
+
   return [
     { kind: 'supply-chain', id: 'build', label: 'Build', status: statusOf(verdictOf(slsa)), attestation: slsa },
     { kind: 'supply-chain', id: 'sast-sbom', label: 'SAST / SBOM', status: statusOf(verdictOf(sbom)), attestation: sbom },
     { kind: 'supply-chain', id: 'signature', label: 'Signature', status: statusOf(verdictOf(signature)), attestation: signature },
+    {
+      kind: 'supply-chain',
+      id: 'tests',
+      label: 'Tests',
+      status: testsStatus(),
+      attestation: primaryRun?.attestation,
+      all: testRuns.map(r => r.attestation),
+    },
     {
       kind: 'supply-chain',
       id: 'sign-attest',
@@ -338,6 +377,7 @@ const STAGE_ICON: Record<string, JSX.Element> = {
   signature: <LockIcon fontSize="inherit" />,
   'sign-attest': <VerifiedUserIcon fontSize="inherit" />,
   rekor: <HistoryIcon fontSize="inherit" />,
+  tests: <AssignmentTurnedInIcon fontSize="inherit" />,
 };
 
 function StageIcon({ id, status }: { id: string; status: StageStatus }) {
@@ -400,6 +440,7 @@ const STAGE_WHAT: Record<string, string> = {
   build: 'build provenance',
   'sast-sbom': 'SBOM',
   signature: 'image signature',
+  tests: 'test attestation',
 };
 
 function friendlySummary(
@@ -420,6 +461,11 @@ function friendlySummary(
         return { headline: 'No image signature', body: 'This image has no `cosign sign` signature on its manifest. The attestations are separate.' };
       case 'rekor':
         return { headline: 'Not in the transparency log', body: 'Nothing on this image has a Rekor entry.' };
+      case 'tests':
+        return {
+          headline: 'No test run attested',
+          body: 'No test stage ran against this image, or it ran before test results were attached to images (2026-10-19). The qa release gate needs a passed check ride on the image.',
+        };
       default:
         return { headline: 'Nothing signed', body: 'This image carries no signatures or attestations yet.' };
     }
@@ -449,8 +495,70 @@ function friendlySummary(
       pill: { tone: e.tone, label: `${ok} of ${set.length}` },
     };
   }
+  if (stageId === 'tests') return testsSummary(att, all);
   const e = explain(att, STAGE_WHAT[stageId] ?? 'attestation');
   return { headline: e.headline, body: e.body, consequence: e.consequence, pill: { tone: e.tone, label: e.label } };
+}
+
+function countsOf(r: TestRunEvidence): string {
+  if (r.testsTotal === undefined) return 'no test counts recorded';
+  const parts = [`${r.testsPassed ?? 0} of ${r.testsTotal} passed`];
+  if (r.testsFailed) parts.push(`${r.testsFailed} failed`);
+  if (r.testsSkipped) parts.push(`${r.testsSkipped} skipped`);
+  return parts.join(', ');
+}
+
+function roleLabel(r: TestRunEvidence): string {
+  if (r.role === 'check-ride') return isSharedCheckRide(r) ? 'check ride' : 'check ride (not from the shared repo)';
+  if (r.role === 'execute') return 'action';
+  return "the team's test";
+}
+
+// The Tests step: the check ride first (the run the qa release gate reads), the team's own runs beside it.
+function testsSummary(att: Attestation, all: Attestation[]): ReturnType<typeof friendlySummary> {
+  const run = testRunOf(att);
+  const runs = all.map(testRunOf).filter((r): r is TestRunEvidence => !!r);
+  const others = runs.length - 1;
+  const alsoRan = others > 0 ? ` ${others} other attested run${others === 1 ? '' : 's'} on this image ${others === 1 ? 'is' : 'are'} listed below.` : '';
+  if (!run) return { headline: 'Test attestation', body: 'This attestation carries no run-testworkflow result.' };
+  const sig = explain(att, 'test attestation');
+  if (run.outcome !== 'passed') {
+    return {
+      headline: run.role === 'check-ride' ? 'The latest check ride failed' : `The latest attested test run ${run.outcome || 'did not pass'}`,
+      body: `${roleLabel(run)[0].toUpperCase()}${roleLabel(run).slice(1)}: ${countsOf(run)}${run.executionId ? ` (Testkube execution ${run.executionId})` : ''}.${alsoRan}`,
+      consequence: 'The qa release gate reads the outcome, so this image will not pass it until a check ride passes.',
+      pill: { tone: 'bad', label: run.outcome || 'failed' },
+    };
+  }
+  if (run.role !== 'check-ride') {
+    return {
+      headline: "The team's tests passed; no check ride on this image",
+      body: `${countsOf(run)} in ${run.workflowSource?.startsWith('repo:') ? "the app repo's own workflow" : 'the workflow'}${run.executionId ? ` (Testkube execution ${run.executionId})` : ''}.${alsoRan}`,
+      consequence: 'The qa release gate needs the check ride from the shared check-rides repository, which has not run for this image.',
+      pill: { tone: 'warn', label: 'no check ride' },
+    };
+  }
+  if (!isSharedCheckRide(run)) {
+    return {
+      headline: 'A check ride passed, but not from the shared repository',
+      body: `${countsOf(run)}; the workflow came from ${run.workflowSource ?? 'an unknown source'}, not the check-rides Application.${alsoRan}`,
+      consequence: 'The qa release gate only counts a check ride synced from the shared repository.',
+      pill: { tone: 'warn', label: 'unshared' },
+    };
+  }
+  if (sig.tone !== 'good') {
+    return {
+      headline: `The check ride passed, but ${sig.headline.replace(/^The test attestation /, 'its attestation ')}`,
+      body: `${countsOf(run)}. ${sig.body}`,
+      consequence: sig.consequence,
+      pill: { tone: sig.tone, label: sig.label },
+    };
+  }
+  return {
+    headline: 'The check ride passed',
+    body: `${countsOf(run)} in the shared check ride (${run.workflowSource}), run against this exact image${run.executionId ? `; Testkube execution ${run.executionId}` : ''}. Its attestation is verified and in the transparency log.${alsoRan}`,
+    pill: { tone: 'good', label: `${run.testsPassed ?? '?'} of ${run.testsTotal ?? '?'} ✓` },
+  };
 }
 
 // The three stages whose attestation.predicate is a real document someone
@@ -464,6 +572,7 @@ const RAW_DOCUMENT_LABEL: Partial<Record<string, string>> = {
   build: 'SLSA provenance document',
   'sast-sbom': 'SBOM file',
   signature: 'cosign image signature',
+  tests: 'test attestation',
 };
 
 // A real filename, not a generic "document.json" - once someone's
@@ -475,18 +584,21 @@ const RAW_DOCUMENT_LABEL: Partial<Record<string, string>> = {
 // for the classic image signature too), so this is real data, not
 // guessed - falls back to just the kind if a subject is somehow missing
 // rather than fabricating one.
-function documentKindForStage(stageId: string): 'provenance' | 'sbom' | 'signature' {
+type DocumentKind = 'provenance' | 'sbom' | 'signature' | 'tests';
+
+function documentKindForStage(stageId: string): DocumentKind {
   if (stageId === 'build') return 'provenance';
   if (stageId === 'sast-sbom') return 'sbom';
+  if (stageId === 'tests') return 'tests';
   return 'signature';
 }
 
-function attestationFilename(att: Attestation, kind: 'provenance' | 'sbom' | 'signature'): string {
+function attestationFilename(att: Attestation, kind: DocumentKind, suffix?: string): string {
   const subject = att.subject?.[0];
   const repo = subject?.name?.split('/').pop();
   const shortDigest = subject?.digest?.sha256?.slice(0, 12);
   const base = [repo, shortDigest].filter(Boolean).join('-');
-  return `${base ? `${base}-` : ''}${kind}.json`;
+  return `${base ? `${base}-` : ''}${kind}${suffix ? `-${suffix}` : ''}.json`;
 }
 
 // Plain client-side Blob download - no backend round-trip, the document is
@@ -501,6 +613,66 @@ function downloadJson(value: unknown, filename: string): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+// Every attested test run on the image, newest first, each with its own download: the provenance document whose
+// run-testworkflow results are the evidence (the same document the qa release gate verifies).
+function TestRunsList({ attestations, classes }: { attestations: Attestation[]; classes: ReturnType<typeof useStyles> }) {
+  const runs = attestations.map(testRunOf).filter((r): r is TestRunEvidence => !!r);
+  if (runs.length === 0) return null;
+  return (
+    <div className={classes.detailsBody}>
+      <Typography className={classes.note} style={{ marginBottom: 6 }}>
+        Attested test runs on this image
+      </Typography>
+      {runs.map((r, i) => {
+        const verdict = verdictOf(r.attestation);
+        let tone: 'good' | 'warn' | 'bad' = 'warn';
+        if (r.outcome !== 'passed' || verdict === 'contradicted') tone = 'bad';
+        else if (verdict === 'verified') tone = 'good';
+        return (
+          <div key={`${r.executionId ?? 'run'}-${i}`} className={classes.grid} style={{ marginBottom: 10 }}>
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Run</span>
+              <span className={classes.kvValue}>
+                {roleLabel(r)} · {r.outcome || 'no outcome'} · {countsOf(r)}
+                {r.finishedOn ? ` · ${formatDateTime(r.finishedOn)}` : ''}
+              </span>
+            </div>
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Workflow</span>
+              <span className={classes.kvValue}>
+                {r.workflowSource ?? 'unknown source'}
+                {r.workflowDigest ? ` · ${r.workflowDigest.replace('sha256:', '').slice(0, 12)}` : ''}
+                {r.executionId ? ` · Testkube ${r.executionId}` : ''}
+              </span>
+            </div>
+            <div className={classes.kv}>
+              <span className={classes.kvLabel}>Attestation</span>
+              <span className={classes.kvValue}>
+                {verdict === 'verified' ? 'verified ✓' : explain(r.attestation, 'test attestation').label}
+                {' · '}
+                <button
+                  type="button"
+                  className={classes.detailsToggle}
+                  data-tone={tone}
+                  onClick={() =>
+                    r.attestation.predicate &&
+                    downloadJson(
+                      r.attestation.predicate,
+                      attestationFilename(r.attestation, 'tests', [r.role, r.executionId].filter(Boolean).join('-')),
+                    )
+                  }
+                >
+                  ⭳ Download
+                </button>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function StageDrawer({
@@ -540,6 +712,9 @@ function StageDrawer({
       )}
       <Typography className={classes.friendlyBody}>{summary.body}</Typography>
       {summary.consequence && <Typography className={classes.friendlyBody}>{summary.consequence}</Typography>}
+      {stage.id === 'tests' && (stage.all?.length ?? 0) > 0 && (
+        <TestRunsList attestations={stage.all ?? []} classes={classes} />
+      )}
       {att && (
         <>
           {/* Both toggles sit side by side, independently of each other -
