@@ -1,6 +1,9 @@
 import {
   APPLICATION_ENVIRONMENT_TEMPLATE,
+  existingPrFrom,
   failureFromEvents,
+  findExistingRequest,
+  reuseExisting,
   launchApplicationEnvironment,
   prUrlFromEvents,
   templateValues,
@@ -142,5 +145,36 @@ describe('waitForTask', () => {
   it('reports an HTTP failure while reading events', async () => {
     const r = await waitForTask(api(async () => json(502, {})), 't');
     expect(r).toEqual({ ok: false, error: 'Reading the template run failed with 502.' });
+  });
+});
+
+describe('a request that already exists', () => {
+  const input = { appName: 'gate-api', env: 'prod', cluster: 'edge-prod', owner: 'o' };
+
+  it('reads the open pull request out of the "already exists" failure', () => {
+    expect(
+      existingPrFrom('Pull request creation failed; caused by Error: [octokit-plugin-create-pull-request] Pull request already exists: https://github.com/o/tenants/pull/7. Set update=true to enable updating.'),
+    ).toBe('https://github.com/o/tenants/pull/7');
+    expect(existingPrFrom('Not Found - https://docs.github.com/rest/git/blobs#create-a-blob')).toBeUndefined();
+  });
+
+  it('reuses a request on main for the same cluster, and refuses one for another cluster', () => {
+    expect(reuseExisting(input, undefined)).toBeUndefined();
+    expect(reuseExisting(input, { url: 'u', cluster: 'edge-prod' })).toEqual({ status: 'done', prUrl: 'u', existing: 'merged' });
+    expect(reuseExisting(input, { url: 'u' })).toEqual({ status: 'done', prUrl: 'u', existing: 'merged' });
+    const other = reuseExisting(input, { url: 'u', cluster: 'old-prod' });
+    expect(other).toMatchObject({ status: 'failed' });
+    expect((other as { error: string }).error).toMatch(/already has an ApplicationEnvironment request for cluster old-prod/);
+  });
+
+  it('looks the request up on the glidepath backend: 404 is none, other failures throw', async () => {
+    const respond = (status: number, body?: unknown) => ({ fetch: jest.fn(async () => new Response(body ? JSON.stringify(body) : null, { status })) }) as any;
+    const api404 = respond(404, { error: 'none' });
+    await expect(findExistingRequest({ discoveryApi, fetchApi: api404 }, 'o', 'gate-api', 'prod')).resolves.toBeUndefined();
+    expect(api404.fetch.mock.calls[0][0]).toBe('http://backstage/api/glidepath/config/env-xr?owner=o&appName=gate-api&env=prod');
+    await expect(findExistingRequest({ discoveryApi, fetchApi: respond(502, { error: 'x' }) }, 'o', 'gate-api', 'prod')).rejects.toThrow();
+    await expect(
+      findExistingRequest({ discoveryApi, fetchApi: respond(200, { path: 'p', url: 'https://github.com/o/t/blob/main/p', cluster: 'edge-prod' }) }, 'o', 'gate-api', 'prod'),
+    ).resolves.toEqual({ url: 'https://github.com/o/t/blob/main/p', cluster: 'edge-prod' });
   });
 });

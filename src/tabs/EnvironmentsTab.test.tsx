@@ -553,10 +553,25 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     await stageFlight('prod', 'example-prod');
     fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
-    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod' });
+    expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     expect(launchMock.mock.invocationCallOrder[0]).toBeLessThan(submitMock.mock.invocationCallOrder[0]);
     const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
     expect(envs[envs.length - 1]).toEqual({ name: 'prod', tier: 'flight', cluster: 'example-prod' });
+  });
+
+  it('goes on to cicd.yaml when the request already exists, and says nothing new was opened for it', async () => {
+    k8sOld();
+    launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/tenants/blob/main/tenants/a/xr-requests/a-prod.yaml', existing: 'merged' });
+    submitMock.mockImplementationOnce(async () => {
+      submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9' } };
+    });
+    renderTab();
+    await stageFlight('prod', 'example-prod');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    rerenderTab();
+    expect(await screen.findByText(/already in the tenants repo, nothing new opened/)).toBeTruthy();
+    expect(screen.queryByText(/Merge the ApplicationEnvironment request first/)).toBeNull();
   });
 
   it('opens no cicd.yaml change when the request fails, says so, and keeps what was staged', async () => {

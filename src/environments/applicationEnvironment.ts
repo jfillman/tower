@@ -19,6 +19,8 @@ export interface LaunchEnvironmentInput {
   env: string;
   /** The registered upper cluster the environment runs on (its cluster-registry name). */
   cluster: string;
+  /** The app's GitHub owner: with it, a request that already exists is reused instead of opened again. */
+  owner?: string;
 }
 
 /** The template's own parameters (read from the live template: appName, appType, cluster, configMapGenerator, env, pushToGit). */
@@ -130,11 +132,55 @@ export async function waitForTask({ discoveryApi, fetchApi }: Api, taskId: strin
   return { ok: false, error: 'The template run did not finish in time. Check it in the Create page.' };
 }
 
+// A request that already exists. Launching the template again would only fail or open an empty pull request: the
+// template's branch is named after the XR, so a second run collides with the open PR ("Pull request already exists"),
+// and once that PR has merged a new run commits the same file again (seen 2026-10-19, gate-api prod: an empty PR,
+// then a refused one, which also stopped the cicd.yaml change).
+
+/** The open pull request a failed run names, when the failure is only that the request is already open. */
+export function existingPrFrom(error: string): string | undefined {
+  return /Pull request already exists:\s*(https:\/\/\S+?\/pull\/\d+)/.exec(error)?.[1];
+}
+
+export interface ExistingRequest {
+  url: string;
+  cluster?: string;
+}
+
+/**
+ * The app's ApplicationEnvironment request for this environment on the tenants repo's main branch (Backstage's
+ * glidepath /config/env-xr), or undefined when there is none. Throws when it cannot tell (an older backend answers a
+ * missing request with 502, not 404: the caller then launches as before).
+ */
+export async function findExistingRequest({ discoveryApi, fetchApi }: Api, owner: string, appName: string, env: string): Promise<ExistingRequest | undefined> {
+  const base = await discoveryApi.getBaseUrl('glidepath');
+  const res = await fetchApi.fetch(`${base}/config/env-xr?${new URLSearchParams({ owner, appName, env }).toString()}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Looking up the existing request failed with ${res.status}.`);
+  const body = (await res.json()) as { path?: string; url?: string; cluster?: string };
+  const url = body.url ?? body.path;
+  if (!url) throw new Error('The existing request lookup returned no file.');
+  return { url, ...(body.cluster ? { cluster: body.cluster } : {}) };
+}
+
 export type LaunchState =
   | { status: 'idle' }
   | { status: 'running' }
-  | { status: 'done'; prUrl: string }
+  /** existing: nothing was opened; the request was already on main ('merged') or already an open PR ('open'). */
+  | { status: 'done'; prUrl: string; existing?: 'merged' | 'open' }
   | { status: 'failed'; error: string };
+
+/** What launching would do about a request that may already exist, or undefined to launch. */
+export function reuseExisting(input: LaunchEnvironmentInput, existing: ExistingRequest | undefined): LaunchState | undefined {
+  if (!existing) return undefined;
+  if (existing.cluster && existing.cluster !== input.cluster) {
+    return {
+      status: 'failed',
+      error: `${input.env} already has an ApplicationEnvironment request for cluster ${existing.cluster} (${existing.url}), not ${input.cluster}. Choose ${existing.cluster}, or change that request first.`,
+    };
+  }
+  return { status: 'done', prUrl: existing.url, existing: 'merged' };
+}
 
 /** Launches the ApplicationEnvironment template and follows it to the pull request it opens. */
 export function useLaunchApplicationEnvironment() {
@@ -146,11 +192,27 @@ export function useLaunchApplicationEnvironment() {
     async (input: LaunchEnvironmentInput): Promise<LaunchState> => {
       setState({ status: 'running' });
       let result: LaunchState;
+      const api = { discoveryApi, fetchApi };
+      let reused: LaunchState | undefined;
+      if (input.owner) {
+        try {
+          reused = reuseExisting(input, await findExistingRequest(api, input.owner, input.appName, input.env));
+        } catch {
+          // Cannot tell whether one exists: launch, and let an open duplicate be caught below.
+        }
+      }
+      if (reused) {
+        setState(reused);
+        return reused;
+      }
       try {
-        const api = { discoveryApi, fetchApi };
         const taskId = await launchApplicationEnvironment(api, input);
         const outcome = await waitForTask(api, taskId);
-        result = outcome.ok ? { status: 'done', prUrl: outcome.prUrl as string } : { status: 'failed', error: outcome.error as string };
+        if (outcome.ok) result = { status: 'done', prUrl: outcome.prUrl as string };
+        else {
+          const open = existingPrFrom(outcome.error ?? '');
+          result = open ? { status: 'done', prUrl: open, existing: 'open' } : { status: 'failed', error: outcome.error as string };
+        }
       } catch (e) {
         result = { status: 'failed', error: (e as Error).message };
       }

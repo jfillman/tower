@@ -350,13 +350,16 @@ export function RemoveEnvironmentDialog({
   );
 }
 
+const EXISTING_NOTE = { merged: ' (already in the tenants repo, nothing new opened)', open: ' (already open)' } as const;
+
 export function ChangeResultDialog({
   requests,
   cicdPrUrl,
   error,
   onClose,
 }: {
-  requests: Array<{ env: string; url: string }>;
+  /** existing: the request was not opened now (already on main, or already an open pull request). */
+  requests: Array<{ env: string; url: string; existing?: 'merged' | 'open' }>;
   cicdPrUrl?: string;
   error?: string;
   onClose: () => void;
@@ -371,7 +374,8 @@ export function ChangeResultDialog({
           <DialogContentText component="div">
             {requests.map((r, i) => (
               <div key={r.env}>
-                {i + 1}. ApplicationEnvironment request for {r.env}:{' '}
+                {i + 1}. ApplicationEnvironment request for {r.env}
+                {r.existing ? EXISTING_NOTE[r.existing] : ''}:{' '}
                 <Link href={r.url} target="_blank" rel="noopener noreferrer">
                   {r.url}
                 </Link>
@@ -387,7 +391,7 @@ export function ChangeResultDialog({
             </Link>
           </DialogContentText>
         )}
-        {requests.length > 0 && cicdPrUrl && (
+        {requests.some(r => r.existing !== 'merged') && cicdPrUrl && (
           <DialogContentText>Merge the ApplicationEnvironment request first, then the cicd.yaml change.</DialogContentText>
         )}
         {error && requests.length > 0 && !cicdPrUrl && (
