@@ -1,4 +1,4 @@
-import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv, componentEnvRows, envNameFor, renameComponentEnv, wiredOutputs } from './components';
+import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv, componentEnvRows, envNameFor, envProfileFor, PROFILE_ENV, renameComponentEnv, wiredOutputs } from './components';
 
 const comps = [
   { name: 'board-mq', type: 'rabbitmq' },
@@ -79,6 +79,60 @@ describe('wiring a component into env vars', () => {
       { name: 'REDIS_PORT', component: 'redis', output: 'port' },
     ]);
     expect(skipped).toEqual(['REDIS_PASSWORD']);
+  });
+
+  it('picks the naming profile from the app kind', () => {
+    expect(envProfileFor('springbootapplication')).toBe('spring-boot');
+    for (const k of ['nodejsapplication', 'pythonapplication', 'goapplication']) expect(envProfileFor(k)).toBe('drivers');
+    expect(envProfileFor('infraservice')).toBeUndefined();
+    expect(envProfileFor(undefined)).toBeUndefined();
+  });
+
+  it('only names outputs a component type really has', () => {
+    for (const types of Object.values(PROFILE_ENV)) {
+      for (const [type, outputs] of Object.entries(types)) {
+        for (const output of Object.keys(outputs)) expect(outputsOf(type)).toContain(output);
+      }
+    }
+  });
+
+  const all = (type: string) => outputsOf(type);
+  const names = (r: { add: Array<{ name: string }> }) => r.add.map(a => a.name);
+
+  it('wires a Spring Boot app under the names Spring binds, leaving what the URL already carries', () => {
+    const pg = componentEnvRows([], 'flight-db', all('postgresql'), { type: 'postgresql', profile: 'spring-boot' });
+    expect(names(pg)).toEqual(['SPRING_DATASOURCE_USERNAME', 'SPRING_DATASOURCE_PASSWORD', 'SPRING_DATASOURCE_URL']);
+    expect(pg.add.find(a => a.name === 'SPRING_DATASOURCE_URL')?.output).toBe('jdbcUri');
+    expect(pg.left).toEqual(['host', 'port', 'database', 'uri']);
+    expect(names(componentEnvRows([], 'mq', all('rabbitmq'), { type: 'rabbitmq', profile: 'spring-boot' }))).toEqual([
+      'SPRING_RABBITMQ_USERNAME', 'SPRING_RABBITMQ_PASSWORD', 'SPRING_RABBITMQ_HOST', 'SPRING_RABBITMQ_PORT', 'SPRING_RABBITMQ_VIRTUAL_HOST',
+    ]);
+    const redis = componentEnvRows([], 'cache', all('redis'), { type: 'redis', profile: 'spring-boot' });
+    expect(names(redis)).toEqual(['SPRING_DATA_REDIS_HOST', 'SPRING_DATA_REDIS_PORT', 'SPRING_DATA_REDIS_PASSWORD']);
+    expect(redis.left).toEqual(['url']);
+    // Boot 4 binds only spring.mongodb.uri, Boot 3 only spring.data.mongodb.uri.
+    expect(names(componentEnvRows([], 'docs', all('mongodb'), { type: 'mongodb', profile: 'spring-boot' }))).toEqual(['SPRING_MONGODB_URI', 'SPRING_DATA_MONGODB_URI']);
+    // No profile names for Dex in a Spring app: every output, <COMPONENT>_<OUTPUT>.
+    expect(names(componentEnvRows([], 'oauth', all('dex'), { type: 'dex', profile: 'spring-boot' }))).toEqual([
+      'OAUTH_CLIENT_ID', 'OAUTH_CLIENT_SECRET', 'OAUTH_ISSUER', 'OAUTH_TOKEN_URL', 'OAUTH_JWKS_URL',
+    ]);
+  });
+
+  it('wires a driver-based app\'s PostgreSQL under libpq\'s names', () => {
+    const pg = componentEnvRows([], 'db', all('postgresql'), { type: 'postgresql', profile: 'drivers' });
+    expect(names(pg)).toEqual(['PGHOST', 'PGPORT', 'PGUSER', 'PGPASSWORD', 'PGDATABASE', 'DATABASE_URL']);
+    expect(pg.left).toEqual(['jdbcUri']);
+    expect(names(componentEnvRows([], 'cache', all('redis'), { type: 'redis', profile: 'drivers' }))).toEqual(['CACHE_HOST', 'CACHE_PORT', 'CACHE_URL', 'CACHE_PASSWORD']);
+  });
+
+  it('wires every output when asked, and falls back to <COMPONENT>_<OUTPUT> when a profile name is taken', () => {
+    const rest = componentEnvRows([], 'flight-db', ['host', 'uri'], { type: 'postgresql', profile: 'spring-boot', all: true });
+    expect(names(rest)).toEqual(['FLIGHT_DB_HOST', 'FLIGHT_DB_URI']);
+    expect(rest.left).toEqual([]);
+    // A second database in the same app: the first one already has SPRING_DATASOURCE_*.
+    const first = [env('SPRING_DATASOURCE_URL', 'db', 'jdbcUri'), env('SPRING_DATASOURCE_USERNAME', 'db', 'username')];
+    const second = componentEnvRows(first, 'reports-db', ['jdbcUri', 'username'], { type: 'postgresql', profile: 'spring-boot' });
+    expect(names(second)).toEqual(['REPORTS_DB_JDBC_URI', 'REPORTS_DB_USERNAME']);
   });
 
   it('lists which variables read each output, and follows a rename', () => {

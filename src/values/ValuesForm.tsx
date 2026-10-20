@@ -25,7 +25,7 @@ import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
-import { componentEnvRows, declaredComponents, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
+import { componentEnvRows, declaredComponents, envProfileFor, type EnvProfile, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
 import { workloadOn, workloadStatus, type LiveWorkload, type WorkloadView } from './workload';
 import {
@@ -1212,6 +1212,13 @@ const ADVANCED_TAB: Record<AdvancedKey, ValuesTab> = {
  * beside the form (App Configuration); `"inline"` puts it below (inside an Environments row, which already has the
  * page's own pending-changes panel for cicd.yaml).
  */
+// What the add-component note says about the names it just wired, per naming profile (components.ts PROFILE_ENV).
+const RENAME_HINT: Record<EnvProfile | 'none', string> = {
+  'spring-boot': 'Those are the names Spring Boot reads on its own; rename them on the Config tab if this app reads others.',
+  drivers: "Those are the names the app's driver reads on its own where it has them; rename any on the Config tab if this app reads others.",
+  none: 'Rename them on the Config tab to the names this app reads.',
+};
+
 export function ConfigEditor({
   owner,
   appName,
@@ -1227,6 +1234,7 @@ export function ConfigEditor({
   chart,
   shared = false,
   workload,
+  appKind,
 }: {
   owner: string;
   appName: string;
@@ -1253,6 +1261,11 @@ export function ConfigEditor({
    * own file says nothing, and the status beside the switch (release file, and what is actually running).
    */
   workload?: { view?: WorkloadView; live?: LiveWorkload };
+  /**
+   * The app's airframe kind (`springbootapplication`, ...; workloadType.ts appKindOf), which decides the env var names a
+   * new component is wired under (components.ts PROFILE_ENV). Undefined: <COMPONENT>_<OUTPUT> names.
+   */
+  appKind?: string;
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -2459,15 +2472,22 @@ export function ConfigEditor({
             }}
             defs={componentCatalog}
             wired={name => wiredOutputs(form.envVars, name)}
-            onWire={(name, outputs) => {
-              // One From component env var per output, named <COMPONENT>_<OUTPUT>; a name already in use is left alone.
-              const { add, skipped } = componentEnvRows(form.envVars, name, outputs);
+            onWire={(name, outputs, { type, all }) => {
+              // From component env vars under the names the app's framework or driver reads (components.ts PROFILE_ENV),
+              // else <COMPONENT>_<OUTPUT>; a name already in use is left alone.
+              const profile = envProfileFor(appKind);
+              const { add, skipped, left } = componentEnvRows(form.envVars, name, outputs, { type, profile, all });
               if (add.length > 0) {
                 const blank = { value: '', refName: '', refKey: '' };
                 setF('envVars', [...form.envVars, ...add.map(a => ({ ...blank, kind: 'component' as const, ...a }))], 'env');
               }
+              const carriers = add.map(a => a.name).filter(n => /URL|URI/.test(n));
               const parts = [
                 add.length > 0 ? `Added ${add.map(a => a.name).join(', ')} (Config tab), reading from ${name}.` : '',
+                add.length > 0 ? RENAME_HINT[profile ?? 'none'] : '',
+                left.length > 0
+                  ? `${left.join(', ')} ${left.length === 1 ? 'is' : 'are'} not wired${carriers.length > 0 ? ` (${carriers.join(', ')} already carries ${left.length === 1 ? 'it' : 'them'})` : ''}; the card's + Add environment variables wires ${left.length === 1 ? 'it' : 'them'} too.`
+                  : '',
                 skipped.length > 0 ? `${skipped.join(', ')} already ${skipped.length === 1 ? 'exists' : 'exist'}, so ${skipped.length === 1 ? 'it was' : 'they were'} left alone.` : '',
               ].filter(Boolean);
               setComponentNote(parts.length > 0 ? `${parts.join(' ')} Discard undoes it.` : undefined);

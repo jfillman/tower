@@ -303,6 +303,33 @@ describe('adding a component', () => {
     for (const name of ['LOG_LEVEL', 'REDIS_HOST', 'REDIS_PORT', 'REDIS_URL', 'REDIS_PASSWORD']) expect(screen.getByDisplayValue(name)).toBeTruthy();
   });
 
+  it('wires a Spring Boot app\'s database under the names Spring reads, and the rest on request', () => {
+    // flight-api dev, 2026-10-19: a postgresql component was wired as POSTGRESQL_*, which nothing in the app read.
+    render(
+      <ConfigEditor
+        owner="o"
+        appName="app"
+        source={source()}
+        title="TEST"
+        layout="side"
+        componentCatalog={catalogJson as unknown as ComponentDefinition[]}
+        appKind="springbootapplication"
+      />,
+    );
+    fireEvent.click(tab('Components'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Component type to add' }), { target: { value: 'postgresql' } });
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    const note = screen.getByRole('status').textContent;
+    expect(note).toMatch(/^Added SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD, SPRING_DATASOURCE_URL \(Config tab\), reading from postgresql\./);
+    expect(note).toMatch(/host, port, database, uri are not wired \(SPRING_DATASOURCE_URL already carries them\)/);
+    expect(screen.getByLabelText('Env vars reading jdbcUri').textContent).toBe('→ SPRING_DATASOURCE_URL');
+    expect(screen.getByLabelText('Env vars reading host').textContent).toBe('not used');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add environment variables for host, port, database, uri' }));
+    expect(screen.getByLabelText('Env vars reading host').textContent).toBe('→ POSTGRESQL_HOST');
+    fireEvent.click(tab('Config'));
+    for (const name of ['SPRING_DATASOURCE_URL', 'SPRING_DATASOURCE_USERNAME', 'SPRING_DATASOURCE_PASSWORD', 'POSTGRESQL_URI']) expect(screen.getByDisplayValue(name)).toBeTruthy();
+  });
+
   it('points the env vars at a component\'s new name once the rename is finished', () => {
     render(
       <ConfigEditor owner="o" appName="app" source={source()} title="TEST" layout="side" componentCatalog={catalogJson as unknown as ComponentDefinition[]} />,

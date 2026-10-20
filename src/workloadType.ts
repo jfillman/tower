@@ -19,3 +19,9 @@ const APP_TIER_KIND_TAGS = new Set([
 export function isAppTierEntity(entity: Entity): boolean {
   return (entity.metadata.tags ?? []).some(t => APP_TIER_KIND_TAGS.has(t));
 }
+
+/** The app's airframe kind without the `kind:` prefix (`springbootapplication`), or undefined for anything else. */
+export function appKindOf(entity: Entity | undefined): string | undefined {
+  const tag = (entity?.metadata.tags ?? []).find(t => APP_TIER_KIND_TAGS.has(t));
+  return tag?.slice('kind:'.length);
+}
