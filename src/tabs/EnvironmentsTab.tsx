@@ -42,6 +42,7 @@ import { DEPLOY_TARGETS } from '../serviceClass';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
+import { appKindOf } from '../workloadType';
 import { usePlatformConfig } from '../platformConfig';
 import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
@@ -119,7 +120,7 @@ const STATE_LABEL = { new: 'staged: new', edited: 'staged: edit', removed: 'stag
 export function EnvironmentsTab() {
   const t = useHangarTokens();
   const c = useStyles({ t });
-  const { environments, pipelineOrder, loading, error, owner, appName } = useReleaseContext();
+  const { environments, pipelineOrder, loading, error, owner, appName, entity: appEntity } = useReleaseContext();
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
@@ -450,6 +451,7 @@ export function EnvironmentsTab() {
     owner,
     appName,
     entity: searchParams.get('entity') ?? '',
+    appKind: appKindOf(appEntity),
     deploy,
     pipelines,
     targetLabel,

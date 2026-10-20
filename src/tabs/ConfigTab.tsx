@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
+import { appKindOf } from '../workloadType';
 import { ENVS_ROOT } from '../types';
 import { ConfigEditor } from '../values/ValuesForm';
 import { useChartValues } from '../values/annotatedValues';
@@ -70,7 +71,7 @@ export function configSections(appName: string, clusters: string[]): Section[] {
   ];
 }
 
-function Editor({ owner, appName, section, source, own }: { owner: string; appName: string; section: Section; source: ValuesSource; own?: ChartRef }) {
+function Editor({ owner, appName, section, source, own, appKind }: { owner: string; appName: string; section: Section; source: ValuesSource; own?: ChartRef; appKind?: string }) {
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
   if (own && section.kind !== 'pr-env') return <RawValuesEditor source={source} chart={own} />;
@@ -84,16 +85,17 @@ function Editor({ owner, appName, section, source, own }: { owner: string; appNa
       componentCatalog={componentCatalog}
       chart={chart}
       shared={section.kind !== 'pr-env'}
+      appKind={appKind}
     />
   );
 }
 
-function PlatformValues(props: { owner: string; appName: string; section: Section; selector: PlatformEnvSelector; own?: ChartRef }) {
+function PlatformValues(props: { owner: string; appName: string; section: Section; selector: PlatformEnvSelector; own?: ChartRef; appKind?: string }) {
   const source = usePlatformValuesSource({ owner: props.owner, appName: props.appName, selector: props.selector });
   return <Editor {...props} source={source} />;
 }
 
-function FlightValues(props: { owner: string; appName: string; section: Section; cluster: string; own?: ChartRef }) {
+function FlightValues(props: { owner: string; appName: string; section: Section; cluster: string; own?: ChartRef; appKind?: string }) {
   const source = useFlightBaseValuesSource({ owner: props.owner, appName: props.appName, cluster: props.cluster });
   return <Editor {...props} source={source} />;
 }
@@ -101,7 +103,8 @@ function FlightValues(props: { owner: string; appName: string; section: Section;
 export function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
-  const { owner, appName, loading, error } = useReleaseContext();
+  const { owner, appName, loading, error, entity } = useReleaseContext();
+  const appKind = appKindOf(entity);
   const platform = usePlatformConfig();
   const [sectionId, setSection] = useState<string>('base');
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined);
@@ -148,9 +151,9 @@ export function ConfigTab() {
         {active.hint} <code>{active.path}</code>
       </div>
       {active.kind === 'flight' ? (
-        <FlightValues key={active.id} owner={owner} appName={appName} section={active} cluster={active.cluster} own={own} />
+        <FlightValues key={active.id} owner={owner} appName={appName} section={active} cluster={active.cluster} own={own} appKind={appKind} />
       ) : (
-        <PlatformValues key={active.id} owner={owner} appName={appName} section={active} selector={{ kind: active.kind }} own={own} />
+        <PlatformValues key={active.id} owner={owner} appName={appName} section={active} selector={{ kind: active.kind }} own={own} appKind={appKind} />
       )}
     </div>
   );

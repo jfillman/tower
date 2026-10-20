@@ -57,8 +57,11 @@ export function ComponentsEditor({
   onRemove?: (removed: ComponentRow) => void;
   /** Output -> env var names reading it (fromComponent), per component name: shown next to each output. */
   wired?: (component: string) => Record<string, string[]>;
-  /** Add fromComponent env vars for these outputs of a component. Also called for every output of a component just added. */
-  onWire?: (component: string, outputs: string[]) => void;
+  /**
+   * Add fromComponent env vars for these outputs of a component. Also called for every output of a component just added
+   * (`all` false: outputs the app's naming profile already carries elsewhere stay unwired); the card's own button asks for `all`.
+   */
+  onWire?: (component: string, outputs: string[], opts: { type: string; all: boolean }) => void;
   /** A component's name changed in the form: env vars reading it should follow. */
   onRename?: (from: string, to: string) => void;
 }) {
@@ -125,7 +128,9 @@ export function ComponentsEditor({
                       <Typography className={classes.fieldLabel}>What it gives the app</Typography>
                       <div className={ui.note}>
                         Each output reaches the app as an environment variable with <b>From component</b> (Config tab), so a rename
-                        cannot break it. Adding a component adds one for each output; the right column shows which variable reads it.
+                        cannot break it. Adding a component adds them under the names the app&apos;s framework or driver reads on its own
+                        where Tower knows them (Spring Boot&apos;s SPRING_DATASOURCE_URL, libpq&apos;s PGHOST), otherwise
+                        &lt;COMPONENT&gt;_&lt;OUTPUT&gt;; rename any of them on the Config tab. The right column shows which variable reads each output.
                       </div>
                       <table style={{ marginTop: 4, fontSize: 12, borderCollapse: 'collapse' }}>
                         <tbody>
@@ -145,7 +150,7 @@ export function ComponentsEditor({
                         </tbody>
                       </table>
                       {onWire && unwired.length > 0 && (
-                        <button type="button" className={classes.addBtn} style={{ marginTop: 6 }} onClick={() => onWire(r.name, unwired)}>
+                        <button type="button" className={classes.addBtn} style={{ marginTop: 6 }} onClick={() => onWire(r.name, unwired, { type: r.type, all: true })}>
                           + Add environment variables for {unwired.join(', ')}
                         </button>
                       )}
@@ -180,7 +185,7 @@ export function ComponentsEditor({
             const name = uniqueName(def.type);
             set([...rows, { type: def.type, name, spec: newSpec(def) }]);
             setAddType('');
-            onWire?.(name, Object.keys(def.outputs));
+            onWire?.(name, Object.keys(def.outputs), { type: def.type, all: false });
           }}
         >
           + Add component

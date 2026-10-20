@@ -40,6 +40,8 @@ export interface RowDetailContext {
   owner?: string;
   appName?: string;
   entity: string;
+  /** The app's airframe kind (workloadType.ts appKindOf): the env var names a new component is wired under. */
+  appKind?: string;
   deploy?: Deploy;
   pipelines: unknown;
   targetLabel: string;
@@ -315,6 +317,7 @@ function GroundValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
       workload={{ view: view.data, live }}
+      appKind={ctx.appKind}
     />
   );
 }
@@ -339,6 +342,7 @@ function FlightValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       componentCatalog={componentCatalog} chart={chart}
       sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
       workload={{ view: view.data, live }}
+      appKind={ctx.appKind}
     />
   );
 }

@@ -110,7 +110,7 @@ export function withoutComponentEnv<R extends { name: string; kind: string; comp
   return { kept, dropped };
 }
 
-/** `board-mq` + `password` -> `BOARD_MQ_PASSWORD`: the env var name Tower suggests for a component output. */
+/** `board-mq` + `password` -> `BOARD_MQ_PASSWORD`: the env var name Tower suggests for an output no naming profile covers. */
 export function envNameFor(component: string, output: string): string {
   const snake = (v: string) =>
     v
@@ -122,28 +122,98 @@ export function envNameFor(component: string, output: string): string {
 }
 
 /**
- * fromComponent env rows for the outputs of a component that nothing reads yet. An output already read by some row is
- * left alone, and so is a suggested name another row already uses (never overwritten): those come back as `skipped`.
+ * Which env var names the app's own framework or driver reads with no code: `spring-boot` for a SpringBootApplication
+ * (Spring's relaxed binding turns SPRING_DATASOURCE_URL into spring.datasource.url, and an env var outranks the
+ * packaged application.properties), `drivers` for the Node.js, Python and Go apps (libpq's PG* variables, which
+ * node-postgres, psycopg, pgx and lib/pq all read). `<COMPONENT>_<OUTPUT>` names were read by no app unless it
+ * happened to use them (flight-api dev, 2026-10-19: POSTGRESQL_* while the app read DB_*, so it connected to localhost).
+ */
+export type EnvProfile = 'spring-boot' | 'drivers';
+
+/** The app-tier kind (airframe XRD, lower case, as in the catalog's `kind:<kind>` tag) -> its naming profile. */
+export function envProfileFor(appKind: string | undefined): EnvProfile | undefined {
+  if (appKind === 'springbootapplication') return 'spring-boot';
+  if (appKind === 'nodejsapplication' || appKind === 'pythonapplication' || appKind === 'goapplication') return 'drivers';
+  return undefined;
+}
+
+// Profile -> component type -> output -> the env var names that carry it. A type a profile lists is covered: its
+// outputs not listed here are already inside one that is (SPRING_DATASOURCE_URL carries host, port and database), so
+// adding the component leaves them unwired rather than adding variables nothing reads. A type a profile does not list
+// (Dex for Spring: client or resource server is the app's call) gets <COMPONENT>_<OUTPUT> for every output.
+// Property names checked against Spring Boot 4.1.1's configuration metadata. Boot 4 moved spring.data.mongodb.* to
+// spring.mongodb.* and stopped binding the old name, so the Mongo URI goes out under both for Boot 3 and Boot 4 apps.
+// Redis's url output is left out on purpose: it has no password, and Spring ignores spring.data.redis.password once
+// spring.data.redis.url is set.
+export const PROFILE_ENV: Record<EnvProfile, Record<string, Record<string, string[]>>> = {
+  'spring-boot': {
+    postgresql: {
+      jdbcUri: ['SPRING_DATASOURCE_URL'],
+      username: ['SPRING_DATASOURCE_USERNAME'],
+      password: ['SPRING_DATASOURCE_PASSWORD'],
+    },
+    rabbitmq: {
+      host: ['SPRING_RABBITMQ_HOST'],
+      port: ['SPRING_RABBITMQ_PORT'],
+      username: ['SPRING_RABBITMQ_USERNAME'],
+      password: ['SPRING_RABBITMQ_PASSWORD'],
+      vhost: ['SPRING_RABBITMQ_VIRTUAL_HOST'],
+    },
+    redis: {
+      host: ['SPRING_DATA_REDIS_HOST'],
+      port: ['SPRING_DATA_REDIS_PORT'],
+      password: ['SPRING_DATA_REDIS_PASSWORD'],
+    },
+    mongodb: { uri: ['SPRING_MONGODB_URI', 'SPRING_DATA_MONGODB_URI'] },
+  },
+  drivers: {
+    postgresql: {
+      host: ['PGHOST'],
+      port: ['PGPORT'],
+      username: ['PGUSER'],
+      password: ['PGPASSWORD'],
+      database: ['PGDATABASE'],
+      uri: ['DATABASE_URL'],
+    },
+  },
+};
+
+/**
+ * fromComponent env rows for the outputs of a component that nothing reads yet, named the way the app reads them
+ * (`profile` + the component's `type`, see PROFILE_ENV) or `<COMPONENT>_<OUTPUT>` otherwise. A name already in use is
+ * never overwritten: a profile name in use (a second PostgreSQL in a Spring app) falls back to `<COMPONENT>_<OUTPUT>`,
+ * and a name still in use after that comes back as `skipped`. When the profile covers the type, the outputs it does not
+ * name come back as `left` (unwired) unless `all` asks for every output, as the card's "+ Add environment variables" does.
  */
 export function componentEnvRows(
   rows: Array<{ name: string; kind: string; component: string; output: string }>,
   component: string,
   outputs: string[],
-): { add: Array<{ name: string; component: string; output: string }>; skipped: string[] } {
+  opts: { type?: string; profile?: EnvProfile; all?: boolean } = {},
+): { add: Array<{ name: string; component: string; output: string }>; skipped: string[]; left: string[] } {
   const add: Array<{ name: string; component: string; output: string }> = [];
   const skipped: string[] = [];
+  const left: string[] = [];
   const taken = new Set(rows.map(r => r.name.trim()));
+  const covered = opts.profile && opts.type ? PROFILE_ENV[opts.profile][opts.type] : undefined;
   for (const output of outputs) {
     if (rows.some(r => r.kind === 'component' && r.component.trim() === component && r.output.trim() === output)) continue;
-    const name = envNameFor(component, output);
-    if (taken.has(name)) {
-      skipped.push(name);
+    const native = (covered?.[output] ?? []).filter(n => !taken.has(n));
+    if (covered && !covered[output] && !opts.all) {
+      left.push(output);
       continue;
     }
-    taken.add(name);
-    add.push({ name, component, output });
+    const names = native.length > 0 ? native : [envNameFor(component, output)];
+    for (const name of names) {
+      if (taken.has(name)) {
+        skipped.push(name);
+        continue;
+      }
+      taken.add(name);
+      add.push({ name, component, output });
+    }
   }
-  return { add, skipped };
+  return { add, skipped, left };
 }
 
 /** Output -> the env var names reading it with fromComponent, for one component. */
