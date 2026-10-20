@@ -111,14 +111,14 @@ function ComponentsEditor({
               /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
                 "Each output reaches the app as an environment variable with ",
                 /* @__PURE__ */ jsx("b", { children: "From component" }),
-                " (Config tab), so a rename cannot break it. Adding a component adds one for each output; the right column shows which variable reads it."
+                " (Config tab), so a rename cannot break it. Adding a component adds them under the names the app's framework or driver reads on its own where Tower knows them (Spring Boot's SPRING_DATASOURCE_URL, libpq's PGHOST), otherwise <COMPONENT>_<OUTPUT>; rename any of them on the Config tab. The right column shows which variable reads each output."
               ] }),
               /* @__PURE__ */ jsx("table", { style: { marginTop: 4, fontSize: 12, borderCollapse: "collapse" }, children: /* @__PURE__ */ jsx("tbody", { children: Object.entries(def.outputs).map(([k, o]) => /* @__PURE__ */ jsxs("tr", { children: [
                 /* @__PURE__ */ jsx("td", { style: { padding: "2px 14px 2px 0", fontWeight: 600 }, children: k }),
                 /* @__PURE__ */ jsx("td", { style: { padding: "2px 14px 2px 0", opacity: 0.8 }, children: o.kind === "literal" ? "a plain value" : `${o.kind === "secretKeyRef" ? "Secret" : "ConfigMap"} ${resolve(o.secret ?? o.configMap, r.name)}, key ${o.key}` }),
                 wired && /* @__PURE__ */ jsx("td", { style: { padding: "2px 0", fontFamily: "monospace" }, "aria-label": `Env vars reading ${k}`, children: reading[k]?.length ? `\u2192 ${reading[k].join(", ")}` : /* @__PURE__ */ jsx("span", { style: { opacity: 0.6 }, children: "not used" }) })
               ] }, k)) }) }),
-              onWire && unwired.length > 0 && /* @__PURE__ */ jsxs("button", { type: "button", className: classes.addBtn, style: { marginTop: 6 }, onClick: () => onWire(r.name, unwired), children: [
+              onWire && unwired.length > 0 && /* @__PURE__ */ jsxs("button", { type: "button", className: classes.addBtn, style: { marginTop: 6 }, onClick: () => onWire(r.name, unwired, { type: r.type, all: true }), children: [
                 "+ Add environment variables for ",
                 unwired.join(", ")
               ] })
@@ -148,7 +148,7 @@ function ComponentsEditor({
             const name = uniqueName(def.type);
             set([...rows, { type: def.type, name, spec: newSpec(def) }]);
             setAddType("");
-            onWire?.(name, Object.keys(def.outputs));
+            onWire?.(name, Object.keys(def.outputs), { type: def.type, all: false });
           },
           children: "+ Add component"
         }

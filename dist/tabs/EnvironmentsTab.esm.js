@@ -18,6 +18,7 @@ import { DEPLOY_TARGETS } from '../serviceClass.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { appKindOf } from '../workloadType.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
 import { PageHeader, Button, Hint, Callout, FilterBar, FilterChips, Panel, ColumnLabel, Chip, TierChip, HEALTH_LABEL, StatusDot, IconButton } from '../ui/index.esm.js';
 import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } from './environments/dialogs.esm.js';
@@ -73,7 +74,7 @@ const STATE_LABEL = { new: "staged: new", edited: "staged: edit", removed: "stag
 function EnvironmentsTab() {
   const t = useHangarTokens();
   const c = useStyles({ t });
-  const { environments, pipelineOrder, loading, error, owner, appName } = useReleaseContext();
+  const { environments, pipelineOrder, loading, error, owner, appName, entity: appEntity } = useReleaseContext();
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
@@ -354,6 +355,7 @@ function EnvironmentsTab() {
     owner,
     appName,
     entity: searchParams.get("entity") ?? "",
+    appKind: appKindOf(appEntity),
     deploy,
     pipelines,
     targetLabel,

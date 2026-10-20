@@ -265,7 +265,8 @@ function GroundValues({ ctx, env, cluster, source, live }) {
       componentCatalog,
       chart,
       sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
-      workload: { view: view.data, live }
+      workload: { view: view.data, live },
+      appKind: ctx.appKind
     }
   );
 }
@@ -290,7 +291,8 @@ function FlightValues({ ctx, env, cluster, source, live }) {
       componentCatalog,
       chart,
       sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
-      workload: { view: view.data, live }
+      workload: { view: view.data, live },
+      appKind: ctx.appKind
     }
   );
 }

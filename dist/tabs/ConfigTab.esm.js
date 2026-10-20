@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { appKindOf } from '../workloadType.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
 import { ConfigEditor } from '../values/ValuesForm.esm.js';
 import { useChartValues } from '../values/annotatedValues.esm.js';
@@ -48,7 +49,7 @@ function configSections(appName, clusters) {
     }
   ];
 }
-function Editor({ owner, appName, section, source, own }) {
+function Editor({ owner, appName, section, source, own, appKind }) {
   const componentCatalog = useComponentCatalog(owner);
   const chart = useChartValues(owner);
   if (own && section.kind !== "pr-env") return /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
@@ -62,7 +63,8 @@ function Editor({ owner, appName, section, source, own }) {
       layout: "side",
       componentCatalog,
       chart,
-      shared: section.kind !== "pr-env"
+      shared: section.kind !== "pr-env",
+      appKind
     }
   );
 }
@@ -77,7 +79,8 @@ function FlightValues(props) {
 function ConfigTab() {
   const t = useHangarTokens();
   const ui = useUi({ t });
-  const { owner, appName, loading, error } = useReleaseContext();
+  const { owner, appName, loading, error, entity } = useReleaseContext();
+  const appKind = appKindOf(entity);
   const platform = usePlatformConfig();
   const [sectionId, setSection] = useState("base");
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0);
@@ -124,7 +127,7 @@ function ConfigTab() {
       " ",
       /* @__PURE__ */ jsx("code", { children: active.path })
     ] }),
-    active.kind === "flight" ? /* @__PURE__ */ jsx(FlightValues, { owner, appName, section: active, cluster: active.cluster, own }, active.id) : /* @__PURE__ */ jsx(PlatformValues, { owner, appName, section: active, selector: { kind: active.kind }, own }, active.id)
+    active.kind === "flight" ? /* @__PURE__ */ jsx(FlightValues, { owner, appName, section: active, cluster: active.cluster, own, appKind }, active.id) : /* @__PURE__ */ jsx(PlatformValues, { owner, appName, section: active, selector: { kind: active.kind }, own, appKind }, active.id)
   ] });
 }
 

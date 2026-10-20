@@ -67,21 +67,67 @@ function envNameFor(component, output) {
   const snake = (v) => v.replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
   return `${snake(component)}_${snake(output)}`;
 }
-function componentEnvRows(rows, component, outputs) {
+function envProfileFor(appKind) {
+  if (appKind === "springbootapplication") return "spring-boot";
+  if (appKind === "nodejsapplication" || appKind === "pythonapplication" || appKind === "goapplication") return "drivers";
+  return void 0;
+}
+const PROFILE_ENV = {
+  "spring-boot": {
+    postgresql: {
+      jdbcUri: ["SPRING_DATASOURCE_URL"],
+      username: ["SPRING_DATASOURCE_USERNAME"],
+      password: ["SPRING_DATASOURCE_PASSWORD"]
+    },
+    rabbitmq: {
+      host: ["SPRING_RABBITMQ_HOST"],
+      port: ["SPRING_RABBITMQ_PORT"],
+      username: ["SPRING_RABBITMQ_USERNAME"],
+      password: ["SPRING_RABBITMQ_PASSWORD"],
+      vhost: ["SPRING_RABBITMQ_VIRTUAL_HOST"]
+    },
+    redis: {
+      host: ["SPRING_DATA_REDIS_HOST"],
+      port: ["SPRING_DATA_REDIS_PORT"],
+      password: ["SPRING_DATA_REDIS_PASSWORD"]
+    },
+    mongodb: { uri: ["SPRING_MONGODB_URI", "SPRING_DATA_MONGODB_URI"] }
+  },
+  drivers: {
+    postgresql: {
+      host: ["PGHOST"],
+      port: ["PGPORT"],
+      username: ["PGUSER"],
+      password: ["PGPASSWORD"],
+      database: ["PGDATABASE"],
+      uri: ["DATABASE_URL"]
+    }
+  }
+};
+function componentEnvRows(rows, component, outputs, opts = {}) {
   const add = [];
   const skipped = [];
+  const left = [];
   const taken = new Set(rows.map((r) => r.name.trim()));
+  const covered = opts.profile && opts.type ? PROFILE_ENV[opts.profile][opts.type] : void 0;
   for (const output of outputs) {
     if (rows.some((r) => r.kind === "component" && r.component.trim() === component && r.output.trim() === output)) continue;
-    const name = envNameFor(component, output);
-    if (taken.has(name)) {
-      skipped.push(name);
+    const native = (covered?.[output] ?? []).filter((n) => !taken.has(n));
+    if (covered && !covered[output] && !opts.all) {
+      left.push(output);
       continue;
     }
-    taken.add(name);
-    add.push({ name, component, output });
+    const names = native.length > 0 ? native : [envNameFor(component, output)];
+    for (const name of names) {
+      if (taken.has(name)) {
+        skipped.push(name);
+        continue;
+      }
+      taken.add(name);
+      add.push({ name, component, output });
+    }
   }
-  return { add, skipped };
+  return { add, skipped, left };
 }
 function wiredOutputs(rows, component) {
   const out = {};
@@ -96,5 +142,5 @@ function renameComponentEnv(rows, from, to) {
   return rows.map((r) => r.kind === "component" && r.component.trim() === from ? { ...r, component: to } : r);
 }
 
-export { COMPONENT_OUTPUTS, componentEnvRows, declaredComponents, envNameFor, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv };
+export { COMPONENT_OUTPUTS, PROFILE_ENV, componentEnvRows, declaredComponents, envNameFor, envProfileFor, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv };
 //# sourceMappingURL=components.esm.js.map
