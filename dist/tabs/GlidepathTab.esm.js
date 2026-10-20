@@ -105,7 +105,6 @@ function buildFormFromValues(values) {
     imageScan: Boolean(gov.imageScan),
     policyCheck: Boolean(gov.policyCheck),
     sbom: Boolean(gov.sbom),
-    allowedCommitSigners: joinCsv(gov.allowedCommitSigners ?? []),
     slackEnabled: Boolean(slack.enabled),
     slackChannel: typeof slack.channel === "string" ? slack.channel : "",
     slackScanResults: Boolean(slack.scanResults),
@@ -135,7 +134,7 @@ function emptyDefaultFor(key) {
         ttl: "5d"
       };
     case "governance":
-      return { sast: false, imageScan: false, policyCheck: false, sbom: false, allowedCommitSigners: [] };
+      return { sast: false, imageScan: false, policyCheck: false, sbom: false };
     case "notifications":
       return { slack: { enabled: false, channel: "", scanResults: false }, backstage: { enabled: false } };
     case "secrets":
@@ -169,12 +168,15 @@ function buildCandidateValues(form, originalValues) {
       pullRequest: { enabled: form.prEnabled, labels: splitCsv(form.prLabels) },
       ttl: form.ttl
     },
+    // Keep the keys this form has no field for: `githubMerge` (the team's tighten-only knobs) and a leftover
+    // `allowedCommitSigners`, which Glidepath ignores since signers became the admins' release-signing policy
+    // (glidepath ADR-0027). Writing an edited list back would look like it still mattered.
     governance: {
+      ...originalValues.governance ?? {},
       sast: form.sast,
       imageScan: form.imageScan,
       policyCheck: form.policyCheck,
-      sbom: form.sbom,
-      allowedCommitSigners: splitCsv(form.allowedCommitSigners)
+      sbom: form.sbom
     },
     notifications: {
       slack: { enabled: form.slackEnabled, channel: form.slackChannel, scanResults: form.slackScanResults },
@@ -507,16 +509,7 @@ function GlidepathTab() {
         ),
         /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: label })
       ] }, key)),
-      /* @__PURE__ */ jsx(
-        TextField,
-        {
-          label: "Allowed commit signers (comma-separated emails)",
-          value: form.allowedCommitSigners,
-          onChange: (e) => setForm((f) => f ? { ...f, allowedCommitSigners: e.target.value } : f),
-          fullWidth: true,
-          size: "small"
-        }
-      )
+      /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "Who may sign or merge a released commit is set by platform admins in Glidepath's release-signing policy, not in cicd.yaml, so a team cannot add itself to the list that gates its release." })
     ] }),
     tab === "notifications" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Notifications" }),
