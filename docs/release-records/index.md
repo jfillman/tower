@@ -122,7 +122,26 @@ a summary or risk added that way to a newer record is shown in Release notes, ma
 
 ## Tests and change request
 
-The record's **Tests and security** panel opens with the **check ride**: the attested test run the qa release gate
+**Commit signature (2026-10-20, glidepath ADR-0027).** The panel opens with how the released commit was proven, read
+from the provenance gate's evidence (the `<!-- glidepath:signature -->` line in its PR comment, which the backend
+accepts only from the platform's GitHub App, `glidepath.gateCommentApps`) and frozen into the record with its
+guardrails:
+
+| Proof | Chip | Line |
+|---|---|---|
+| gitsign | green **gitsign** | Signed by the email in the verified Sigstore certificate |
+| GitHub merge, strict | green **GitHub merge, strict** | Merged by `<login>` in `<repo>#<pr>`; all N commits gitsign-signed |
+| GitHub merge | green **GitHub merge** | Merged by `<login>` in `<repo>#<pr>` (GitHub's key), with approvers when required |
+| no evidence, gate passed | neutral **not recorded** | Sealed before the gate kept this |
+| cloud target | neutral **not required** | Commit signing isn't checked on a release pin (ADR-0020) |
+
+A merge-path line carries a hint: the proof is GitHub's signature and its record of who merged, not a personal key.
+A failed gate shows nothing here (the gate tiles show it). The same proof appears as a green chip on the record's row,
+on the **Next release** and **Live** cards ("Commit: GitHub merge by jfillman"), in the pending-promotion task above
+them, and on each build's row in the **Release matrix** (the line on hover and in the opened cell), and in the
+HTML/PDF export.
+
+Then the **check ride**: the attested test run the qa release gate
 read for this image, with its outcome, counts (passed, failed, skipped), the workflow's source
 (`argocd:check-rides` for the shared repository), its Testkube execution and when it finished, and whether its
 attestation verified. It is frozen into the record when the record is sealed (with how many attested runs the image
@@ -157,7 +176,9 @@ records after 14 days, so releases older than that, and cloud targets, have no o
 window is not measured yet: the production cluster's Prometheus is off, so there is no production metric to read.
 
 The record's score is now called **readiness**: how ready the release was when it shipped (guardrails, signed
-and attested, sign-offs). The old "+5, no incidents" points are gone; Tower never tracked incidents, so every
+and attested, commit proof, sign-offs). **Commit proof** (2026-10-20) is worth up to 6: gitsign 6, GitHub merge
+strict 4, GitHub merge 2, nothing when not recorded or not required. It only adds points, so no older record's
+score moved. The old "+5, no incidents" points are gone; Tower never tracked incidents, so every
 release got them. What happened afterwards is the outcome, shown beside the score, not folded into it.
 
 **GitHub Release (opt-in per release).** Tick "Publish a GitHub Release" in the draft, and once the release is

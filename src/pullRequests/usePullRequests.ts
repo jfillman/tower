@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { SignatureEvidence } from '../commitProof';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 // One real GitHub Check Run against the PR's head commit - see the
@@ -20,6 +21,10 @@ export interface PrCheckRun {
   // The PR comment `message` came from, when it came from one - see the
   // backend's identical field.
   commentUrl?: string;
+  // How the released commit was proven: the provenance gate comment's
+  // <!-- glidepath:signature --> line, parsed by the backend (only from the
+  // platform App's comment). See commitProof.ts.
+  signature?: SignatureEvidence;
 }
 
 export interface PullRequestSummary {

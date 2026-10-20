@@ -1,4 +1,5 @@
 import { formatDateTime } from './shared/format';
+import { commitProofChip, commitProofLine, commitProofOf } from './commitProof';
 import { slugHue } from './PipelineRunList';
 import { applyApprovalBonus, confidenceBreakdown, dedupeCommits, type ReleaseRecord } from './useReleaseRecords';
 import { countedSignoffs, NOTE_CATEGORIES, OUTCOME_LABEL, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL, type SignoffEvaluation } from './releaseFlow';
@@ -156,6 +157,9 @@ export function buildReleaseRecordHtml(record: ReleaseRecord, humanContext?: Rel
   if (record.imageDigest) builtItems.push(`<li>Digest ${esc(shortDigest(record.imageDigest))}</li>`);
   builtItems.push(`<li>${verified ? 'Cosign verified' : 'Cosign verification not confirmed'}${rekor ? ` · Rekor #${rekor.logIndex}` : ''}</li>`);
   if (record.hasSbom) builtItems.push('<li>SBOM attached</li>');
+  const proof = commitProofOf(record);
+  const proofChip = commitProofChip(proof);
+  if (proofChip) builtItems.push(`<li>Commit signature: ${esc(proofChip)} — ${esc(commitProofLine(proof))}</li>`);
   if (record.guardrails) {
     const link = record.guardrailsPrUrl
       ? ` — <a href="${esc(record.guardrailsPrUrl)}">gitops PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ''}</a>`

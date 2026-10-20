@@ -8,6 +8,7 @@ import { statusPill } from './ReleaseRecordList';
 import { bakeProgress, readinessCount, type PathStep } from './releaseCards';
 import type { NextRelease } from './nextRelease';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
+import { commitProofChip, commitProofLine, commitProofOf, type CommitProof } from './commitProof';
 
 // The top of the Releases tab (2026-10-14, mockup E): three cards, so the releases themselves are the first thing on
 // the page. Next release (the draft), the release live in production, and the last one with an outcome. Each opens
@@ -58,6 +59,21 @@ const STEP_TONE: Record<Extract<PathStep, { kind: 'flight' }>['state'], StatusTo
 type StatTone = 'ok' | 'warn' | 'bad';
 
 /** A number on a card: the kit's Stat in a Tile. */
+// How the release's commit was proven (provenance phase 3), as one short line on a card. Nothing when it isn't known.
+function CommitLine({ proof, className }: { proof: CommitProof; className: string }) {
+  const chip = commitProofChip(proof);
+  if (!chip || proof.state === 'not-recorded') return null;
+  let who = '';
+  if (proof.evidence?.mergedBy) who = ` by ${proof.evidence.mergedBy}`;
+  else if (proof.evidence?.signer) who = `, ${proof.evidence.signer}`;
+  return (
+    <span className={className} title={commitProofLine(proof)}>
+      Commit: {chip}
+      {who}
+    </span>
+  );
+}
+
 function Mini({ label, value, caption, tone }: { label: string; value: ReactNode; caption?: ReactNode; tone?: StatTone }) {
   return (
     <Tile>
@@ -184,6 +200,9 @@ export function ReleaseHeroes({
             />
             <Mini label="Notes" value={next.notes} caption={next.owner ? `owner ${next.owner}` : 'no owner yet'} />
           </div>
+          {next.openPr?.pr && (
+            <CommitLine proof={commitProofOf({ guardrails: next.openPr.pr.ci, guardrailsPrUrl: next.openPr.pr.url })} className={classes.line} />
+          )}
           {next.blocked?.pr && (
             <Callout tone="bad" title={`Blocked on ${next.blocked.env}`}>
               Release PR #{next.blocked.pr.number} has failing checks.
@@ -236,6 +255,7 @@ export function ReleaseHeroes({
             <Mini label="Sign-off" value={live.signoffs ?? '—'} caption={signoffCaption(live.signoffs)} tone={live.signoffs === 0 ? 'bad' : undefined} />
             <Mini label="Live in" value={`${liveEnvCount} of ${flightEnvCount}`} caption="Flight environments" />
           </div>
+          <CommitLine proof={commitProofOf(live)} className={classes.line} />
           <div className={classes.actions}>
             <Button small onClick={() => onOpenRecord(live.id)}>
               Open record

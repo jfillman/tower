@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { COMMIT_PROOF_MAX, commitProofNote, commitProofOf, commitProofPoints } from './commitProof';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
 import type { ChangeRequestRef, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
@@ -385,6 +386,7 @@ export function buildChangeCategories(prs: PullRequestSummary[]): ChangeCategory
 // human approvals, since those don't exist yet - re-tune once they do.
 function computeConfidence(input: {
   guardrails?: NonNullable<PullRequestSummary['ci']>;
+  guardrailsPrUrl?: string;
   provenance?: ProvenanceResponse;
 }): number {
   let score = 50;
@@ -395,6 +397,9 @@ function computeConfidence(input: {
         : 15;
   }
   if (isSignedAndAttested(input.provenance)) score += 15;
+  // Provenance phase 3 (decision 2026-10-20): how the commit was proven - gitsign 6, strict GitHub merge 4, GitHub
+  // merge 2, nothing when not recorded. Only ever adds, so no older record's score moves.
+  score += commitProofPoints(commitProofOf(input));
   // R3: no "+5, no incidents" any more. Tower never tracked incidents, so every release got it; what
   // happened after release is now the record's outcome, shown beside this score, not folded into it.
   return Math.min(100, Math.max(0, score));
@@ -432,7 +437,7 @@ export function withPersistedGuardrails(record: ReleaseRecord, doc: ReleaseRecor
     guardrails: doc.guardrails.ci,
     guardrailsPrUrl: doc.guardrails.prUrl,
     guardrailsPrNumber: doc.guardrails.prNumber,
-    confidence: computeConfidence({ guardrails: doc.guardrails.ci, provenance: record.provenance }),
+    confidence: computeConfidence({ guardrails: doc.guardrails.ci, guardrailsPrUrl: doc.guardrails.prUrl, provenance: record.provenance }),
   };
 }
 
@@ -492,6 +497,7 @@ export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: numbe
         : 'The release PR reported no required checks (half credit).';
   }
   const verified = isSignedAndAttested(record.provenance);
+  const proof = commitProofOf(record);
   return [
     { label: 'Baseline', points: 50, max: 50, note: 'Every release that reached a Flight-tier environment starts here.' },
     { label: 'Release guardrails', points: guardPoints, max: 30, note: guardNote },
@@ -502,6 +508,12 @@ export function confidenceBreakdown(record: ReleaseRecord, approvalsCount: numbe
       note: verified
         ? 'The image has a cosign/SLSA attestation that verified.'
         : 'No verified cosign/SLSA attestation found for this image.',
+    },
+    {
+      label: 'Commit proof',
+      points: commitProofPoints(proof),
+      max: COMMIT_PROOF_MAX,
+      note: commitProofNote(proof),
     },
     {
       label: 'Sign-off before merge',
@@ -649,7 +661,7 @@ export function buildReleaseRecords(
       deployments,
       promotionChain,
       incidents: [],
-      confidence: computeConfidence({ guardrails: guardrailPr?.ci, provenance }),
+      confidence: computeConfidence({ guardrails: guardrailPr?.ci, guardrailsPrUrl: guardrailPr?.url, provenance }),
     };
     return record;
   });
