@@ -57,7 +57,7 @@ The values form is the one App Configuration used to hold alone; it now takes a 
 Ground or a Flight environment, or one of the app-wide files (`glidepath/base.yaml`, each Flight cluster's
 `gitops-<app>/<cluster>/base.yaml`, `glidepath/pr-env.yaml`) on the App Configuration tab.
 The Glidepath tab is the same shape for `cicd.yaml`: sub-tabs (Build, Test, Deploy, Preview environments, Governance, Notifications,
-Secrets, Pipelines, Advanced), a dot on the ones with a staged change, and one Pending changes panel for its single pull request. The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
+Secrets, Pipelines, Advanced), a dot on the ones with a staged change, and one Pending changes panel for its single pull request. Governance has no commit-signer field: since glidepath ADR-0027 (2026-10-20) who may sign or merge a released commit is the platform admins' release-signing policy, not `cicd.yaml`, and the form carries `governance.allowedCommitSigners` (ignored) and `governance.githubMerge` (the team's tighten-only knobs) through unchanged. The ApplicationEnvironment launcher is `src/environments/applicationEnvironment.ts`.
 
 ## The table
 

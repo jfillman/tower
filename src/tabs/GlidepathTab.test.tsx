@@ -64,6 +64,19 @@ describe('Glidepath tab', () => {
     expect(Object.keys(submit.mock.calls[0][0].patch)).toEqual(['governance']);
   });
 
+  it('has no signer field and keeps governance keys it does not edit (signers are the admins\' policy, glidepath ADR-0027)', () => {
+    renderTab();
+    tab('Governance');
+    expect(screen.queryByLabelText(/commit signers/i)).toBeNull();
+    expect(screen.getByText(/set by platform admins in Glidepath's release-signing policy/)).toBeTruthy();
+    const values: any = { ...sparse, governance: { sast: true, allowedCommitSigners: ['a@example.com'], githubMerge: { mode: 'strict' } } };
+    const form = { ...buildFormFromValues(values), sbom: true };
+    expect((buildCandidateValues(form, values) as any).governance).toEqual({
+      sast: true, imageScan: false, policyCheck: false, sbom: true,
+      allowedCommitSigners: ['a@example.com'], githubMerge: { mode: 'strict' },
+    });
+  });
+
   it('discards what is staged, in every sub-tab', () => {
     renderTab();
     tab('Governance');
