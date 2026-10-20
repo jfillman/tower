@@ -1,8 +1,9 @@
-import { jsxs, jsx } from 'react/jsx-runtime';
+import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import Link from '@material-ui/core/Link';
 import { formatDateTime } from './shared/format.esm.js';
 import { ColumnLabel, StatusChip, Hint } from './ui/index.esm.js';
 import { verdictOf, isSharedCheckRide, explain } from './supplyChain.esm.js';
+import { commitProofOf, commitProofChip, commitProofPrUrl, commitProofTone, commitProofLine, isMergePath, MERGE_HINT, COMMIT_SIGNING_DOC } from './commitProof.esm.js';
 
 function checkRideOf(record) {
   const f = record.testEvidence;
@@ -99,6 +100,37 @@ function ChangeRequestFact({ record, classes }) {
     ] })
   ] });
 }
+function CommitSignatureBlock({ record, classes }) {
+  const proof = commitProofOf(record);
+  const chip = commitProofChip(proof);
+  if (!chip) return null;
+  const prUrl = commitProofPrUrl(proof);
+  return /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, "data-testid": "record-commit-signature", children: [
+    /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [
+      /* @__PURE__ */ jsx("span", { className: classes.scanName, children: "Commit signature" }),
+      /* @__PURE__ */ jsx(StatusChip, { tone: commitProofTone(proof), children: chip })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: classes.scanFindings, children: [
+      commitProofLine(proof),
+      prUrl && /* @__PURE__ */ jsxs(Fragment, { children: [
+        " \xB7 ",
+        /* @__PURE__ */ jsxs(Link, { href: prUrl, target: "_blank", rel: "noopener noreferrer", children: [
+          "PR #",
+          proof.evidence?.pr
+        ] })
+      ] })
+    ] }),
+    isMergePath(proof) && /* @__PURE__ */ jsxs(Hint, { children: [
+      MERGE_HINT,
+      " ",
+      /* @__PURE__ */ jsx(Link, { href: COMMIT_SIGNING_DOC, target: "_blank", rel: "noopener noreferrer", children: "What that means" })
+    ] })
+  ] });
+}
+function hasCommitSignature(record) {
+  const { state } = commitProofOf(record);
+  return state === "gitsign" || state === "github-merge-strict" || state === "github-merge" || state === "unknown";
+}
 
-export { ChangeRequestFact, CheckRideBlock, changeRequestTone, checkRideHeadline, checkRideOf, checkRideTone };
+export { ChangeRequestFact, CheckRideBlock, CommitSignatureBlock, changeRequestTone, checkRideHeadline, checkRideOf, checkRideTone, hasCommitSignature };
 //# sourceMappingURL=ReleaseRecordEvidence.esm.js.map

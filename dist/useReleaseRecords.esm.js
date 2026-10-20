@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { commitProofPoints, commitProofOf, COMMIT_PROOF_MAX, commitProofNote } from './commitProof.esm.js';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
 import { envTierOf, imageTag, health, extractShortShaFromImageTag } from './types.esm.js';
 import { findReleaseTestRun, isSignedAndAttested } from './supplyChain.esm.js';
@@ -94,6 +95,7 @@ function computeConfidence(input) {
     score += input.guardrails.totalChecks > 0 ? Math.round(input.guardrails.passedChecks / input.guardrails.totalChecks * 30) : 15;
   }
   if (isSignedAndAttested(input.provenance)) score += 15;
+  score += commitProofPoints(commitProofOf(input));
   return Math.min(100, Math.max(0, score));
 }
 function applyApprovalBonus(baseConfidence, approvalsCount) {
@@ -106,7 +108,7 @@ function withPersistedGuardrails(record, doc) {
     guardrails: doc.guardrails.ci,
     guardrailsPrUrl: doc.guardrails.prUrl,
     guardrailsPrNumber: doc.guardrails.prNumber,
-    confidence: computeConfidence({ guardrails: doc.guardrails.ci, provenance: record.provenance })
+    confidence: computeConfidence({ guardrails: doc.guardrails.ci, guardrailsPrUrl: doc.guardrails.prUrl, provenance: record.provenance })
   };
 }
 function displayScore(record) {
@@ -133,6 +135,7 @@ function confidenceBreakdown(record, approvalsCount) {
     guardNote = g.totalChecks > 0 ? `${g.passedChecks} of ${g.totalChecks} required release guardrails passed (scaled to 30).` : "The release PR reported no required checks (half credit).";
   }
   const verified = isSignedAndAttested(record.provenance);
+  const proof = commitProofOf(record);
   return [
     { label: "Baseline", points: 50, max: 50, note: "Every release that reached a Flight-tier environment starts here." },
     { label: "Release guardrails", points: guardPoints, max: 30, note: guardNote },
@@ -141,6 +144,12 @@ function confidenceBreakdown(record, approvalsCount) {
       points: verified ? 15 : 0,
       max: 15,
       note: verified ? "The image has a cosign/SLSA attestation that verified." : "No verified cosign/SLSA attestation found for this image."
+    },
+    {
+      label: "Commit proof",
+      points: commitProofPoints(proof),
+      max: COMMIT_PROOF_MAX,
+      note: commitProofNote(proof)
     },
     {
       label: "Sign-off before merge",
@@ -242,7 +251,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
       deployments,
       promotionChain,
       incidents: [],
-      confidence: computeConfidence({ guardrails: guardrailPr?.ci, provenance })
+      confidence: computeConfidence({ guardrails: guardrailPr?.ci, guardrailsPrUrl: guardrailPr?.url, provenance })
     };
     return record;
   });

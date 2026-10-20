@@ -1,12 +1,13 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { commitProofOf } from '../commitProof.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, StatusChip, Subtabs } from '../ui/index.esm.js';
 import { usePromote } from '../useReleaseData.esm.js';
-import { useReleaseContext, applyCloudPins } from '../useReleaseContext.esm.js';
+import { useReleaseContext, applyCloudPins, parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { usePinnedTags } from '../environments/releasePins.esm.js';
 import { ReleaseStats, CommandDeck } from '../CommandDeck.esm.js';
 import { ReleaseHeroes } from '../ReleaseHeroes.esm.js';
@@ -153,6 +154,11 @@ function ReleasesTab() {
   const lowerEnvs = pipelineOrder.lower ?? [];
   const byTag = new Map((releaseNames?.index ?? []).map((e) => [e.imageTag, e]));
   const evidenced = releaseRecords.map((r) => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  const proofByTag = new Map(evidenced.map((r) => [r.imageTag, commitProofOf(r)]));
+  for (const pr of gitopsPrs) {
+    const tag = parseGitopsPrTitle(pr.title)?.imageTag;
+    if (tag && pr.state === "open" && !proofByTag.has(tag)) proofByTag.set(tag, commitProofOf({ guardrails: pr.ci, guardrailsPrUrl: pr.url }));
+  }
   const signoffEnv = releaseMode.data?.signoffEnv;
   const live = liveRelease(evidenced, signoffEnv, flightEnvs);
   const last = lastOutcome(evidenced, live?.id);
@@ -244,7 +250,8 @@ function ReleasesTab() {
           environments: pipelineEnvironments,
           provenanceByImage,
           onPromote: handlePromote,
-          names: releaseNames?.byTag
+          names: releaseNames?.byTag,
+          proofs: proofByTag
         }
       ),
       activeTab === "log" && (deployHistory.loading ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsx(

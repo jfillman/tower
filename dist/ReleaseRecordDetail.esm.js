@@ -20,7 +20,7 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
-import { ChangeRequestFact, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
+import { hasCommitSignature, ChangeRequestFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -270,7 +270,7 @@ function ReleaseRecordDetail({
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
-  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence;
+  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence || hasCommitSignature(record);
   const liveDeployment = record.deployments.find((d) => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
   const sealedRelease = persisted.data?.release;
@@ -516,6 +516,7 @@ function ReleaseRecordDetail({
           ] }),
           hasSecurity && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
             /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Tests and security" }),
+            /* @__PURE__ */ jsx(CommitSignatureBlock, { record, classes }),
             /* @__PURE__ */ jsx(CheckRideBlock, { record, classes }),
             record.securityScans.map((scan) => /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, children: [
               /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [

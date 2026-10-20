@@ -1,5 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
+import { commitProofChip, commitProofLine, MERGE_HINT, isMergePath } from './commitProof.esm.js';
 import { scrollPanelIntoView, preventFocusScroll } from './preventFocusScroll.esm.js';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
@@ -120,8 +121,22 @@ const useStyles = makeStyles(() => ({
     border: "none"
   },
   prRow: { marginBottom: 10 },
-  fact: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 6 }
+  fact: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 6 },
+  // How the build's commit was proven (provenance phase 3): green for every passing path, like the record.
+  proofChip: {
+    display: "inline-block",
+    marginLeft: 8,
+    fontFamily: fontMono,
+    fontWeight: 400,
+    fontSize: 10,
+    padding: "1px 7px",
+    borderRadius: 8,
+    border: "1px solid",
+    color: ({ t }) => t.good,
+    borderColor: ({ t }) => t.good
+  }
 }));
+const PROVEN = /* @__PURE__ */ new Set(["gitsign", "github-merge-strict", "github-merge"]);
 function CellIcon({ status }) {
   if (status === "deployed") return /* @__PURE__ */ jsx(CheckIcon, { fontSize: "inherit" });
   if (status === "pending") return /* @__PURE__ */ jsx(AutorenewIcon, { style: { fontSize: 13 } });
@@ -135,7 +150,8 @@ function ReleaseMatrix({
   environments,
   provenanceByImage,
   onPromote,
-  names
+  names,
+  proofs
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -211,7 +227,12 @@ function ReleaseMatrix({
               title: "This build's flow, from the CI/CD tab",
               children: row.nickname
             }
-          )
+          ),
+          (() => {
+            const proof = proofs?.get(row.imageTag);
+            const chip = proof && PROVEN.has(proof.state) ? commitProofChip(proof) : void 0;
+            return chip ? /* @__PURE__ */ jsx("span", { className: classes.proofChip, title: `Commit: ${commitProofLine(proof)}`, children: chip }) : null;
+          })()
         ] }),
         environments.map((env) => {
           const cell = row.cells[env.env] ?? { status: "none" };
@@ -312,6 +333,17 @@ function ReleaseMatrix({
         openCell.date ? formatDateTime(openCell.date) : "at an unrecorded time",
         openCell.sha ? ` \xB7 commit ${openCell.sha.slice(0, 7)}` : ""
       ] }),
+      (() => {
+        const proof = proofs?.get(open.tag);
+        const chip = proof ? commitProofChip(proof) : void 0;
+        return proof && chip ? /* @__PURE__ */ jsxs(Typography, { className: classes.fact, style: { marginTop: 0, marginBottom: 8 }, children: [
+          "Commit: ",
+          chip,
+          " \xB7 ",
+          commitProofLine(proof),
+          isMergePath(proof) ? ` \xB7 ${MERGE_HINT}` : ""
+        ] }) : null;
+      })(),
       openProvenance && /* @__PURE__ */ jsx(PipelineFlow, { stages: buildSupplyChainStages(openProvenance.data, openProvenance.loading) }),
       !openProvenance && openCell.status === "deployed" && !openRow.image && /* @__PURE__ */ jsx(Typography, { className: classes.fact, style: { fontStyle: "italic" }, children: "This build is no longer live in any environment, so its supply-chain record isn't held in memory here, only what deploy history recorded above." })
     ] }) })

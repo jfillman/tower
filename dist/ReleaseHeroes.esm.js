@@ -6,6 +6,7 @@ import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { statusPill } from './ReleaseRecordList.esm.js';
 import { readinessCount, bakeProgress } from './releaseCards.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
+import { commitProofOf, commitProofChip, commitProofLine } from './commitProof.esm.js';
 
 const useStyles = makeStyles(() => ({
   cards: {
@@ -47,6 +48,18 @@ const STEP_TONE = {
   blocked: "bad",
   waiting: "neutral"
 };
+function CommitLine({ proof, className }) {
+  const chip = commitProofChip(proof);
+  if (!chip || proof.state === "not-recorded") return null;
+  let who = "";
+  if (proof.evidence?.mergedBy) who = ` by ${proof.evidence.mergedBy}`;
+  else if (proof.evidence?.signer) who = `, ${proof.evidence.signer}`;
+  return /* @__PURE__ */ jsxs("span", { className, title: commitProofLine(proof), children: [
+    "Commit: ",
+    chip,
+    who
+  ] });
+}
 function Mini({ label, value, caption, tone }) {
   return /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label, value, caption, tone }) });
 }
@@ -127,6 +140,7 @@ function ReleaseHeroes({
         ),
         /* @__PURE__ */ jsx(Mini, { label: "Notes", value: next.notes, caption: next.owner ? `owner ${next.owner}` : "no owner yet" })
       ] }),
+      next.openPr?.pr && /* @__PURE__ */ jsx(CommitLine, { proof: commitProofOf({ guardrails: next.openPr.pr.ci, guardrailsPrUrl: next.openPr.pr.url }), className: classes.line }),
       next.blocked?.pr && /* @__PURE__ */ jsxs(Callout, { tone: "bad", title: `Blocked on ${next.blocked.env}`, children: [
         "Release PR #",
         next.blocked.pr.number,
@@ -165,6 +179,7 @@ function ReleaseHeroes({
         /* @__PURE__ */ jsx(Mini, { label: "Sign-off", value: live.signoffs ?? "\u2014", caption: signoffCaption(live.signoffs), tone: live.signoffs === 0 ? "bad" : void 0 }),
         /* @__PURE__ */ jsx(Mini, { label: "Live in", value: `${liveEnvCount} of ${flightEnvCount}`, caption: "Flight environments" })
       ] }),
+      /* @__PURE__ */ jsx(CommitLine, { proof: commitProofOf(live), className: classes.line }),
       /* @__PURE__ */ jsx("div", { className: classes.actions, children: /* @__PURE__ */ jsx(Button, { small: true, onClick: () => onOpenRecord(live.id), children: "Open record" }) })
     ] }) : /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "No release is live in ",

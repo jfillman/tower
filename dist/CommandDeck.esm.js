@@ -7,12 +7,20 @@ import { PrButton } from './PrButton.esm.js';
 import { parseGitopsPrTitle, gitopsPrForEnv } from './useReleaseContext.esm.js';
 import { health } from './types.esm.js';
 import { Stat, Callout, TextLink } from './ui/index.esm.js';
+import { commitProofOf, commitProofChip } from './commitProof.esm.js';
 
 const useStyles = makeStyles(() => ({
   tasks: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 },
   stats: { display: "inline-flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }
 }));
 const CALLOUT_TONE = { bad: "bad", warn: "warn", good: "ok", neutral: "neutral" };
+function proofSuffix(pr) {
+  const proof = commitProofOf({ guardrails: pr.ci, guardrailsPrUrl: pr.url });
+  const chip = commitProofChip(proof);
+  if (!chip || proof.state === "not-recorded" || proof.state === "not-required") return "";
+  const who = proof.evidence?.mergedBy ?? proof.evidence?.signer;
+  return ` \xB7 commit: ${chip}${who ? ` (${who})` : ""}`;
+}
 function computeTaskQueue(environments, gitopsPrs, sourcePrs, goToMatrix, goToPullRequests, goToTopology) {
   if (environments.length === 0) {
     return [
@@ -38,7 +46,7 @@ function computeTaskQueue(environments, gitopsPrs, sourcePrs, goToMatrix, goToPu
       icon: "\u21E2",
       eyebrow: "Pending promotion",
       headline: `PR #${pendingByAge.pr.number} awaiting merge to promote to ${pendingByAge.env.env}`,
-      detail: `updated ${relativeTime(pendingByAge.pr.updatedAt)}`,
+      detail: `updated ${relativeTime(pendingByAge.pr.updatedAt)}${proofSuffix(pendingByAge.pr)}`,
       pr: pendingByAge.pr,
       action: { label: "Review in Matrix \u2192", onClick: goToMatrix }
     });

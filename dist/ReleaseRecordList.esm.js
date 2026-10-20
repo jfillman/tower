@@ -1,5 +1,6 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
+import { commitProofOf, commitProofChip, commitProofTone, commitProofLine } from './commitProof.esm.js';
 import { formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { TowerEmptyState } from './TowerEmptyState.esm.js';
@@ -151,7 +152,12 @@ function ReleaseRecordList({
             /* @__PURE__ */ jsxs("span", { className: classes.chips, children: [
               /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
               outcome && pill.label !== outcome.label && /* @__PURE__ */ jsx(StatusChip, { tone: outcome.tone, dot: true, children: outcome.label }),
-              record.changeRequest && /* @__PURE__ */ jsx(StatusChip, { tone: changeRequestTone(record.changeRequest.state), title: `Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? "created"}`, children: record.changeRequest.number ?? "change" })
+              record.changeRequest && /* @__PURE__ */ jsx(StatusChip, { tone: changeRequestTone(record.changeRequest.state), title: `Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? "created"}`, children: record.changeRequest.number ?? "change" }),
+              (() => {
+                const proof = commitProofOf(record);
+                const chip = commitProofChip(proof);
+                return chip && commitProofTone(proof) === "ok" ? /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `Commit: ${commitProofLine(proof)}`, children: chip }) : null;
+              })()
             ] }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),
             /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [

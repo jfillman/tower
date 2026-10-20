@@ -1,4 +1,5 @@
 import { formatDateTime } from './shared/format.esm.js';
+import { commitProofOf, commitProofChip, commitProofLine } from './commitProof.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { applyApprovalBonus, dedupeCommits, confidenceBreakdown } from './useReleaseRecords.esm.js';
 import { countedSignoffs, OUTCOME_LABEL, NOTE_CATEGORIES, NOTE_LABEL, RELEASE_MODE_LABEL, SIGNOFF_LABEL } from './releaseFlow.esm.js';
@@ -104,6 +105,9 @@ function buildReleaseRecordHtml(record, humanContext, extras) {
   if (record.imageDigest) builtItems.push(`<li>Digest ${esc(shortDigest(record.imageDigest))}</li>`);
   builtItems.push(`<li>${verified ? "Cosign verified" : "Cosign verification not confirmed"}${rekor ? ` \xB7 Rekor #${rekor.logIndex}` : ""}</li>`);
   if (record.hasSbom) builtItems.push("<li>SBOM attached</li>");
+  const proof = commitProofOf(record);
+  const proofChip = commitProofChip(proof);
+  if (proofChip) builtItems.push(`<li>Commit signature: ${esc(proofChip)} \u2014 ${esc(commitProofLine(proof))}</li>`);
   if (record.guardrails) {
     const link = record.guardrailsPrUrl ? ` \u2014 <a href="${esc(record.guardrailsPrUrl)}">gitops PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}</a>` : "";
     builtItems.push(`<li>${record.guardrails.passedChecks}/${record.guardrails.totalChecks} release guardrails passed${link}</li>`);
