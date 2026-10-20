@@ -32,6 +32,36 @@ export interface ReleaseRecordHumanContext {
   tags?: string[];
 }
 
+/** The itsm change request Glidepath attached to a release (glidepath docs/admin/change-management.md). */
+export interface ChangeRequestRef {
+  id: string;
+  number?: string;
+  url?: string;
+  /** created, implementing, implementing-failed, closed-successful, closed-unsuccessful: as last seen on the tracking record. */
+  state?: string;
+  approval?: string;
+  env?: string;
+  rolledBackByChange?: string;
+}
+
+/** The check ride frozen into a sealed record (backend testEvidence.ts), the same fields Tower reads live from provenance. */
+export interface TestEvidence {
+  outcome: string;
+  role: string;
+  testsTotal?: number;
+  testsPassed?: number;
+  testsFailed?: number;
+  testsSkipped?: number;
+  workflowSource?: string;
+  workflowDigest?: string;
+  executionId?: string;
+  reportPath?: string;
+  finishedOn?: string;
+  verified: boolean;
+  verificationError?: string;
+  attestedRuns: number;
+}
+
 export interface ReleaseRecordDoc {
   schemaVersion: 1 | 2;
   id: string;
@@ -45,6 +75,9 @@ export interface ReleaseRecordDoc {
   // Guardrail Check Runs frozen at generation time - see the backend's
   // ReleaseRecordDoc.guardrails comment. Absent on older records.
   guardrails?: { prNumber: number; prUrl: string; ci: NonNullable<PullRequestSummary['ci']> };
+  /** Frozen at sealing (phase 4): the change request and the check ride, kept past their sources. */
+  changeRequest?: ChangeRequestRef;
+  testEvidence?: TestEvidence;
   humanContext: ReleaseRecordHumanContext;
   // v2 (Release Record R2): the draft the team wrote, the mode the release shipped under, and the
   // sign-off when the production release PR had already merged at sealing time.

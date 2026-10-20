@@ -22,6 +22,7 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
 import { isSignedAndAttested } from './supplyChain';
+import { CheckRideBlock, ChangeRequestFact } from './ReleaseRecordEvidence';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -303,7 +304,7 @@ export function ReleaseRecordDetail({
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
-  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
+  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence;
   const liveDeployment = record.deployments.find(d => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
 
@@ -557,6 +558,7 @@ export function ReleaseRecordDetail({
             </StatusChip>
           </div>
           <div className={classes.colBody}>
+            <ChangeRequestFact record={record} classes={classes} />
             {record.promotionChain.length === 0 ? (
               <EmptyNote>No recorded promotions between tracked environments.</EmptyNote>
             ) : (
@@ -626,7 +628,8 @@ export function ReleaseRecordDetail({
               )}
               {hasSecurity && (
                 <div className={classes.builtSection}>
-                  <span className={classes.builtSectionTitle}>Security</span>
+                  <span className={classes.builtSectionTitle}>Tests and security</span>
+                  <CheckRideBlock record={record} classes={classes} />
                   {record.securityScans.map(scan => (
                     <div key={scan.scanner} className={classes.scanBlock}>
                       <div className={classes.scanHead}>
@@ -638,7 +641,7 @@ export function ReleaseRecordDetail({
                       {scan.findingsSummary && <div className={classes.scanFindings}>{scan.findingsSummary}</div>}
                     </div>
                   ))}
-                  {record.testResults.length > 0 && (
+                  {record.testResults.length > 0 && !record.checkRide && !record.testEvidence && (
                     <div className={classes.kv}>
                       <ColumnLabel>
                         Test results {record.testResults.length > 1 && `(${record.testResults.length})`}

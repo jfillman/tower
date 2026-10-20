@@ -6,6 +6,7 @@ import { TowerEmptyState } from './TowerEmptyState';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { outcomeChip } from './ReleaseOutcome';
+import { changeRequestTone } from './ReleaseRecordEvidence';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
 import { Count, IconButton, SectionTitle, StatusChip, TextLink, type StatusTone } from './ui';
 
@@ -168,6 +169,11 @@ export function ReleaseRecordList({
                 {outcome && pill.label !== outcome.label && (
                   <StatusChip tone={outcome.tone} dot>
                     {outcome.label}
+                  </StatusChip>
+                )}
+                {record.changeRequest && (
+                  <StatusChip tone={changeRequestTone(record.changeRequest.state)} title={`Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? 'created'}`}>
+                    {record.changeRequest.number ?? 'change'}
                   </StatusChip>
                 )}
               </span>

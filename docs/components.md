@@ -58,6 +58,13 @@ Tekton pipeline execution visibility:
 - Task DAG visualization with live execution state
 - Pod log streaming for individual tasks
 - Re-run and cancellation controls
+- A **Tests** view (Show: Pipeline runs | Tests, or `?view=tests`): every test run Glidepath started for the app as
+  Testkube recorded it, newest first. Each row names the workflow and its role (the shared **check ride** the qa
+  release gate reads, the team's own test, or an action), the environment, image tag and commit it ran against,
+  what each step did, and a **Download JUnit report** link. A run Testkube marked *aborted* although every step
+  passed (a known agent race) is shown as passed with a note. Read through the backend's `/tests` and
+  `/tests/report` routes, which reach the Testkube API server over the control plane's service proxy as Tower's
+  read identity (`testkube` namespace, `services/proxy` on `testkube-api-server:8088`).
 
 **Key exports:** `PipelinesTab`, `PipelineFlow`, `PipelineRunList`
 

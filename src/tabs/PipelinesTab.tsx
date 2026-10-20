@@ -17,6 +17,8 @@ import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
 import { Count, FilterBar, FilterChips, PageHeader } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
+import { TestRunsPanel } from './pipelines/TestRunsPanel';
+import { useTestRuns } from '../useTestRuns';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 import { usePlatformConfig } from '../platformConfig';
 
@@ -81,6 +83,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 // How far back the run list reaches. 'live' is what the cluster still holds (Tekton deletes a finished run about an
 // hour after it completes); the others add archived runs from Tekton Results, which keeps 30 days.
 type HistoryRange = 'live' | '24h' | '7d' | '30d';
+type PipelinesView = 'runs' | 'tests';
+
 const HISTORY_RANGES: Array<{ key: HistoryRange; label: string; hours: number }> = [
   { key: 'live', label: 'Live', hours: 0 },
   { key: '24h', label: '24h', hours: 24 },
@@ -102,6 +106,15 @@ export function PipelinesTab() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get('run') ?? undefined;
+  // Runs (the pipeline runs) or Tests (every test run Glidepath started, as Testkube recorded it - phase 4).
+  const view: PipelinesView = searchParams.get('view') === 'tests' ? 'tests' : 'runs';
+  const setView = (v: PipelinesView) =>
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (v === 'runs') next.delete('view');
+      else next.set('view', v);
+      return next;
+    });
   const historyRange = (HISTORY_RANGES.find(r => r.key === searchParams.get('history'))?.key ?? 'live') as HistoryRange;
   const setHistoryRange = (range: HistoryRange) =>
     setSearchParams(prev => {
@@ -118,6 +131,7 @@ export function PipelinesTab() {
   };
 
   const pipelineRuns = useTektonPipelineRuns(appName, ciRefreshNonce);
+  const testRuns = useTestRuns(view === 'tests' ? appName : undefined, ciRefreshNonce);
   // Widens linkFlowSlugsByChainId's own borrowing (see that function's
   // comment in useTektonPipelineRuns.ts) to also reach Tekton Results'
   // archived history, not just this hook's own live-cluster window - since
@@ -232,6 +246,15 @@ export function PipelinesTab() {
     );
   }
 
+  let countText: string;
+  if (view === 'tests') {
+    countText = testRuns.loading ? 'loading…' : `${testRuns.runs.length} test run${testRuns.runs.length === 1 ? '' : 's'} on record`;
+  } else if (listLoading) {
+    countText = 'loading…';
+  } else {
+    const span = historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`;
+    countText = `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${span}`;
+  }
   return (
     <div>
       <PageHeader
@@ -275,15 +298,21 @@ export function PipelinesTab() {
         <FilterBar
           end={
             <Count>
-              {listLoading
-                ? 'loading…'
-                : `${listRuns.length} pipeline run${listRuns.length === 1 ? '' : 's'}${
-                    historyRange === 'live' ? ' still on the cluster' : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? ' (newest only)' : ''}`
-                  }`}{' '}
+              {countText}{' '}
               {cluster ? <> &middot; {cluster}</> : null}
             </Count>
           }
         >
+          <FilterChips<PipelinesView>
+            label="Show"
+            value={view}
+            onChange={setView}
+            options={[
+              { id: 'runs', label: 'Pipeline runs', title: 'Every stage run of this app' },
+              { id: 'tests', label: 'Tests', title: "Every test run Glidepath started for this app (the check ride and the team's own), as Testkube recorded it" },
+            ]}
+          />
+          {view === 'runs' && (
           <FilterChips<HistoryRange>
             label="History"
             value={historyRange}
@@ -294,8 +323,9 @@ export function PipelinesTab() {
               title: r.key === 'live' ? 'Runs still on the cluster (about the last hour)' : `Include archived runs from the last ${r.label}`,
             }))}
           />
+          )}
         </FilterBar>
-        {ciBody}
+        {view === 'tests' ? <TestRunsPanel state={testRuns} /> : ciBody}
       </div>
     </div>
   );

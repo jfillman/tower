@@ -15,7 +15,7 @@ import {
   type ReleaseRecord,
   type ReleaseRecordSecurityScan,
 } from './useReleaseRecords';
-import { isSignedAndAttested } from './supplyChain';
+import { findReleaseTestRun, isSharedCheckRide, isSignedAndAttested, verdictOf, type TestRunEvidence } from './supplyChain';
 
 // The next release, before any of it reaches Flight (the Release Record proposal's R1,
 // 2026-10-13). Read-only and computed: nothing here is stored. The draft opens the
@@ -52,6 +52,8 @@ export interface NextReleaseCandidate {
   build?: PipelineRunSummary;
   scans: ReleaseRecordSecurityScan[];
   provenanceVerified?: boolean;
+  /** The check ride attested on this image (supplyChain.ts findReleaseTestRun), when provenance is loaded. */
+  checkRide?: TestRunEvidence;
   /** Scope PRs this candidate contains (merged at or before it landed). */
   prCount: number;
 }
@@ -225,6 +227,7 @@ export function buildNextRelease(input: {
         build,
         scans: buildSecurityScans(findRelatedPipelineRuns(build, pipelineRuns)),
         provenanceVerified: provenance ? isSignedAndAttested(provenance) : undefined,
+        checkRide: findReleaseTestRun(provenance),
         prCount: scope.filter(pr => new Date(pr.mergedAt!).getTime() <= landed!).length,
       };
     })
@@ -319,6 +322,26 @@ function buildReadiness(input: {
         ? { id: 'provenance', label: 'Signed and attested', state: 'ok', detail: 'cosign/SLSA attestation verified' }
         : { id: 'provenance', label: 'Signed and attested', state: 'todo', detail: 'No verified attestation for this image' },
     );
+  }
+
+  // The check ride (Glidepath test framework): what the qa release gate will read for this image. Only judged
+  // once provenance is loaded; a verified, passed ride from the shared check-rides repository is ready.
+  if (leading.provenanceVerified !== undefined) {
+    const ride = leading.checkRide;
+    if (!ride) {
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'todo', detail: 'No test run attested on this image yet' });
+    } else if (ride.role !== 'check-ride') {
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'todo', detail: "The team's tests ran, but no check ride from the shared repository" });
+    } else if (ride.outcome !== 'passed') {
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'todo', detail: `The latest check ride ${ride.outcome || 'did not pass'}` });
+    } else if (!isSharedCheckRide(ride)) {
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'todo', detail: 'The check ride did not come from the shared check-rides repository' });
+    } else if (verdictOf(ride.attestation) !== 'verified') {
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'todo', detail: 'The check ride passed, but its attestation did not verify' });
+    } else {
+      const counts = ride.testsTotal !== undefined ? `${ride.testsPassed ?? 0} of ${ride.testsTotal} tests passed` : 'passed';
+      items.push({ id: 'check-ride', label: 'Check ride passed', state: 'ok', detail: `${counts}, attested on the image` });
+    }
   }
 
   if (previousVersion && leading.version) {

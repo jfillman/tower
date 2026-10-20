@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
-import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
+import type { ChangeRequestRef, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
 import type { RecordOutcome } from './releaseFlow';
 import type { ProvenanceState } from './useReleaseData';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
@@ -16,7 +16,7 @@ import {
   type ProvenanceResponse,
   type WorkloadDetail,
 } from './types';
-import { isSignedAndAttested } from './supplyChain';
+import { findReleaseTestRun, isSignedAndAttested, type TestRunEvidence } from './supplyChain';
 
 // The Release Record - HANDOFF-tower-release-record.md's design, Phase 1
 // ("read-only, no new infra"). That handoff sketched a ReleaseRecord shape
@@ -137,6 +137,15 @@ export interface ReleaseRecord {
   // it's not just a duplicate of the guardrails ledger below.
   securityScans: ReleaseRecordSecurityScan[];
   provenance?: ProvenanceResponse;
+  /**
+   * The check ride on this image, read live from its provenance (supplyChain.ts findReleaseTestRun): the run the qa
+   * gate verified, with its counts. Missing when no test run is attested on the image or provenance isn't loaded.
+   */
+  checkRide?: TestRunEvidence;
+  /** The same evidence frozen into the committed record at sealing, for when the registry no longer has it. */
+  testEvidence?: TestEvidence;
+  /** The itsm change request, frozen at sealing or read live from the release-tracking record. */
+  changeRequest?: ChangeRequestRef;
   nickname?: string;
   hasSbom: boolean;
 
@@ -439,13 +448,17 @@ export function displayScore(record: ReleaseRecord): number {
  */
 export function withRecordedEvidence(
   record: ReleaseRecord,
-  recorded: { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number; outcome?: RecordOutcome } | undefined,
+  recorded:
+    | { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number; outcome?: RecordOutcome; changeRequest?: ChangeRequestRef; testEvidence?: TestEvidence }
+    | undefined,
 ): ReleaseRecord {
   if (!recorded) return record;
   let out = recorded.guardrails
     ? withPersistedGuardrails(record, { guardrails: recorded.guardrails } as ReleaseRecordDoc)
     : record;
   if (recorded.signoffs !== undefined) out = { ...out, signoffs: recorded.signoffs };
+  if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
+  if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
   if (recorded.outcome) {
     out = { ...out, outcome: recorded.outcome };
     // A release rolled back in production stays rolled back even if its image runs again later.
@@ -627,6 +640,7 @@ export function buildReleaseRecords(
       testResults,
       securityScans,
       provenance,
+      checkRide: findReleaseTestRun(provenance),
       nickname: row.nickname,
       hasSbom: hasSbomAttestation(provenance),
       guardrails: guardrailPr?.ci,
