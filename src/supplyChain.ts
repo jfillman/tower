@@ -140,6 +140,14 @@ export function findCheckRide(p?: ProvenanceResponse): TestRunEvidence | undefin
   const rides = findTestRuns(p).filter(r => r.role === 'check-ride');
   return rides.find(r => r.outcome === 'passed' && verdictOf(r.attestation) === 'verified') ?? rides[0];
 }
+/**
+ * The run a release is judged by: the check ride (findCheckRide), else the newest attested run of any role, so
+ * "the team's tests ran but there is no check ride" reads differently from "nothing ran". Same selection as the
+ * backend's checkRideEvidence, which freezes it into the Release Record.
+ */
+export function findReleaseTestRun(p?: ProvenanceResponse): TestRunEvidence | undefined {
+  return findCheckRide(p) ?? findTestRuns(p)[0];
+}
 export function findSbom(p?: ProvenanceResponse) {
   return p?.attestations.find(a => /cyclonedx|spdx/i.test(a.predicateType));
 }

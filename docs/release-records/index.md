@@ -33,7 +33,7 @@ It is computed from data Tower already reads and nothing is saved.
 | **Incoming** | Open PRs on the source repo, from any branch. Shown, not in scope: no image from main contains them yet. |
 | **Issues** | Issues those PRs close, read from GitHub's closing keywords (`Fixes #12`, `closes owner/repo#5`) in the PR title and body. Issues linked only through a PR's Development sidebar are not seen. |
 | **Candidates** | Images built from main since the previous release, newest first, with where each runs on Ground, how long it has been there and how many scope PRs it contains. The leading candidate is the one live on the highest Ground environment. |
-| **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, version bumped, and a healthy previous release to roll back to. Display only: nothing is blocked. |
+| **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, **check ride passed** (a verified, passed run from the shared check-rides repository attested on the image, what the qa release gate will read; see [supply chain](../supply-chain.md)), version bumped, and a healthy previous release to roll back to. Display only: nothing is blocked. |
 | **Version** | A suggestion: the previous release's version plus the bump the merged PRs call for (a breaking change: major, or minor before 1.0; a feature: minor; otherwise patch). The real version is whatever the promoted image's tag carries. |
 
 **Notes and owner** is the one part of the draft people write: a one-paragraph summary of what the release does,
@@ -120,6 +120,24 @@ summary and risk are written in the draft, before the release ships, and shown i
 record written before the draft carried them (schema v1) can still be given a summary and risk under After release;
 a summary or risk added that way to a newer record is shown in Release notes, marked "added after release".
 
+## Tests and change request
+
+The record's **Tests and security** panel opens with the **check ride**: the attested test run the qa release gate
+read for this image, with its outcome, counts (passed, failed, skipped), the workflow's source
+(`argocd:check-rides` for the shared repository), its Testkube execution and when it finished, and whether its
+attestation verified. It is frozen into the record when the record is sealed (with how many attested runs the image
+carried then), so the record keeps saying what was true at release; before that it is read live from the image's
+provenance. A team's own run that passed with no check ride, a ride not from the shared repository, or a passed
+ride whose attestation didn't verify is amber; a failed ride is red. The Images tab lists every attested run with a
+download of the attestation document, and the Pipelines tab's Tests view has the JUnit reports.
+
+An app whose releases go through change management (Glidepath's itsm wrapper: ServiceNow, a webhook, or none) gets a
+**Change request** fact at the top of *What happened*: the change's number linked to the ITSM record and its state
+(created and awaiting approval, implementing, closed successful or unsuccessful, or implementing with a failed
+deploy), plus the change that rolled it back when one did. The record list shows the same state as a chip beside the
+outcome. The fact comes from Glidepath's release-tracking record (`changeRequest*` keys) and is frozen into the
+record with the rest of the evidence.
+
 ## Outcome (what happened after it shipped)
 
 Each record gets an **outcome**, decided in its sign-off environment from Glidepath's release-tracking records:
@@ -164,7 +182,9 @@ for that tag at the same commit is linked, not recreated. The link reaches the r
   feed under Releases; no Slack integration is configured.
 - **Autoland eligibility** under the mode bar: what an app would need before Autoland could land releases on its
   own (tests that report results, a canary rollout in production, production metrics, at least five recorded
-  outcomes with under 15% rolled back, and an average readiness of 80). Display only; Autoland is not available yet.
+  outcomes with under 15% rolled back, and an average readiness of 80). "Tests report results" counts a release when
+  its image carries a passed check ride (frozen into the record, or read live from provenance). Display only;
+  Autoland is not available yet.
 
 ## Where it lives, and what runs on its own
 

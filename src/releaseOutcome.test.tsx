@@ -107,6 +107,7 @@ describe('autolandEligibility', () => {
         createdAt: D(i + 1),
         confidence: 85,
         testResults: [{ taskName: 't', resultName: 'passed', value: '12' }],
+        testEvidence: { outcome: 'passed', role: 'check-ride', workflowSource: 'argocd:check-rides', verified: true, attestedRuns: 1 },
         deployments: [{ env: 'prod', cluster: 'example-prod', deployedAt: D(i + 1), isLive: false, rolloutStrategy: 'canary' }],
         outcome: outcome({ result: 'clean' }),
       }),
@@ -118,6 +119,9 @@ describe('autolandEligibility', () => {
       ['outcomes', 'ok'],
       ['readiness', 'ok'],
     ]);
+    // Flat test results alone no longer count: the tests item wants a passed check ride on the image.
+    const flat = autolandEligibility(clean.map(r => ({ ...r, testEvidence: undefined })), 'prod');
+    expect(flat.find(i => i.id === 'tests')).toMatchObject({ state: 'todo', detail: '0 of the last 5 releases carry a passed check ride on the image' });
     const today = autolandEligibility([record({ confidence: 60 })], 'prod');
     expect(today.filter(i => i.state === 'ok')).toEqual([]);
     expect(today.find(i => i.id === 'outcomes')?.detail).toBe('0 recorded outcomes; needs at least 5');

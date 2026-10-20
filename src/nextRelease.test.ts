@@ -130,6 +130,39 @@ describe('buildNextRelease', () => {
     expect(byId.rollback.state).toBe('ok');
   });
 
+  it('judges the check ride once provenance is loaded (Glidepath test framework)', () => {
+    const SLSA = 'https://slsa.dev/provenance/v0.2';
+    const task = (name: string, results: Record<string, string>) => ({ name, results: Object.entries(results).map(([n, v]) => ({ name: n, value: v })) });
+    const att = (tasks: unknown[], finishedOn: string, verified = true) => ({
+      predicateType: SLSA,
+      verified,
+      verificationCode: verified ? ('verified' as const) : ('no-log-entry' as const),
+      predicate: { metadata: { buildFinishedOn: finishedOn }, buildConfig: { tasks } },
+    });
+    const ride = (over: Record<string, string> = {}) => ({
+      outcome: 'passed', role: 'check-ride', 'tests-total': '8', 'tests-passed': '8', 'tests-failed': '0', 'tests-skipped': '0',
+      'workflow-source': 'argocd:check-rides', 'execution-id': 'e1', ...over,
+    });
+    const build = att([task('build-image', {})], '2026-10-12T10:00:00Z');
+    const judge = (atts: unknown[]) => {
+      const n = buildNextRelease({
+        records, releases, sourcePrs, pipelineRuns: [], pipelineEnvironments: environments, pipelineOrder, now: NOW,
+        provenanceByImage: { [`${REPO}:1.9.0-a41f9c2`]: { loading: false, data: { digest: 'sha256:a', attestations: atts } } } as never,
+      });
+      return n.readiness.find(i => i.id === 'check-ride');
+    };
+    // No provenance loaded: the item is not judged at all.
+    expect(next.readiness.find(i => i.id === 'check-ride')).toBeUndefined();
+    expect(judge([build])).toMatchObject({ state: 'todo', detail: 'No test run attested on this image yet' });
+    expect(judge([build, att([task('run-testworkflow', ride({ role: 'test', 'workflow-source': 'repo:x@y' }))], '2026-10-12T11:00:00Z')])).toMatchObject({ state: 'todo', detail: expect.stringContaining('no check ride') });
+    expect(judge([build, att([task('run-testworkflow', ride({ outcome: 'failed' }))], '2026-10-12T11:00:00Z')])).toMatchObject({ state: 'todo', detail: 'The latest check ride failed' });
+    expect(judge([build, att([task('run-testworkflow', ride({ 'workflow-source': 'repo:x@y' }))], '2026-10-12T11:00:00Z')])).toMatchObject({ state: 'todo', detail: expect.stringContaining('shared check-rides repository') });
+    expect(judge([build, att([task('run-testworkflow', ride())], '2026-10-12T11:00:00Z', false)])).toMatchObject({ state: 'todo', detail: expect.stringContaining('did not verify') });
+    // The newest verified pass wins over an older failure, and an older pass is not hidden by a newer failure.
+    expect(judge([build, att([task('run-testworkflow', ride({ outcome: 'failed' }))], '2026-10-12T11:00:00Z'), att([task('run-testworkflow', ride())], '2026-10-12T12:00:00Z')])).toMatchObject({ state: 'ok', detail: '8 of 8 tests passed, attested on the image' });
+    expect(judge([build, att([task('run-testworkflow', ride())], '2026-10-12T11:00:00Z'), att([task('run-testworkflow', ride({ outcome: 'failed', 'execution-id': 'e2' }))], '2026-10-12T12:00:00Z')])).toMatchObject({ state: 'ok' });
+  });
+
   it('opens an empty draft as soon as the previous release reaches Flight', () => {
     const quiet = buildNextRelease({
       records,

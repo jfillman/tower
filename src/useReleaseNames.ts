@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { assignReleaseNames, releaseNameFor } from './releaseNames';
 import type { ReleaseRecord } from './useReleaseRecords';
-import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
+import type { ChangeRequestRef, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
 import type { RecordOutcome, ReleaseDraft } from './releaseFlow';
 
 // One committed Release Record, as the backend's /release-records listing returns it.
@@ -16,6 +16,10 @@ export interface ReleaseRecordIndexEntry {
   signoffs?: number;
   /** R3: the written-back outcome; what the changelog shows. */
   outcome?: RecordOutcome;
+  /** The itsm change request: frozen at sealing, else live from the release-tracking record (phase 4). */
+  changeRequest?: ChangeRequestRef;
+  /** The check ride frozen at sealing (phase 4): the evidence the qa gate verified, kept past the registry. */
+  testEvidence?: TestEvidence;
   summary?: string;
   notes?: ReleaseDraft['notes'];
   knownIssues?: string[];
