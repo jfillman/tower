@@ -76,6 +76,9 @@ function findCheckRide(p) {
   const rides = findTestRuns(p).filter((r) => r.role === "check-ride");
   return rides.find((r) => r.outcome === "passed" && verdictOf(r.attestation) === "verified") ?? rides[0];
 }
+function findReleaseTestRun(p) {
+  return findCheckRide(p) ?? findTestRuns(p)[0];
+}
 function findSbom(p) {
   return p?.attestations.find((a) => /cyclonedx|spdx/i.test(a.predicateType));
 }
@@ -156,5 +159,5 @@ function explain(a, what) {
   }
 }
 
-export { SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findCheckRide, findSbom, findSignature, findSlsa, findTestRuns, isBuildProvenance, isSharedCheckRide, isSignedAndAttested, isTestProvenance, testRunOf, verdictOf, worstVerdict };
+export { SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findCheckRide, findReleaseTestRun, findSbom, findSignature, findSlsa, findTestRuns, isBuildProvenance, isSharedCheckRide, isSignedAndAttested, isTestProvenance, testRunOf, verdictOf, worstVerdict };
 //# sourceMappingURL=supplyChain.esm.js.map

@@ -16,6 +16,8 @@ import { scrollPanelIntoView } from '../preventFocusScroll.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, FilterBar, FilterChips, Count } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
+import { TestRunsPanel } from './pipelines/TestRunsPanel.esm.js';
+import { useTestRuns } from '../useTestRuns.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
 
@@ -85,6 +87,13 @@ function PipelinesTab() {
   const pendingDeployCount = cdEnvs.filter(isRolloutActive).length;
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get("run") ?? void 0;
+  const view = searchParams.get("view") === "tests" ? "tests" : "runs";
+  const setView = (v) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (v === "runs") next.delete("view");
+    else next.set("view", v);
+    return next;
+  });
   const historyRange = HISTORY_RANGES.find((r) => r.key === searchParams.get("history"))?.key ?? "live";
   const setHistoryRange = (range) => setSearchParams((prev) => {
     const next = new URLSearchParams(prev);
@@ -98,6 +107,7 @@ function PipelinesTab() {
     setCiRefreshNonce((n) => n + 1);
   };
   const pipelineRuns = useTektonPipelineRuns(appName, ciRefreshNonce);
+  const testRuns = useTestRuns(view === "tests" ? appName : void 0, ciRefreshNonce);
   const rangeHours = HISTORY_RANGES.find((r) => r.key === historyRange).hours;
   const archivedPipelineRuns = useTektonResultsRuns(
     appName,
@@ -180,6 +190,15 @@ function PipelinesTab() {
       selectedRun && /* @__PURE__ */ jsx("div", { className: classes.dagGap, ref: dagPanelRef, style: { scrollMarginTop: 16 }, children: /* @__PURE__ */ jsx(PipelineDag, { run: selectedRun, expandSignal: dagExpandSignal }) })
     ] });
   }
+  let countText;
+  if (view === "tests") {
+    countText = testRuns.loading ? "loading\u2026" : `${testRuns.runs.length} test run${testRuns.runs.length === 1 ? "" : "s"} on record`;
+  } else if (listLoading) {
+    countText = "loading\u2026";
+  } else {
+    const span = historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`;
+    countText = `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${span}`;
+  }
   return /* @__PURE__ */ jsxs("div", { children: [
     /* @__PURE__ */ jsx(
       PageHeader,
@@ -221,33 +240,47 @@ function PipelinesTab() {
       ] })
     ] }),
     /* @__PURE__ */ jsxs("div", { children: [
-      /* @__PURE__ */ jsx(
+      /* @__PURE__ */ jsxs(
         FilterBar,
         {
           end: /* @__PURE__ */ jsxs(Count, { children: [
-            listLoading ? "loading\u2026" : `${listRuns.length} pipeline run${listRuns.length === 1 ? "" : "s"}${historyRange === "live" ? " still on the cluster" : ` in the last ${historyRange}${listRuns.length >= HISTORY_LIMIT ? " (newest only)" : ""}`}`,
+            countText,
             " ",
             cluster ? /* @__PURE__ */ jsxs(Fragment, { children: [
               " \xB7 ",
               cluster
             ] }) : null
           ] }),
-          children: /* @__PURE__ */ jsx(
-            FilterChips,
-            {
-              label: "History",
-              value: historyRange,
-              onChange: setHistoryRange,
-              options: HISTORY_RANGES.map((r) => ({
-                id: r.key,
-                label: r.label,
-                title: r.key === "live" ? "Runs still on the cluster (about the last hour)" : `Include archived runs from the last ${r.label}`
-              }))
-            }
-          )
+          children: [
+            /* @__PURE__ */ jsx(
+              FilterChips,
+              {
+                label: "Show",
+                value: view,
+                onChange: setView,
+                options: [
+                  { id: "runs", label: "Pipeline runs", title: "Every stage run of this app" },
+                  { id: "tests", label: "Tests", title: "Every test run Glidepath started for this app (the check ride and the team's own), as Testkube recorded it" }
+                ]
+              }
+            ),
+            view === "runs" && /* @__PURE__ */ jsx(
+              FilterChips,
+              {
+                label: "History",
+                value: historyRange,
+                onChange: setHistoryRange,
+                options: HISTORY_RANGES.map((r) => ({
+                  id: r.key,
+                  label: r.label,
+                  title: r.key === "live" ? "Runs still on the cluster (about the last hour)" : `Include archived runs from the last ${r.label}`
+                }))
+              }
+            )
+          ]
         }
       ),
-      ciBody
+      view === "tests" ? /* @__PURE__ */ jsx(TestRunsPanel, { state: testRuns }) : ciBody
     ] })
   ] });
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
 import { envTierOf, imageTag, health, extractShortShaFromImageTag } from './types.esm.js';
-import { isSignedAndAttested } from './supplyChain.esm.js';
+import { findReleaseTestRun, isSignedAndAttested } from './supplyChain.esm.js';
 
 function dedupeCommits(commits) {
   const seen = /* @__PURE__ */ new Set();
@@ -116,6 +116,8 @@ function withRecordedEvidence(record, recorded) {
   if (!recorded) return record;
   let out = recorded.guardrails ? withPersistedGuardrails(record, { guardrails: recorded.guardrails }) : record;
   if (recorded.signoffs !== void 0) out = { ...out, signoffs: recorded.signoffs };
+  if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
+  if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
   if (recorded.outcome) {
     out = { ...out, outcome: recorded.outcome };
     if (recorded.outcome.result === "rolled-back" && !out.current) out = { ...out, status: "rolled-back" };
@@ -231,6 +233,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
       testResults,
       securityScans,
       provenance,
+      checkRide: findReleaseTestRun(provenance),
       nickname: row.nickname,
       hasSbom: hasSbomAttestation(provenance),
       guardrails: guardrailPr?.ci,

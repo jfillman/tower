@@ -11,12 +11,12 @@ function autolandEligibility(records, signoffEnv) {
   const closed = records.filter((r) => r.outcome?.result);
   const rolledBack = closed.filter((r) => r.outcome?.result === "rolled-back").length;
   const items = [];
-  const withTests = recent.filter((r) => r.testResults.length > 0).length;
+  const withTests = recent.filter((r) => (r.testEvidence ?? r.checkRide)?.outcome === "passed" && (r.testEvidence ?? r.checkRide)?.role === "check-ride").length;
   items.push({
     id: "tests",
     label: "Tests report results",
     state: recent.length > 0 && withTests === recent.length ? "ok" : "todo",
-    detail: `${withTests} of the last ${recent.length} releases carry per-test results`
+    detail: `${withTests} of the last ${recent.length} releases carry a passed check ride on the image`
   });
   const prod = recent[0]?.deployments.find((d) => d.env.toLowerCase() === (signoffEnv ?? "").toLowerCase());
   items.push({

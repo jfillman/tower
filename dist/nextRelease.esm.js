@@ -1,7 +1,7 @@
 import { RELEASE_MODE_LABEL } from './releaseFlow.esm.js';
 import { extractShortShaFromImageTag, imageTag, envTierOf } from './types.esm.js';
 import { landedAtMs, buildChangeCategories, findPipelineRunForTag, buildSecurityScans, findRelatedPipelineRuns, versionFromImageTag } from './useReleaseRecords.esm.js';
-import { isSignedAndAttested } from './supplyChain.esm.js';
+import { findReleaseTestRun, isSignedAndAttested, isSharedCheckRide, verdictOf } from './supplyChain.esm.js';
 
 const GROUND_SOAK_TARGET_HOURS = 24;
 const CLOSING_REF = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:([\w.-]+\/[\w.-]+))?#(\d+)\b/gi;
@@ -88,6 +88,7 @@ function buildNextRelease(input) {
       build,
       scans: buildSecurityScans(findRelatedPipelineRuns(build, pipelineRuns)),
       provenanceVerified: provenance ? isSignedAndAttested(provenance) : void 0,
+      checkRide: findReleaseTestRun(provenance),
       prCount: scope.filter((pr) => new Date(pr.mergedAt).getTime() <= landed).length
     };
   }).sort((a, b) => new Date(b.landedAt).getTime() - new Date(a.landedAt).getTime());
@@ -157,6 +158,23 @@ function buildReadiness(input) {
     items.push(
       leading.provenanceVerified ? { id: "provenance", label: "Signed and attested", state: "ok", detail: "cosign/SLSA attestation verified" } : { id: "provenance", label: "Signed and attested", state: "todo", detail: "No verified attestation for this image" }
     );
+  }
+  if (leading.provenanceVerified !== void 0) {
+    const ride = leading.checkRide;
+    if (!ride) {
+      items.push({ id: "check-ride", label: "Check ride passed", state: "todo", detail: "No test run attested on this image yet" });
+    } else if (ride.role !== "check-ride") {
+      items.push({ id: "check-ride", label: "Check ride passed", state: "todo", detail: "The team's tests ran, but no check ride from the shared repository" });
+    } else if (ride.outcome !== "passed") {
+      items.push({ id: "check-ride", label: "Check ride passed", state: "todo", detail: `The latest check ride ${ride.outcome || "did not pass"}` });
+    } else if (!isSharedCheckRide(ride)) {
+      items.push({ id: "check-ride", label: "Check ride passed", state: "todo", detail: "The check ride did not come from the shared check-rides repository" });
+    } else if (verdictOf(ride.attestation) !== "verified") {
+      items.push({ id: "check-ride", label: "Check ride passed", state: "todo", detail: "The check ride passed, but its attestation did not verify" });
+    } else {
+      const counts = ride.testsTotal !== void 0 ? `${ride.testsPassed ?? 0} of ${ride.testsTotal} tests passed` : "passed";
+      items.push({ id: "check-ride", label: "Check ride passed", state: "ok", detail: `${counts}, attested on the image` });
+    }
   }
   if (previousVersion && leading.version) {
     items.push(

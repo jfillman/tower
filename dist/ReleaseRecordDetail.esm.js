@@ -20,6 +20,7 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
+import { ChangeRequestFact, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -269,7 +270,7 @@ function ReleaseRecordDetail({
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
-  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0;
+  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence;
   const liveDeployment = record.deployments.find((d) => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
   const sealedRelease = persisted.data?.release;
@@ -470,6 +471,7 @@ function ReleaseRecordDetail({
           /* @__PURE__ */ jsx(StatusChip, { tone: record.incidents.length === 0 ? "ok" : "bad", children: record.incidents.length === 0 ? "no incidents" : `${record.incidents.length} incidents` })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
+          /* @__PURE__ */ jsx(ChangeRequestFact, { record, classes }),
           record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
             /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.fromEnv }),
             /* @__PURE__ */ jsx("span", { className: classes.promoArrow, children: "\u2192" }),
@@ -513,7 +515,8 @@ function ReleaseRecordDetail({
             }) })
           ] }),
           hasSecurity && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Security" }),
+            /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Tests and security" }),
+            /* @__PURE__ */ jsx(CheckRideBlock, { record, classes }),
             record.securityScans.map((scan) => /* @__PURE__ */ jsxs("div", { className: classes.scanBlock, children: [
               /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [
                 /* @__PURE__ */ jsx("span", { className: classes.scanName, children: scan.scanner.replace("-", " ") }),
@@ -521,7 +524,7 @@ function ReleaseRecordDetail({
               ] }),
               scan.findingsSummary && /* @__PURE__ */ jsx("div", { className: classes.scanFindings, children: scan.findingsSummary })
             ] }, scan.scanner)),
-            record.testResults.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
+            record.testResults.length > 0 && !record.checkRide && !record.testEvidence && /* @__PURE__ */ jsxs("div", { className: classes.kv, children: [
               /* @__PURE__ */ jsxs(ColumnLabel, { children: [
                 "Test results ",
                 record.testResults.length > 1 && `(${record.testResults.length})`

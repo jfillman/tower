@@ -6,6 +6,7 @@ import { TowerEmptyState } from './TowerEmptyState.esm.js';
 import { downloadReleaseRecordHtml } from './ReleaseRecordExport.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { outcomeChip } from './ReleaseOutcome.esm.js';
+import { changeRequestTone } from './ReleaseRecordEvidence.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
 import { SectionTitle, TextLink, Count, StatusChip, IconButton } from './ui/index.esm.js';
 
@@ -149,7 +150,8 @@ function ReleaseRecordList({
             ] }),
             /* @__PURE__ */ jsxs("span", { className: classes.chips, children: [
               /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
-              outcome && pill.label !== outcome.label && /* @__PURE__ */ jsx(StatusChip, { tone: outcome.tone, dot: true, children: outcome.label })
+              outcome && pill.label !== outcome.label && /* @__PURE__ */ jsx(StatusChip, { tone: outcome.tone, dot: true, children: outcome.label }),
+              record.changeRequest && /* @__PURE__ */ jsx(StatusChip, { tone: changeRequestTone(record.changeRequest.state), title: `Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? "created"}`, children: record.changeRequest.number ?? "change" })
             ] }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),
             /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
