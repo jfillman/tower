@@ -1,4 +1,5 @@
 import { makeStyles } from '@material-ui/core/styles';
+import { commitProofChip, commitProofLine, commitProofOf, commitProofTone } from './commitProof';
 import type { Theme } from '@material-ui/core/styles';
 import { formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
@@ -176,6 +177,16 @@ export function ReleaseRecordList({
                     {record.changeRequest.number ?? 'change'}
                   </StatusChip>
                 )}
+                {(() => {
+                  // How the commit was proven (provenance phase 3): only the proven paths, green, the line on hover.
+                  const proof = commitProofOf(record);
+                  const chip = commitProofChip(proof);
+                  return chip && commitProofTone(proof) === 'ok' ? (
+                    <StatusChip tone="ok" title={`Commit: ${commitProofLine(proof)}`}>
+                      {chip}
+                    </StatusChip>
+                  ) : null;
+                })()}
               </span>
               <span className={classes.date}>{formatDateTime(record.createdAt)}</span>
               <div className={classes.actions}>

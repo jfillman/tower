@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { commitProofOf, type CommitProof } from '../commitProof';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
@@ -6,7 +7,7 @@ import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
 import { PageHeader, StatusChip, Subtabs } from '../ui';
 import { usePromote } from '../useReleaseData';
-import { applyCloudPins, useReleaseContext } from '../useReleaseContext';
+import { applyCloudPins, parseGitopsPrTitle, useReleaseContext } from '../useReleaseContext';
 import { usePinnedTags } from '../environments/releasePins';
 import { CommandDeck, ReleaseStats } from '../CommandDeck';
 import { ReleaseHeroes, type HeroNext } from '../ReleaseHeroes';
@@ -247,6 +248,13 @@ export function ReleasesTab() {
   const lowerEnvs = pipelineOrder.lower ?? [];
   const byTag = new Map((releaseNames?.index ?? []).map(e => [e.imageTag, e]));
   const evidenced = releaseRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
+  // How each build's commit was proven, for the matrix: the records (live or sealed), then any open release PR's own
+  // provenance gate for a build not yet a record.
+  const proofByTag = new Map<string, CommitProof>(evidenced.map(r => [r.imageTag, commitProofOf(r)]));
+  for (const pr of gitopsPrs) {
+    const tag = parseGitopsPrTitle(pr.title)?.imageTag;
+    if (tag && pr.state === 'open' && !proofByTag.has(tag)) proofByTag.set(tag, commitProofOf({ guardrails: pr.ci, guardrailsPrUrl: pr.url }));
+  }
   const signoffEnv = releaseMode.data?.signoffEnv;
   const live = liveRelease(evidenced, signoffEnv, flightEnvs);
   const last = lastOutcome(evidenced, live?.id);
@@ -340,6 +348,7 @@ export function ReleasesTab() {
             provenanceByImage={provenanceByImage}
             onPromote={handlePromote}
             names={releaseNames?.byTag}
+            proofs={proofByTag}
           />
         )}
 

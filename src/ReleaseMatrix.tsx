@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MERGE_HINT, commitProofChip, commitProofLine, isMergePath, type CommitProof, type CommitProofState } from './commitProof';
 import { preventFocusScroll, scrollPanelIntoView } from './preventFocusScroll';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
@@ -133,7 +134,22 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   prRow: { marginBottom: 10 },
   fact: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 6 },
+  // How the build's commit was proven (provenance phase 3): green for every passing path, like the record.
+  proofChip: {
+    display: 'inline-block',
+    marginLeft: 8,
+    fontFamily: fontMono,
+    fontWeight: 400,
+    fontSize: 10,
+    padding: '1px 7px',
+    borderRadius: 8,
+    border: '1px solid',
+    color: ({ t }) => t.good,
+    borderColor: ({ t }) => t.good,
+  },
 }));
+
+const PROVEN = new Set<CommitProofState>(['gitsign', 'github-merge-strict', 'github-merge']);
 
 function CellIcon({ status }: { status: ReleaseCell['status'] }) {
   if (status === 'deployed') return <CheckIcon fontSize="inherit" />;
@@ -155,6 +171,7 @@ export function ReleaseMatrix({
   provenanceByImage,
   onPromote,
   names,
+  proofs,
 }: {
   releases: ReleaseRow[];
   totalCount: number;
@@ -171,6 +188,8 @@ export function ReleaseMatrix({
   onPromote: (source: { env?: string; image?: string }, targetEnv: string) => void;
   /** Image tag -> release name. A build that shipped to Flight is a release, and shows its name. */
   names?: Map<string, string>;
+  /** Image tag -> how its commit was proven, where a release gate recorded it (provenance phase 3). */
+  proofs?: Map<string, CommitProof>;
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -288,6 +307,15 @@ export function ReleaseMatrix({
                       {row.nickname}
                     </span>
                   )}
+                  {(() => {
+                    const proof = proofs?.get(row.imageTag);
+                    const chip = proof && PROVEN.has(proof.state) ? commitProofChip(proof) : undefined;
+                    return chip ? (
+                      <span className={classes.proofChip} title={`Commit: ${commitProofLine(proof!)}`}>
+                        {chip}
+                      </span>
+                    ) : null;
+                  })()}
                 </th>
                 {environments.map(env => {
                   const cell = row.cells[env.env] ?? { status: 'none' as const };
@@ -415,6 +443,17 @@ export function ReleaseMatrix({
                 {openCell.sha ? ` · commit ${openCell.sha.slice(0, 7)}` : ''}
               </Typography>
             )}
+
+            {(() => {
+              const proof = proofs?.get(open.tag);
+              const chip = proof ? commitProofChip(proof) : undefined;
+              return proof && chip ? (
+                <Typography className={classes.fact} style={{ marginTop: 0, marginBottom: 8 }}>
+                  Commit: {chip} · {commitProofLine(proof)}
+                  {isMergePath(proof) ? ` · ${MERGE_HINT}` : ''}
+                </Typography>
+              ) : null;
+            })()}
 
             {openProvenance && (
               <PipelineFlow stages={buildSupplyChainStages(openProvenance.data, openProvenance.loading)} />

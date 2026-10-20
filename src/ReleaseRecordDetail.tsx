@@ -22,7 +22,7 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
 import { isSignedAndAttested } from './supplyChain';
-import { CheckRideBlock, ChangeRequestFact } from './ReleaseRecordEvidence';
+import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, hasCommitSignature } from './ReleaseRecordEvidence';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -304,7 +304,8 @@ export function ReleaseRecordDetail({
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
   const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
-  const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence;
+  const hasSecurity =
+    record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence || hasCommitSignature(record);
   const liveDeployment = record.deployments.find(d => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
 
@@ -629,6 +630,7 @@ export function ReleaseRecordDetail({
               {hasSecurity && (
                 <div className={classes.builtSection}>
                   <span className={classes.builtSectionTitle}>Tests and security</span>
+                  <CommitSignatureBlock record={record} classes={classes} />
                   <CheckRideBlock record={record} classes={classes} />
                   {record.securityScans.map(scan => (
                     <div key={scan.scanner} className={classes.scanBlock}>

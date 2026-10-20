@@ -4,6 +4,16 @@ import { ColumnLabel, Hint, StatusChip, type StatusTone } from './ui';
 import { explain, isSharedCheckRide, verdictOf, type TestRunEvidence } from './supplyChain';
 import type { ReleaseRecord } from './useReleaseRecords';
 import type { ChangeRequestRef, TestEvidence } from './useReleaseRecordPersistence';
+import {
+  COMMIT_SIGNING_DOC,
+  MERGE_HINT,
+  commitProofChip,
+  commitProofLine,
+  commitProofOf,
+  commitProofPrUrl,
+  commitProofTone,
+  isMergePath,
+} from './commitProof';
 
 // The release's test evidence and its change request, on the Release Record (Glidepath test framework,
 // phase 4; the itsm wrapper). Both come frozen in the committed record once it is sealed, and live before
@@ -140,4 +150,54 @@ export function ChangeRequestFact({ record, classes }: { record: Pick<ReleaseRec
       </div>
     </div>
   );
+}
+
+/**
+ * How the released commit was proven (glidepath ADR-0027, provenance phase 3), from the provenance gate's evidence on
+ * the record's guardrails - live, or sealed with the record. Green for every passing path; a GitHub merge says what
+ * its proof rests on. Nothing when the record has no provenance gate result or the gate failed (the gate grid shows
+ * that).
+ */
+export function CommitSignatureBlock({ record, classes }: { record: Pick<ReleaseRecord, 'guardrails' | 'guardrailsPrUrl'>; classes: Classes }) {
+  const proof = commitProofOf(record);
+  const chip = commitProofChip(proof);
+  if (!chip) return null;
+  const prUrl = commitProofPrUrl(proof);
+  return (
+    <div className={classes.scanBlock} data-testid="record-commit-signature">
+      <div className={classes.scanHead}>
+        <span className={classes.scanName}>Commit signature</span>
+        <StatusChip tone={commitProofTone(proof)}>{chip}</StatusChip>
+      </div>
+      <div className={classes.scanFindings}>
+        {commitProofLine(proof)}
+        {prUrl && (
+          <>
+            {' · '}
+            <Link href={prUrl} target="_blank" rel="noopener noreferrer">
+              PR #{proof.evidence?.pr}
+            </Link>
+          </>
+        )}
+      </div>
+      {isMergePath(proof) && (
+        <Hint>
+          {MERGE_HINT}{' '}
+          <Link href={COMMIT_SIGNING_DOC} target="_blank" rel="noopener noreferrer">
+            What that means
+          </Link>
+        </Hint>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Whether the commit's proof alone is reason to show the Tests and security section: a recorded proof. "Not recorded"
+ * and "not required" still show inside the block when the section is there for its scans, but don't open it on every
+ * older record by themselves.
+ */
+export function hasCommitSignature(record: Pick<ReleaseRecord, 'guardrails' | 'guardrailsPrUrl'>): boolean {
+  const { state } = commitProofOf(record);
+  return state === 'gitsign' || state === 'github-merge-strict' || state === 'github-merge' || state === 'unknown';
 }

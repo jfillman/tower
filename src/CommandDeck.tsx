@@ -9,6 +9,7 @@ import { health, type EnvironmentSummary } from './types';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleasesSubTab } from './tabs/ReleasesTab';
 import { Callout, Stat, TextLink, type CalloutTone } from './ui';
+import { commitProofChip, commitProofOf } from './commitProof';
 
 // What needs attention on the Releases tab, above its release cards. It was the "Command Deck" of the 2026-09-16
 // revamp (environment chips, a ranked task queue and four stat tiles); since 2026-10-14 (mockup E) the release cards
@@ -33,6 +34,15 @@ interface DeckTask {
 }
 
 const CALLOUT_TONE: Record<DeckTask['tone'], CalloutTone> = { bad: 'bad', warn: 'warn', good: 'ok', neutral: 'neutral' };
+
+// How the pending release's commit was proven (provenance phase 3), when its provenance gate has said so.
+function proofSuffix(pr: PullRequestSummary): string {
+  const proof = commitProofOf({ guardrails: pr.ci, guardrailsPrUrl: pr.url });
+  const chip = commitProofChip(proof);
+  if (!chip || proof.state === 'not-recorded' || proof.state === 'not-required') return '';
+  const who = proof.evidence?.mergedBy ?? proof.evidence?.signer;
+  return ` · commit: ${chip}${who ? ` (${who})` : ''}`;
+}
 
 // Ranked, up to 3 at once - the Command Deck's whole reason for being over
 // the single-task banner it replaces (ReleaseStatusPanel.computeTopTask):
@@ -80,7 +90,7 @@ function computeTaskQueue(
       icon: '⇢',
       eyebrow: 'Pending promotion',
       headline: `PR #${pendingByAge.pr.number} awaiting merge to promote to ${pendingByAge.env.env}`,
-      detail: `updated ${relativeTime(pendingByAge.pr.updatedAt)}`,
+      detail: `updated ${relativeTime(pendingByAge.pr.updatedAt)}${proofSuffix(pendingByAge.pr)}`,
       pr: pendingByAge.pr,
       action: { label: 'Review in Matrix →', onClick: goToMatrix },
     });
