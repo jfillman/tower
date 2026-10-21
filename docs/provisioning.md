@@ -33,7 +33,7 @@ its GitHub name). Its scaffold `RepositoryFile`s (`cicd.yaml`) leave the XR's `r
 
 | Step | Signal |
 |---|---|
-| First environment up | Nothing builds an InfraService: **a person adds `glidepath/envs/dev.yaml`** to `gitops-infra-<name>` (the step says so and links the repo). Glidepath's ApplicationSet then makes the `<name>-dev` ArgoCD Application in the argocd-apps instance, read through Backstage's ArgoCD backend (`/find/name`), since the read identity has no `applications` grant there. Done when Synced and Healthy (the component's own readiness, e.g. a RabbitMQ broker, feeds the app's health), timed to its `status.health.lastTransitionTime`; Degraded fails it. Waits until CI/CD and the repositories are done |
+| First environment up | Nothing builds an InfraService: **a person creates `glidepath/envs/dev.yaml`** in `gitops-infra-<name>`, from the Environments tab (dev, Values sub-tab: *Create glidepath/envs/dev.yaml* opens the PR with a starter file), then adds the component. Glidepath's ApplicationSet then makes the `<name>-dev` ArgoCD Application in the argocd-apps instance, read through Backstage's ArgoCD backend (`/find/name`), since the read identity has no `applications` grant there. Done when Synced and Healthy (the component's own readiness, e.g. a RabbitMQ broker, feeds the app's health), timed to its `status.health.lastTransitionTime`; Degraded fails it. Waits until CI/CD and the repositories are done |
 
 An InfraService whose environment file was never added is stalled after 4 hours, like an app built but never
 deployed. Its environment namespaces stay `app-<name>-<env>`.

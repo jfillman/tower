@@ -97,7 +97,7 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
       if (!i.deployed) {
         infraWaiting = i.valuesFileExists
           ? `Waiting for Argo CD app ${i.appName}-${i.env} and the component it declares to come up.`
-          : `Nothing builds an InfraService: add ${valuesPath} to its gitops repo and Argo CD deploys it.`;
+          : `Nothing builds an InfraService: create ${valuesPath} from this environment's Values sub-tab and Argo CD deploys it.`;
       }
       const live: EnvLifecycleStep = {
         id: 'workload',
