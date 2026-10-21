@@ -45,7 +45,7 @@ function argoFields(argoAppName, argoStatusRaw) {
     argoConditions: s?.conditions
   };
 }
-function useReleaseContext() {
+function useReleaseContext(options = {}) {
   const { entity } = useEntity();
   const { environments: rawEnvironments, loading, error } = useTowerEnvironments();
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -85,7 +85,8 @@ function useReleaseContext() {
   }, [appName, rawEnvironments, pipelineOrder.lower, pipelineOrder.upper]);
   const argoStatusRaw = useArgoStatusMap(
     [...rawEnvironments.map((e) => e.argoAppName).filter((n) => Boolean(n)), ...declaredArgoNames],
-    refreshNonce
+    refreshNonce,
+    options.argoPollMs ?? null
   );
   const pipelineRuns = useTektonPipelineRuns(appName, refreshNonce);
   const archivedPipelineRuns = useTektonResultsRuns(appName, refreshNonce);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePollTick } from './livePoll.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 function errorMessage(e) {
@@ -254,11 +255,12 @@ function useArgoCapabilities(cluster, appName) {
   }, [discoveryApi, fetchApi, cluster, appName]);
   return state;
 }
-function useArgoStatusMap(appNames, refreshNonce = 0) {
+function useArgoStatusMap(appNames, refreshNonce = 0, pollMs = null) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [state, setState] = useState({});
   const key = appNames.join("|");
+  const pollTick = usePollTick(pollMs);
   useEffect(() => {
     const uniqueNames = [...new Set(appNames.filter(Boolean))];
     if (uniqueNames.length === 0) return void 0;
@@ -340,7 +342,7 @@ function useArgoStatusMap(appNames, refreshNonce = 0) {
     return () => {
       cancelled = true;
     };
-  }, [key, discoveryApi, fetchApi, refreshNonce]);
+  }, [key, discoveryApi, fetchApi, refreshNonce, pollTick]);
   return state;
 }
 function useDeployHistory(repoRef, environments, refreshNonce = 0) {

@@ -1,5 +1,5 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
@@ -17,6 +17,7 @@ import { ArgoCommandPanel } from './deployments/ArgoCommandPanel.esm.js';
 import { TroubleshootBanner } from './deployments/TroubleshootBanner.esm.js';
 import { useNamespaceEvents } from '../deployment/useNamespaceEvents.esm.js';
 import { StageDetail } from './deployments/StageDetail.esm.js';
+import { usePageVisible, useFastLivePoll, livePollMs, ARGO_WATCH_POLL_MS } from '../livePoll.esm.js';
 import { isPreviewEnvName, isRolloutActive, envTierOf, imageTag, health, envStageRank } from '../types.esm.js';
 
 const TIER_ORDER = ["lower", "upper"];
@@ -56,7 +57,9 @@ function DeploymentsTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const railClasses = useSignalRailStyles({ t });
-  const { environments, loading, error, appName, gitopsPrs, pipelineOrder, deployHistory, provenanceByImage, refresh } = useReleaseContext();
+  const visible = usePageVisible();
+  const [moving, setMoving] = useState(false);
+  const { environments, loading, error, appName, gitopsPrs, pipelineOrder, deployHistory, provenanceByImage, refresh } = useReleaseContext({ argoPollMs: livePollMs(visible, moving, ARGO_WATCH_POLL_MS) });
   const cdEnvs = useMemo(() => environments.filter((e) => !isPreviewEnvName(e.env)), [environments]);
   const deliveries = useMemo(
     () => cdEnvs.map((env2) => ({
@@ -117,11 +120,17 @@ function DeploymentsTab() {
     setSelectedEnv((active ?? deliveries[0])?.env.env);
   }, [deliveries, linkedEnv]);
   const hasActiveDelivery = deliveries.some((d) => d.delivery.current);
+  const envMoving = cdEnvs.some(
+    (e) => e.argoSyncStatus === "OutOfSync" || e.argoOperationPhase === "Running" || e.argoHealthStatus === "Progressing" || isRolloutActive(e)
+  );
+  const isMoving = hasActiveDelivery || envMoving;
+  useEffect(() => setMoving(isMoving), [isMoving]);
+  useFastLivePoll("deployments", visible && isMoving);
   useEffect(() => {
-    if (!hasActiveDelivery) return void 0;
+    if (!isMoving || !visible) return void 0;
     const id = setInterval(refresh, 2e4);
     return () => clearInterval(id);
-  }, [hasActiveDelivery]);
+  }, [isMoving, visible]);
   const argoActions = useArgoActions();
   const pipelineRuns = useTektonPipelineRuns(appName);
   const preSelected = deliveries.find((d) => d.env.env === selectedEnv) ?? deliveries[0];

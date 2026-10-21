@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { pageHidden } from '../livePoll.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 
@@ -22,7 +23,9 @@ function useNamespaceEvents(cluster, namespace, enabled = true) {
       }
     };
     void load();
-    const id = setInterval(load, POLL_MS);
+    const id = setInterval(() => {
+      if (!pageHidden()) void load();
+    }, POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { pageHidden } from './livePoll.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from './k8sProxy.esm.js';
 
@@ -43,7 +44,12 @@ function useAnalysisRuns(target, refreshNonce = 0) {
     }
     let cancelled = false;
     let timer;
+    let loaded = false;
     async function tick() {
+      if (pageHidden() && loaded) {
+        timer = setTimeout(tick, POLL_MS);
+        return;
+      }
       try {
         const list = await k8sProxyGet(
           discoveryApi,
@@ -53,6 +59,7 @@ function useAnalysisRuns(target, refreshNonce = 0) {
         );
         if (cancelled) return;
         const runs = list.items.filter((ar) => ar.metadata.ownerReferences?.some((o) => o.kind === "Rollout" && o.name === target.rolloutName)).filter((ar) => !target.podHash || ar.metadata.labels?.["rollouts-pod-template-hash"] === target.podHash).map(toAnalysisRunSummary).sort((a, b) => new Date(b.startedAt ?? 0).getTime() - new Date(a.startedAt ?? 0).getTime());
+        loaded = true;
         setState({ loading: false, runs });
         const stillRunning = runs.some((r) => r.phase === "Running" || r.phase === "Pending");
         if (!cancelled && stillRunning) timer = setTimeout(tick, POLL_MS);

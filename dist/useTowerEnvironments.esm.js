@@ -1,4 +1,5 @@
-import { createContext, createElement, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, useState, useCallback, useMemo, createElement, useContext, useEffect } from 'react';
+import { usePageVisible, livePollMs, LivePollContext } from './livePoll.esm.js';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useKubernetesObjects, useCustomResources } from '@backstage/plugin-kubernetes-react';
 
@@ -421,14 +422,14 @@ function pickKind(byCluster, kind) {
   byCluster.forEach((byKind, cluster) => map.set(cluster, byKind.get(kind) ?? []));
   return map;
 }
-function useTowerEnvironmentsLive() {
+function useTowerEnvironmentsLive(intervalMs = 1e4) {
   const { entity } = useEntity();
-  const { kubernetesObjects, loading, error } = useKubernetesObjects(entity);
+  const { kubernetesObjects, loading, error } = useKubernetesObjects(entity, intervalMs);
   const {
     kubernetesObjects: customObjects,
     loading: customLoading,
     error: customError
-  } = useCustomResources(entity, CUSTOM_MATCHERS);
+  } = useCustomResources(entity, CUSTOM_MATCHERS, intervalMs);
   const customByCluster = useMemo(() => customResourcesByClusterAndKind(customObjects?.items ?? []), [customObjects]);
   const rolloutsByCluster = useMemo(() => pickKind(customByCluster, "Rollout"), [customByCluster]);
   const httpRoutesByCluster = useMemo(
@@ -478,8 +479,24 @@ function useTowerEnvironmentsLive() {
 }
 const TowerEnvironmentsContext = createContext(void 0);
 function TowerEnvironmentsProvider({ children }) {
-  const value = useTowerEnvironmentsLive();
-  return createElement(TowerEnvironmentsContext.Provider, { value }, children);
+  const visible = usePageVisible();
+  const [fastOwners, setFastOwners] = useState(/* @__PURE__ */ new Set());
+  const setFast = useCallback((owner, fast) => {
+    setFastOwners((prev) => {
+      if (prev.has(owner) === fast) return prev;
+      const next = new Set(prev);
+      if (fast) next.add(owner);
+      else next.delete(owner);
+      return next;
+    });
+  }, []);
+  const control = useMemo(() => ({ setFast }), [setFast]);
+  const value = useTowerEnvironmentsLive(livePollMs(visible, fastOwners.size > 0));
+  return createElement(
+    LivePollContext.Provider,
+    { value: control },
+    createElement(TowerEnvironmentsContext.Provider, { value }, children)
+  );
 }
 function useTowerEnvironments() {
   const value = useContext(TowerEnvironmentsContext);

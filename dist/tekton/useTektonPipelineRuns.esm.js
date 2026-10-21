@@ -20,8 +20,13 @@ const GUARDRAIL_PIPELINE_NAMES = [
   "sbom-check",
   "governance-check",
   "qa-check",
+  "values-check",
+  "itsm-check",
   "bypass-merge-check"
 ];
+function isGuardrailPipeline(name) {
+  return Boolean(name) && (GUARDRAIL_PIPELINE_NAMES.includes(name) || name.endsWith("-check"));
+}
 const RELEASE_TRACKING_SUBCOMPONENTS = ["release-outcome", "release-progress"];
 function hangarField(meta, suffix) {
   return field(meta, `hangar.io/${suffix}`) ?? field(meta, `platform.io/${suffix}`);
@@ -181,7 +186,7 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
     // namespace but isn't a guardrail or part of the release-tracking pair)
     // stays undefined, which "All flows" already shows, rather than picking
     // a misleading label for it.
-    flow: hangarField(meta, "flow") ?? (pipelineName && GUARDRAIL_PIPELINE_NAMES.includes(pipelineName) ? "guardrail" : void 0) ?? (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, "subcomponent") ?? "") ? "ci" : void 0),
+    flow: hangarField(meta, "flow") ?? (isGuardrailPipeline(pipelineName) ? "guardrail" : void 0) ?? (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, "subcomponent") ?? "") ? "ci" : void 0),
     phase: conditionPhase(raw.status?.conditions),
     reason: cond?.reason,
     message: cond?.message,
@@ -249,5 +254,5 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
   return state;
 }
 
-export { linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
+export { isGuardrailPipeline, linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
 //# sourceMappingURL=useTektonPipelineRuns.esm.js.map

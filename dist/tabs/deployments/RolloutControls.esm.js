@@ -1,5 +1,6 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { pageHidden } from '../../livePoll.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
@@ -93,7 +94,9 @@ function useRolloutActions(target) {
     setLastRun(void 0);
     setRunError(void 0);
     loadRef.current();
-    const id = setInterval(() => loadRef.current(), POLL_MS);
+    const id = setInterval(() => {
+      if (!pageHidden()) loadRef.current();
+    }, POLL_MS);
     return () => clearInterval(id);
   }, [cluster, appName, namespace, rolloutName]);
   const run = async (action) => {
