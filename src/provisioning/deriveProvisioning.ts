@@ -12,9 +12,14 @@
 //   - the two onboarding PRs (source repo + GitOps repo) and the request PR,
 //     which the caller looks up on GitHub and passes in `links`;
 //   - the app's SecretStore XR (Infisical project + identity).
+// An InfraService (a shared component such as a broker) has no source repo, no onboarding PRs, no build and no
+// Rollout: after its GitOps repo, CI namespace and secrets, the last step is its first environment, which a person
+// adds as glidepath/envs/dev.yaml in gitops-infra-<name>, read off that environment's ArgoCD app.
 // Tower's read-only identity cannot read ArgoCD Applications, so "Repositories
 // and starter files" is inferred from the XR becoming Ready unless the caller
 // supplies per-resource readiness in `managed`.
+
+import { appRepos } from '../appRepos';
 
 export type StepState = 'done' | 'run' | 'pend' | 'fail';
 
@@ -65,6 +70,8 @@ export interface ManagedSnapshot {
   name: string;
   ready: boolean;
   readyAt?: number;
+  /** The provider's error while the resource reports Synced=False (a missing credentials Secret, say). */
+  error?: string;
 }
 
 export interface PrSnapshot {
@@ -88,6 +95,10 @@ export interface ArgoSnapshot {
   name: string;
   health?: string;
   sync?: string;
+  /** ArgoCD answered and has no app by this name (not yet created). */
+  missing?: boolean;
+  /** Epoch ms the health status last changed (status.health.lastTransitionTime). */
+  healthSince?: number;
 }
 
 export interface CatalogSnapshot {
@@ -120,6 +131,8 @@ export const FUNCTION_KINDS = new Set(['LambdaFunction', 'AzureFunction']);
  * PRs on its source repo, ADR-0020), and its last step is a cloud deploy, not a Rollout. Found 2026-10-17: an ECS Go
  * app's "Application onboarding PRs" step waited forever for a GitOps PR that never comes.
  */
+export const INFRA_KIND = 'InfraService';
+
 export function isCloudApp(xr: Pick<XrSnapshot, 'kind' | 'deployTarget'>): boolean {
   return FUNCTION_KINDS.has(xr.kind) || (xr.deployTarget !== undefined && xr.deployTarget !== 'kubernetes');
 }
@@ -171,6 +184,8 @@ export interface ProvisioningInputs {
   cicdApp?: ArgoSnapshot;
   /** Undefined when the app has no deploy to a cloud target. */
   cloudDeploy?: CloudDeploySnapshot;
+  /** An InfraService's first environment's ArgoCD app (`<name>-dev`). Undefined when ArgoCD cannot be read. */
+  envApp?: ArgoSnapshot;
   links?: ProvisioningLinks;
   /** Step id to what Tower watched; see StepObservation. */
   observed?: Record<string, StepObservation>;
@@ -250,6 +265,8 @@ export const TYPICAL_SEC: Record<string, number> = {
   secrets: 25,
   build: 150,
   running: 60,
+  // An InfraService: a person adding the dev environment file, then ArgoCD and the component's operator.
+  environment: 300,
 };
 
 // How long after a successful build the first rollout may take before the
@@ -289,8 +306,10 @@ export function deriveProvisioning(
   now: number,
   typical?: Record<string, number>,
 ): Provisioning {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
+  const infra = xr.kind === INFRA_KIND;
+  const envUp = infra && envApp?.sync === 'Synced' && envApp.health === 'Healthy';
   const cloudApp = isCloudApp(xr);
   // A function, or any app that deploys to a cloud target, has no Rollout to wait for.
   const cloudFinal = cloudApp || Boolean(cloudDeploy);
@@ -411,21 +430,26 @@ export function deriveProvisioning(
   }
   if (pending) reposState = 'pend';
   if (syncFailed && reposState !== 'done') reposState = 'fail';
+  // The XR stays Synced while one of its resources cannot reach GitHub, so say why that one is not ready. Not a
+  // failure: the provider retries, and these errors (credentials not there yet) clear by themselves.
+  const stuck = reposState === 'run' ? managed?.find(m => !m.ready && m.error) : undefined;
   let reposSeconds: number | undefined;
   if (reposState === 'done') reposSeconds = secBetween(created, reposEnd);
   else if (reposState !== 'pend') reposSeconds = secBetween(created, now);
+  let reposDesc = isFunction
+    ? 'Source repo created, starter files committed'
+    : 'Source and GitOps repos created, starter files committed';
+  if (infra) reposDesc = 'GitOps repo created, cicd.yaml and README committed';
   push({
     id: 'repos',
     title: 'Repositories and starter files',
-    desc: isFunction
-      ? 'Source repo created, starter files committed'
-      : 'Source and GitOps repos created, starter files committed',
+    desc: reposDesc,
     state: reposState,
     fraction: reposFraction,
     startedAt: pending ? undefined : created,
     endedAt: reposState === 'done' ? reposEnd : undefined,
     seconds: reposSeconds,
-    detail: reposState === 'fail' ? synced?.message : undefined,
+    detail: reposState === 'fail' ? synced?.message : stuck && `${stuck.name}: ${stuck.error}`,
     parallel: true,
     links: [
       ...(links?.sourceRepoUrl ? [{ label: 'Source repo', url: links.sourceRepoUrl }] : []),
@@ -438,7 +462,8 @@ export function deriveProvisioning(
   // The app's own build run (not Glidepath's onboarding runs, see pickFirstBuild) or a rollout
   // cannot exist before the source repo's onboarding PR merged (the .tekton files arrive with
   // it), so either is proof of the step.
-  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy);
+  // For an InfraService, its environment being up is the same proof.
+  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy) || envUp;
 
   // 4b. Visible in the Backstage catalog. The catalog ingestor turns the XR into a Component on
   // its next sync; until then Tower's other tabs have no entity to open. Runs alongside the
@@ -503,7 +528,7 @@ export function deriveProvisioning(
   let onboardingSeconds: number | undefined;
   if (onboardingState === 'done') onboardingSeconds = secBetween(onboardingStart || undefined, onboardingEnd);
   else if (onboardingState === 'run') onboardingSeconds = secBetween(onboardingStart || undefined, now);
-  push({
+  if (!infra) push({
     id: 'onboarding',
     title: cloudApp ? 'Application onboarding PR' : 'Application onboarding PRs',
     desc: cloudApp
@@ -578,7 +603,7 @@ export function deriveProvisioning(
       ? 'No pipeline run for this service is left in the cluster, so Tower cannot tell whether the build ran. Runs are cleaned up after a while, so it may have finished; check the Pipelines tab or GitHub.'
       : 'Waiting for the first pipeline run to start';
   }
-  push({
+  if (!infra) push({
     id: 'build',
     title: 'First build and checks',
     desc: 'Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges',
@@ -636,7 +661,7 @@ export function deriveProvisioning(
         'No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml';
     }
   }
-  push({
+  if (!infra) push({
     id: 'running',
     title: runTitle,
     desc: runDesc,
@@ -649,14 +674,48 @@ export function deriveProvisioning(
     links: runLinks,
   });
 
+  // An InfraService's last step: its first environment. Nothing builds it; a person adds glidepath/envs/dev.yaml to
+  // the GitOps repo, Glidepath's ApplicationSet makes the `<name>-dev` ArgoCD app, and it is up once that app is
+  // Synced and Healthy (the component's own readiness, e.g. a RabbitMQ broker, feeds the app's health).
+  let envEnd: number | undefined;
+  if (infra) {
+    const gitopsRepo = appRepos(xr.name, 'infra').gitopsRepo;
+    let envState: StepState = 'pend';
+    let envDetail: string | undefined;
+    if (envUp) {
+      envState = 'done';
+      envEnd = envApp?.healthSince;
+    } else if (envApp?.health === 'Degraded') {
+      envState = 'fail';
+      envDetail = `ArgoCD app ${envApp.name} reports Degraded`;
+    } else if (front) {
+      envState = 'run';
+      if (!envApp) envDetail = `Waiting for ArgoCD app ${xr.name}-dev (Tower could not read ArgoCD)`;
+      else if (envApp.missing) envDetail = `Add glidepath/envs/dev.yaml to ${gitopsRepo} to create the first environment`;
+      else envDetail = `ArgoCD app ${envApp.name} is ${envApp.sync ?? 'unknown'} / ${envApp.health ?? 'unknown'}`;
+    }
+    push({
+      id: 'environment',
+      title: 'First environment up',
+      desc: 'A person adds glidepath/envs/dev.yaml to the GitOps repo; ArgoCD deploys it and it turns Healthy',
+      state: envState,
+      startedAt: onboardingStart || undefined,
+      endedAt: envEnd,
+      seconds: envState === 'run' ? secBetween(onboardingStart || undefined, now) : undefined,
+      detail: envDetail,
+      links: links?.gitopsRepoUrl ? [{ label: 'GitOps repo', url: links.gitopsRepoUrl }] : [],
+    });
+  }
+
   const complete = steps.every(s => s.state === 'done');
   const failed = steps.some(s => s.state === 'fail');
 
   // Remaining time: parallel steps count as the slower of the pair.
   const byId = Object.fromEntries(steps.map(s => [s.id, s]));
+  // A step this kind of service does not have (an InfraService has no build) counts as nothing left.
   const remaining = (id: string) => {
     const s = byId[id];
-    return s.state === 'done' ? 0 : s.typicalSec * (1 - s.fraction);
+    return !s || s.state === 'done' ? 0 : s.typicalSec * (1 - s.fraction);
   };
   const etaSec = Math.round(
     remaining('merge') +
@@ -665,7 +724,8 @@ export function deriveProvisioning(
       Math.max(remaining('cicd'), remaining('repos'), remaining('catalog')) +
       Math.max(remaining('onboarding'), remaining('secrets')) +
       remaining('build') +
-      remaining('running'),
+      remaining('running') +
+      remaining('environment'),
   );
   const elapsedSec = Math.round((now - created) / 1000);
   const percent = complete ? 100 : Math.min(99, Math.round((100 * elapsedSec) / Math.max(1, elapsedSec + etaSec)));
@@ -681,14 +741,17 @@ export function deriveProvisioning(
       build?.completedAt,
       rollout?.createdAt,
       cloudDeploy?.completedAt,
+      envEnd,
     ].filter((x): x is number => x !== undefined);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
   const deployed = Boolean(rollout) || cloudDeploy?.state === 'succeeded';
+  // An InfraService whose environment file was never added waits on a person, not on the platform.
+  const infraIdle = infra && envApp?.missing === true && now - created > STALL_AFTER_MS;
   const stalled =
     !complete &&
     !failed &&
     !deployed &&
-    ((build?.phase === 'succeeded' && now - created > STALL_AFTER_MS) || noBuildEvidence);
+    ((build?.phase === 'succeeded' && now - created > STALL_AFTER_MS) || noBuildEvidence || infraIdle);
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }

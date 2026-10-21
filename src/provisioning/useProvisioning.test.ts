@@ -5,6 +5,7 @@ import {
   toCreated,
   toManaged,
   toArgoSnapshot,
+  toFoundArgoSnapshot,
   toCloudDeploySnapshot,
   toOnboardingPrs,
   toPendingInputs,
@@ -12,6 +13,7 @@ import {
   toSecrets,
 } from './useProvisioning';
 import fixture from '../__fixtures__/cloudDeployRuns.json';
+import { appRepos } from '../appRepos';
 
 const mr = (name: string, status: 'True' | 'False' | null, at = '2026-09-30T14:12:35Z') => ({
   metadata: { name },
@@ -38,6 +40,21 @@ describe('toManaged', () => {
     expect(toManaged(undefined, [mr('a-src', 'False')])).toEqual([
       { name: 'a-src', ready: false, readyAt: Date.parse('2026-09-30T14:12:35Z') },
     ]);
+  });
+
+  it("carries the provider's error while a resource is not Synced (live on example-dev, 2026-10-21)", () => {
+    const msg =
+      'connect failed: cannot initialize the Terraform plugin SDK async external client: cannot get terraform setup: cannot extract credentials: cannot get credentials secret: Secret "provider-github-creds" not found';
+    const out = toManaged(
+      [{ kind: 'Repository', name: 'skyport-broker-gitops-infra' }],
+      [
+        {
+          metadata: { name: 'skyport-broker-gitops-infra' },
+          status: { conditions: [{ type: 'Synced', status: 'False', reason: 'ReconcileError', message: msg }] },
+        },
+      ],
+    );
+    expect(out).toEqual([{ name: 'skyport-broker-gitops-infra', ready: false, readyAt: undefined, error: msg }]);
   });
 
   it('is undefined when nothing could be read, so the caller infers from the XR', () => {
@@ -77,6 +94,30 @@ describe('toRepoLinks', () => {
       sourceRepoUrl: 'https://github.com/example-org/sky-marshall',
       gitopsRepoUrl: 'https://github.com/example-org/gitops-sky-marshall',
     });
+  });
+  it("finds an InfraService's GitOps repo by its GitHub name", () => {
+    expect(
+      toRepoLinks(
+        'skyport-broker',
+        [repo('skyport-broker-gitops-infra', 'example-org/gitops-infra-skyport-broker')],
+        appRepos('skyport-broker', 'infra'),
+      ),
+    ).toEqual({
+      owner: 'example-org',
+      sourceRepoUrl: undefined,
+      gitopsRepoUrl: 'https://github.com/example-org/gitops-infra-skyport-broker',
+    });
+  });
+  it('matches on the external name before GitHub has answered (as live on example-dev, 2026-10-21)', () => {
+    const fresh = {
+      metadata: { name: 'skyport-broker-gitops-infra', annotations: { 'crossplane.io/external-name': 'gitops-infra-skyport-broker' } },
+      status: { atProvider: { htmlUrl: undefined } },
+    };
+    expect(toRepoLinks('skyport-broker', [fresh], appRepos('skyport-broker', 'infra')).gitopsRepoUrl).toBeUndefined();
+    const answered = { ...fresh, status: { atProvider: { htmlUrl: 'https://github.com/example-org/gitops-infra-skyport-broker' } } };
+    expect(toRepoLinks('skyport-broker', [answered], appRepos('skyport-broker', 'infra')).gitopsRepoUrl).toBe(
+      'https://github.com/example-org/gitops-infra-skyport-broker',
+    );
   });
   it('is empty when the repositories could not be read', () => {
     expect(toRepoLinks('x', [])).toEqual({ owner: undefined, sourceRepoUrl: undefined, gitopsRepoUrl: undefined });
@@ -279,19 +320,23 @@ describe('toCloudDeploySnapshot over the real ECS deploy captured from example-d
   });
 });
 
-describe('toPendingInputs for function kinds', () => {
+describe('toPendingInputs for function kinds and InfraService', () => {
+  const mk = (kind: string) => ({
+    kind,
+    name: 'resize-fn',
+    number: 21,
+    url: 'u',
+    state: 'open' as const,
+    createdAt: '2026-10-03T22:59:00Z',
+  });
   it('lists a requested Lambda or Azure function before its XR exists', () => {
-    const mk = (kind: string) => ({
-      kind,
-      name: 'resize-fn',
-      number: 21,
-      url: 'u',
-      state: 'open' as const,
-      createdAt: '2026-10-03T22:59:00Z',
-    });
     const now = Date.parse('2026-10-03T23:30:00Z');
     expect(toPendingInputs([mk('LambdaFunction')], new Set(), 'example-dev', now)).toHaveLength(1);
     expect(toPendingInputs([mk('AzureFunction')], new Set(), 'example-dev', now)[0].xr.kind).toBe('AzureFunction');
+  });
+  it('lists a requested InfraService too', () => {
+    const now = Date.parse('2026-10-03T23:30:00Z');
+    expect(toPendingInputs([mk('InfraService')], new Set(), 'example-dev', now)[0].xr.kind).toBe('InfraService');
   });
 });
 
@@ -304,7 +349,30 @@ describe('toArgoSnapshot', () => {
     });
   });
   it('an Application that does not exist yet has no sync or health', () => {
-    expect(toArgoSnapshot('a-cicd', undefined)).toEqual({ name: 'a-cicd', sync: undefined, health: undefined });
+    expect(toArgoSnapshot('a-cicd', undefined)).toEqual({ name: 'a-cicd', missing: true });
+  });
+  it('carries when the health last changed', () => {
+    expect(
+      toArgoSnapshot('a-dev', { status: { health: { status: 'Healthy', lastTransitionTime: '2026-10-21T06:15:28Z' } } })
+        .healthSince,
+    ).toBe(Date.parse('2026-10-21T06:15:28Z'));
+  });
+});
+
+describe('toFoundArgoSnapshot', () => {
+  // The argocd backend's /find/name answer: one entry per instance that has the app, [] when none does.
+  it('reads the app from the instance that has it', () => {
+    const found = [
+      {
+        name: 'example-dev',
+        applications: [{ metadata: { name: 'skyport-broker-dev' }, status: { sync: { status: 'Synced' }, health: { status: 'Healthy' } } }],
+      },
+    ];
+    expect(toFoundArgoSnapshot('skyport-broker-dev', found)).toMatchObject({ sync: 'Synced', health: 'Healthy' });
+    expect(toFoundArgoSnapshot('skyport-broker-dev', found).missing).toBeUndefined();
+  });
+  it('is missing when no instance has it', () => {
+    expect(toFoundArgoSnapshot('skyport-broker-dev', [])).toEqual({ name: 'skyport-broker-dev', missing: true });
   });
 });
 

@@ -74,6 +74,42 @@ describe('ProvisioningView', () => {
     expect(screen.getByText(/Merge the two onboarding PRs to start the first build \(1 of 2 merged\)/)).toBeTruthy();
   });
 
+  it("lists an InfraService's eight steps, ending at its first environment", () => {
+    const infra: ProvisioningInputs = {
+      xr: {
+        kind: 'InfraService',
+        name: 'skyport-broker',
+        namespace: 'infra-skyport-broker-cicd',
+        cluster: 'example-dev',
+        createdAt: t('2026-10-21T03:52:50Z'),
+        conditions: [
+          { type: 'DevClusterReady', status: 'True', lastTransitionTime: '2026-10-21T03:52:52Z' },
+          { type: 'CicdOnboarded', status: 'True', lastTransitionTime: '2026-10-21T03:53:30Z' },
+          { type: 'Synced', status: 'True', lastTransitionTime: '2026-10-21T03:52:52Z' },
+          { type: 'Ready', status: 'True', lastTransitionTime: '2026-10-21T03:53:40Z' },
+        ],
+      },
+      secrets: { found: true, ready: true, readyAt: t('2026-10-21T03:54:10Z') },
+      catalog: { found: true },
+      envApp: { name: 'skyport-broker-dev', missing: true },
+      links: { gitopsRepoUrl: 'https://github.com/example-org/gitops-infra-skyport-broker' },
+    };
+    render(<ProvisioningView items={toItems([infra], t('2026-10-21T04:00:00Z'))} onSelect={() => {}} loading={false} />);
+    const titles = screen.getAllByRole('listitem').map(li => li.children[1].firstElementChild?.firstChild?.textContent);
+    expect(titles).toEqual([
+      'Request PR merged',
+      'Request applied',
+      'Dev cluster chosen',
+      'CI/CD onboarded',
+      'Repositories and starter files',
+      'Available in the Backstage catalog',
+      'Infisical secrets resources',
+      'First environment up',
+    ]);
+    expect(screen.getByText(/Add glidepath\/envs\/dev.yaml to gitops-infra-skyport-broker/)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /^Source repo/ })).toBeNull();
+  });
+
   it('lists what gets created with readiness', () => {
     const items = toItems([inputs], t('2026-10-01T17:55:00Z'));
     render(<ProvisioningView items={items} onSelect={() => {}} loading={false} />);

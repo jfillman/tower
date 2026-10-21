@@ -25,12 +25,14 @@ import {
   type CatalogSnapshot,
   type CloudDeploySnapshot,
   isCloudApp,
+  INFRA_KIND,
 } from './deriveProvisioning';
 import { updateObservation } from './observed';
+import { appRepos, type AppRepos } from '../appRepos';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
 // Tekton (tower.controlPlaneCluster, platformConfig.ts). The four app-tier
-// kinds are the ones a user can request from the scaffolder.
+// kinds are the ones a user can request from the scaffolder, plus the functions and InfraService.
 const XR_PLURALS = [
   'nodejsapplications',
   'springbootapplications',
@@ -38,6 +40,7 @@ const XR_PLURALS = [
   'goapplications',
   'lambdafunctions',
   'azurefunctions',
+  'infraservices',
 ];
 const XR_KINDS = [
   'NodeJSApplication',
@@ -46,6 +49,7 @@ const XR_KINDS = [
   'GoApplication',
   'LambdaFunction',
   'AzureFunction',
+  INFRA_KIND,
 ];
 // The tenants repo the dev cluster's XR requests are opened against (tower.clusters.<cluster>.tenantsRepo, the
 // registry record's tenantsRepo) is used to find a request before any XR exists to read it off; an existing XR names
@@ -173,8 +177,15 @@ export function toManaged(
   const names = expected.length > 0 ? expected : found.map(m => m.metadata.name);
   if (names.length === 0 || found.length === 0) return undefined;
   return names.map(name => {
-    const ready = byName.get(name)?.status?.conditions?.find(c => c.type === 'Ready');
-    return { name, ready: ready?.status === 'True', readyAt: epoch(ready?.lastTransitionTime) };
+    const conds = byName.get(name)?.status?.conditions;
+    const ready = conds?.find(c => c.type === 'Ready');
+    const synced = conds?.find(c => c.type === 'Synced');
+    return {
+      name,
+      ready: ready?.status === 'True',
+      readyAt: epoch(ready?.lastTransitionTime),
+      error: synced?.status === 'False' ? (synced.message ?? synced.reason) : undefined,
+    };
   });
 }
 
@@ -196,14 +207,25 @@ export function parseTenantsRepo(sourceInfo?: string): { owner: string; repo: st
   }
 }
 
-/** The source and GitOps repository URLs, and the GitHub owner, from the Repository managed resources. */
+/**
+ * The source and GitOps repository URLs, and the GitHub owner, from the Repository managed resources. An app's are
+ * named `<name>-src` / `<name>-gitops`; otherwise (an InfraService's is `<name>-gitops-infra`) the one whose GitHub
+ * repo (its fullName, or its external name before GitHub has answered) is the expected repo from appRepos.
+ */
 export function toRepoLinks(
   name: string,
   repos: RawManaged[],
+  repoNames: Pick<AppRepos, 'sourceRepo' | 'gitopsRepo'> = appRepos(name, 'app'),
 ): { owner?: string; sourceRepoUrl?: string; gitopsRepoUrl?: string } {
-  const urlOf = (suffix: string) => repos.find(r => r.metadata.name === `${name}-${suffix}`)?.status?.atProvider;
-  const src = urlOf('src');
-  const gitops = urlOf('gitops');
+  const repoOf = (r: RawManaged): string | undefined =>
+    r.status?.atProvider?.fullName?.split('/')[1] ?? r.metadata.annotations?.['crossplane.io/external-name'];
+  const urlOf = (suffix: string, repo?: string) =>
+    (
+      repos.find(r => r.metadata.name === `${name}-${suffix}`) ??
+      (repo ? repos.find(r => repoOf(r) === repo) : undefined)
+    )?.status?.atProvider;
+  const src = repoNames.sourceRepo ? urlOf('src', repoNames.sourceRepo) : undefined;
+  const gitops = urlOf('gitops', repoNames.gitopsRepo);
   const fullName = src?.fullName ?? gitops?.fullName;
   return {
     owner: fullName?.split('/')[0],
@@ -344,11 +366,30 @@ export function mergeRequestPr(live: PrSnapshot | undefined, remembered: PrSnaps
 }
 
 interface RawArgoApp {
-  status?: { sync?: { status?: string }; health?: { status?: string } };
+  metadata?: { name?: string };
+  status?: { sync?: { status?: string }; health?: { status?: string; lastTransitionTime?: string } };
 }
 
 export function toArgoSnapshot(name: string, app: RawArgoApp | undefined): ArgoSnapshot {
-  return { name, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
+  return {
+    name,
+    sync: app?.status?.sync?.status,
+    health: app?.status?.health?.status,
+    healthSince: epoch(app?.status?.health?.lastTransitionTime),
+    missing: app === undefined ? true : undefined,
+  };
+}
+
+/**
+ * The app named `name` from the argocd backend's find-by-name answer (one entry per ArgoCD instance that has it).
+ * An answer with no such app means it does not exist yet.
+ */
+export function toFoundArgoSnapshot(
+  name: string,
+  instances: Array<{ applications?: RawArgoApp[] }> | undefined,
+): ArgoSnapshot {
+  const app = (instances ?? []).flatMap(i => i.applications ?? []).find(a => !a.metadata?.name || a.metadata.name === name);
+  return toArgoSnapshot(name, app);
 }
 
 
@@ -392,10 +433,12 @@ export function useProvisioning(): UseProvisioningResult {
       const name = x.metadata.name;
       const entry = github.get(name) ?? { at: 0, busy: false, requestTries: 0 };
       github.set(name, entry);
-      // A cloud app gets no GitOps-repo PR, so its source one is all there is to wait for.
+      // A cloud app gets no GitOps-repo PR, so its source one is all there is to wait for. An InfraService gets no
+      // onboarding PRs at all (its step set has no onboarding step), so only its request PR is asked for.
       const cloudApp = isCloudApp({ kind: x.kind ?? '', deployTarget: x.spec?.deployTarget });
       const bothMerged =
-        entry.onboarding?.source?.state === 'merged' && (cloudApp || entry.onboarding.gitops?.state === 'merged');
+        x.kind === INFRA_KIND ||
+        (entry.onboarding?.source?.state === 'merged' && (cloudApp || entry.onboarding.gitops?.state === 'merged'));
       // A hand-applied XR has no request PR, so stop asking after a few misses.
       const wantsRequest = !entry.requestPr && entry.requestTries < 3 && Boolean(tenants);
       if (entry.busy || Date.now() - entry.at < GITHUB_POLL_MS || (bothMerged && !wantsRequest)) return;
@@ -509,6 +552,22 @@ export function useProvisioning(): UseProvisioningResult {
       }
     };
 
+    // An InfraService's first environment's ArgoCD app. Ground environment apps live in the argocd-apps instance,
+    // which the read identity cannot list through the k8s proxy, so this goes through the argocd backend plugin
+    // (the same route the Deployments tab uses). Undefined when it could not answer.
+    const envApp = async (name: string): Promise<ArgoSnapshot | undefined> => {
+      const appName = `${name}-dev`;
+      try {
+        const base = await discoveryApi.getBaseUrl('argocd');
+        const res = await fetchApi.fetch(`${base}/find/name/${encodeURIComponent(appName)}?expand=applications`);
+        if (res.status === 404) return toArgoSnapshot(appName, undefined);
+        if (!res.ok) return undefined;
+        return toFoundArgoSnapshot(appName, (await res.json()) as Array<{ applications?: RawArgoApp[] }>);
+      } catch {
+        return undefined;
+      }
+    };
+
     const load = async () => {
       const lists = await Promise.allSettled(
         XR_PLURALS.map(p =>
@@ -540,20 +599,28 @@ export function useProvisioning(): UseProvisioningResult {
       const items = await Promise.all(
         xrs.map(async (x): Promise<ProvisioningInputs> => {
           const name = x.metadata.name;
+          const infra = x.kind === INFRA_KIND;
+          const names = appRepos(name, infra ? 'infra' : 'app');
+          const cicdNs = names.cicdNamespace;
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo] = await Promise.all([
-            optional<ListResponse<TektonRawPipelineRun>>(
-              `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`,
-            ),
-            optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+          // An InfraService has no build and no Rollout, so its runs and rollouts are not read; its environment's
+          // ArgoCD app is instead.
+          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo, envArgo] = await Promise.all([
+            infra
+              ? undefined
+              : optional<ListResponse<TektonRawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
+            infra
+              ? undefined
+              : optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
             optional<ListResponse<RawManaged>>(`${nsBase}/tektoncicds`),
             inCatalog(name),
             cicdApp(name),
+            infra ? envApp(name) : undefined,
           ]);
           const store = stores?.items?.find(s => s.spec?.appRef?.name === name);
           // The Infisical project id is the Project resource's external name. Needs a read
@@ -566,7 +633,7 @@ export function useProvisioning(): UseProvisioningResult {
           const projectId = project?.items?.find(p => p.metadata.name === store?.metadata.name)?.metadata.annotations?.[
             'crossplane.io/external-name'
           ];
-          const repoLinks = toRepoLinks(name, repos?.items ?? []);
+          const repoLinks = toRepoLinks(name, repos?.items ?? [], names);
           const tenants = parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info']);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
@@ -577,7 +644,7 @@ export function useProvisioning(): UseProvisioningResult {
           const cloudDeploy = deployRuns.length
             ? toCloudDeploySnapshot(
                 deployRuns,
-                (await optional<ListResponse<RawTaskRun>>(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))
+                (await optional<ListResponse<RawTaskRun>>(`/apis/tekton.dev/v1/namespaces/${cicdNs}/taskruns`))
                   ?.items,
                 XR_CLUSTER,
               )
@@ -609,6 +676,7 @@ export function useProvisioning(): UseProvisioningResult {
             catalog,
             cicdApp: cicdArgo,
             cloudDeploy,
+            envApp: envArgo,
             links: {
               requestPr: mergeRequestPr(gh?.requestPr, requestMemo.get(name)),
               sourceRepoUrl: repoLinks.sourceRepoUrl,

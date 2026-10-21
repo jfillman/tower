@@ -534,8 +534,8 @@ export function ProvisioningView({
         <div>
           <div className={classes.head}>
             Stalled · hours old with nothing to show for it: built but not deployed (no rollout on the dev cluster, or a
-            cloud deploy that never ran or finished), or no build run left in the cluster to show. It deploys elsewhere,
-            finished and was cleaned up, or is stuck
+            cloud deploy that never ran or finished), no build run left in the cluster to show, or an InfraService whose
+            first environment file was never added. It deploys elsewhere, finished and was cleaned up, or is stuck
           </div>
           <div className={classes.pills}>{stalled.map(i => pill(i))}</div>
         </div>
