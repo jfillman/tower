@@ -41,14 +41,15 @@ function configSections(appName, clusters, type = "app") {
       path: `${gitopsRepo}/${cluster}/base.yaml`,
       hint: `The values every Flight environment on ${cluster} starts from; an environment overrides any of them in its own values.yaml. A change opens a PR on ${gitopsRepo} and reaches those environments when it merges, like a release.`
     })),
-    {
+    // An InfraService has no pull request builds, so no preview environments to template.
+    ...type === "infra" ? [] : [{
       id: "preview",
       kind: "pr-env",
       label: "Preview environments",
       title: "Preview environment template",
       path: `${ENVS_ROOT}/pr-env.yaml`,
       hint: "The template every pull request preview environment is built from (on the cluster's default chart). Its name and image are set by the platform."
-    }
+    }]
   ];
 }
 function Editor({ owner, appName, section, source, own, appKind }) {

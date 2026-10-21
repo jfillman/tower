@@ -22,6 +22,7 @@ import { PageHeader, Subtabs, SectionTitle } from '../ui/index.esm.js';
 import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
+import { appTypeOf, appRepos } from '../appRepos.esm.js';
 import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
 const BUILD_AGENTS = [
@@ -242,6 +243,8 @@ const GLIDEPATH_TABS = [
   { id: "pipelines", label: "Pipelines" },
   { id: "advanced", label: "Advanced" }
 ];
+const INFRA_SECTIONS = /* @__PURE__ */ new Set(["deploy", "governance", "notifications", "secrets", "advanced"]);
+const glidepathSectionsFor = (type) => type === "infra" ? GLIDEPATH_TABS.filter((x) => INFRA_SECTIONS.has(x.id)) : GLIDEPATH_TABS;
 const TAB_OF_FIELD = {
   build: "build",
   test: "test",
@@ -255,13 +258,15 @@ const TAB_OF_FIELD = {
 function GlidepathTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const { owner, appName, loading: contextLoading, error: contextError } = useReleaseContext();
+  const { owner, appName, loading: contextLoading, error: contextError, entity } = useReleaseContext();
+  const appType = appTypeOf(entity);
+  const sections = glidepathSectionsFor(appType);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const target = owner && appName ? { owner, appName } : void 0;
   const cicd = useCicdConfig(target, refreshNonce);
   const submitCicd = useSubmitCicdConfigChange();
   const [form, setForm] = useState(void 0);
-  const [tab, setTab] = useState("build");
+  const [tab, setTab] = useState(sections[0].id);
   useEffect(() => {
     if (cicd.data) setForm(buildFormFromValues(cicd.data.values));
   }, [cicd.data]);
@@ -312,11 +317,11 @@ function GlidepathTab() {
       PageHeader,
       {
         title: "Glidepath",
-        subtitle: `${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName} repo; nothing is committed directly.`,
+        subtitle: `${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName ? appRepos(appName, appType).configRepo : appName} repo; nothing is committed directly.`,
         actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
       }
     ),
-    /* @__PURE__ */ jsx(Subtabs, { label: "Glidepath sections", value: tab, onChange: setTab, tabs: GLIDEPATH_TABS.map((x) => ({ ...x, marked: dirtyTabs.has(x.id) })) }),
+    /* @__PURE__ */ jsx(Subtabs, { label: "Glidepath sections", value: tab, onChange: setTab, tabs: sections.map((x) => ({ ...x, marked: dirtyTabs.has(x.id) })) }),
     tab === "build" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Build" }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
@@ -638,5 +643,5 @@ function GlidepathTab() {
   ] });
 }
 
-export { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues };
+export { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues, glidepathSectionsFor };
 //# sourceMappingURL=GlidepathTab.esm.js.map
