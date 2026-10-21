@@ -1,4 +1,5 @@
 import { ENVS_ROOT } from '../types';
+import { appRepos, type AppType } from '../appRepos';
 // The editing model behind the Environments tab (glidepath docs/admin/envs-overhaul-requirements.md,
 // section 4): edits are STAGED, shown together in the pending-changes panel, and only then turned
 // into one change to cicd.yaml. Everything here is pure so the rules can be tested exhaustively.
@@ -335,7 +336,13 @@ export function leftoverGroundEnvs(
 }
 
 /** What happens after the cicd.yaml PR merges, so the panel can say it up front. */
-export function followUps(before: EnvDef[], after: EnvDef[], target: string | undefined, appName?: string): string[] {
+export function followUps(
+  before: EnvDef[],
+  after: EnvDef[],
+  target: string | undefined,
+  appName?: string,
+  type: AppType = 'app',
+): string[] {
   const out: string[] = [];
   const had = new Set(before.map(e => e.name));
   const cloud = (target || 'k8s-rollout') !== 'k8s-rollout';
@@ -365,7 +372,14 @@ export function followUps(before: EnvDef[], after: EnvDef[], target: string | un
         `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application.`,
       );
     }
-    if (e.tier === 'ground' && !cloud) {
+    if (e.tier === 'ground' && !cloud && type === 'infra') {
+      // Glidepath opens no onboarding pull request for an InfraService (checked on skyport-broker, 2026-10-21).
+      out.push(
+        `An InfraService gets no onboarding pull request, so this one adds ${ENVS_ROOT}/envs/${e.name}.yaml to ${
+          appName ? appRepos(appName, 'infra').gitopsRepo : 'its gitops repo'
+        } itself, with the values of the environment it duplicates. Argo CD deploys ${e.name} when it merges.`,
+      );
+    } else if (e.tier === 'ground' && !cloud) {
       out.push(`Glidepath then opens a pull request on the source repo adding ${ENVS_ROOT}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
@@ -499,6 +513,15 @@ export function pipelineStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
 }
 
 /** Added environments that were staged as a copy of another, with the environment they copy. */
+/**
+ * New Ground environments staged without values to copy. An InfraService needs them refused: nothing builds it, its
+ * environment is its values file, and Glidepath opens no onboarding pull request that would add one.
+ */
+export function uncopiedGroundAdds(staged: Staged[], before: EnvDef[], after: EnvDef[]): string[] {
+  const copied = new Set(copiedEnvs(staged, after).map(c => c.env.name));
+  return after.filter(e => e.tier === 'ground' && !before.some(b => b.name === e.name) && !copied.has(e.name)).map(e => e.name);
+}
+
 export function copiedEnvs(staged: Staged[], after: EnvDef[]): Array<{ env: EnvDef; from: string }> {
   return staged.flatMap(s => {
     if (s.kind !== 'add' || !s.copyValuesFrom) return [];

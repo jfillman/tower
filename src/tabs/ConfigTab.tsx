@@ -14,6 +14,7 @@ import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { ownChartOf, type ChartRef } from '../environments/ownChart';
 import { usePlatformConfig } from '../platformConfig';
+import { appRepos, appTypeOf, type AppType } from '../appRepos';
 import { PageHeader, Panel, Subtabs } from '../ui';
 import { useUi } from '../ui/styles';
 import { useHangarTokens } from '../brand/tokens';
@@ -40,8 +41,9 @@ type Section =
   | { id: 'preview'; label: string; title: string; hint: string; path: string; kind: 'pr-env' };
 
 /** The tab's sections for an app with Flight environments on `clusters`. */
-export function configSections(appName: string, clusters: string[]): Section[] {
+export function configSections(appName: string, clusters: string[], type: AppType = 'app'): Section[] {
   const several = clusters.length > 1;
+  const { gitopsRepo } = appRepos(appName, type);
   return [
     {
       id: 'base',
@@ -57,8 +59,8 @@ export function configSections(appName: string, clusters: string[]): Section[] {
       cluster,
       label: several ? `Flight shared values (${cluster})` : 'Flight shared values',
       title: `Flight shared values on ${cluster}`,
-      path: `gitops-${appName}/${cluster}/base.yaml`,
-      hint: `The values every Flight environment on ${cluster} starts from; an environment overrides any of them in its own values.yaml. A change opens a PR on gitops-${appName} and reaches those environments when it merges, like a release.`,
+      path: `${gitopsRepo}/${cluster}/base.yaml`,
+      hint: `The values every Flight environment on ${cluster} starts from; an environment overrides any of them in its own values.yaml. A change opens a PR on ${gitopsRepo} and reaches those environments when it merges, like a release.`,
     })),
     {
       id: 'preview',
@@ -108,6 +110,8 @@ export function ConfigTab() {
   const platform = usePlatformConfig();
   const [sectionId, setSection] = useState<string>('base');
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined);
+  // The page's entity is this app's Component (useReleaseContext), so its kind tag says whether it is an InfraService.
+  const appType = appTypeOf(entity);
   const deploy = cicd.data?.values.deploy as Deploy | undefined;
   const clusters = useMemo(
     () => [...new Set(readEnvironments(deploy).envs.filter(e => e.tier === 'flight' && e.cluster).map(e => e.cluster as string))],
@@ -127,7 +131,13 @@ export function ConfigTab() {
       />
     );
   }
-  const sections = configSections(appName, clusters);
+  const sections = configSections(appName, clusters, appType);
+  const names = appRepos(appName, appType);
+  // An InfraService has one repo for both (gitops-infra-<name>).
+  const where =
+    names.configRepo === names.gitopsRepo
+      ? `on ${names.gitopsRepo}`
+      : `on the ${names.configRepo} repo, or ${names.gitopsRepo} for Flight`;
   const active = sections.find(s => s.id === sectionId) ?? sections[0];
   const legacyEnv = searchParams.get('env');
   const toEnvironments = () => {
@@ -139,7 +149,7 @@ export function ConfigTab() {
 
   return (
     <div>
-      <PageHeader title="App Configuration" subtitle={`What ${appName} shares across its environments. Every change opens a pull request (on the ${appName} repo, or gitops-${appName} for Flight); nothing is committed directly.`} />
+      <PageHeader title="App Configuration" subtitle={`What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.`} />
       <Panel style={{ padding: 12, marginBottom: 16 }}>
         <span className={ui.note}>
           {legacyEnv ? `${legacyEnv}'s own values moved: ` : "An environment's own values are edited in its row on the "}
