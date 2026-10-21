@@ -104,14 +104,78 @@ const PROFILE_ENV = {
     }
   }
 };
+const OUTPUT_WORDS = {
+  username: ["USER", "USERNAME", "LOGIN"],
+  password: ["PASSWORD", "PASS", "PWD"],
+  host: ["HOST", "HOSTNAME", "SERVER", "ADDR", "ADDRESS"],
+  port: ["PORT"],
+  vhost: ["VHOST", "VIRTUAL_HOST"],
+  url: ["URL", "URI"],
+  uri: ["URI", "URL"],
+  database: ["DATABASE", "DB", "DBNAME", "NAME"],
+  jdbcUri: ["JDBC_URL", "JDBC_URI"],
+  uriSrv: ["SRV_URI", "SRV_URL", "URI_SRV"],
+  clientId: ["CLIENT_ID"],
+  clientSecret: ["CLIENT_SECRET"],
+  issuer: ["ISSUER", "ISSUER_URL", "ISSUER_URI"],
+  tokenUrl: ["TOKEN_URL", "TOKEN_URI", "TOKEN_ENDPOINT"],
+  jwksUrl: ["JWKS_URL", "JWKS_URI", "JWK_SET_URI"]
+};
+const TYPE_WORDS = {
+  rabbitmq: ["RABBITMQ", "RABBIT", "AMQP", "MQ", "BROKER"],
+  redis: ["REDIS", "CACHE"],
+  postgresql: ["POSTGRESQL", "POSTGRES", "PG", "DB", "DATABASE"],
+  mongodb: ["MONGODB", "MONGO", "DB", "DATABASE"],
+  dex: ["OAUTH", "OAUTH2", "OIDC", "AUTH", "DEX", "SSO"]
+};
+function matchReadNames(component, type, outputs, reads) {
+  const prefixes = [envNameFor(component, "").replace(/_$/, ""), ...TYPE_WORDS[type ?? ""] ?? []].filter(Boolean);
+  const pairs = [];
+  for (const output of outputs) {
+    (OUTPUT_WORDS[output] ?? []).forEach((word, w) => {
+      for (const name of reads) {
+        if (!name.endsWith(`_${word}`)) continue;
+        const prefix = name.slice(0, -word.length - 1);
+        const p = prefixes.findIndex((x) => prefix === x || prefix.endsWith(`_${x}`));
+        if (p >= 0) pairs.push({ output, name, score: p * 100 + (prefix === prefixes[p] ? 0 : 50) + w });
+      }
+    });
+  }
+  pairs.sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
+  const out = {};
+  const used = /* @__PURE__ */ new Set();
+  for (const { output, name } of pairs) {
+    if (out[output] || used.has(name)) continue;
+    out[output] = name;
+    used.add(name);
+  }
+  return out;
+}
 function componentEnvRows(rows, component, outputs, opts = {}) {
   const add = [];
   const skipped = [];
   const left = [];
+  const fromCode = [];
   const taken = new Set(rows.map((r) => r.name.trim()));
   const covered = opts.profile && opts.type ? PROFILE_ENV[opts.profile][opts.type] : void 0;
+  const fromReads = opts.reads ? matchReadNames(component, opts.type, outputs, opts.reads) : {};
+  const codeReadsSome = Object.keys(fromReads).length > 0;
   for (const output of outputs) {
     if (rows.some((r) => r.kind === "component" && r.component.trim() === component && r.output.trim() === output)) continue;
+    const read2 = fromReads[output];
+    if (read2) {
+      if (taken.has(read2)) skipped.push(read2);
+      else {
+        taken.add(read2);
+        add.push({ name: read2, component, output });
+        fromCode.push(read2);
+      }
+      continue;
+    }
+    if (codeReadsSome && !opts.all) {
+      left.push(output);
+      continue;
+    }
     const native = (covered?.[output] ?? []).filter((n) => !taken.has(n));
     if (covered && !covered[output] && !opts.all) {
       left.push(output);
@@ -127,7 +191,9 @@ function componentEnvRows(rows, component, outputs, opts = {}) {
       add.push({ name, component, output });
     }
   }
-  return { add, skipped, left };
+  const read = /* @__PURE__ */ new Set([...opts.reads ?? [], ...Object.values(covered ?? {}).flat()]);
+  const unread = opts.reads ? add.map((a) => a.name).filter((n) => !read.has(n)) : [];
+  return { add, skipped, left, fromCode, unread };
 }
 function wiredOutputs(rows, component) {
   const out = {};
@@ -142,5 +208,5 @@ function renameComponentEnv(rows, from, to) {
   return rows.map((r) => r.kind === "component" && r.component.trim() === from ? { ...r, component: to } : r);
 }
 
-export { COMPONENT_OUTPUTS, PROFILE_ENV, componentEnvRows, declaredComponents, envNameFor, envProfileFor, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv };
+export { COMPONENT_OUTPUTS, PROFILE_ENV, componentEnvRows, declaredComponents, envNameFor, envProfileFor, matchComponentOutput, matchReadNames, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv };
 //# sourceMappingURL=components.esm.js.map

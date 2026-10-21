@@ -23,7 +23,8 @@ import { parseComponents, ComponentsEditor } from './ComponentsEditor.esm.js';
 import { componentProblems, catalogOutputs } from './componentCatalog.esm.js';
 import { annotateValues, mergeValues } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
-import { declaredComponents, withoutComponentEnv, renameComponentEnv, componentEnvRows, wiredOutputs, outputsOf, matchComponentOutput, envProfileFor } from './components.esm.js';
+import { declaredComponents, PROFILE_ENV, withoutComponentEnv, renameComponentEnv, componentEnvRows, wiredOutputs, envProfileFor, outputsOf, matchComponentOutput } from './components.esm.js';
+import { useAppEnvReads } from './useAppEnvReads.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
 import { workloadOn, workloadStatus } from './workload.esm.js';
 import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
@@ -892,6 +893,7 @@ function ConfigEditor({
   const cfg = source;
   const submitCfg = { loading: source.submitting, result: source.result, error: source.submitError, reset: source.resetSubmit };
   const schema = useValuesSchema(owner);
+  const envReads = useAppEnvReads(owner, appName);
   const [tab, setTab] = useState("workload");
   const [form, setForm] = useState(void 0);
   const [componentNote, setComponentNote] = useState();
@@ -988,6 +990,12 @@ function ConfigEditor({
     }
   };
   const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
+  const readNames = envReads && !envReads.truncated ? new Set(envReads.reads.map((r) => r.name)) : void 0;
+  const appProfile = envProfileFor(appKind);
+  const profileNames = new Set(
+    appProfile ? Object.values(PROFILE_ENV[appProfile]).flatMap((byOutput) => Object.values(byOutput).flat()) : []
+  );
+  const unreadByCode = (v) => Boolean(readNames) && v.kind === "component" && Boolean(v.name.trim()) && !readNames?.has(v.name.trim()) && !profileNames.has(v.name.trim());
   const componentOutputs = (name) => {
     const type = declared.find((c) => c.name === name)?.type ?? "";
     return catalogOutputs(componentCatalog, type) ?? outputsOf(type);
@@ -1820,6 +1828,18 @@ function ConfigEditor({
                 )
               ] })
             ] }),
+            unreadByCode(v) && /* @__PURE__ */ jsxs(
+              "span",
+              {
+                className: classes.hint,
+                role: "note",
+                title: `Scanned ${envReads?.repo ?? "the source repo"} at ${(envReads?.sha ?? "").slice(0, 7)} (${envReads?.scanned ?? 0} files)`,
+                children: [
+                  "The app's code never reads ",
+                  v.name.trim()
+                ]
+              }
+            ),
             /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => setF("envVars", form.envVars.filter((_, j) => j !== i), "env"), children: "Remove" })
           ] }, i);
         }),
@@ -1841,7 +1861,10 @@ function ConfigEditor({
             wired: (name) => wiredOutputs(form.envVars, name),
             onWire: (name, outputs, { type, all }) => {
               const profile = envProfileFor(appKind);
-              const { add, skipped, left } = componentEnvRows(form.envVars, name, outputs, { type, profile, all });
+              const reads = envReads?.reads.map((r) => r.name);
+              const { add, skipped, left, fromCode, unread } = componentEnvRows(form.envVars, name, outputs, { type, profile, all, reads });
+              const filesOf = (n) => envReads?.reads.find((r) => r.name === n)?.files ?? [];
+              const codeFiles = [...new Set(fromCode.flatMap(filesOf))];
               if (add.length > 0) {
                 const blank = { value: "", refName: "", refKey: "" };
                 setF("envVars", [...form.envVars, ...add.map((a) => ({ ...blank, kind: "component", ...a }))], "env");
@@ -1849,7 +1872,9 @@ function ConfigEditor({
               const carriers = add.map((a) => a.name).filter((n) => /URL|URI/.test(n));
               const parts = [
                 add.length > 0 ? `Added ${add.map((a) => a.name).join(", ")} (Config tab), reading from ${name}.` : "",
-                add.length > 0 ? RENAME_HINT[profile ?? "none"] : "",
+                fromCode.length > 0 ? `${fromCode.length === add.length ? "All are" : `${fromCode.join(", ")} ${fromCode.length === 1 ? "is" : "are"}`} the names the app's code reads (${codeFiles.join(", ")}).` : "",
+                add.length > 0 && !reads ? RENAME_HINT[profile ?? "none"] : "",
+                unread.length > 0 ? `The app's code does not read ${unread.join(", ")}: rename ${unread.length === 1 ? "it" : "them"} on the Config tab to the ${unread.length === 1 ? "name" : "names"} it reads, or the app will not see ${unread.length === 1 ? "it" : "them"}.` : "",
                 left.length > 0 ? `${left.join(", ")} ${left.length === 1 ? "is" : "are"} not wired${carriers.length > 0 ? ` (${carriers.join(", ")} already carries ${left.length === 1 ? "it" : "them"})` : ""}; the card's + Add environment variables wires ${left.length === 1 ? "it" : "them"} too.` : "",
                 skipped.length > 0 ? `${skipped.join(", ")} already ${skipped.length === 1 ? "exists" : "exist"}, so ${skipped.length === 1 ? "it was" : "they were"} left alone.` : ""
               ].filter(Boolean);
