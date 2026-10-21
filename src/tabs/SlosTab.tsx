@@ -373,7 +373,7 @@ export function SlosTab() {
         <PageHeader title="SLOs" subtitle="Burn-rate views for the service level objectives each environment declares." />
         <TowerEmptyState
           title="No SLOs declared"
-          description="Add an `slos:` entry to this app's gitops values.yaml (airframe's slos.catalog.hangar.io XRD) to get burn-rate views here. There is currently no in-Tower way to author one - see this app's Config tab for what is and isn't editable there yet."
+          description="Turn on a common SLO in an environment's Values form (Environments tab, Release sub-tab), or add an `slos:` entry to that environment's values file (airframe's slos.catalog.hangar.io XRD), to get burn-rate views here."
         />
       </div>
     );

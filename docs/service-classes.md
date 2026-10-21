@@ -5,7 +5,7 @@ with two annotations on its catalog Component, and Tower works out the rest.
 
 | Annotation | Meaning | Example values |
 |---|---|---|
-| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `infra-service`, `ai-workload`, `storage`, `secret-store`, `data-lake` |
+| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `infra-service`, `ai-workload`, `ai-service`, `storage`, `secret-store`, `data-lake` |
 | `hangar.io/deploy-target` | where it runs. Optional. | `k8s-rollout`, `aws-ecs`, `aws-lambda`, `azure-container-apps` |
 
 `deploy-target` mirrors `deploy.target` in the service's `cicd.yaml`. The XRD writes both
@@ -38,47 +38,57 @@ has all of the ones it requires; a tab with none required always shows.
 |---|---|---|
 | `source` | classes with a GitHub repo | Pull Requests, Notifications (with `ci`) |
 | `ci` | classes onboarded to Glidepath (a `cicd.yaml`) | Pipelines, Environments, Notifications, Glidepath |
-| `build` | container-app, function: a source repo Glidepath builds | Pipelines (with `ci`) |
-| `releases` | container-app, function | Releases |
-| `images` | container-app, function | Images |
-| `slo` | container-app | SLOs (also needs `k8s-runtime`) |
-| `values-config` | container-app, infra-service; removed by cloud targets | App Configuration |
+| `build` | container-app, function, ai-service: a source repo Glidepath builds | Pipelines (with `ci`) |
+| `releases` | container-app, function, ai-service | Releases |
+| `images` | container-app, function, ai-service | Images |
+| `slo` | container-app, infra-service, ai-service | SLOs (also needs `k8s-runtime`) |
+| `values-config` | container-app, infra-service, ai-service; removed by cloud targets | App Configuration |
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
 | `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
-| `autopilot` | ai-workload | Autopilot |
+| `autopilot` | ai-workload, ai-service | no tab yet: the agent definition on Overview |
 
 An **infra-service** (an Airframe InfraService such as a broker) has no source repo, build,
-image or release records: it gets `source`, `ci` and `values-config` but not `build`,
-`releases`, `images` or `slo`. Its own filter chip on the Services list is "Infra services".
+image or release records: it gets `source`, `ci`, `values-config` and `slo` but not `build`,
+`releases` or `images`. Its own filter chip on the Services list is "Infra services".
+
+An **ai-workload** is an Autopilot agent in an ephemeral shape (task, session, scheduled, event,
+team): it runs as `AgentRun`s and leaves nothing deployed. An **ai-service** is the long-running
+*service* shape that Glidepath builds from its own repo and deploys like a container app. Both show
+the agent's definition on Overview (see below). The Autopilot Agent tab is not built, so no tab
+requires `autopilot` until it is.
 
 ## Tabs by service type
 
-| Tab | Container app (Kubernetes) | Container app (cloud) | Function | Infra service | AI workload | AI workload on Kubernetes |
+| Tab | Container app (Kubernetes) | Container app (cloud) | Function | Infra service | AI workload | AI service |
 |---|---|---|---|---|---|---|
-| Overview | yes | yes | yes | yes | yes | yes |
-| Autopilot | | | | | yes | yes |
+| Overview | yes | yes | yes | yes | yes (agent definition, no environments) | yes (with agent definition) |
 | Pull Requests | yes | yes | yes | yes (gitops-infra repo) | yes | yes |
-| Pipelines | yes | yes | yes | | | |
+| Pipelines | yes | yes | yes | | | yes |
 | Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |
-| Releases | yes | yes | yes | | | |
-| Environments | yes | yes | yes | yes | | |
+| Releases | yes | yes | yes | | | yes |
+| Environments | yes | yes | yes | yes | | yes |
 | Topology | yes | | | yes | | yes |
-| Images | yes | yes | yes | | | |
-| SLOs | yes | | | | | |
-| Notifications | yes | yes | yes | yes | | |
-| App Configuration | yes | | | yes (no preview section) | | |
-| Glidepath | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | |
+| Images | yes | yes | yes | | | yes |
+| SLOs | yes | | | yes | | yes |
+| Notifications | yes | yes | yes | yes | | yes |
+| App Configuration | yes | | | yes (no preview section) | | yes |
+| Glidepath | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |
 
 "Container app (cloud)" is `aws-ecs` or `azure-container-apps`; "Function" is `aws-lambda` (LambdaFunction) or
-`azure-container-apps` (AzureFunction). "AI workload on Kubernetes" is an `ai-workload` whose
-`hangar.io/deploy-target` is `k8s-rollout` (the long-running *service* shape of an agent); the other Autopilot
-shapes (task, session, scheduled, event, team) run as ephemeral `AgentRun`s and have no target. The table is
-asserted by `src/TowerPage.tabs.test.ts`.
+`azure-container-apps` (AzureFunction). The table is asserted by `src/TowerPage.tabs.test.ts`.
 
 Within a tab, an InfraService also gets less: App Configuration has no Preview environments section (nothing
-builds its pull requests) and the Glidepath tab shows only the sections its `cicd.yaml` uses. The tab-by-tab analysis per
-type, with the open questions (SLOs for InfraServices, an AI overview, agents Glidepath builds), is in the
-[Tower service types spec](https://claude.ai/artifact/TchwwJAoV7wjPdGWqcLnev).
+builds its pull requests) and the Glidepath tab shows only the sections its `cicd.yaml` uses. The tab-by-tab
+analysis is in the [Tower service types spec](https://claude.ai/artifact/TchwwJAoV7wjPdGWqcLnev).
+
+## An agent's definition
+
+An AI workload or AI service shows its Autopilot definition on Overview: shape, identity, tier ceiling, models,
+network, compute, framework, triggers, the tools it may call through Clearance, the service APIs it may reach and
+its limits. Tower reads it through the backend's `/agent-definition` route from the Component's own repo
+(`github.com/project-slug`), at the path in `hangar.io/agent-definition` or `agent.yaml` at the root. The route reads
+only `agent.yaml` or a YAML file under `agents/`, and refuses a file without a `name` and one of the six `kind`s.
+Runs and cost join it when the Autopilot backend exposes them.
 
 A class Tower has no entry for gets a label made from its slug, no capabilities, and
 `source` if its Component has a `github.com/project-slug`. It still lists, filters and
