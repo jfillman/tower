@@ -25,7 +25,8 @@ import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
 import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
-import { componentEnvRows, declaredComponents, envProfileFor, type EnvProfile, matchComponentOutput, outputsOf, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
+import { componentEnvRows, declaredComponents, envProfileFor, type EnvProfile, matchComponentOutput, outputsOf, PROFILE_ENV, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
+import { useAppEnvReads } from './useAppEnvReads';
 import { METADATA_FIELDS, metadataProblems, type KeyValueRow, type MetadataField } from './metadata';
 import { workloadOn, workloadStatus, type LiveWorkload, type WorkloadView } from './workload';
 import {
@@ -1273,6 +1274,9 @@ export function ConfigEditor({
   const cfg = source;
   const submitCfg = { loading: source.submitting, result: source.result, error: source.submitError, reset: source.resetSubmit };
   const schema = useValuesSchema(owner);
+  // The env var names the app's code reads: new components are wired under them, and a component env var the code
+  // never reads is flagged (boarding-api, 2026-10-21: RABBITMQ_USERNAME while the code read RABBITMQ_USER).
+  const envReads = useAppEnvReads(owner, appName);
   const [tab, setTab] = useState<ValuesTab>('workload');
 
   const [form, setForm] = useState<FormState | undefined>(undefined);
@@ -1399,6 +1403,15 @@ export function ConfigEditor({
 
   // The components this values file declares, for env rows that take a value from one (fromComponent).
   const declared = declaredComponents(validateYamlBlock(advanced.components).parsed);
+  // A component env var whose name the scanned code never reads, unless the app's framework or driver reads it on its
+  // own (the naming profile's names). Only when the whole repo was scanned: a partial scan cannot say "never".
+  const readNames = envReads && !envReads.truncated ? new Set(envReads.reads.map(r => r.name)) : undefined;
+  const appProfile = envProfileFor(appKind);
+  const profileNames = new Set(
+    appProfile ? Object.values(PROFILE_ENV[appProfile]).flatMap(byOutput => Object.values(byOutput).flat()) : [],
+  );
+  const unreadByCode = (v: EnvRow): boolean =>
+    Boolean(readNames) && v.kind === 'component' && Boolean(v.name.trim()) && !readNames?.has(v.name.trim()) && !profileNames.has(v.name.trim());
   const componentOutputs = (name: string) => {
     const type = declared.find(c => c.name === name)?.type ?? '';
     return catalogOutputs(componentCatalog, type) ?? outputsOf(type);
@@ -2433,6 +2446,15 @@ export function ConfigEditor({
                     )}
                   </>
                 )}
+                {unreadByCode(v) && (
+                  <span
+                    className={classes.hint}
+                    role="note"
+                    title={`Scanned ${envReads?.repo ?? 'the source repo'} at ${(envReads?.sha ?? '').slice(0, 7)} (${envReads?.scanned ?? 0} files)`}
+                  >
+                    The app's code never reads {v.name.trim()}
+                  </span>
+                )}
                 <button type="button" className={classes.removeBtn} onClick={() => setF('envVars', form.envVars.filter((_, j) => j !== i), 'env')}>
                   Remove
                 </button>
@@ -2475,8 +2497,12 @@ export function ConfigEditor({
             onWire={(name, outputs, { type, all }) => {
               // From component env vars under the names the app's framework or driver reads (components.ts PROFILE_ENV),
               // else <COMPONENT>_<OUTPUT>; a name already in use is left alone.
+              // Names the app's code reads come first (useAppEnvReads), then the profile's, then <COMPONENT>_<OUTPUT>.
               const profile = envProfileFor(appKind);
-              const { add, skipped, left } = componentEnvRows(form.envVars, name, outputs, { type, profile, all });
+              const reads = envReads?.reads.map(r => r.name);
+              const { add, skipped, left, fromCode, unread } = componentEnvRows(form.envVars, name, outputs, { type, profile, all, reads });
+              const filesOf = (n: string) => envReads?.reads.find(r => r.name === n)?.files ?? [];
+              const codeFiles = [...new Set(fromCode.flatMap(filesOf))];
               if (add.length > 0) {
                 const blank = { value: '', refName: '', refKey: '' };
                 setF('envVars', [...form.envVars, ...add.map(a => ({ ...blank, kind: 'component' as const, ...a }))], 'env');
@@ -2484,7 +2510,13 @@ export function ConfigEditor({
               const carriers = add.map(a => a.name).filter(n => /URL|URI/.test(n));
               const parts = [
                 add.length > 0 ? `Added ${add.map(a => a.name).join(', ')} (Config tab), reading from ${name}.` : '',
-                add.length > 0 ? RENAME_HINT[profile ?? 'none'] : '',
+                fromCode.length > 0
+                  ? `${fromCode.length === add.length ? 'All are' : `${fromCode.join(', ')} ${fromCode.length === 1 ? 'is' : 'are'}`} the names the app's code reads (${codeFiles.join(', ')}).`
+                  : '',
+                add.length > 0 && !reads ? RENAME_HINT[profile ?? 'none'] : '',
+                unread.length > 0
+                  ? `The app's code does not read ${unread.join(', ')}: rename ${unread.length === 1 ? 'it' : 'them'} on the Config tab to the ${unread.length === 1 ? 'name' : 'names'} it reads, or the app will not see ${unread.length === 1 ? 'it' : 'them'}.`
+                  : '',
                 left.length > 0
                   ? `${left.join(', ')} ${left.length === 1 ? 'is' : 'are'} not wired${carriers.length > 0 ? ` (${carriers.join(', ')} already carries ${left.length === 1 ? 'it' : 'them'})` : ''}; the card's + Add environment variables wires ${left.length === 1 ? 'it' : 'them'} too.`
                   : '',
