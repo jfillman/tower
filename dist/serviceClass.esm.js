@@ -5,7 +5,9 @@ const CAP = {
   source: "source",
   // has a GitHub repo: Pull Requests, Notifications
   ci: "ci",
-  // built by Glidepath: Pipelines, Glidepath
+  // onboarded to Glidepath (a cicd.yaml): Environments, Glidepath
+  build: "build",
+  // has a source repo Glidepath builds: Pipelines
   releases: "releases",
   // has release records
   images: "images",
@@ -42,14 +44,25 @@ const SERVICE_CLASSES = {
     id: "container-app",
     label: "Container app",
     labelPlural: "Container apps",
-    capabilities: [CAP.source, CAP.ci, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig],
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig],
+    defaultDeployTarget: "k8s-rollout"
+  },
+  // An Airframe InfraService (a shared component such as a broker): no source repo, no build, no image, no release
+  // records. Its environments are values files in gitops-infra-<name> that Argo CD deploys, so it keeps the tabs that
+  // read or edit those (Environments, Glidepath for cicd.yaml, App Configuration, Deployments, Topology) and its PRs
+  // and notifications, and drops Pipelines, Releases, Images and SLOs.
+  "infra-service": {
+    id: "infra-service",
+    label: "Infra service",
+    labelPlural: "Infra services",
+    capabilities: [CAP.source, CAP.ci, CAP.valuesConfig],
     defaultDeployTarget: "k8s-rollout"
   },
   function: {
     id: "function",
     label: "Function",
     labelPlural: "Functions",
-    capabilities: [CAP.source, CAP.ci, CAP.releases, CAP.images]
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images]
   },
   "ai-workload": {
     id: "ai-workload",
@@ -63,7 +76,7 @@ const KIND_DEFAULTS = {
   "kind:springbootapplication": { cls: "container-app" },
   "kind:pythonapplication": { cls: "container-app" },
   "kind:goapplication": { cls: "container-app" },
-  "kind:infraservice": { cls: "container-app" },
+  "kind:infraservice": { cls: "infra-service" },
   "kind:lambdafunction": { cls: "function", target: "aws-lambda" },
   // Azure Functions are hosted on Container Apps, so that is the deploy target.
   "kind:azurefunction": { cls: "function", target: "azure-container-apps" }
