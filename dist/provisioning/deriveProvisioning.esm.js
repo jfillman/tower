@@ -1,4 +1,7 @@
+import { appRepos } from '../appRepos.esm.js';
+
 const FUNCTION_KINDS = /* @__PURE__ */ new Set(["LambdaFunction", "AzureFunction"]);
+const INFRA_KIND = "InfraService";
 function isCloudApp(xr) {
   return FUNCTION_KINDS.has(xr.kind) || xr.deployTarget !== void 0 && xr.deployTarget !== "kubernetes";
 }
@@ -17,7 +20,9 @@ const TYPICAL_SEC = {
   onboarding: 120,
   secrets: 25,
   build: 150,
-  running: 60
+  running: 60,
+  // An InfraService: a person adding the dev environment file, then ArgoCD and the component's operator.
+  environment: 300
 };
 const DEPLOY_GRACE_MS = 5 * 60 * 1e3;
 const ts = (iso) => iso ? Date.parse(iso) : void 0;
@@ -32,8 +37,10 @@ function cond(xr, type) {
 const prLink = (label, pr) => pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
 const infisicalProjectUrl = (baseUrl, projectId) => baseUrl ? `${baseUrl.replace(/\/+$/, "")}/projects/secret-management/${projectId}/overview` : void 0;
 function deriveProvisioning(input, now, typical) {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, links, observed } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
+  const infra = xr.kind === INFRA_KIND;
+  const envUp = infra && envApp?.sync === "Synced" && envApp.health === "Healthy";
   const cloudApp = isCloudApp(xr);
   const cloudFinal = cloudApp || Boolean(cloudDeploy);
   const created = xr.createdAt;
@@ -129,19 +136,22 @@ function deriveProvisioning(input, now, typical) {
   }
   if (pending) reposState = "pend";
   if (syncFailed && reposState !== "done") reposState = "fail";
+  const stuck = reposState === "run" ? managed?.find((m) => !m.ready && m.error) : void 0;
   let reposSeconds;
   if (reposState === "done") reposSeconds = secBetween(created, reposEnd);
   else if (reposState !== "pend") reposSeconds = secBetween(created, now);
+  let reposDesc = isFunction ? "Source repo created, starter files committed" : "Source and GitOps repos created, starter files committed";
+  if (infra) reposDesc = "GitOps repo created, cicd.yaml and README committed";
   push({
     id: "repos",
     title: "Repositories and starter files",
-    desc: isFunction ? "Source repo created, starter files committed" : "Source and GitOps repos created, starter files committed",
+    desc: reposDesc,
     state: reposState,
     fraction: reposFraction,
     startedAt: pending ? void 0 : created,
     endedAt: reposState === "done" ? reposEnd : void 0,
     seconds: reposSeconds,
-    detail: reposState === "fail" ? synced?.message : void 0,
+    detail: reposState === "fail" ? synced?.message : stuck && `${stuck.name}: ${stuck.error}`,
     parallel: true,
     links: [
       ...links?.sourceRepoUrl ? [{ label: "Source repo", url: links.sourceRepoUrl }] : [],
@@ -149,7 +159,7 @@ function deriveProvisioning(input, now, typical) {
     ]
   });
   const front = steps.filter((s) => s.id === "cicd" || s.id === "repos").every((s) => s.state === "done");
-  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy);
+  const builtOrDeployed = Boolean(build) || Boolean(rollout) || Boolean(cloudDeploy) || envUp;
   let catalogState = "pend";
   if (catalog?.found) catalogState = "done";
   else if (catalog) catalogState = "run";
@@ -200,7 +210,7 @@ function deriveProvisioning(input, now, typical) {
   let onboardingSeconds;
   if (onboardingState === "done") onboardingSeconds = secBetween(onboardingStart || void 0, onboardingEnd);
   else if (onboardingState === "run") onboardingSeconds = secBetween(onboardingStart || void 0, now);
-  push({
+  if (!infra) push({
     id: "onboarding",
     title: cloudApp ? "Application onboarding PR" : "Application onboarding PRs",
     desc: cloudApp ? "One PR on the source repo adds the pipeline files. Merging it starts the build" : "Two PRs, source repo and GitOps repo, add the pipeline files. Merging the source one starts the build",
@@ -260,7 +270,7 @@ function deriveProvisioning(input, now, typical) {
     noBuildEvidence = !cloudDeploy && now - (onboardingEnd ?? created) > NO_BUILD_EVIDENCE_AFTER_MS;
     buildDetail = noBuildEvidence ? "No pipeline run for this service is left in the cluster, so Tower cannot tell whether the build ran. Runs are cleaned up after a while, so it may have finished; check the Pipelines tab or GitHub." : "Waiting for the first pipeline run to start";
   }
-  push({
+  if (!infra) push({
     id: "build",
     title: "First build and checks",
     desc: "Test, image build, scan, SBOM and signature. Starts by itself when the source onboarding PR merges",
@@ -311,7 +321,7 @@ function deriveProvisioning(input, now, typical) {
       runDetail = "No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml";
     }
   }
-  push({
+  if (!infra) push({
     id: "running",
     title: runTitle,
     desc: runDesc,
@@ -323,15 +333,44 @@ function deriveProvisioning(input, now, typical) {
     detail: runDetail,
     links: runLinks
   });
+  let envEnd;
+  if (infra) {
+    const gitopsRepo = appRepos(xr.name, "infra").gitopsRepo;
+    let envState = "pend";
+    let envDetail;
+    if (envUp) {
+      envState = "done";
+      envEnd = envApp?.healthSince;
+    } else if (envApp?.health === "Degraded") {
+      envState = "fail";
+      envDetail = `ArgoCD app ${envApp.name} reports Degraded`;
+    } else if (front) {
+      envState = "run";
+      if (!envApp) envDetail = `Waiting for ArgoCD app ${xr.name}-dev (Tower could not read ArgoCD)`;
+      else if (envApp.missing) envDetail = `Add glidepath/envs/dev.yaml to ${gitopsRepo} to create the first environment`;
+      else envDetail = `ArgoCD app ${envApp.name} is ${envApp.sync ?? "unknown"} / ${envApp.health ?? "unknown"}`;
+    }
+    push({
+      id: "environment",
+      title: "First environment up",
+      desc: "A person adds glidepath/envs/dev.yaml to the GitOps repo; ArgoCD deploys it and it turns Healthy",
+      state: envState,
+      startedAt: onboardingStart || void 0,
+      endedAt: envEnd,
+      seconds: envState === "run" ? secBetween(onboardingStart || void 0, now) : void 0,
+      detail: envDetail,
+      links: links?.gitopsRepoUrl ? [{ label: "GitOps repo", url: links.gitopsRepoUrl }] : []
+    });
+  }
   const complete = steps.every((s) => s.state === "done");
   const failed = steps.some((s) => s.state === "fail");
   const byId = Object.fromEntries(steps.map((s) => [s.id, s]));
   const remaining = (id) => {
     const s = byId[id];
-    return s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
+    return !s || s.state === "done" ? 0 : s.typicalSec * (1 - s.fraction);
   };
   const etaSec = Math.round(
-    remaining("merge") + remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos"), remaining("catalog")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running")
+    remaining("merge") + remaining("request") + remaining("cluster") + Math.max(remaining("cicd"), remaining("repos"), remaining("catalog")) + Math.max(remaining("onboarding"), remaining("secrets")) + remaining("build") + remaining("running") + remaining("environment")
   );
   const elapsedSec = Math.round((now - created) / 1e3);
   const percent = complete ? 100 : Math.min(99, Math.round(100 * elapsedSec / Math.max(1, elapsedSec + etaSec)));
@@ -345,14 +384,16 @@ function deriveProvisioning(input, now, typical) {
       secrets?.readyAt,
       build?.completedAt,
       rollout?.createdAt,
-      cloudDeploy?.completedAt
+      cloudDeploy?.completedAt,
+      envEnd
     ].filter((x) => x !== void 0);
     completedAt = ends.length ? Math.max(...ends) : now;
   }
   const deployed = Boolean(rollout) || cloudDeploy?.state === "succeeded";
-  const stalled = !complete && !failed && !deployed && (build?.phase === "succeeded" && now - created > STALL_AFTER_MS || noBuildEvidence);
+  const infraIdle = infra && envApp?.missing === true && now - created > STALL_AFTER_MS;
+  const stalled = !complete && !failed && !deployed && (build?.phase === "succeeded" && now - created > STALL_AFTER_MS || noBuildEvidence || infraIdle);
   return { steps, complete, failed, elapsedSec, etaSec, percent, completedAt, stalled };
 }
 
-export { FUNCTION_KINDS, NO_BUILD_EVIDENCE_AFTER_MS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl, isCloudApp };
+export { FUNCTION_KINDS, INFRA_KIND, NO_BUILD_EVIDENCE_AFTER_MS, STALL_AFTER_MS, TYPICAL_SEC, deriveProvisioning, infisicalProjectUrl, isCloudApp };
 //# sourceMappingURL=deriveProvisioning.esm.js.map

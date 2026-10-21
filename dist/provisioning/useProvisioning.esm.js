@@ -5,8 +5,9 @@ import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
-import { deriveProvisioning, isCloudApp } from './deriveProvisioning.esm.js';
+import { INFRA_KIND, deriveProvisioning, isCloudApp } from './deriveProvisioning.esm.js';
 import { updateObservation } from './observed.esm.js';
+import { appRepos } from '../appRepos.esm.js';
 
 const XR_PLURALS = [
   "nodejsapplications",
@@ -14,7 +15,8 @@ const XR_PLURALS = [
   "pythonapplications",
   "goapplications",
   "lambdafunctions",
-  "azurefunctions"
+  "azurefunctions",
+  "infraservices"
 ];
 const XR_KINDS = [
   "NodeJSApplication",
@@ -22,7 +24,8 @@ const XR_KINDS = [
   "PythonApplication",
   "GoApplication",
   "LambdaFunction",
-  "AzureFunction"
+  "AzureFunction",
+  INFRA_KIND
 ];
 const POLL_MS = 6e3;
 const MAX_AGE_MS = 24 * 3600 * 1e3;
@@ -77,8 +80,15 @@ function toManaged(refs, found) {
   const names = expected.length > 0 ? expected : found.map((m) => m.metadata.name);
   if (names.length === 0 || found.length === 0) return void 0;
   return names.map((name) => {
-    const ready = byName.get(name)?.status?.conditions?.find((c) => c.type === "Ready");
-    return { name, ready: ready?.status === "True", readyAt: epoch(ready?.lastTransitionTime) };
+    const conds = byName.get(name)?.status?.conditions;
+    const ready = conds?.find((c) => c.type === "Ready");
+    const synced = conds?.find((c) => c.type === "Synced");
+    return {
+      name,
+      ready: ready?.status === "True",
+      readyAt: epoch(ready?.lastTransitionTime),
+      error: synced?.status === "False" ? synced.message ?? synced.reason : void 0
+    };
   });
 }
 function parseTenantsRepo(sourceInfo) {
@@ -93,10 +103,11 @@ function parseTenantsRepo(sourceInfo) {
     return void 0;
   }
 }
-function toRepoLinks(name, repos) {
-  const urlOf = (suffix) => repos.find((r) => r.metadata.name === `${name}-${suffix}`)?.status?.atProvider;
-  const src = urlOf("src");
-  const gitops = urlOf("gitops");
+function toRepoLinks(name, repos, repoNames = appRepos(name, "app")) {
+  const repoOf = (r) => r.status?.atProvider?.fullName?.split("/")[1] ?? r.metadata.annotations?.["crossplane.io/external-name"];
+  const urlOf = (suffix, repo) => (repos.find((r) => r.metadata.name === `${name}-${suffix}`) ?? (repo ? repos.find((r) => repoOf(r) === repo) : void 0))?.status?.atProvider;
+  const src = repoNames.sourceRepo ? urlOf("src", repoNames.sourceRepo) : void 0;
+  const gitops = urlOf("gitops", repoNames.gitopsRepo);
   const fullName = src?.fullName ?? gitops?.fullName;
   return {
     owner: fullName?.split("/")[0],
@@ -165,7 +176,17 @@ function mergeRequestPr(live, remembered) {
   };
 }
 function toArgoSnapshot(name, app) {
-  return { name, sync: app?.status?.sync?.status, health: app?.status?.health?.status };
+  return {
+    name,
+    sync: app?.status?.sync?.status,
+    health: app?.status?.health?.status,
+    healthSince: epoch(app?.status?.health?.lastTransitionTime),
+    missing: app === void 0 ? true : void 0
+  };
+}
+function toFoundArgoSnapshot(name, instances) {
+  const app = (instances ?? []).flatMap((i) => i.applications ?? []).find((a) => !a.metadata?.name || a.metadata.name === name);
+  return toArgoSnapshot(name, app);
 }
 const CATALOG_RECHECK_MS = 3e4;
 function useProvisioning() {
@@ -191,7 +212,7 @@ function useProvisioning() {
       const entry = github.get(name) ?? { at: 0, busy: false, requestTries: 0 };
       github.set(name, entry);
       const cloudApp = isCloudApp({ kind: x.kind ?? "", deployTarget: x.spec?.deployTarget });
-      const bothMerged = entry.onboarding?.source?.state === "merged" && (cloudApp || entry.onboarding.gitops?.state === "merged");
+      const bothMerged = x.kind === INFRA_KIND || entry.onboarding?.source?.state === "merged" && (cloudApp || entry.onboarding.gitops?.state === "merged");
       const wantsRequest = !entry.requestPr && entry.requestTries < 3 && Boolean(tenants);
       if (entry.busy || Date.now() - entry.at < GITHUB_POLL_MS || bothMerged && !wantsRequest) return;
       entry.busy = true;
@@ -279,6 +300,18 @@ function useProvisioning() {
         return /not found/i.test(String(e?.message)) ? toArgoSnapshot(appName, void 0) : void 0;
       }
     };
+    const envApp = async (name) => {
+      const appName = `${name}-dev`;
+      try {
+        const base = await discoveryApi.getBaseUrl("argocd");
+        const res = await fetchApi.fetch(`${base}/find/name/${encodeURIComponent(appName)}?expand=applications`);
+        if (res.status === 404) return toArgoSnapshot(appName, void 0);
+        if (!res.ok) return void 0;
+        return toFoundArgoSnapshot(appName, await res.json());
+      } catch {
+        return void 0;
+      }
+    };
     const load = async () => {
       const lists = await Promise.allSettled(
         XR_PLURALS.map(
@@ -305,27 +338,29 @@ function useProvisioning() {
       const items = await Promise.all(
         xrs.map(async (x) => {
           const name = x.metadata.name;
+          const infra = x.kind === INFRA_KIND;
+          const names = appRepos(name, infra ? "infra" : "app");
+          const cicdNs = names.cicdNamespace;
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
-          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo] = await Promise.all([
-            optional(
-              `/apis/tekton.dev/v1/namespaces/app-${name}-cicd/pipelineruns`
-            ),
-            optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+          const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo, envArgo] = await Promise.all([
+            infra ? void 0 : optional(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
+            infra ? void 0 : optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
             optional(`${mrBase}/repositories?${selector}`),
             optional(`${mrBase}/repositoryfiles?${selector}`),
             optional(`${nsBase}/secretstores`),
             optional(`${nsBase}/tektoncicds`),
             inCatalog(name),
-            cicdApp(name)
+            cicdApp(name),
+            infra ? envApp(name) : void 0
           ]);
           const store = stores?.items?.find((s) => s.spec?.appRef?.name === name);
           const project = store ? await optional(
             `/apis/project.infisical.m.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}/projects`
           ) : void 0;
           const projectId = project?.items?.find((p) => p.metadata.name === store?.metadata.name)?.metadata.annotations?.["crossplane.io/external-name"];
-          const repoLinks = toRepoLinks(name, repos?.items ?? []);
+          const repoLinks = toRepoLinks(name, repos?.items ?? [], names);
           const tenants = parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"]);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
           const gh = github.get(name);
@@ -333,7 +368,7 @@ function useProvisioning() {
           const deployRuns = (runs?.items ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
           const cloudDeploy = deployRuns.length ? toCloudDeploySnapshot(
             deployRuns,
-            (await optional(`/apis/tekton.dev/v1/namespaces/app-${name}-cicd/taskruns`))?.items,
+            (await optional(`/apis/tekton.dev/v1/namespaces/${cicdNs}/taskruns`))?.items,
             XR_CLUSTER
           ) : void 0;
           return {
@@ -361,6 +396,7 @@ function useProvisioning() {
             catalog,
             cicdApp: cicdArgo,
             cloudDeploy,
+            envApp: envArgo,
             links: {
               requestPr: mergeRequestPr(gh?.requestPr, requestMemo.get(name)),
               sourceRepoUrl: repoLinks.sourceRepoUrl,
@@ -401,5 +437,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toFoundArgoSnapshot, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map
