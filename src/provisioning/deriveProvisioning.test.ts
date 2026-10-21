@@ -689,3 +689,110 @@ describe('a service whose build left no trace in the cluster', () => {
   });
 });
 
+
+// The skyport-broker InfraService on example-dev (2026-10-20): GitOps repo created 03:52:58, its cicd.yaml scaffold
+// committed 03:53:25, the dev environment file added by a person 04:06:12. No source repo, onboarding PRs or build.
+describe('an InfraService', () => {
+  const t = (iso: string) => Date.parse(iso);
+  const infraXr: ProvisioningInputs['xr'] = {
+    kind: 'InfraService',
+    name: 'skyport-broker',
+    namespace: 'infra-skyport-broker-cicd',
+    cluster: 'example-dev',
+    createdAt: t('2026-10-21T03:52:50Z'),
+    conditions: [
+      { type: 'DevClusterReady', status: 'True', lastTransitionTime: '2026-10-21T03:52:52Z' },
+      { type: 'CicdOnboarded', status: 'True', lastTransitionTime: '2026-10-21T03:53:30Z' },
+      { type: 'Synced', status: 'True', lastTransitionTime: '2026-10-21T03:52:52Z' },
+      { type: 'Ready', status: 'True', lastTransitionTime: '2026-10-21T03:53:40Z' },
+    ],
+  };
+  const base: ProvisioningInputs = {
+    xr: infraXr,
+    managed: [
+      // The XR's resourceRefs as live: the repo, its two scaffold files and the SecretStore request.
+      { name: 'skyport-broker-gitops-infra', ready: true, readyAt: t('2026-10-21T03:52:58Z') },
+      { name: 'skyport-broker-gitops-infra-cicd-yaml', ready: true, readyAt: t('2026-10-21T03:53:25Z') },
+      { name: 'skyport-broker-gitops-infra-readme', ready: true, readyAt: t('2026-10-21T03:53:20Z') },
+      { name: 'skyport-broker-secretstore-xr', ready: true, readyAt: t('2026-10-21T03:53:25Z') },
+    ],
+    secrets: { found: true, ready: true, readyAt: t('2026-10-21T03:54:10Z') },
+    catalog: { found: true },
+    cicdApp: { name: 'skyport-broker-cicd', sync: 'Synced', health: 'Healthy' },
+    links: { gitopsRepoUrl: 'https://github.com/example-org/gitops-infra-skyport-broker' },
+  };
+  const at = t('2026-10-21T04:00:00Z');
+  const ids = (p: ReturnType<typeof deriveProvisioning>) => p.steps.map(s => s.id);
+
+  it('has no onboarding, build or rollout step; its last step is the first environment', () => {
+    const p = deriveProvisioning({ ...base, envApp: { name: 'skyport-broker-dev', missing: true } }, at);
+    expect(ids(p)).toEqual(['merge', 'request', 'cluster', 'cicd', 'repos', 'catalog', 'secrets', 'environment']);
+    expect(p.steps.find(s => s.id === 'repos')?.desc).toBe('GitOps repo created, cicd.yaml and README committed');
+  });
+
+  it('asks for the dev environment file while its ArgoCD app does not exist', () => {
+    const p = deriveProvisioning({ ...base, envApp: { name: 'skyport-broker-dev', missing: true } }, at);
+    const env = p.steps[7];
+    expect(env.state).toBe('run');
+    expect(env.detail).toBe('Add glidepath/envs/dev.yaml to gitops-infra-skyport-broker to create the first environment');
+    expect(env.links).toEqual([{ label: 'GitOps repo', url: 'https://github.com/example-org/gitops-infra-skyport-broker' }]);
+    expect(p.complete).toBe(false);
+    expect(p.stalled).toBe(false);
+    expect(Number.isFinite(p.etaSec)).toBe(true);
+  });
+
+  it('shows the ArgoCD app state while the environment comes up', () => {
+    const p = deriveProvisioning(
+      { ...base, envApp: { name: 'skyport-broker-dev', sync: 'Synced', health: 'Progressing' } },
+      t('2026-10-21T04:07:00Z'),
+    );
+    expect(p.steps[7].state).toBe('run');
+    expect(p.steps[7].detail).toBe('ArgoCD app skyport-broker-dev is Synced / Progressing');
+  });
+
+  it('fails on a Degraded environment', () => {
+    const p = deriveProvisioning({ ...base, envApp: { name: 'skyport-broker-dev', sync: 'Synced', health: 'Degraded' } }, at);
+    expect(p.steps[7].state).toBe('fail');
+    expect(p.failed).toBe(true);
+  });
+
+  it('is complete once the environment is Synced and Healthy, timed from when it turned Healthy', () => {
+    const healthy = t('2026-10-21T04:08:30Z');
+    const p = deriveProvisioning(
+      { ...base, envApp: { name: 'skyport-broker-dev', sync: 'Synced', health: 'Healthy', healthSince: healthy } },
+      t('2026-10-21T04:10:00Z'),
+    );
+    expect(p.complete).toBe(true);
+    expect(p.completedAt).toBe(healthy);
+    expect(p.steps[7].endedAt).toBe(healthy);
+    // From the later of CI/CD and the repos being done (03:53:30) to Healthy.
+    expect(p.steps[7].seconds).toBe(900);
+  });
+
+  it('waits, not runs, on the environment until the CI namespace and repos are done', () => {
+    const p = deriveProvisioning(
+      { ...base, xr: { ...infraXr, conditions: infraXr.conditions.slice(0, 1) }, managed: undefined, envApp: { name: 'skyport-broker-dev', missing: true } },
+      at,
+    );
+    expect(p.steps[7].state).toBe('pend');
+  });
+
+  it("says which repository is stuck and why while the XR itself is still Synced", () => {
+    const p = deriveProvisioning(
+      {
+        ...base,
+        xr: { ...infraXr, conditions: infraXr.conditions.filter(c => c.type !== 'Ready') },
+        managed: [{ name: 'skyport-broker-gitops-infra', ready: false, error: 'Secret "provider-github-creds" not found' }],
+      },
+      at,
+    );
+    const repos = p.steps.find(s => s.id === 'repos');
+    expect(repos?.state).toBe('run');
+    expect(repos?.detail).toBe('skyport-broker-gitops-infra: Secret "provider-github-creds" not found');
+  });
+
+  it('is stalled, not in flight, when hours pass and nobody added the environment', () => {
+    const p = deriveProvisioning({ ...base, envApp: { name: 'skyport-broker-dev', missing: true } }, t('2026-10-21T09:00:00Z'));
+    expect(p.stalled).toBe(true);
+  });
+});

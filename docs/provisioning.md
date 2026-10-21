@@ -12,15 +12,31 @@ Tower reads these through the Kubernetes proxy on the dev cluster, with its exis
 | Step | Signal |
 |---|---|
 | Request PR merged | The request PR's state: open until a person merges it. Its open and merge times are remembered from the pending phase, so the duration stays after the XR appears (shown blank, never zero, if the page never saw it pending) |
-| Request applied | The application XR exists, which means ArgoCD applied the merged request (it polls about every 3 minutes). Duration is merge time to XR creation. The XR (`catalog.hangar.io`: NodeJS, SpringBoot, Python, Go). Links the **request PR** in the tenants repo named by the XR's `terasky.backstage.io/source-info` annotation, found by its title `Create <Kind> [Resource] <name>` through the backend's `/request-pr` route |
+| Request applied | The application XR exists, which means ArgoCD applied the merged request (it polls about every 3 minutes). Duration is merge time to XR creation. The XR (`catalog.hangar.io`: NodeJS, SpringBoot, Python, Go, the two function kinds, InfraService). Links the **request PR** in the tenants repo named by the XR's `terasky.backstage.io/source-info` annotation, found by its title `Create <Kind> [Resource] <name>` through the backend's `/request-pr` route |
 | Dev cluster chosen | XR condition `DevClusterReady` |
 | CI/CD onboarded | XR condition `CicdOnboarded` **and** the `<app>-cicd` ArgoCD Application Synced and Healthy, read from the `argocd` namespace with a read-only `applications` grant (`backstage-argocd-application-viewer`, gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac`). Backstage's ArgoCD plugin cannot be used: it only knows the argocd-apps instances, and this app is in the platform instance. Without the grant the step falls back to the condition alone |
-| Repositories and starter files | The XR's `Repository` and `RepositoryFile` objects (label `crossplane.io/composite=<name>`); done when every one the XR composes is `Ready`. Falls back to XR `Ready` if they cannot be read. Links the source and GitOps repos from the Repository objects' `htmlUrl` |
+| Repositories and starter files | The XR's `Repository` and `RepositoryFile` objects (label `crossplane.io/composite=<name>`); done when every one the XR composes is `Ready`. Falls back to XR `Ready` if they cannot be read. While one reports `Synced=False` (the XR itself stays Synced), the step names it and the provider's error, e.g. a missing `provider-github-creds` Secret. Links the source and GitOps repos from the Repository objects' `htmlUrl` |
 | Available in the Backstage catalog | A `Component` named after the service exists, looked up through the catalog API. The ingestor makes it from the XR on its next sync, and until then Tower has no entity to open. Runs alongside the steps around it. If the lookup cannot answer, it waits, unless a build already ran |
 | Application onboarding PRs | The two PRs Glidepath opens, "Onboarding: re-sync ..." on the source repo and on `gitops-<name>`, read from the backend's `/pull-requests` route. Done when both are merged, or as soon as the app's own build run or a Rollout exists. **A person merges these**, and merging the source one is what starts the first build |
 | Infisical secrets resources | The app's `SecretStore` XR in `app-<name>-cicd` (`spec.appRef.name = <name>`): `Ready`, or failed on `Synced=False`. Links the Infisical project from the `Project` object's external name. An app with no SecretStore does not hold the provision open once it has built |
 | First build and checks | Earliest PipelineRun of the `build` pipeline (label `tekton.dev/pipeline=build`) in `app-<name>-cicd`. Glidepath's own runs in that namespace (`onboarding-resync`, `values-check`) are ignored: they finish before any build exists and used to mark this step, and the onboarding step with it, done too early; progress is tasks finished out of tasks in the pipeline. Starts by itself on the source onboarding PR's merge |
 | Running healthy in dev | Rollout in `app-<name>-dev`: `Healthy` with all replicas available. New apps get `glidepath/envs/dev.yaml` and a deploy-to-dev stage from onboarding; if a built app has no rollout after 5 minutes the step says which of those is missing |
+
+### An InfraService
+
+An InfraService (a shared component such as a broker, `kind:infraservice` in the catalog) has no source repo, no
+onboarding PRs, no build and no Rollout, so it gets eight steps: the request, cluster, CI/CD, repositories, catalog
+and secrets steps above, then **First environment up**. Its XR, CI namespace, Pipelines and SecretStore are in
+`infra-<name>-cicd`; its one repo is `gitops-infra-<name>` (the Repository object is `<name>-gitops-infra`, matched on
+its GitHub name). Its scaffold `RepositoryFile`s (`cicd.yaml`) leave the XR's `resourceRefs` once done
+(`status.scaffold.done`), so the repositories step counts only what is still composed.
+
+| Step | Signal |
+|---|---|
+| First environment up | Nothing builds an InfraService: **a person adds `glidepath/envs/dev.yaml`** to `gitops-infra-<name>` (the step says so and links the repo). Glidepath's ApplicationSet then makes the `<name>-dev` ArgoCD Application in the argocd-apps instance, read through Backstage's ArgoCD backend (`/find/name`), since the read identity has no `applications` grant there. Done when Synced and Healthy (the component's own readiness, e.g. a RabbitMQ broker, feeds the app's health), timed to its `status.health.lastTransitionTime`; Degraded fails it. Waits until CI/CD and the repositories are done |
+
+An InfraService whose environment file was never added is stalled after 4 hours, like an app built but never
+deployed. Its environment namespaces stay `app-<name>-<env>`.
 
 GitHub-backed lookups (request PR, onboarding PRs) are not polled at the 6 second Kubernetes cadence: they refresh every 45 seconds, and stop once both onboarding PRs are merged.
 
