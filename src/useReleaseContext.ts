@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { appTypeOf } from './appRepos';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useTowerEnvironments } from './useTowerEnvironments';
 import {
@@ -308,7 +309,8 @@ export function useReleaseContext(options: { argoPollMs?: number | null } = {}) 
     [rawEnvironments, declaredEnvironments, cloud.environments, pipelineOrder.data, argoStatusRaw],
   );
 
-  const prs = usePullRequests(owner && appName ? { owner, appName } : undefined, refreshNonce);
+  const appType = appTypeOf(entity);
+  const prs = usePullRequests(owner && appName ? { owner, appName, appType } : undefined, refreshNonce);
   const gitopsPrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'gitops'), [prs.data]);
   const sourcePrs = useMemo(() => (prs.data ?? []).filter(pr => pr.repo === 'source'), [prs.data]);
 

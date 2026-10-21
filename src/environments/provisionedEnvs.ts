@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appRepos, useAppType } from '../appRepos';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
 import { usePlatformConfig } from '../platformConfig';
@@ -43,6 +44,7 @@ export function unlistedProvisioned(provisioned: ProvisionedEnv[], declared: str
 export function useProvisionedEnvs(appName: string | undefined, enabled: boolean, refreshNonce = 0): ProvisionedEnv[] {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [envs, setEnvs] = useState<ProvisionedEnv[]>([]);
   useEffect(() => {
@@ -57,7 +59,7 @@ export function useProvisionedEnvs(appName: string | undefined, enabled: boolean
           discoveryApi,
           fetchApi,
           cluster,
-          `/apis/catalog.hangar.io/v1alpha1/namespaces/app-${appName}-cicd/applicationenvironments`,
+          `/apis/catalog.hangar.io/v1alpha1/namespaces/${appRepos(appName, appType).cicdNamespace}/applicationenvironments`,
         );
         if (live) setEnvs(toProvisioned(list.items ?? [], appName));
       } catch {
@@ -68,6 +70,6 @@ export function useProvisionedEnvs(appName: string | undefined, enabled: boolean
     return () => {
       live = false;
     };
-  }, [appName, enabled, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, appType, enabled, cluster, discoveryApi, fetchApi, refreshNonce]);
   return envs;
 }
