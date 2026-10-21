@@ -1,9 +1,11 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LivePollContext, livePollMs, usePageVisible } from './livePoll';
+import { appTypeOf } from './appRepos';
 import type {
   V1Container,
   V1Deployment,
   V1Pod,
+  V1StatefulSet,
   V1Service,
   V2HorizontalPodAutoscaler,
 } from '@kubernetes/client-node';
@@ -11,6 +13,7 @@ import type {
   ClusterObjects,
   DeploymentFetchResponse,
   FetchResponse,
+  StatefulSetsFetchResponse,
   HorizontalPodAutoscalersFetchResponse,
   IngressesFetchResponse,
   PodFetchResponse,
@@ -392,6 +395,7 @@ function buildWorkloadDetail(
   deployment: V1Deployment | undefined,
   pdb: PdbResource | undefined,
   hpa: V2HorizontalPodAutoscaler | undefined,
+  statefulSet?: V1StatefulSet,
 ): WorkloadDetail | undefined {
   if (rollout) {
     const canary = rollout.spec?.strategy?.canary;
@@ -431,6 +435,18 @@ function buildWorkloadDetail(
       labels: deployment.metadata?.labels,
       annotations: deployment.metadata?.annotations,
       raw: deployment,
+    };
+  }
+  if (statefulSet) {
+    return {
+      kind: 'StatefulSet',
+      name: statefulSet.metadata?.name ?? 'unnamed',
+      strategyKind: statefulSet.spec?.updateStrategy?.type === 'OnDelete' ? 'unknown' : 'rollingUpdate',
+      pdb: buildPdbSummary(pdb),
+      hpa: buildHpaSummary(hpa),
+      labels: statefulSet.metadata?.labels,
+      annotations: statefulSet.metadata?.annotations,
+      raw: statefulSet,
     };
   }
   return undefined;
@@ -615,13 +631,23 @@ export function envLabelOf(
   return rollout?.metadata?.labels?.['hangar.io/env'] ?? deployment?.metadata?.labels?.['hangar.io/env'] ?? namespace;
 }
 
-function buildEnvironments(
+/**
+ * An InfraService (a broker, say) has no Rollout or Deployment of its own: its environment is the StatefulSet its
+ * component's operator makes (skyport-broker-server for skyport-broker's RabbitMQ, 2026-10-21). Only one carrying
+ * the service's own hangar.io/app and hangar.io/env labels counts, so nothing unlabelled stands in for it.
+ */
+export function infraStatefulSets(statefulSets: V1StatefulSet[]): V1StatefulSet[] {
+  return statefulSets.filter(s => s.metadata?.labels?.['hangar.io/app'] && s.metadata.labels['hangar.io/env']);
+}
+
+export function buildEnvironments(
   items: ClusterObjects[],
   rolloutsByCluster: Map<string, RolloutResource[]>,
   httpRoutesByCluster: Map<string, HttpRouteResource[]>,
   gatewaysByCluster: Map<string, GatewayResource[]>,
   pdbsByCluster: Map<string, PdbResource[]>,
   extraKindsByCluster: Map<string, Array<{ kind: string; resources: NamedNamespacedResource[] }>>,
+  infra = false,
 ): EnvironmentSummary[] {
   const envs: EnvironmentSummary[] = [];
 
@@ -636,6 +662,8 @@ function buildEnvironments(
         ?.resources ?? [];
     const allServices =
       item.resources.find((r): r is ServiceFetchResponse => r.type === 'services')?.resources ?? [];
+    const allStatefulSets =
+      item.resources.find((r): r is StatefulSetsFetchResponse => r.type === 'statefulsets')?.resources ?? [];
     const allHpas =
       item.resources.find((r): r is HorizontalPodAutoscalersFetchResponse => r.type === 'horizontalpodautoscalers')
         ?.resources ?? [];
@@ -648,11 +676,13 @@ function buildEnvironments(
 
     const pushEnv = (
       namespace: string,
-      source: { rollout?: RolloutResource; deployment?: V1Deployment },
+      source: { rollout?: RolloutResource; deployment?: V1Deployment; statefulSet?: V1StatefulSet },
     ) => {
       if (namespacesSeen.has(namespace)) return;
       namespacesSeen.add(namespace);
-      const { rollout, deployment } = source;
+      const { rollout, statefulSet } = source;
+      // A StatefulSet has the same template/replicas/availableReplicas shape as a Deployment for everything read here.
+      const deployment = source.deployment ?? (statefulSet as unknown as V1Deployment | undefined);
       const podList: V1Pod[] = allPods.filter(p => p.metadata?.namespace === namespace);
       const container: V1Container | undefined =
         rollout?.spec?.template?.spec?.containers?.[0] ??
@@ -670,7 +700,10 @@ function buildEnvironments(
         .filter((t): t is Date => Boolean(t))
         .map(t => new Date(t).getTime());
       const envLabel = envLabelOf(rollout, namespace, deployment);
-      const appName = rollout?.metadata?.name ?? deployment?.metadata?.name;
+      // A StatefulSet is named by its operator (skyport-broker-server); the service is its hangar.io/app label, which
+      // also names the environment's Argo CD app (<app>-<env>).
+      const appName =
+        rollout?.metadata?.name ?? source.deployment?.metadata?.name ?? statefulSet?.metadata?.labels?.['hangar.io/app'];
       const httpRoute = httpRoutes.find(r => r.metadata?.namespace === namespace);
       const routeHost = httpRoute?.spec?.hostnames?.[0];
       const ingress = allIngresses.find(i => i.metadata?.namespace === namespace);
@@ -690,7 +723,7 @@ function buildEnvironments(
       // namespace model rather than a new convention.
       const pdb = pdbs.find(p => p.metadata?.namespace === namespace);
       const hpa = allHpas.find(h => h.metadata?.namespace === namespace);
-      const workload = buildWorkloadDetail(rollout, deployment, pdb, hpa);
+      const workload = buildWorkloadDetail(rollout, source.deployment, pdb, hpa, statefulSet);
       const resources = collectResources(item, namespace, rollouts, httpRoutes, pdbs, extraKinds);
 
       envs.push({
@@ -730,6 +763,13 @@ function buildEnvironments(
     } else {
       allDeployments.forEach(deployment => {
         if (deployment.metadata?.namespace) pushEnv(deployment.metadata.namespace, { deployment });
+      });
+    }
+    // Only for an InfraService: an app's attached components (its Redis, its broker) run StatefulSets in the app's
+    // namespace too, and must not stand in for an app environment that has no Rollout yet.
+    if (infra) {
+      infraStatefulSets(allStatefulSets).forEach(statefulSet => {
+        if (statefulSet.metadata?.namespace) pushEnv(statefulSet.metadata.namespace, { statefulSet });
       });
     }
   }
@@ -806,6 +846,7 @@ function pickKind<T>(byCluster: Map<string, Map<string, unknown[]>>, kind: strin
 // but react-use's useInterval underneath treats null as "off".
 export function useTowerEnvironmentsLive(intervalMs: number | null = 10_000) {
   const { entity } = useEntity();
+  const infra = appTypeOf(entity) === 'infra';
   const { kubernetesObjects, loading, error } = useKubernetesObjects(entity, intervalMs as number);
   const {
     kubernetesObjects: customObjects,
@@ -850,8 +891,9 @@ export function useTowerEnvironmentsLive(intervalMs: number | null = 10_000) {
         gatewaysByCluster,
         pdbsByCluster,
         extraKindsByCluster,
+        infra,
       ),
-    [kubernetesObjects, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster],
+    [kubernetesObjects, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster, infra],
   );
 
   // Same "only the first load blocks" fix as GlidepathPage.tsx's

@@ -218,6 +218,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
         : `https://github.com/${owner}/${repos?.configRepo}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     pipelineStep: target.pipelineStep,
+    appType,
     ...extra,
     requestPr,
   });

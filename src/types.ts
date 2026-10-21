@@ -308,7 +308,7 @@ export interface CanaryProgress {
 }
 
 export interface WorkloadDetail {
-  kind: 'Rollout' | 'Deployment';
+  kind: 'Rollout' | 'Deployment' | 'StatefulSet';
   name: string;
   strategyKind: 'canary' | 'blueGreen' | 'rollingUpdate' | 'recreate' | 'unknown';
   canarySteps?: CanaryStepSummary[];
