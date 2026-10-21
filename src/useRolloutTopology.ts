@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pageHidden } from './livePoll';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from './k8sProxy';
 
@@ -168,9 +169,14 @@ export function useRolloutTopology(
     }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let loaded = false;
     const { cluster, namespace, rolloutName, stepWeight } = target;
 
     async function tick() {
+      if (pageHidden() && loaded) {
+        timer = setTimeout(tick, POLL_MS);
+        return;
+      }
       const get = <T,>(path: string) => k8sProxyGet<T>(discoveryApi, fetchApi, cluster, path);
       try {
         const [rollout, rss, pods, svcs, ars, jobs] = await Promise.all([
@@ -182,6 +188,7 @@ export function useRolloutTopology(
           get<{ items: K8sObj[] }>(`/apis/batch/v1/namespaces/${namespace}/jobs`).catch(() => ({ items: [] as K8sObj[] })),
         ]);
         if (cancelled) return;
+        loaded = true;
         setState({ loading: false, topology: buildTopology(
             rollout,
             stamp(rss.items, 'apps/v1', 'ReplicaSet'),

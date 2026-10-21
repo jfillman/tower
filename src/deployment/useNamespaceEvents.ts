@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pageHidden } from '../livePoll';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
 import type { RawEvent } from './problems';
@@ -29,7 +30,9 @@ export function useNamespaceEvents(cluster: string | undefined, namespace: strin
       }
     };
     void load();
-    const id = setInterval(load, POLL_MS);
+    const id = setInterval(() => {
+      if (!pageHidden()) void load();
+    }, POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);

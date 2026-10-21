@@ -1,4 +1,5 @@
-import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { LivePollContext, livePollMs, usePageVisible } from './livePoll';
 import type {
   V1Container,
   V1Deployment,
@@ -801,14 +802,16 @@ function pickKind<T>(byCluster: Map<string, Map<string, unknown[]>>, kind: strin
 }
 
 /** The live poller. Mount it once per page through TowerEnvironmentsProvider; the fleet views call it per app. */
-export function useTowerEnvironmentsLive() {
+// intervalMs: null stops the poll (a hidden page); the library hooks' own default is 10 s. Their types say number,
+// but react-use's useInterval underneath treats null as "off".
+export function useTowerEnvironmentsLive(intervalMs: number | null = 10_000) {
   const { entity } = useEntity();
-  const { kubernetesObjects, loading, error } = useKubernetesObjects(entity);
+  const { kubernetesObjects, loading, error } = useKubernetesObjects(entity, intervalMs as number);
   const {
     kubernetesObjects: customObjects,
     loading: customLoading,
     error: customError,
-  } = useCustomResources(entity, CUSTOM_MATCHERS);
+  } = useCustomResources(entity, CUSTOM_MATCHERS, intervalMs as number);
 
   const customByCluster = useMemo(() => customResourcesByClusterAndKind(customObjects?.items ?? []), [customObjects]);
   const rolloutsByCluster = useMemo(() => pickKind<RolloutResource>(customByCluster, 'Rollout'), [customByCluster]);
@@ -878,9 +881,27 @@ const TowerEnvironmentsContext = createContext<TowerEnvironments | undefined>(un
 // TowerPage's tab bar (for its CD activity dot) and the open tab (through
 // useReleaseContext) both need the environments; each used to mount its own
 // poller, doubling every request. The provider mounts one and both read it.
+// The provider also owns the poll cadence (livePoll.ts): stopped while the page is hidden, fast while any view (the
+// Deployments tab watching a rollout) asks for it.
 export function TowerEnvironmentsProvider({ children }: { children: ReactNode }) {
-  const value = useTowerEnvironmentsLive();
-  return createElement(TowerEnvironmentsContext.Provider, { value }, children);
+  const visible = usePageVisible();
+  const [fastOwners, setFastOwners] = useState<ReadonlySet<string>>(new Set());
+  const setFast = useCallback((owner: string, fast: boolean) => {
+    setFastOwners(prev => {
+      if (prev.has(owner) === fast) return prev;
+      const next = new Set(prev);
+      if (fast) next.add(owner);
+      else next.delete(owner);
+      return next;
+    });
+  }, []);
+  const control = useMemo(() => ({ setFast }), [setFast]);
+  const value = useTowerEnvironmentsLive(livePollMs(visible, fastOwners.size > 0));
+  return createElement(
+    LivePollContext.Provider,
+    { value: control },
+    createElement(TowerEnvironmentsContext.Provider, { value }, children),
+  );
 }
 
 export function useTowerEnvironments(): TowerEnvironments {
