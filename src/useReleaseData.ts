@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { usePollTick } from './livePoll';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import type {
   ArgoApplicationSummary,
@@ -407,14 +408,18 @@ export function useArgoCapabilities(cluster: string | undefined, appName: string
 // Best-effort ArgoCD sync status, same route Glidepath's module already
 // calls (the backstage-ingestor ServiceAccount has no direct RBAC for
 // applications.argoproj.io - see GlidepathPage.tsx's own comment).
+// pollMs: also refetch on this interval (null/undefined = only on refreshNonce). The Deployments tab sets it while it
+// is open and visible, fast while something is moving (livePoll.ts); Argo CD, not GitHub, so polling is cheap.
 export function useArgoStatusMap(
   appNames: string[],
   refreshNonce = 0,
+  pollMs: number | null = null,
 ): Record<string, ArgoApplicationSummary | undefined> {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [state, setState] = useState<Record<string, ArgoApplicationSummary | undefined>>({});
   const key = appNames.join('|');
+  const pollTick = usePollTick(pollMs);
 
   useEffect(() => {
     const uniqueNames = [...new Set(appNames.filter(Boolean))];
@@ -557,7 +562,7 @@ export function useArgoStatusMap(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, discoveryApi, fetchApi, refreshNonce]);
+  }, [key, discoveryApi, fetchApi, refreshNonce, pollTick]);
 
   return state;
 }

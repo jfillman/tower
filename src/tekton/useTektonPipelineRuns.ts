@@ -140,8 +140,17 @@ const GUARDRAIL_PIPELINE_NAMES = [
   'sbom-check',
   'governance-check',
   'qa-check',
+  'values-check',
+  'itsm-check',
   'bypass-merge-check',
 ];
+
+// A gate Pipeline the list above doesn't know yet (2026-10-20 bug: itsm and values never showed under Guardrails,
+// added to the catalog after this list was written). Every catalog gate Pipeline is named <gate>-check, and no
+// other catalog Pipeline is.
+export function isGuardrailPipeline(name: string | undefined): boolean {
+  return Boolean(name) && (GUARDRAIL_PIPELINE_NAMES.includes(name!) || name!.endsWith('-check'));
+}
 
 // release-outcome-notify/release-progress-notify (charts/glidepath-app/
 // templates/triggers/release-{outcome,progress}-trigger.yaml) are CDEvent-
@@ -432,7 +441,7 @@ export function toPipelineRunSummary(
     // a misleading label for it.
     flow:
       hangarField(meta, 'flow') ??
-      (pipelineName && GUARDRAIL_PIPELINE_NAMES.includes(pipelineName) ? 'guardrail' : undefined) ??
+      (isGuardrailPipeline(pipelineName) ? 'guardrail' : undefined) ??
       (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, 'subcomponent') ?? '') ? 'ci' : undefined),
     phase: conditionPhase(raw.status?.conditions),
     reason: cond?.reason,

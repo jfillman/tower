@@ -18,6 +18,7 @@ import { TroubleshootBanner } from './deployments/TroubleshootBanner';
 import { useNamespaceEvents } from '../deployment/useNamespaceEvents';
 import type { RawPod } from '../deployment/problems';
 import { StageDetail } from './deployments/StageDetail';
+import { ARGO_WATCH_POLL_MS, livePollMs, useFastLivePoll, usePageVisible } from '../livePoll';
 import {
   envStageRank,
   envTierOf,
@@ -99,8 +100,13 @@ export function DeploymentsTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const railClasses = useSignalRailStyles({ t });
+  // Watching (livePoll.ts): while this tab is open and the page visible, Argo CD status is polled - fast while
+  // something is moving, so an out-of-sync or syncing Application shows up within seconds rather than at the next
+  // manual refresh. A hidden page polls nothing.
+  const visible = usePageVisible();
+  const [moving, setMoving] = useState(false);
   const { environments, loading, error, appName, gitopsPrs, pipelineOrder, deployHistory, provenanceByImage, refresh } =
-    useReleaseContext();
+    useReleaseContext({ argoPollMs: livePollMs(visible, moving, ARGO_WATCH_POLL_MS) });
 
   const cdEnvs = useMemo(() => environments.filter(e => !isPreviewEnvName(e.env)), [environments]);
 
@@ -200,13 +206,25 @@ export function DeploymentsTab() {
   // Same "only poll while something's actually in flight" posture as the
   // old CiCdTab.tsx's CD panel - see useReleaseContext's own comment on the
   // real GitHub rate-limit incident this is protecting against.
+  // 2026-10-20: also while Argo CD or the Rollout is moving, so a release that started after the tab loaded picks up
+  // its PR, and never while the page is hidden.
   const hasActiveDelivery = deliveries.some(d => d.delivery.current);
+  const envMoving = cdEnvs.some(
+    e =>
+      e.argoSyncStatus === 'OutOfSync' ||
+      e.argoOperationPhase === 'Running' ||
+      e.argoHealthStatus === 'Progressing' ||
+      isRolloutActive(e),
+  );
+  const isMoving = hasActiveDelivery || envMoving;
+  useEffect(() => setMoving(isMoving), [isMoving]);
+  useFastLivePoll('deployments', visible && isMoving);
   useEffect(() => {
-    if (!hasActiveDelivery) return undefined;
+    if (!isMoving || !visible) return undefined;
     const id = setInterval(refresh, 20_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasActiveDelivery]);
+  }, [isMoving, visible]);
 
   const argoActions = useArgoActions();
   const pipelineRuns = useTektonPipelineRuns(appName);

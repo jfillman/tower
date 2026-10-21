@@ -96,7 +96,8 @@ function argoFields(argoAppName: string | undefined, argoStatusRaw: Record<strin
 // cicd.yaml deploy.promotionOrder (dev/test/staging/pre-prod/prod for
 // checkout-api) - confirmed live 2026-09-08. One shared hook means that
 // class of bug can only happen once, not once per tab.
-export function useReleaseContext() {
+// argoPollMs: poll Argo CD status on this interval as well as on refresh() (the Deployments tab, livePoll.ts).
+export function useReleaseContext(options: { argoPollMs?: number | null } = {}) {
   const { entity } = useEntity();
   const { environments: rawEnvironments, loading, error } = useTowerEnvironments();
 
@@ -192,6 +193,7 @@ export function useReleaseContext() {
   const argoStatusRaw = useArgoStatusMap(
     [...rawEnvironments.map(e => e.argoAppName).filter((n): n is string => Boolean(n)), ...declaredArgoNames],
     refreshNonce,
+    options.argoPollMs ?? null,
   );
 
 

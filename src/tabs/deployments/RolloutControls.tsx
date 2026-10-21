@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { pageHidden } from '../../livePoll';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
@@ -129,7 +130,9 @@ function useRolloutActions(target: { cluster: string; appName: string; namespace
     setLastRun(undefined);
     setRunError(undefined);
     loadRef.current();
-    const id = setInterval(() => loadRef.current(), POLL_MS);
+    const id = setInterval(() => {
+      if (!pageHidden()) loadRef.current();
+    }, POLL_MS);
     return () => clearInterval(id);
   }, [cluster, appName, namespace, rolloutName]);
 
