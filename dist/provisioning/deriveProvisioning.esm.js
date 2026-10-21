@@ -37,7 +37,7 @@ function cond(xr, type) {
 const prLink = (label, pr) => pr ? [{ label: `${label} #${pr.number}`, url: pr.url, state: pr.state }] : [];
 const infisicalProjectUrl = (baseUrl, projectId) => baseUrl ? `${baseUrl.replace(/\/+$/, "")}/projects/secret-management/${projectId}/overview` : void 0;
 function deriveProvisioning(input, now, typical) {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed, firstEnv } = input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   const infra = xr.kind === INFRA_KIND;
   const envUp = infra && envApp?.sync === "Synced" && envApp.health === "Healthy";
@@ -285,8 +285,10 @@ function deriveProvisioning(input, now, typical) {
   let runFraction = 0;
   let runSec;
   let runDetail;
-  let runTitle = "Running healthy in dev";
-  let runDesc = "Rollout reaches its desired replicas on the dev cluster";
+  const envName = firstEnv?.name ?? "dev";
+  const flightFirst = firstEnv?.tier === "flight";
+  let runTitle = `Running healthy in ${envName}`;
+  let runDesc = flightFirst ? `Rollout reaches its desired replicas on ${firstEnv?.cluster}, after its first release PR is merged` : "Rollout reaches its desired replicas on the dev cluster";
   let runLinks;
   if (cloudFinal) {
     const where = cloudDeploy?.label ?? "the cloud target";
@@ -318,7 +320,7 @@ function deriveProvisioning(input, now, typical) {
   } else if (buildState === "done") {
     runState = "run";
     if (build?.completedAt !== void 0 && now - build.completedAt > DEPLOY_GRACE_MS) {
-      runDetail = "No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml";
+      runDetail = flightFirst ? `No rollout yet. The first release to ${envName} is a pull request on the GitOps repo; it deploys once merged` : `No rollout yet. The deploy stage needs a ${envName} values file (glidepath/envs/${envName}.yaml) in the source repo and a deploy stage for ${envName} in cicd.yaml`;
     }
   }
   if (!infra) push({

@@ -5,7 +5,7 @@ import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
-import { INFRA_KIND, deriveProvisioning, isCloudApp } from './deriveProvisioning.esm.js';
+import { INFRA_KIND, isCloudApp, deriveProvisioning } from './deriveProvisioning.esm.js';
 import { updateObservation } from './observed.esm.js';
 import { appRepos } from '../appRepos.esm.js';
 
@@ -149,6 +149,17 @@ function toCreated(refs, readable, store) {
   if (store) out.push({ kind: "SecretStore", name: store.name, ready: store.ready });
   return out;
 }
+function firstEnvOf(values, devCluster) {
+  const envs = values?.deploy?.environments;
+  const first = Array.isArray(envs) ? envs[0] : void 0;
+  if (typeof first?.name === "string") {
+    if (first.tier === "flight" && typeof first.cluster === "string" && first.cluster) {
+      return { name: first.name, cluster: first.cluster, tier: "flight" };
+    }
+    if (first.tier !== "flight") return { name: first.name, cluster: devCluster, tier: "ground" };
+  }
+  return { name: "dev", cluster: devCluster, tier: "ground" };
+}
 function toRollout(r) {
   return {
     phase: r.status?.phase,
@@ -264,9 +275,9 @@ function useProvisioning() {
         }
       })();
     };
-    const optional = async (path) => {
+    const optional = async (path, cluster = XR_CLUSTER) => {
       try {
-        return await k8sProxyGet(discoveryApi, fetchApi, XR_CLUSTER, path);
+        return await k8sProxyGet(discoveryApi, fetchApi, cluster, path);
       } catch {
         return void 0;
       }
@@ -299,6 +310,25 @@ function useProvisioning() {
       } catch (e) {
         return /not found/i.test(String(e?.message)) ? toArgoSnapshot(appName, void 0) : void 0;
       }
+    };
+    const firstEnvs = /* @__PURE__ */ new Map();
+    const refreshFirstEnv = (name, owner) => {
+      const entry = firstEnvs.get(name) ?? { at: 0, busy: false };
+      firstEnvs.set(name, entry);
+      if (!owner || entry.env || entry.busy || Date.now() - entry.at < GITHUB_POLL_MS) return;
+      entry.busy = true;
+      (async () => {
+        try {
+          const base = await discoveryApi.getBaseUrl("glidepath");
+          const res = await fetchApi.fetch(`${base}/config/cicd?${new URLSearchParams({ owner, appName: name })}`);
+          const body = res.ok ? await res.json() : void 0;
+          if (body?.raw) entry.env = firstEnvOf(body.values, XR_CLUSTER);
+        } catch {
+        } finally {
+          entry.at = Date.now();
+          entry.busy = false;
+        }
+      })();
     };
     const envApp = async (name) => {
       const appName = `${name}-dev`;
@@ -341,12 +371,18 @@ function useProvisioning() {
           const infra = x.kind === INFRA_KIND;
           const names = appRepos(name, infra ? "infra" : "app");
           const cicdNs = names.cicdNamespace;
+          const firstEnv = firstEnvs.get(name)?.env;
+          const envNs = `app-${name}-${firstEnv?.name ?? "dev"}`;
+          const envCluster = firstEnv?.cluster ?? XR_CLUSTER;
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo, envArgo] = await Promise.all([
             infra ? void 0 : optional(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
-            infra ? void 0 : optional(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+            infra ? void 0 : optional(
+              `/apis/argoproj.io/v1alpha1/namespaces/${envNs}/rollouts`,
+              envCluster
+            ),
             optional(`${mrBase}/repositories?${selector}`),
             optional(`${mrBase}/repositoryfiles?${selector}`),
             optional(`${nsBase}/secretstores`),
@@ -363,6 +399,9 @@ function useProvisioning() {
           const repoLinks = toRepoLinks(name, repos?.items ?? [], names);
           const tenants = parseTenantsRepo(x.metadata.annotations?.["terasky.backstage.io/source-info"]);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
+          if (!infra && !isCloudApp({ kind: x.kind ?? "", deployTarget: x.spec?.deployTarget })) {
+            refreshFirstEnv(name, repoLinks.owner ?? tenants?.owner);
+          }
           const gh = github.get(name);
           const first = pickFirstBuild(runs?.items);
           const deployRuns = (runs?.items ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
@@ -381,6 +420,7 @@ function useProvisioning() {
               conditions: x.status?.conditions ?? [],
               deployTarget: x.spec?.deployTarget
             },
+            firstEnv,
             build: first ? toBuild(first) : void 0,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : void 0,
             managed: toManaged(x.spec?.crossplane?.resourceRefs, [...repos?.items ?? [], ...files?.items ?? []]),
@@ -437,5 +477,5 @@ function useProvisioning() {
   return state;
 }
 
-export { BUILD_PIPELINE, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toFoundArgoSnapshot, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
+export { BUILD_PIPELINE, firstEnvOf, latestOnboardingPr, mergeRequestPr, parseTenantsRepo, pickFirstBuild, toArgoSnapshot, toBuild, toCloudDeploySnapshot, toCreated, toFoundArgoSnapshot, toManaged, toOnboardingPrs, toPendingInputs, toRepoLinks, toRequestPr, toRollout, toSecrets, useProvisioning };
 //# sourceMappingURL=useProvisioning.esm.js.map
