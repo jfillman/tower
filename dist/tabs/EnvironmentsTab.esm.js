@@ -7,7 +7,8 @@ import MenuItem from '@material-ui/core/MenuItem';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
-import { readEnvironments, applyStaged, purgedEnvs, leftoverGroundEnvs, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, envFilePaths, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, buildDeploy, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
+import { readEnvironments, applyStaged, purgedEnvs, leftoverGroundEnvs, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, envFilePaths, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, uncopiedGroundAdds, buildDeploy, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
+import { appTypeOf, appRepos } from '../appRepos.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { useProvisionedEnvs, unlistedProvisioned } from '../environments/provisionedEnvs.esm.js';
 import { dump } from 'js-yaml';
@@ -78,6 +79,7 @@ function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
+  const appType = appTypeOf(appEntity);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
   const loadValues = useEnvValuesLoader();
@@ -174,7 +176,7 @@ function EnvironmentsTab() {
   }, [before, after]);
   const notes = useMemo(
     () => [
-      ...followUps(before, after, targetId, appName),
+      ...followUps(before, after, targetId, appName, appType),
       ...purged.map(
         (name) => `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`
       ),
@@ -182,7 +184,7 @@ function EnvironmentsTab() {
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No ${k.stage} step added for ${k.env}: ${k.reason}.`)
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged, purged]
+    [before, after, targetId, appName, appType, releasePlan, flightOrderChanged, staged, purged]
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId, purged), [before, after, targetId, purged]);
   const rows = useMemo(() => {
@@ -279,6 +281,13 @@ function EnvironmentsTab() {
   const openPr = async () => {
     if (!owner || !appName) return;
     setFailure(void 0);
+    const uncopied = appType === "infra" && !cloudBlock ? uncopiedGroundAdds(staged, before, after) : [];
+    if (uncopied.length > 0) {
+      setFailure(
+        `${uncopied.join(", ")}: an InfraService has no build and no onboarding pull request, so a new environment needs values to deploy. Use Duplicate\u2026 on an existing environment instead, or add ${ENVS_ROOT}/envs/<name>.yaml to ${appRepos(appName, "infra").gitopsRepo} by hand. Nothing was changed.`
+      );
+      return;
+    }
     const done = { ...launched };
     const reusedNow = { ...reused };
     for (const e of flightAdds) {

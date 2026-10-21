@@ -1,4 +1,5 @@
 import { ENVS_ROOT } from '../types.esm.js';
+import { appRepos } from '../appRepos.esm.js';
 
 const CLOUD_BLOCKS = ["ecs", "lambda", "azureContainerApps"];
 const TARGET_BLOCK = {
@@ -208,7 +209,7 @@ function leftoverGroundEnvs(live, opts) {
   const skip = /* @__PURE__ */ new Set([...opts.declared, ...opts.provisioned, ...opts.inFlight]);
   return live.filter((r) => r.tier === "ground" && r.target === "Kubernetes" && r.where === opts.controlPlane && !skip.has(r.name)).map((r) => r.name);
 }
-function followUps(before, after, target, appName) {
+function followUps(before, after, target, appName, type = "app") {
   const out = [];
   const had = new Set(before.map((e) => e.name));
   const cloud = (target) !== "k8s-rollout";
@@ -236,7 +237,11 @@ function followUps(before, after, target, appName) {
         `${e.name} is created by an ApplicationEnvironment request on the tenants repo, opened first. Merge that one before the cicd.yaml change, so the environment exists when cicd.yaml names it. Crossplane then adds its gitops directory and the Application.`
       );
     }
-    if (e.tier === "ground" && !cloud) {
+    if (e.tier === "ground" && !cloud && type === "infra") {
+      out.push(
+        `An InfraService gets no onboarding pull request, so this one adds ${ENVS_ROOT}/envs/${e.name}.yaml to ${appName ? appRepos(appName, "infra").gitopsRepo : "its gitops repo"} itself, with the values of the environment it duplicates. Argo CD deploys ${e.name} when it merges.`
+      );
+    } else if (e.tier === "ground" && !cloud) {
       out.push(`Glidepath then opens a pull request on the source repo adding ${ENVS_ROOT}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
     }
   }
@@ -323,6 +328,10 @@ function pipelineStepEnvs(staged, after) {
   const alive = new Set(after.map((e) => e.name));
   return staged.flatMap((s) => s.kind === "add" && s.pipelineStep && alive.has(s.env.name) ? [s.env.name] : []);
 }
+function uncopiedGroundAdds(staged, before, after) {
+  const copied = new Set(copiedEnvs(staged, after).map((c) => c.env.name));
+  return after.filter((e) => e.tier === "ground" && !before.some((b) => b.name === e.name) && !copied.has(e.name)).map((e) => e.name);
+}
 function copiedEnvs(staged, after) {
   return staged.flatMap((s) => {
     if (s.kind !== "add" || !s.copyValuesFrom) return [];
@@ -331,5 +340,5 @@ function copiedEnvs(staged, after) {
   });
 }
 
-export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, cloudFlightFilePaths, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, leftoverGroundEnvs, pipelineStepEnvs, pipelinesNamingEnv, planPipelineSteps, purgedEnvs, readEnvironments, removedEnvs, stageForTier, stageSetBlock, validateAddedFlight, validateEnvironments, validateRemovals };
+export { CLOUD_BLOCKS, addedFlightEnvs, applyStaged, buildDeploy, cloudFlightFilePaths, copiedEnvs, deleteFilesFor, describeChanges, envFilePaths, followUps, leftoverGroundEnvs, pipelineStepEnvs, pipelinesNamingEnv, planPipelineSteps, purgedEnvs, readEnvironments, removedEnvs, stageForTier, stageSetBlock, uncopiedGroundAdds, validateAddedFlight, validateEnvironments, validateRemovals };
 //# sourceMappingURL=stagedChanges.esm.js.map

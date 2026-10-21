@@ -15,12 +15,14 @@ import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { ownChartOf } from '../environments/ownChart.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
+import { appTypeOf, appRepos } from '../appRepos.esm.js';
 import { PageHeader, Panel, Subtabs } from '../ui/index.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 
-function configSections(appName, clusters) {
+function configSections(appName, clusters, type = "app") {
   const several = clusters.length > 1;
+  const { gitopsRepo } = appRepos(appName, type);
   return [
     {
       id: "base",
@@ -36,8 +38,8 @@ function configSections(appName, clusters) {
       cluster,
       label: several ? `Flight shared values (${cluster})` : "Flight shared values",
       title: `Flight shared values on ${cluster}`,
-      path: `gitops-${appName}/${cluster}/base.yaml`,
-      hint: `The values every Flight environment on ${cluster} starts from; an environment overrides any of them in its own values.yaml. A change opens a PR on gitops-${appName} and reaches those environments when it merges, like a release.`
+      path: `${gitopsRepo}/${cluster}/base.yaml`,
+      hint: `The values every Flight environment on ${cluster} starts from; an environment overrides any of them in its own values.yaml. A change opens a PR on ${gitopsRepo} and reaches those environments when it merges, like a release.`
     })),
     {
       id: "preview",
@@ -84,6 +86,7 @@ function ConfigTab() {
   const platform = usePlatformConfig();
   const [sectionId, setSection] = useState("base");
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0);
+  const appType = appTypeOf(entity);
   const deploy = cicd.data?.values.deploy;
   const clusters = useMemo(
     () => [...new Set(readEnvironments(deploy).envs.filter((e) => e.tier === "flight" && e.cluster).map((e) => e.cluster))],
@@ -102,7 +105,9 @@ function ConfigTab() {
       }
     );
   }
-  const sections = configSections(appName, clusters);
+  const sections = configSections(appName, clusters, appType);
+  const names = appRepos(appName, appType);
+  const where = names.configRepo === names.gitopsRepo ? `on ${names.gitopsRepo}` : `on the ${names.configRepo} repo, or ${names.gitopsRepo} for Flight`;
   const active = sections.find((s) => s.id === sectionId) ?? sections[0];
   const legacyEnv = searchParams.get("env");
   const toEnvironments = () => {
@@ -112,7 +117,7 @@ function ConfigTab() {
     setSearchParams(next);
   };
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx(PageHeader, { title: "App Configuration", subtitle: `What ${appName} shares across its environments. Every change opens a pull request (on the ${appName} repo, or gitops-${appName} for Flight); nothing is committed directly.` }),
+    /* @__PURE__ */ jsx(PageHeader, { title: "App Configuration", subtitle: `What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.` }),
     /* @__PURE__ */ jsx(Panel, { style: { padding: 12, marginBottom: 16 }, children: /* @__PURE__ */ jsxs("span", { className: ui.note, children: [
       legacyEnv ? `${legacyEnv}'s own values moved: ` : "An environment's own values are edited in its row on the ",
       /* @__PURE__ */ jsx("a", { href: "#environments", onClick: (e) => {
