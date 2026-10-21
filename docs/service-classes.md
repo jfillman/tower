@@ -5,15 +5,16 @@ with two annotations on its catalog Component, and Tower works out the rest.
 
 | Annotation | Meaning | Example values |
 |---|---|---|
-| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `ai-workload`, `storage`, `secret-store`, `data-lake` |
+| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `infra-service`, `ai-workload`, `storage`, `secret-store`, `data-lake` |
 | `hangar.io/deploy-target` | where it runs. Optional. | `k8s-rollout`, `aws-ecs`, `aws-lambda`, `azure-container-apps` |
 
 `deploy-target` mirrors `deploy.target` in the service's `cicd.yaml`. The XRD writes both
 from one parameter at onboarding. `cicd.yaml` stays the source of truth; Tower reads the
 annotation because the tab bar needs it before any file is fetched.
 
-Services that predate these annotations keep working. The four application kinds and
-InfraService are inferred as `container-app` on `k8s-rollout`. `LambdaFunction` and
+Services that predate these annotations keep working. The four application kinds are
+inferred as `container-app` on `k8s-rollout`, and InfraService as `infra-service` on
+`k8s-rollout`. `LambdaFunction` and
 `AzureFunction` are inferred as `function` on `aws-lambda` and `azure-container-apps`
 (Azure Functions are hosted on Container Apps), so they work before the catalog ingestor
 emits the annotations. An explicit annotation always wins. The older
@@ -36,14 +37,21 @@ has all of the ones it requires; a tab with none required always shows.
 | Capability | Granted by | Tabs that need it |
 |---|---|---|
 | `source` | classes with a GitHub repo | Pull Requests, Notifications |
-| `ci` | classes built by Glidepath | Pipelines, Glidepath |
+| `ci` | classes onboarded to Glidepath (a `cicd.yaml`) | Pipelines, Environments, Glidepath |
+| `build` | container-app, function: a source repo Glidepath builds | Pipelines (with `ci`) |
 | `releases` | container-app, function | Releases |
 | `images` | container-app, function | Images |
 | `slo` | container-app | SLOs (also needs `k8s-runtime`) |
-| `values-config` | container-app; removed by cloud targets | App Configuration |
+| `values-config` | container-app, infra-service; removed by cloud targets | App Configuration |
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
 | `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
 | `autopilot` | ai-workload | Autopilot |
+
+An **infra-service** (an Airframe InfraService such as a broker) has no source repo, build,
+image or release records: it gets `source`, `ci` and `values-config` but not `build`,
+`releases`, `images` or `slo`. So it shows Overview, Pull Requests, Deployments,
+Environments, Topology, Notifications, App Configuration and Glidepath, and not Pipelines,
+Releases, Images or SLOs. Its own filter chip on the Services list is "Infra services".
 
 A class Tower has no entry for gets a label made from its slug, no capabilities, and
 `source` if its Component has a `github.com/project-slug`. It still lists, filters and
