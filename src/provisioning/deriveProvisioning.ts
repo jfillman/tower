@@ -171,8 +171,21 @@ export interface StepObservation {
   endedAt?: number;
 }
 
+/**
+ * Where an app's first rollout lands: the first entry of cicd.yaml's deploy.environments. Nothing declared means one
+ * Ground environment, dev, on the dev cluster (Glidepath's default). An app whose only environment is a Flight one
+ * (Backstage itself: prod on the upper cluster) never has a dev rollout, and Tower waited for one forever.
+ */
+export interface FirstEnv {
+  name: string;
+  cluster: string;
+  tier: 'ground' | 'flight';
+}
+
 export interface ProvisioningInputs {
   xr: XrSnapshot;
+  /** Undefined until cicd.yaml has been read (or when it could not be): the step then assumes dev. */
+  firstEnv?: FirstEnv;
   created?: CreatedResource[];
   build?: BuildSnapshot;
   rollout?: RolloutSnapshot;
@@ -229,9 +242,8 @@ export interface Provisioning {
   /** Epoch ms of the last finished step, once complete. */
   completedAt?: number;
   /**
-   * Built hours ago but never got a rollout on the dev cluster. Either it
-   * deploys somewhere else (Backstage itself deploys to an upper cluster) or the
-   * deploy is stuck; either way it is not "being provisioned" any more.
+   * Built hours ago but never got a rollout in its first environment. The
+   * deploy is stuck or was never set up; either way it is not "being provisioned" any more.
    */
   stalled: boolean;
 }
@@ -306,7 +318,8 @@ export function deriveProvisioning(
   now: number,
   typical?: Record<string, number>,
 ): Provisioning {
-  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed } = input;
+  const { xr, build, rollout, managed, secrets, catalog, cicdApp, cloudDeploy, envApp, links, observed, firstEnv } =
+    input;
   const isFunction = FUNCTION_KINDS.has(xr.kind);
   const infra = xr.kind === INFRA_KIND;
   const envUp = infra && envApp?.sync === 'Synced' && envApp.health === 'Healthy';
@@ -615,16 +628,20 @@ export function deriveProvisioning(
     detail: buildDetail,
   });
 
-  // 8. The last step. For an app on Kubernetes: running healthy in dev (new apps get
-  // glidepath/envs/dev.yaml and a deploy stage from onboarding, so this follows the build without
-  // anyone's help). For a function, or any app that deploys to a cloud target, there is no Rollout:
+  // 8. The last step. For an app on Kubernetes: running healthy in its first environment, dev unless
+  // cicd.yaml says otherwise (new apps get glidepath/envs/dev.yaml and a deploy stage from onboarding, so
+  // this follows the build without anyone's help; a Flight first environment waits on a release PR merge). For a function, or any app that deploys to a cloud target, there is no Rollout:
   // the deploy stage updating the cloud resource is the step.
   let runState: StepState = 'pend';
   let runFraction = 0;
   let runSec: number | undefined;
   let runDetail: string | undefined;
-  let runTitle = 'Running healthy in dev';
-  let runDesc = 'Rollout reaches its desired replicas on the dev cluster';
+  const envName = firstEnv?.name ?? 'dev';
+  const flightFirst = firstEnv?.tier === 'flight';
+  let runTitle = `Running healthy in ${envName}`;
+  let runDesc = flightFirst
+    ? `Rollout reaches its desired replicas on ${firstEnv?.cluster}, after its first release PR is merged`
+    : 'Rollout reaches its desired replicas on the dev cluster';
   let runLinks: StepLink[] | undefined;
   if (cloudFinal) {
     const where = cloudDeploy?.label ?? 'the cloud target';
@@ -657,8 +674,9 @@ export function deriveProvisioning(
   } else if (buildState === 'done') {
     runState = 'run';
     if (build?.completedAt !== undefined && now - build.completedAt > DEPLOY_GRACE_MS) {
-      runDetail =
-        'No rollout yet. The deploy stage needs a dev values file (glidepath/envs/dev.yaml) in the source repo and a deploy stage for dev in cicd.yaml';
+      runDetail = flightFirst
+        ? `No rollout yet. The first release to ${envName} is a pull request on the GitOps repo; it deploys once merged`
+        : `No rollout yet. The deploy stage needs a ${envName} values file (glidepath/envs/${envName}.yaml) in the source repo and a deploy stage for ${envName} in cicd.yaml`;
     }
   }
   if (!infra) push({

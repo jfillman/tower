@@ -20,7 +20,7 @@ Tower reads these through the Kubernetes proxy on the dev cluster, with its exis
 | Application onboarding PRs | The two PRs Glidepath opens, "Onboarding: re-sync ..." on the source repo and on `gitops-<name>`, read from the backend's `/pull-requests` route. Done when both are merged, or as soon as the app's own build run or a Rollout exists. **A person merges these**, and merging the source one is what starts the first build |
 | Infisical secrets resources | The app's `SecretStore` XR in `app-<name>-cicd` (`spec.appRef.name = <name>`): `Ready`, or failed on `Synced=False`. Links the Infisical project from the `Project` object's external name. An app with no SecretStore does not hold the provision open once it has built |
 | First build and checks | Earliest PipelineRun of the `build` pipeline (label `tekton.dev/pipeline=build`) in `app-<name>-cicd`. Glidepath's own runs in that namespace (`onboarding-resync`, `values-check`) are ignored: they finish before any build exists and used to mark this step, and the onboarding step with it, done too early; progress is tasks finished out of tasks in the pipeline. Starts by itself on the source onboarding PR's merge |
-| Running healthy in dev | Rollout in `app-<name>-dev`: `Healthy` with all replicas available. New apps get `glidepath/envs/dev.yaml` and a deploy-to-dev stage from onboarding; if a built app has no rollout after 5 minutes the step says which of those is missing |
+| Running healthy in &lt;env&gt; | Rollout in `app-<name>-<env>` on that environment's cluster: `Healthy` with all replicas available. `<env>` is the first entry of the app's `cicd.yaml` `deploy.environments` (read once through the glidepath backend's `/config/cicd`); nothing declared means `dev` on the dev cluster. A Ground environment is read on the dev cluster, a Flight one on the cluster it names (Backstage itself: `prod` on <prod-cluster>, which has no dev). Until `cicd.yaml` has been read the step assumes `dev`. New apps get `glidepath/envs/dev.yaml` and a deploy-to-dev stage from onboarding; if a built app has no rollout after 5 minutes the step says which of those is missing, or for a Flight first environment that its first release PR is still unmerged |
 
 ### An InfraService
 
@@ -40,7 +40,7 @@ deployed. Its environment namespaces stay `app-<name>-<env>`.
 
 GitHub-backed lookups (request PR, onboarding PRs) are not polled at the 6 second Kubernetes cadence: they refresh every 45 seconds, and stop once both onboarding PRs are merged.
 
-A service counts as in flight if its XR is under 24 hours old and not finished. One that was built more than 4 hours ago but has no rollout on the dev cluster is treated as stalled and dropped, which covers apps that deploy elsewhere (Backstage itself deploys to <prod-cluster>). A finished one stays in the strip for 15 minutes.
+A service counts as in flight if its XR is under 24 hours old and not finished. One that was built more than 4 hours ago but has no rollout in its first environment is treated as stalled and dropped. A finished one stays in the strip for 15 minutes.
 
 The logic lives in `src/provisioning/deriveProvisioning.ts` and is pure, so it is tested against conditions copied from a live XR.
 
@@ -50,7 +50,7 @@ The logic lives in `src/provisioning/deriveProvisioning.ts` and is pure, so it i
 - **Per-resource progress needs a read grant.** The `backstage-github-mr-viewer` ClusterRole (read-only on `repo.github.m.upbound.io` repositories and repositoryfiles) lives in `gitops-cluster-dev`'s `backstage-ingestor-rbac`. On a cluster without it, the step falls back to waiting for the whole XR to be Ready.
 - **Typical durations are estimates**, hard-coded in `TYPICAL_SEC`, until Tower records history.
 - **Cluster and CI/CD durations on old XRs are not meaningful.** Crossplane resets those condition times on re-reconcile. They are accurate for a service watched while it is being created.
-- **A stalled service moves to a "Stalled" group on the tab** (built more than 4 hours ago, no rollout on the dev cluster) and leaves the strip and the tab badge. It either deploys elsewhere (Backstage itself deploys to <prod-cluster>) or the deploy is stuck; Tower cannot tell which. It drops out entirely when the XR is 24 hours old.
+- **A stalled service moves to a "Stalled" group on the tab** (built more than 4 hours ago, no rollout in its first environment) and leaves the strip and the tab badge: the deploy is stuck or was never set up. It drops out entirely when the XR is 24 hours old.
 - **"What gets created"** lists the XR's `resourceRefs` with readiness for the GitHub repositories/files and the CI/CD child XR, plus the app's SecretStore. Kinds Tower cannot read show as "not tracked".
 - **The scaffolder link comes from the Backstage app, not the template source.** The ingestor hardcodes the generated templates' success output, so a catalog processor (`towerProvisioningLink.ts` in the backstage repo) appends "Track provisioning in Tower" to the four application templates, pointing at the deep link above.
 - **Provisioning reads only `tower.controlPlaneCluster`**, so XRs on other clusters are not discovered.

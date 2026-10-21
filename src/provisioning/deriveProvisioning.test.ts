@@ -335,6 +335,40 @@ describe('deriveProvisioning', () => {
   });
 });
 
+describe('an app whose first environment is a Flight one (Backstage: prod on the upper cluster, no dev)', () => {
+  const firstEnv = { name: 'prod', cluster: 'example-prod', tier: 'flight' as const };
+  const build = {
+    name: 'b1',
+    phase: 'succeeded' as const,
+    startedAt: now - 9000000,
+    completedAt: now - 8900000,
+    tasksDone: 6,
+    tasksTotal: 6,
+  };
+
+  it('names the environment and waits on its release PR, not a dev values file', () => {
+    const p = deriveProvisioning({ xr: xr(live), build, firstEnv }, now);
+    expect(p.steps[RUNNING].title).toBe('Running healthy in prod');
+    expect(p.steps[RUNNING].desc).toContain('example-prod');
+    expect(p.steps[RUNNING].detail).toContain('release to prod');
+    expect(p.steps[RUNNING].detail).not.toContain('dev.yaml');
+  });
+
+  it('is complete, not stalled, once the rollout there is healthy', () => {
+    const old = { ...xr(live), createdAt: now - 12 * 3600 * 1000 };
+    const p = deriveProvisioning(
+      { xr: old, build, firstEnv, rollout: { phase: 'Healthy', desired: 1, available: 1 } },
+      now,
+    );
+    expect(p.complete).toBe(true);
+    expect(p.stalled).toBe(false);
+  });
+
+  it('keeps the dev wording when cicd.yaml has not been read', () => {
+    expect(deriveProvisioning({ xr: xr(live), build }, now).steps[RUNNING].title).toBe('Running healthy in dev');
+  });
+});
+
 describe('catalog step', () => {
   const base = (over: Partial<ProvisioningInputs>) =>
     deriveProvisioning({ xr: xr([live[0]]), ...over }, created + 30_000).steps[CATALOG];

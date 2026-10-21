@@ -1,4 +1,5 @@
 import {
+  firstEnvOf,
   latestOnboardingPr,
   parseTenantsRepo,
   pickFirstBuild,
@@ -393,5 +394,37 @@ describe('latestOnboardingPr', () => {
   });
   it('ignores other PRs', () => {
     expect(latestOnboardingPr([pr(30, 'open', 'Config: dev values'), { ...pr(2, 'open'), repo: 'gitops' as const }])).toBeUndefined();
+  });
+});
+
+describe('firstEnvOf', () => {
+  it('defaults to dev on the dev cluster when nothing is declared', () => {
+    expect(firstEnvOf(undefined, 'dev-c')).toEqual({ name: 'dev', cluster: 'dev-c', tier: 'ground' });
+    expect(firstEnvOf({ deploy: { strategy: 'rollout' } }, 'dev-c')).toEqual({
+      name: 'dev',
+      cluster: 'dev-c',
+      tier: 'ground',
+    });
+  });
+
+  it('takes the first declared environment, a Flight one on its own cluster', () => {
+    const values = { deploy: { environments: [{ name: 'prod', tier: 'flight', cluster: 'up-c', production: true }] } };
+    expect(firstEnvOf(values, 'dev-c')).toEqual({ name: 'prod', cluster: 'up-c', tier: 'flight' });
+  });
+
+  it('places a Ground environment on the dev cluster', () => {
+    const values = {
+      deploy: {
+        environments: [
+          { name: 'test', tier: 'ground' },
+          { name: 'prod', tier: 'flight', cluster: 'up-c' },
+        ],
+      },
+    };
+    expect(firstEnvOf(values, 'dev-c')).toEqual({ name: 'test', cluster: 'dev-c', tier: 'ground' });
+  });
+
+  it('falls back to dev for a Flight entry with no cluster', () => {
+    expect(firstEnvOf({ deploy: { environments: [{ name: 'prod', tier: 'flight' }] } }, 'dev-c').name).toBe('dev');
   });
 });

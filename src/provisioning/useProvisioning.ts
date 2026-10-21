@@ -24,11 +24,13 @@ import {
   type StepObservation,
   type CatalogSnapshot,
   type CloudDeploySnapshot,
+  type FirstEnv,
   isCloudApp,
   INFRA_KIND,
 } from './deriveProvisioning';
 import { updateObservation } from './observed';
 import { appRepos, type AppRepos } from '../appRepos';
+import type { CicdConfigResponse } from '../types';
 
 // Airframe application XRs live on the dev cluster, the same one that runs
 // Tekton (tower.controlPlaneCluster, platformConfig.ts). The four app-tier
@@ -303,6 +305,23 @@ export function toCreated(
   return out;
 }
 
+/**
+ * The app's first environment from its cicd.yaml values (deploy.environments, list order is the promotion order). A
+ * Ground environment runs on the dev cluster; a Flight one names its cluster. Nothing declared (or an entry Tower
+ * cannot place) means dev on the dev cluster, Glidepath's default.
+ */
+export function firstEnvOf(values: CicdConfigResponse['values'] | undefined, devCluster: string): FirstEnv {
+  const envs = (values?.deploy as { environments?: unknown } | undefined)?.environments;
+  const first = Array.isArray(envs) ? (envs[0] as { name?: unknown; tier?: unknown; cluster?: unknown }) : undefined;
+  if (typeof first?.name === 'string') {
+    if (first.tier === 'flight' && typeof first.cluster === 'string' && first.cluster) {
+      return { name: first.name, cluster: first.cluster, tier: 'flight' };
+    }
+    if (first.tier !== 'flight') return { name: first.name, cluster: devCluster, tier: 'ground' };
+  }
+  return { name: 'dev', cluster: devCluster, tier: 'ground' };
+}
+
 export function toRollout(r: RawRollout): RolloutSnapshot {
   return {
     phase: r.status?.phase,
@@ -504,9 +523,9 @@ export function useProvisioning(): UseProvisioningResult {
       })();
     };
 
-    const optional = async <T>(path: string): Promise<T | undefined> => {
+    const optional = async <T>(path: string, cluster: string = XR_CLUSTER): Promise<T | undefined> => {
       try {
-        return await k8sProxyGet<T>(discoveryApi, fetchApi, XR_CLUSTER, path);
+        return await k8sProxyGet<T>(discoveryApi, fetchApi, cluster, path);
       } catch {
         // Missing namespace or no read grant: the step just stays pending.
         return undefined;
@@ -550,6 +569,30 @@ export function useProvisioning(): UseProvisioningResult {
       } catch (e) {
         return /not found/i.test(String((e as Error)?.message)) ? toArgoSnapshot(appName, undefined) : undefined;
       }
+    };
+
+    // The app's cicd.yaml, for where its first rollout lands. It is not polled: it is read from GitHub, and the first
+    // environment does not move while a service is being provisioned. A miss is asked again at the GitHub cadence.
+    const firstEnvs = new Map<string, { at: number; busy: boolean; env?: FirstEnv }>();
+    const refreshFirstEnv = (name: string, owner: string | undefined) => {
+      const entry = firstEnvs.get(name) ?? { at: 0, busy: false };
+      firstEnvs.set(name, entry);
+      if (!owner || entry.env || entry.busy || Date.now() - entry.at < GITHUB_POLL_MS) return;
+      entry.busy = true;
+      (async () => {
+        try {
+          const base = await discoveryApi.getBaseUrl('glidepath');
+          const res = await fetchApi.fetch(`${base}/config/cicd?${new URLSearchParams({ owner, appName: name })}`);
+          const body = res.ok ? ((await res.json()) as CicdConfigResponse) : undefined;
+          // No cicd.yaml yet (the backend answers empty) is asked again: onboarding may still add one.
+          if (body?.raw) entry.env = firstEnvOf(body.values, XR_CLUSTER);
+        } catch {
+          // Leaves the step on its dev default until the next try.
+        } finally {
+          entry.at = Date.now();
+          entry.busy = false;
+        }
+      })();
     };
 
     // An InfraService's first environment's ArgoCD app. Ground environment apps live in the argocd-apps instance,
@@ -602,6 +645,9 @@ export function useProvisioning(): UseProvisioningResult {
           const infra = x.kind === INFRA_KIND;
           const names = appRepos(name, infra ? 'infra' : 'app');
           const cicdNs = names.cicdNamespace;
+          const firstEnv = firstEnvs.get(name)?.env;
+          const envNs = `app-${name}-${firstEnv?.name ?? 'dev'}`;
+          const envCluster = firstEnv?.cluster ?? XR_CLUSTER;
           const selector = `labelSelector=${encodeURIComponent(`crossplane.io/composite=${name}`)}`;
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
@@ -613,7 +659,10 @@ export function useProvisioning(): UseProvisioningResult {
               : optional<ListResponse<TektonRawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
             infra
               ? undefined
-              : optional<ListResponse<RawRollout>>(`/apis/argoproj.io/v1alpha1/namespaces/app-${name}-dev/rollouts`),
+              : optional<ListResponse<RawRollout>>(
+                  `/apis/argoproj.io/v1alpha1/namespaces/${envNs}/rollouts`,
+                  envCluster,
+                ),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositories?${selector}`),
             optional<ListResponse<RawManaged>>(`${mrBase}/repositoryfiles?${selector}`),
             optional<ListResponse<RawXr & { spec?: { appRef?: { name?: string } } }>>(`${nsBase}/secretstores`),
@@ -636,6 +685,9 @@ export function useProvisioning(): UseProvisioningResult {
           const repoLinks = toRepoLinks(name, repos?.items ?? [], names);
           const tenants = parseTenantsRepo(x.metadata.annotations?.['terasky.backstage.io/source-info']);
           refreshGithub(x, repoLinks.owner ?? tenants?.owner, tenants);
+          if (!infra && !isCloudApp({ kind: x.kind ?? '', deployTarget: x.spec?.deployTarget })) {
+            refreshFirstEnv(name, repoLinks.owner ?? tenants?.owner);
+          }
           const gh = github.get(name);
           const first = pickFirstBuild(runs?.items);
           // TaskRuns carry the deploy target and config, so they are only fetched for an app that has
@@ -659,6 +711,7 @@ export function useProvisioning(): UseProvisioningResult {
               conditions: x.status?.conditions ?? [],
               deployTarget: x.spec?.deployTarget,
             },
+            firstEnv,
             build: first ? toBuild(first) : undefined,
             rollout: rollouts?.items?.[0] ? toRollout(rollouts.items[0]) : undefined,
             managed: toManaged(x.spec?.crossplane?.resourceRefs, [...(repos?.items ?? []), ...(files?.items ?? [])]),
