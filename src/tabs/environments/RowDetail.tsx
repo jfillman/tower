@@ -5,7 +5,8 @@ import { RawValuesEditor } from '../../values/RawValuesEditor';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
+import { buildDeploy, infraStarterValues, pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
+import { useSubmitCicdConfigChange } from '../../useConfigData';
 import { ConfigEditor } from '../../values/ValuesForm';
 import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
 import { useChartValues } from '../../values/annotatedValues';
@@ -42,6 +43,8 @@ export interface RowDetailContext {
   entity: string;
   /** The app's airframe kind (workloadType.ts appKindOf): the env var names a new component is wired under. */
   appKind?: string;
+  /** 'infra' for an InfraService: nothing but this tab makes its environment's values file. */
+  appType?: 'app' | 'infra';
   deploy?: Deploy;
   pipelines: unknown;
   targetLabel: string;
@@ -264,6 +267,17 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
   // An environment rendering its own chart (glidepath ADR-0023) gets raw YAML: the form describes Airframe's chart.
   const own = ownChartOf(ctx.deploy, row.name, airframe);
   if (def.tier === 'ground') {
+    if (row.state === 'new' && ctx.appType === 'infra') {
+      return (
+        <div className={ui.note}>
+          Its values file, <span className={c.mono}>{ENVS_ROOT}/envs/{row.name}.yaml</span>, is added by the same pull request as the cicd.yaml change.
+          Edit its values here once that is merged.
+        </div>
+      );
+    }
+    if (ctx.appType === 'infra' && source && !source.loading && !source.error && source.data && !source.data.raw.trim()) {
+      return <CreateInfraValues ctx={ctx} env={row.name} path={source.data.path} />;
+    }
     if (row.state === 'new') {
       return (
         <div className={ui.note}>
@@ -277,6 +291,51 @@ function Values({ row, ctx, source }: { row: DisplayRow & { def: EnvDef }; ctx: 
   }
   if (own) return gate(source) ?? <RawValuesEditor source={source as ValuesSource} chart={own} />;
   return gate(source) ?? <FlightValues ctx={ctx} env={row.name} cluster={def.cluster ?? row.where} source={source as ValuesSource} live={liveOf(row)} />;
+}
+
+/**
+ * An InfraService's Ground environment with no values file (skyport-auth's implied dev, 2026-10-21). Nothing else makes
+ * one - no build, no onboarding pull request - so this opens a pull request that adds a starter file and declares the
+ * environment list in cicd.yaml as it stands (the backend takes no file-only change, and an implied dev becomes
+ * explicit, which is the same thing). Once it merges, the file appears and the values form replaces this.
+ */
+function CreateInfraValues({ ctx, env, path }: { ctx: RowDetailContext; env: string; path: string }) {
+  const t = useHangarTokens();
+  const c = useStyles({ t });
+  const ui = useUi({ t });
+  const submit = useSubmitCicdConfigChange();
+  const create = () =>
+    submit.submit({
+      owner: ctx.owner as string,
+      appName: ctx.appName as string,
+      patch: { deploy: buildDeploy(ctx.deploy, ctx.siblings) },
+      summary: [`Add ${path}, a starter values file for the ${env} environment (no component yet)`],
+      via: 'Environments tab',
+      createFiles: [{ path, content: infraStarterValues(env) }],
+    });
+  return (
+    <div className={ui.note}>
+      <span className={c.mono}>{path}</span> does not exist yet, and nothing creates it for an InfraService: there is no build and no
+      onboarding pull request. Create a starter file (no workload, no component) and add the service&apos;s component on the Components
+      sub-tab once it is merged. Argo CD deploys the environment from it.
+      <div style={{ marginTop: 10 }}>
+        {submit.result ? (
+          <span>
+            Pull request opened:{' '}
+            <a href={submit.result.prUrl} target="_blank" rel="noopener noreferrer">
+              {submit.result.prUrl}
+            </a>
+            . Merge it; this turns into the values form when the file appears.
+          </span>
+        ) : (
+          <Button variant="primary" disabled={submit.loading} onClick={create}>
+            {submit.loading ? 'Opening pull request…' : `Create ${path}`}
+          </Button>
+        )}
+        {submit.error && <div className={ui.problem}>Could not open the pull request: {submit.error}</div>}
+      </div>
+    </div>
+  );
 }
 
 // What is actually running, from the live Kubernetes read the row already has: the status beside the Deployment

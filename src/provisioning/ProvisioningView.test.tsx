@@ -106,7 +106,7 @@ describe('ProvisioningView', () => {
       'Infisical secrets resources',
       'First environment up',
     ]);
-    expect(screen.getByText(/Add glidepath\/envs\/dev.yaml to gitops-infra-skyport-broker/)).toBeTruthy();
+    expect(screen.getByText(/Create glidepath\/envs\/dev.yaml in gitops-infra-skyport-broker from the Environments tab/)).toBeTruthy();
     expect(screen.queryByRole('link', { name: /^Source repo/ })).toBeNull();
   });
 

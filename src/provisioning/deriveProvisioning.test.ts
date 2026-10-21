@@ -768,7 +768,7 @@ describe('an InfraService', () => {
     const p = deriveProvisioning({ ...base, envApp: { name: 'skyport-broker-dev', missing: true } }, at);
     const env = p.steps[7];
     expect(env.state).toBe('run');
-    expect(env.detail).toBe('Add glidepath/envs/dev.yaml to gitops-infra-skyport-broker to create the first environment');
+    expect(env.detail).toBe('Create glidepath/envs/dev.yaml in gitops-infra-skyport-broker from the Environments tab (dev, Values) to create the first environment');
     expect(env.links).toEqual([{ label: 'GitOps repo', url: 'https://github.com/example-org/gitops-infra-skyport-broker' }]);
     expect(p.complete).toBe(false);
     expect(p.stalled).toBe(false);

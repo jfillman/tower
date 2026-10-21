@@ -1068,6 +1068,30 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
 });
 
 describe('EnvironmentsTab: values that do not exist yet', () => {
+  it("offers an InfraService's environment a starter values file, since nothing else makes one (skyport-auth)", () => {
+    // skyport-auth, 2026-10-21: cicd.yaml names no environments, so dev is implied; its file never existed, and the
+    // row could neither be added nor edited.
+    ctx = {
+      ...base,
+      appName: 'skyport-auth',
+      entity: { metadata: { name: 'skyport-auth', tags: ['kind:infraservice'] } },
+      pipelineOrder: {},
+      environments: [],
+    };
+    cicdData = { values: { build: { agent: 'nodejs-20' } } };
+    platformFile = { loading: false, data: { repo: 'o/gitops-infra-skyport-auth', path: 'glidepath/envs/dev.yaml', values: {}, raw: '' } };
+    renderTab();
+    fireEvent.click(openRow('dev'));
+    expect(screen.queryByText(/so there is nothing to edit/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Create glidepath/envs/dev.yaml' }));
+    expect(submitMock).toHaveBeenCalledTimes(1);
+    const req = submitMock.mock.calls[0][0];
+    expect(req.patch).toEqual({ deploy: { environments: [{ name: 'dev', tier: 'ground' }] } });
+    expect(req.createFiles).toEqual([{ path: 'glidepath/envs/dev.yaml', content: expect.stringContaining('appType: infra') }]);
+    expect(req.createFiles[0].content).toContain('envName: dev');
+    expect(req.createFiles[0].content).toContain('rollout: { enabled: false }');
+  });
+
   it('does not offer the form for an environment whose values file does not exist', () => {
     k8sOld();
     platformFile = { loading: false, data: { repo: 'o/x', path: 'glidepath/envs/test.yaml', values: {}, raw: '' } };

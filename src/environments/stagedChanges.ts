@@ -377,7 +377,7 @@ export function followUps(
       out.push(
         `An InfraService gets no onboarding pull request, so this one adds ${ENVS_ROOT}/envs/${e.name}.yaml to ${
           appName ? appRepos(appName, 'infra').gitopsRepo : 'its gitops repo'
-        } itself, with the values of the environment it duplicates. Argo CD deploys ${e.name} when it merges.`,
+        } itself, with the values of the environment it duplicates (or a starter file with no component yet). Argo CD deploys ${e.name} when it merges.`,
       );
     } else if (e.tier === 'ground' && !cloud) {
       out.push(`Glidepath then opens a pull request on the source repo adding ${ENVS_ROOT}/envs/${e.name}.yaml. Merge it to finish creating ${e.name}.`);
@@ -512,10 +512,26 @@ export function pipelineStepEnvs(staged: Staged[], after: EnvDef[]): string[] {
   return staged.flatMap(s => (s.kind === 'add' && s.pipelineStep && alive.has(s.env.name) ? [s.env.name] : []));
 }
 
-/** Added environments that were staged as a copy of another, with the environment they copy. */
 /**
- * New Ground environments staged without values to copy. An InfraService needs them refused: nothing builds it, its
- * environment is its values file, and Glidepath opens no onboarding pull request that would add one.
+ * A starter values file for an InfraService's Ground environment, for when there is none to copy. Nothing builds an
+ * InfraService and Glidepath opens no onboarding pull request for it, so without this its environment has no file and
+ * no way to make one from Tower (skyport-auth, 2026-10-21: the implied dev environment could neither be added nor
+ * edited). It deploys nothing until a component is added on the Components sub-tab; the same shape as skyport-broker's.
+ */
+export function infraStarterValues(env: string): string {
+  return [
+    'appType: infra',
+    `envName: ${env}`,
+    '# No workload of its own: the service is the component(s) below. Add one on the Components sub-tab.',
+    'rollout: { enabled: false }',
+    'components: []',
+    '',
+  ].join('\n');
+}
+
+/**
+ * New Ground environments staged without values to copy. An InfraService's get infraStarterValues: nothing builds it,
+ * its environment is its values file, and Glidepath opens no onboarding pull request that would add one.
  */
 export function uncopiedGroundAdds(staged: Staged[], before: EnvDef[], after: EnvDef[]): string[] {
   const copied = new Set(copiedEnvs(staged, after).map(c => c.env.name));

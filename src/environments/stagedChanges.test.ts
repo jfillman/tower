@@ -1,5 +1,7 @@
+import { load as loadYaml } from 'js-yaml';
 import {
   uncopiedGroundAdds,
+  infraStarterValues,
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
@@ -220,7 +222,7 @@ describe('followUps', () => {
   it("says an InfraService's new Ground environment is added by this pull request, on its gitops repo", () => {
     const out = followUps([ground('dev')], [ground('dev'), ground('qa')], undefined, 'skyport-broker', 'infra');
     expect(out).toEqual([
-      'An InfraService gets no onboarding pull request, so this one adds glidepath/envs/qa.yaml to gitops-infra-skyport-broker itself, with the values of the environment it duplicates. Argo CD deploys qa when it merges.',
+      'An InfraService gets no onboarding pull request, so this one adds glidepath/envs/qa.yaml to gitops-infra-skyport-broker itself, with the values of the environment it duplicates (or a starter file with no component yet). Argo CD deploys qa when it merges.',
     ]);
   });
   it('names the deleted file under glidepath/', () => {
@@ -477,5 +479,11 @@ describe('leftover Ground environment files', () => {
     expect(purgedEnvs(staged)).toEqual(['test']);
     expect(deleteFilesFor(before, after, 'k8s-rollout', purgedEnvs(staged))).toEqual(envFilePaths('test'));
     expect(deleteFilesFor(before, after, 'aws-lambda', purgedEnvs(staged))).toEqual([]);
+  });
+});
+
+describe('infraStarterValues', () => {
+  it('is a values file that deploys no workload and no component yet, in the shape of skyport-broker\'s', () => {
+    expect(loadYaml(infraStarterValues('dev'))).toEqual({ appType: 'infra', envName: 'dev', rollout: { enabled: false }, components: [] });
   });
 });

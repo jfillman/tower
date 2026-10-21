@@ -32,8 +32,9 @@ import {
   type EnvDef,
   type Staged,
   uncopiedGroundAdds,
+  infraStarterValues,
 } from '../environments/stagedChanges';
-import { appRepos, appTypeOf } from '../appRepos';
+import { appTypeOf } from '../appRepos';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
 import { unlistedProvisioned, useProvisionedEnvs } from '../environments/provisionedEnvs';
 import { dump as dumpYaml } from 'js-yaml';
@@ -373,16 +374,9 @@ export function EnvironmentsTab() {
   const openPr = async () => {
     if (!owner || !appName) return;
     setFailure(undefined);
-    // An InfraService's environment is its values file and nothing else makes one, so a new Ground one must copy values.
+    // An InfraService's environment is its values file and nothing else makes one: a new Ground one that copies no
+    // values gets a starter file in the same pull request (it used to be refused, with no way left but a hand edit).
     const uncopied = appType === 'infra' && !cloudBlock ? uncopiedGroundAdds(staged, before, after) : [];
-    if (uncopied.length > 0) {
-      setFailure(
-        `${uncopied.join(', ')}: an InfraService has no build and no onboarding pull request, so a new environment needs values to deploy. Use Duplicate… on an existing environment instead, or add ${ENVS_ROOT}/envs/<name>.yaml to ${
-          appRepos(appName, 'infra').gitopsRepo
-        } by hand. Nothing was changed.`,
-      );
-      return;
-    }
     // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
     const done = { ...launched };
     const reusedNow = { ...reused };
@@ -404,7 +398,10 @@ export function EnvironmentsTab() {
     }
     setLaunched(done);
     // A Ground environment staged as a copy gets its values file in the same pull request: read the source's values now.
-    const createFiles: Array<{ path: string; content: string }> = [];
+    const createFiles: Array<{ path: string; content: string }> = uncopied.map(name => ({
+      path: `${ENVS_ROOT}/envs/${name}.yaml`,
+      content: infraStarterValues(name),
+    }));
     if (!cloudBlock) {
       for (const { env, from } of copiedEnvs(staged, after)) {
         if (env.tier !== 'ground') continue;
@@ -466,6 +463,7 @@ export function EnvironmentsTab() {
     appName,
     entity: searchParams.get('entity') ?? '',
     appKind: appKindOf(appEntity),
+    appType,
     deploy,
     pipelines,
     targetLabel,
