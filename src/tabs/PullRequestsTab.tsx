@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { appRepos, appTypeOf } from '../appRepos';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
@@ -190,7 +191,8 @@ export function PullRequestsTab() {
   // usePullRequests for this app at a time, so no cross-instance sync is
   // needed (see TowerPage.tsx: only the active tab is ever mounted).
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const prs = usePullRequests(owner && appName ? { owner, appName } : undefined, refreshNonce);
+  const repos = appName ? appRepos(appName, appTypeOf(entity)) : undefined;
+  const prs = usePullRequests(owner && appName ? { owner, appName, appType: repos?.type } : undefined, refreshNonce);
 
   if (!projectSlug || !owner || !appName) {
     return <MissingAnnotationEmptyState annotation="github.com/project-slug" />;
@@ -233,7 +235,7 @@ export function PullRequestsTab() {
       <Section
         framed
         title="Release PRs"
-        meta={<Chip tone="sky">{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : `gitops-${appName}`}</Chip>}
+        meta={<Chip tone="sky">{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : repos?.gitopsRepo}</Chip>}
         count={`${gitopsPrs.length} open`}
       >
         <PrTable prs={gitopsPrs} emptyMessage="No open release PRs." variant="gitops" classes={classes} />
@@ -256,7 +258,8 @@ export function PullRequestsTab() {
         </Section>
       )}
 
-      <Section framed title="Source PRs" meta={<Chip tone="sky">{appName}</Chip>} count={`${sourcePrsRaw.length} open`}>
+      {repos?.sourceRepo && (
+      <Section framed title="Source PRs" meta={<Chip tone="sky">{repos.sourceRepo}</Chip>} count={`${sourcePrsRaw.length} open`}>
         <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} />
         {overflowCount > 0 && (
           <Hint inset>
@@ -266,6 +269,7 @@ export function PullRequestsTab() {
           </Hint>
         )}
       </Section>
+      )}
 
       <Section framed title="Recently merged" count={`${mergedPrs.length} shown`}>
         <MergedPrTable prs={mergedPrs} classes={classes} />

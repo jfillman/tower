@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appRepos, useAppType } from '../appRepos';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
@@ -479,6 +480,7 @@ export function useTektonPipelineRuns(
 ): UseTektonPipelineRunsResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [state, setState] = useState<UseTektonPipelineRunsResult>({ loading: Boolean(appName), runs: [] });
 
@@ -491,7 +493,7 @@ export function useTektonPipelineRuns(
       setState({ loading: false, runs: [], error: NO_CONTROL_PLANE });
       return undefined;
     }
-    const namespace = `app-${appName}-cicd`;
+    const namespace = appRepos(appName, appType).cicdNamespace;
     const tektonCluster: string = cluster;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -545,7 +547,7 @@ export function useTektonPipelineRuns(
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, appType, cluster, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
 }

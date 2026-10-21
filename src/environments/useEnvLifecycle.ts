@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appRepos, useAppType } from '../appRepos';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy';
 import {
@@ -68,6 +69,8 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
   const [extra, setExtra] = useState<Partial<EnvLifecycleInputs>>({});
   const [loading, setLoading] = useState(enabled);
   const { owner, appName, env, tier, cluster } = target;
+  const appType = useAppType(appName);
+  const repos = appName ? appRepos(appName, appType) : undefined;
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -84,7 +87,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       tenants?: { owner: string; repo: string };
     } = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
-    const ns = `app-${appName}-cicd`;
+    const ns = appRepos(appName, appType).cicdNamespace;
 
     const optional = async <T,>(path: string, on: string = XR_CLUSTER): Promise<T | undefined> => {
       try {
@@ -117,7 +120,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
         }
         if (tier === 'ground') {
           const prs = await getJson<Parameters<typeof latestOnboardingPr>[0]>(
-            `${prBase}/pull-requests?${new URLSearchParams({ owner, appName })}`,
+            `${prBase}/pull-requests?${new URLSearchParams({ owner, appName, ...(appType === 'infra' ? { appType } : {}) })}`,
           );
           if (prs) github.onboardingPr = latestOnboardingPr(prs);
         }
@@ -193,7 +196,7 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [discoveryApi, fetchApi, enabled, owner, appName, appType, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestPr: PrSnapshot | undefined =
     extra.requestPr ??
@@ -208,11 +211,11 @@ export function useEnvLifecycle(target: EnvLifecycleTarget, enabled: boolean): {
     deployed: target.deployed,
     valuesFileExists: target.valuesFileExists,
     tenantsRepoUrl: tenantsRepo ? `https://github.com/${tenantsRepo.owner}/${tenantsRepo.repo}` : undefined,
-    gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
+    gitopsRepoUrl: `https://github.com/${owner}/${repos?.gitopsRepo}`,
     valuesFileUrl:
       tier === 'flight' && cluster
-        ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml`
-        : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
+        ? `https://github.com/${owner}/${repos?.gitopsRepo}/blob/main/${cluster}/${env}/values.yaml`
+        : `https://github.com/${owner}/${repos?.configRepo}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     pipelineStep: target.pipelineStep,
     ...extra,

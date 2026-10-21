@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appRepos, appTypeOf } from '../appRepos';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { useSearchParams } from 'react-router-dom';
@@ -473,9 +474,12 @@ export function OverviewTab() {
   // deployed image's provenance has resolved a repoRef yet (2026-09-24: "for a
   // brand new app, the src repo link doesn't appear in the info panel") - same
   // fallback gitopsUrl below already used.
-  const sourceRepo = repoRef ?? (owner && appName ? { owner, repo: appName } : undefined);
+  // An InfraService has no source repo (appRepos.ts); its gitops repo is gitops-infra-<name>.
+  const repos = appName ? appRepos(appName, appTypeOf(entity)) : undefined;
+  const sourceRepo = repos?.sourceRepo ? (repoRef ?? (owner ? { owner, repo: repos.sourceRepo } : undefined)) : undefined;
   const sourceUrl = sourceRepo ? `https://github.com/${sourceRepo.owner}/${sourceRepo.repo}` : undefined;
-  const gitopsUrl = owner && appName ? `https://github.com/${owner}/gitops-${appName}` : undefined;
+  const gitopsUrl = owner && repos ? `https://github.com/${owner}/${repos.gitopsRepo}` : undefined;
+  const noSourceRepo = repos?.type === 'infra' ? 'none (an infra service: its config lives in the gitops repo)' : '—';
   const previewEnvs = environments.filter(env => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter(env => !isPreviewEnvName(env.env));
   // Whether the grid shows a release rail at all (some environment has been deployed).
@@ -650,10 +654,10 @@ export function OverviewTab() {
                 {sourceRepo!.owner}/{sourceRepo!.repo} ↗
               </TextLink>
             ) : (
-              '—'
+              noSourceRepo
             )}
           </Fact>
-          <Fact label="GitOps repo">{gitopsUrl ? <TextLink href={gitopsUrl}>gitops-{appName} ↗</TextLink> : '—'}</Fact>
+          <Fact label="GitOps repo">{gitopsUrl ? <TextLink href={gitopsUrl}>{repos?.gitopsRepo} ↗</TextLink> : '—'}</Fact>
           <Fact label="Owner">{(entity.spec?.owner as string | undefined) ?? '—'}</Fact>
           <Fact label="System">{(entity.spec?.system as string | undefined) ?? '—'}</Fact>
           <Fact label="Lifecycle">{(entity.spec?.lifecycle as string | undefined) ?? '—'}</Fact>

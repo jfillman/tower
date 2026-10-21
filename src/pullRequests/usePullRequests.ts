@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { AppType } from '../appRepos';
 import type { SignatureEvidence } from '../commitProof';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
@@ -77,7 +78,7 @@ export interface PullRequestSummary {
 // refreshing"), but blind polling here is exactly what caused the prior
 // rate-limit incident.
 export function usePullRequests(
-  ownerAppName: { owner: string; appName: string } | undefined,
+  ownerAppName: { owner: string; appName: string; appType?: AppType } | undefined,
   refreshNonce = 0,
 ) {
   const discoveryApi = useApi(discoveryApiRef);
@@ -87,7 +88,7 @@ export function usePullRequests(
     error?: string;
     data?: PullRequestSummary[];
   }>({ loading: Boolean(ownerAppName) });
-  const key = ownerAppName ? `${ownerAppName.owner}/${ownerAppName.appName}` : '';
+  const key = ownerAppName ? `${ownerAppName.owner}/${ownerAppName.appName}:${ownerAppName.appType ?? 'app'}` : '';
 
   useEffect(() => {
     if (!ownerAppName) {
@@ -111,6 +112,8 @@ export function usePullRequests(
           owner: ownerAppName.owner,
           appName: ownerAppName.appName,
         });
+        // An InfraService has no source repo; its PRs are on gitops-infra-<name> (appRepos.ts).
+        if (ownerAppName.appType === 'infra') params.set('appType', 'infra');
         const res = await fetchApi.fetch(`${baseUrl}/pull-requests?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => undefined);
