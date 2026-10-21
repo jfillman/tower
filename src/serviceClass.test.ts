@@ -50,6 +50,11 @@ describe('serviceClassOf', () => {
   it('maps the legacy kind tags to container-app', () => {
     expect(serviceClassOf(entity({}, undefined, kind('goapplication'))).id).toBe('container-app');
   });
+  it('maps InfraService to its own class, deploying to Kubernetes', () => {
+    const e = entity({}, undefined, kind('infraservice'));
+    expect(serviceClassOf(e)).toMatchObject({ id: 'infra-service', labelPlural: 'Infra services' });
+    expect(deployTargetOf(e)?.id).toBe('k8s-rollout');
+  });
   it('maps both legacy AI markers to ai-workload', () => {
     expect(serviceClassOf(entity({ type: 'ai-agent' })).id).toBe('ai-workload');
     expect(serviceClassOf(entity({}, { 'hangar.io/workload-type': 'ai' })).id).toBe('ai-workload');

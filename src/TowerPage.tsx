@@ -75,7 +75,7 @@ export const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
   { id: 'autopilot', label: 'Autopilot', Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
   { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab, requires: [CAP.source] },
-  { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci] },
+  { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
   // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
   // exactly one deploy target, so only one of the two ever passes the capability filter.

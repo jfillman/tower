@@ -50,6 +50,19 @@ describe('which tabs a service gets', () => {
     expect(ids(e)).toEqual(expect.arrayContaining(['overview', 'pipelines', 'deployments', 'releases', 'glidepath']));
   });
 
+  it('an InfraService drops Pipelines, Releases, Images and SLOs: nothing builds it', () => {
+    expect(ids(entity(undefined, ['kind:infraservice']))).toEqual([
+      'overview',
+      'pull-requests',
+      'deployments',
+      'environments',
+      'topology',
+      'notifications',
+      'config',
+      'glidepath',
+    ]);
+  });
+
   it('never offers both Deployments tabs for one service', () => {
     for (const target of ['k8s-rollout', 'aws-ecs', 'aws-lambda', 'azure-container-apps', 'something-new']) {
       const e = entity({ 'hangar.io/service-class': 'container-app', 'hangar.io/deploy-target': target });
