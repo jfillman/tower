@@ -9,7 +9,6 @@ import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import { useHangarTokens, fontMono, fontDisplay } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { AppPicker } from './AppPicker.esm.js';
-import { AutopilotPlaceholder } from './AutopilotPlaceholder.esm.js';
 import { CAP, hasCapabilities } from './serviceClass.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
@@ -33,7 +32,6 @@ import { isRolloutActive } from './types.esm.js';
 
 const TABS = [
   { id: "overview", label: "Overview", Component: OverviewTab },
-  { id: "autopilot", label: "Autopilot", Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
   { id: "pull-requests", label: "Pull Requests", Component: PullRequestsTab, requires: [CAP.source] },
   { id: "pipelines", label: "Pipelines", Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: "deployments", label: "Deployments", Component: DeploymentsTab, requires: [CAP.k8sRuntime] },

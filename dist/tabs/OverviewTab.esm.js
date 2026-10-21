@@ -19,6 +19,8 @@ import { PageHeader, Panel, FactGrid, Fact, TextLink, Section, healthColor, Hint
 import { useAppNotifications } from '../useAppNotifications.esm.js';
 import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
+import { AgentDefinitionPanel } from '../agentDefinition.esm.js';
+import { capabilitiesOf, CAP } from '../serviceClass.esm.js';
 
 function computeReleaseTracks(list) {
   const runs = [];
@@ -399,6 +401,9 @@ function OverviewTab() {
   const noSourceRepo = repos?.type === "infra" ? "none (an infra service: its config lives in the gitops repo)" : "\u2014";
   const previewEnvs = environments.filter((env) => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter((env) => !isPreviewEnvName(env.env));
+  const caps = capabilitiesOf(entity);
+  const isAgent = caps.has(CAP.autopilot);
+  const hasRuntime = caps.has(CAP.k8sRuntime) || caps.has(CAP.cloudRuntime);
   const hasRail = pipelineEnvs.some((env) => env.deployed !== false);
   const renderEnvCard = (env, opts) => {
     if (env.deployed === false) {
@@ -523,7 +528,8 @@ function OverviewTab() {
       /* @__PURE__ */ jsx(Fact, { label: "System", children: entity.spec?.system ?? "\u2014" }),
       /* @__PURE__ */ jsx(Fact, { label: "Lifecycle", children: entity.spec?.lifecycle ?? "\u2014" })
     ] }) }),
-    pipelineEnvs.length === 0 ? /* @__PURE__ */ jsx(
+    isAgent && /* @__PURE__ */ jsx(AgentDefinitionPanel, { entity }),
+    pipelineEnvs.length === 0 ? hasRuntime && /* @__PURE__ */ jsx(
       TowerEmptyState,
       {
         title: "Nothing deployed yet",
