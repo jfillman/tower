@@ -135,6 +135,7 @@ function useEnvLifecycle(target, enabled) {
   const steps = deriveEnvLifecycle({
     tier,
     env,
+    appName,
     declared: target.declared,
     cicdPrUrl: target.cicdPrUrl,
     deployed: target.deployed,
@@ -144,6 +145,7 @@ function useEnvLifecycle(target, enabled) {
     valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/${repos?.gitopsRepo}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${repos?.configRepo}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     pipelineStep: target.pipelineStep,
+    appType,
     ...extra,
     requestPr
   });

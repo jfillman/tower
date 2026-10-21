@@ -33,6 +33,20 @@ function deriveEnvLifecycle(i) {
       i.declared ? "Not opened yet: Glidepath opens it shortly after the merge." : "Opens after the cicd.yaml change merges."
     );
     if (!i.declared) onboarding.state = "pend";
+    if (i.appType === "infra") {
+      let infraWaiting;
+      if (!i.deployed) {
+        infraWaiting = i.valuesFileExists ? `Waiting for Argo CD app ${i.appName}-${i.env} and the component it declares to come up.` : `Nothing builds an InfraService: add ${valuesPath} to its gitops repo and Argo CD deploys it.`;
+      }
+      const live2 = {
+        id: "workload",
+        title: "Deployed",
+        desc: "Argo CD deploys the values file; the component it declares (a broker, say) is brought up by its operator.",
+        state: i.deployed ? "done" : "pend",
+        detail: infraWaiting
+      };
+      return [cicd, file, live2];
+    }
     let waiting;
     if (!i.deployed) {
       if (i.pipelineStep === false) {

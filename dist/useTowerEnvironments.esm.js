@@ -1,5 +1,6 @@
 import { createContext, useState, useCallback, useMemo, createElement, useContext, useEffect } from 'react';
 import { usePageVisible, livePollMs, LivePollContext } from './livePoll.esm.js';
+import { appTypeOf } from './appRepos.esm.js';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useKubernetesObjects, useCustomResources } from '@backstage/plugin-kubernetes-react';
 
@@ -143,7 +144,7 @@ function buildHpaSummary(hpa) {
     currentReplicas: hpa.status?.currentReplicas
   };
 }
-function buildWorkloadDetail(rollout, deployment, pdb, hpa) {
+function buildWorkloadDetail(rollout, deployment, pdb, hpa, statefulSet) {
   if (rollout) {
     const canary = rollout.spec?.strategy?.canary;
     const blueGreen = rollout.spec?.strategy?.blueGreen;
@@ -178,6 +179,18 @@ function buildWorkloadDetail(rollout, deployment, pdb, hpa) {
       labels: deployment.metadata?.labels,
       annotations: deployment.metadata?.annotations,
       raw: deployment
+    };
+  }
+  if (statefulSet) {
+    return {
+      kind: "StatefulSet",
+      name: statefulSet.metadata?.name ?? "unnamed",
+      strategyKind: statefulSet.spec?.updateStrategy?.type === "OnDelete" ? "unknown" : "rollingUpdate",
+      pdb: buildPdbSummary(pdb),
+      hpa: buildHpaSummary(hpa),
+      labels: statefulSet.metadata?.labels,
+      annotations: statefulSet.metadata?.annotations,
+      raw: statefulSet
     };
   }
   return void 0;
@@ -291,13 +304,17 @@ function rolloutStrategyLabel(rollout, hasDeployment) {
 function envLabelOf(rollout, namespace, deployment) {
   return rollout?.metadata?.labels?.["hangar.io/env"] ?? deployment?.metadata?.labels?.["hangar.io/env"] ?? namespace;
 }
-function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster) {
+function infraStatefulSets(statefulSets) {
+  return statefulSets.filter((s) => s.metadata?.labels?.["hangar.io/app"] && s.metadata.labels["hangar.io/env"]);
+}
+function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster, infra = false) {
   const envs = [];
   for (const item of items) {
     const allPods = item.resources.find((r) => r.type === "pods")?.resources ?? [];
     const allIngresses = item.resources.find((r) => r.type === "ingresses")?.resources ?? [];
     const allDeployments = item.resources.find((r) => r.type === "deployments")?.resources ?? [];
     const allServices = item.resources.find((r) => r.type === "services")?.resources ?? [];
+    const allStatefulSets = item.resources.find((r) => r.type === "statefulsets")?.resources ?? [];
     const allHpas = item.resources.find((r) => r.type === "horizontalpodautoscalers")?.resources ?? [];
     const rollouts = rolloutsByCluster.get(item.cluster.name) ?? [];
     const httpRoutes = httpRoutesByCluster.get(item.cluster.name) ?? [];
@@ -308,14 +325,15 @@ function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewa
     const pushEnv = (namespace, source) => {
       if (namespacesSeen.has(namespace)) return;
       namespacesSeen.add(namespace);
-      const { rollout, deployment } = source;
+      const { rollout, statefulSet } = source;
+      const deployment = source.deployment ?? statefulSet;
       const podList = allPods.filter((p) => p.metadata?.namespace === namespace);
       const container = rollout?.spec?.template?.spec?.containers?.[0] ?? deployment?.spec?.template?.spec?.containers?.[0] ?? podList[0]?.spec?.containers?.[0];
       const desiredReplicas = rollout?.spec?.replicas ?? deployment?.spec?.replicas;
       const availableReplicas = rollout?.status?.availableReplicas ?? deployment?.status?.availableReplicas ?? (desiredReplicas === void 0 ? podList.filter((p) => p.status?.phase === "Running").length : void 0);
       const startTimes = podList.map((p) => p.status?.startTime).filter((t) => Boolean(t)).map((t) => new Date(t).getTime());
       const envLabel = envLabelOf(rollout, namespace, deployment);
-      const appName = rollout?.metadata?.name ?? deployment?.metadata?.name;
+      const appName = rollout?.metadata?.name ?? source.deployment?.metadata?.name ?? statefulSet?.metadata?.labels?.["hangar.io/app"];
       const httpRoute = httpRoutes.find((r) => r.metadata?.namespace === namespace);
       const routeHost = httpRoute?.spec?.hostnames?.[0];
       const ingress = allIngresses.find((i) => i.metadata?.namespace === namespace);
@@ -330,7 +348,7 @@ function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewa
       const services = allServices.filter((s) => s.metadata?.namespace === namespace).map(toServiceSummary);
       const pdb = pdbs.find((p) => p.metadata?.namespace === namespace);
       const hpa = allHpas.find((h) => h.metadata?.namespace === namespace);
-      const workload = buildWorkloadDetail(rollout, deployment, pdb, hpa);
+      const workload = buildWorkloadDetail(rollout, source.deployment, pdb, hpa, statefulSet);
       const resources = collectResources(item, namespace, rollouts, httpRoutes, pdbs, extraKinds);
       envs.push({
         key: `${item.cluster.name}/${namespace}`,
@@ -366,6 +384,11 @@ function buildEnvironments(items, rolloutsByCluster, httpRoutesByCluster, gatewa
     } else {
       allDeployments.forEach((deployment) => {
         if (deployment.metadata?.namespace) pushEnv(deployment.metadata.namespace, { deployment });
+      });
+    }
+    if (infra) {
+      infraStatefulSets(allStatefulSets).forEach((statefulSet) => {
+        if (statefulSet.metadata?.namespace) pushEnv(statefulSet.metadata.namespace, { statefulSet });
       });
     }
   }
@@ -424,6 +447,7 @@ function pickKind(byCluster, kind) {
 }
 function useTowerEnvironmentsLive(intervalMs = 1e4) {
   const { entity } = useEntity();
+  const infra = appTypeOf(entity) === "infra";
   const { kubernetesObjects, loading, error } = useKubernetesObjects(entity, intervalMs);
   const {
     kubernetesObjects: customObjects,
@@ -458,9 +482,10 @@ function useTowerEnvironmentsLive(intervalMs = 1e4) {
       httpRoutesByCluster,
       gatewaysByCluster,
       pdbsByCluster,
-      extraKindsByCluster
+      extraKindsByCluster,
+      infra
     ),
-    [kubernetesObjects, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster]
+    [kubernetesObjects, rolloutsByCluster, httpRoutesByCluster, gatewaysByCluster, pdbsByCluster, extraKindsByCluster, infra]
   );
   const anyLoading = loading || customLoading;
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -504,5 +529,5 @@ function useTowerEnvironments() {
   return value;
 }
 
-export { TowerEnvironmentsProvider, customResourcesByClusterAndKind, envLabelOf, useTowerEnvironments, useTowerEnvironmentsLive };
+export { TowerEnvironmentsProvider, buildEnvironments, customResourcesByClusterAndKind, envLabelOf, infraStatefulSets, useTowerEnvironments, useTowerEnvironmentsLive };
 //# sourceMappingURL=useTowerEnvironments.esm.js.map
