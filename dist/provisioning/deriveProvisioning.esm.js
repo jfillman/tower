@@ -349,7 +349,7 @@ function deriveProvisioning(input, now, typical) {
     } else if (front) {
       envState = "run";
       if (!envApp) envDetail = `Waiting for ArgoCD app ${xr.name}-dev (Tower could not read ArgoCD)`;
-      else if (envApp.missing) envDetail = `Add glidepath/envs/dev.yaml to ${gitopsRepo} to create the first environment`;
+      else if (envApp.missing) envDetail = `Create glidepath/envs/dev.yaml in ${gitopsRepo} from the Environments tab (dev, Values) to create the first environment`;
       else envDetail = `ArgoCD app ${envApp.name} is ${envApp.sync ?? "unknown"} / ${envApp.health ?? "unknown"}`;
     }
     push({

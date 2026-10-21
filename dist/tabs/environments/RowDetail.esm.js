@@ -5,7 +5,8 @@ import { usePlatformConfig } from '../../platformConfig.esm.js';
 import { RawValuesEditor } from '../../values/RawValuesEditor.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
-import { pipelinesNamingEnv } from '../../environments/stagedChanges.esm.js';
+import { pipelinesNamingEnv, infraStarterValues, buildDeploy } from '../../environments/stagedChanges.esm.js';
+import { useSubmitCicdConfigChange } from '../../useConfigData.esm.js';
 import { ConfigEditor } from '../../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
 import { useChartValues } from '../../values/annotatedValues.esm.js';
@@ -213,6 +214,21 @@ function Values({ row, ctx, source }) {
   }
   const own = ownChartOf(ctx.deploy, row.name, airframe);
   if (def.tier === "ground") {
+    if (row.state === "new" && ctx.appType === "infra") {
+      return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
+        "Its values file, ",
+        /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
+          ENVS_ROOT,
+          "/envs/",
+          row.name,
+          ".yaml"
+        ] }),
+        ", is added by the same pull request as the cicd.yaml change. Edit its values here once that is merged."
+      ] });
+    }
+    if (ctx.appType === "infra" && source && !source.loading && !source.error && source.data && !source.data.raw.trim()) {
+      return /* @__PURE__ */ jsx(CreateInfraValues, { ctx, env: row.name, path: source.data.path });
+    }
     if (row.state === "new") {
       return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
         "Its values file, ",
@@ -230,6 +246,36 @@ function Values({ row, ctx, source }) {
   }
   if (own) return gate(source) ?? /* @__PURE__ */ jsx(RawValuesEditor, { source, chart: own });
   return gate(source) ?? /* @__PURE__ */ jsx(FlightValues, { ctx, env: row.name, cluster: def.cluster ?? row.where, source, live: liveOf(row) });
+}
+function CreateInfraValues({ ctx, env, path }) {
+  const t = useHangarTokens();
+  const c = useStyles({ t });
+  const ui = useUi({ t });
+  const submit = useSubmitCicdConfigChange();
+  const create = () => submit.submit({
+    owner: ctx.owner,
+    appName: ctx.appName,
+    patch: { deploy: buildDeploy(ctx.deploy, ctx.siblings) },
+    summary: [`Add ${path}, a starter values file for the ${env} environment (no component yet)`],
+    via: "Environments tab",
+    createFiles: [{ path, content: infraStarterValues(env) }]
+  });
+  return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
+    /* @__PURE__ */ jsx("span", { className: c.mono, children: path }),
+    " does not exist yet, and nothing creates it for an InfraService: there is no build and no onboarding pull request. Create a starter file (no workload, no component) and add the service's component on the Components sub-tab once it is merged. Argo CD deploys the environment from it.",
+    /* @__PURE__ */ jsxs("div", { style: { marginTop: 10 }, children: [
+      submit.result ? /* @__PURE__ */ jsxs("span", { children: [
+        "Pull request opened:",
+        " ",
+        /* @__PURE__ */ jsx("a", { href: submit.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submit.result.prUrl }),
+        ". Merge it; this turns into the values form when the file appears."
+      ] }) : /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: submit.loading, onClick: create, children: submit.loading ? "Opening pull request\u2026" : `Create ${path}` }),
+      submit.error && /* @__PURE__ */ jsxs("div", { className: ui.problem, children: [
+        "Could not open the pull request: ",
+        submit.error
+      ] })
+    ] })
+  ] });
 }
 function liveOf(row) {
   return { deployed: row.deployed, image: row.image, health: row.health };
