@@ -1,5 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState } from 'react';
+import { appRepos, appTypeOf } from '../appRepos.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
 import { MissingAnnotationEmptyState, Progress, ResponseErrorPanel } from '@backstage/core-components';
@@ -146,7 +147,8 @@ function PullRequestsTab() {
   const projectSlug = entity.metadata.annotations?.["github.com/project-slug"];
   const [owner, appName] = projectSlug ? projectSlug.split("/") : [void 0, void 0];
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const prs = usePullRequests(owner && appName ? { owner, appName } : void 0, refreshNonce);
+  const repos = appName ? appRepos(appName, appTypeOf(entity)) : void 0;
+  const prs = usePullRequests(owner && appName ? { owner, appName, appType: repos?.type } : void 0, refreshNonce);
   if (!projectSlug || !owner || !appName) {
     return /* @__PURE__ */ jsx(MissingAnnotationEmptyState, { annotation: "github.com/project-slug" });
   }
@@ -177,7 +179,7 @@ function PullRequestsTab() {
         {
           framed: true,
           title: "Release PRs",
-          meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : `gitops-${appName}` }),
+          meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: gitopsPrs.some((pr) => pr.releasePin) ? `${appName} pins` : repos?.gitopsRepo }),
           count: `${gitopsPrs.length} open`,
           children: /* @__PURE__ */ jsx(PrTable, { prs: gitopsPrs, emptyMessage: "No open release PRs.", variant: "gitops", classes })
         }
@@ -201,7 +203,7 @@ function PullRequestsTab() {
           )
         }
       ),
-      /* @__PURE__ */ jsxs(Section, { framed: true, title: "Source PRs", meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: appName }), count: `${sourcePrsRaw.length} open`, children: [
+      repos?.sourceRepo && /* @__PURE__ */ jsxs(Section, { framed: true, title: "Source PRs", meta: /* @__PURE__ */ jsx(Chip, { tone: "sky", children: repos.sourceRepo }), count: `${sourcePrsRaw.length} open`, children: [
         /* @__PURE__ */ jsx(PrTable, { prs: sourcePrs, emptyMessage: "No open source PRs.", variant: "source", classes }),
         overflowCount > 0 && /* @__PURE__ */ jsx(Hint, { inset: true, children: /* @__PURE__ */ jsxs(TextLink, { href: `https://github.com/${owner}/${appName}/pulls`, children: [
           "+",

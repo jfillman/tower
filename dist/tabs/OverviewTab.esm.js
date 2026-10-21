@@ -1,5 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
+import { appRepos, appTypeOf } from '../appRepos.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { useSearchParams } from 'react-router-dom';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -391,9 +392,11 @@ function OverviewTab() {
   });
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
-  const sourceRepo = repoRef ?? (owner && appName ? { owner, repo: appName } : void 0);
+  const repos = appName ? appRepos(appName, appTypeOf(entity)) : void 0;
+  const sourceRepo = repos?.sourceRepo ? repoRef ?? (owner ? { owner, repo: repos.sourceRepo } : void 0) : void 0;
   const sourceUrl = sourceRepo ? `https://github.com/${sourceRepo.owner}/${sourceRepo.repo}` : void 0;
-  const gitopsUrl = owner && appName ? `https://github.com/${owner}/gitops-${appName}` : void 0;
+  const gitopsUrl = owner && repos ? `https://github.com/${owner}/${repos.gitopsRepo}` : void 0;
+  const noSourceRepo = repos?.type === "infra" ? "none (an infra service: its config lives in the gitops repo)" : "\u2014";
   const previewEnvs = environments.filter((env) => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter((env) => !isPreviewEnvName(env.env));
   const hasRail = pipelineEnvs.some((env) => env.deployed !== false);
@@ -511,10 +514,9 @@ function OverviewTab() {
         "/",
         sourceRepo.repo,
         " \u2197"
-      ] }) : "\u2014" }),
+      ] }) : noSourceRepo }),
       /* @__PURE__ */ jsx(Fact, { label: "GitOps repo", children: gitopsUrl ? /* @__PURE__ */ jsxs(TextLink, { href: gitopsUrl, children: [
-        "gitops-",
-        appName,
+        repos?.gitopsRepo,
         " \u2197"
       ] }) : "\u2014" }),
       /* @__PURE__ */ jsx(Fact, { label: "Owner", children: entity.spec?.owner ?? "\u2014" }),

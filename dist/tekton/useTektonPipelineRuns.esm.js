@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppType, appRepos } from '../appRepos.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
@@ -203,6 +204,7 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
 function useTektonPipelineRuns(appName, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [state, setState] = useState({ loading: Boolean(appName), runs: [] });
   useEffect(() => {
@@ -214,7 +216,7 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
       setState({ loading: false, runs: [], error: NO_CONTROL_PLANE });
       return void 0;
     }
-    const namespace = `app-${appName}-cicd`;
+    const namespace = appRepos(appName, appType).cicdNamespace;
     const tektonCluster = cluster;
     let cancelled = false;
     let timer;
@@ -250,7 +252,7 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, appType, cluster, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
 

@@ -5,7 +5,7 @@ function usePullRequests(ownerAppName, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [state, setState] = useState({ loading: Boolean(ownerAppName) });
-  const key = ownerAppName ? `${ownerAppName.owner}/${ownerAppName.appName}` : "";
+  const key = ownerAppName ? `${ownerAppName.owner}/${ownerAppName.appName}:${ownerAppName.appType ?? "app"}` : "";
   useEffect(() => {
     if (!ownerAppName) {
       setState({ loading: false });
@@ -20,6 +20,7 @@ function usePullRequests(ownerAppName, refreshNonce = 0) {
           owner: ownerAppName.owner,
           appName: ownerAppName.appName
         });
+        if (ownerAppName.appType === "infra") params.set("appType", "infra");
         const res = await fetchApi.fetch(`${baseUrl}/pull-requests?${params.toString()}`);
         if (!res.ok) {
           const body = await res.json().catch(() => void 0);

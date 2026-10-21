@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { appTypeOf } from './appRepos.esm.js';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useTowerEnvironments } from './useTowerEnvironments.esm.js';
 import { useProvenanceMap, usePipelineOrder, useArgoStatusMap, useDeployHistory, useRepoHead } from './useReleaseData.esm.js';
@@ -139,7 +140,8 @@ function useReleaseContext(options = {}) {
     ),
     [rawEnvironments, declaredEnvironments, cloud.environments, pipelineOrder.data, argoStatusRaw]
   );
-  const prs = usePullRequests(owner && appName ? { owner, appName } : void 0, refreshNonce);
+  const appType = appTypeOf(entity);
+  const prs = usePullRequests(owner && appName ? { owner, appName, appType } : void 0, refreshNonce);
   const gitopsPrs = useMemo(() => (prs.data ?? []).filter((pr) => pr.repo === "gitops"), [prs.data]);
   const sourcePrs = useMemo(() => (prs.data ?? []).filter((pr) => pr.repo === "source"), [prs.data]);
   const clusterHistory = useDeployHistory(

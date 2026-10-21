@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppType, appRepos } from '../appRepos.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { infisicalProjectUrl } from '../provisioning/deriveProvisioning.esm.js';
@@ -19,6 +20,8 @@ function useEnvLifecycle(target, enabled) {
   const [extra, setExtra] = useState({});
   const [loading, setLoading] = useState(enabled);
   const { owner, appName, env, tier, cluster } = target;
+  const appType = useAppType(appName);
+  const repos = appName ? appRepos(appName, appType) : void 0;
   useEffect(() => {
     if (!enabled) return void 0;
     if (!XR_CLUSTER) {
@@ -28,7 +31,7 @@ function useEnvLifecycle(target, enabled) {
     let cancelled = false;
     const github = { at: 0, busy: false };
     const xrName = `${appName}-${cluster}-${env}`;
-    const ns = `app-${appName}-cicd`;
+    const ns = appRepos(appName, appType).cicdNamespace;
     const optional = async (path, on = XR_CLUSTER) => {
       try {
         return await k8sProxyGet(discoveryApi, fetchApi, on, path);
@@ -58,7 +61,7 @@ function useEnvLifecycle(target, enabled) {
         }
         if (tier === "ground") {
           const prs = await getJson(
-            `${prBase}/pull-requests?${new URLSearchParams({ owner, appName })}`
+            `${prBase}/pull-requests?${new URLSearchParams({ owner, appName, ...appType === "infra" ? { appType } : {} })}`
           );
           if (prs) github.onboardingPr = latestOnboardingPr(prs);
         }
@@ -127,7 +130,7 @@ function useEnvLifecycle(target, enabled) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [discoveryApi, fetchApi, enabled, owner, appName, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]);
+  }, [discoveryApi, fetchApi, enabled, owner, appName, appType, env, tier, cluster, XR_CLUSTER, tenantsRepo?.owner, tenantsRepo?.repo, devLinks?.infisicalUrl, platform.clusters]);
   const requestPr = extra.requestPr ?? (target.knownRequestUrl ? { number: Number(target.knownRequestUrl.split("/").pop()) || 0, url: target.knownRequestUrl, state: "open" } : void 0);
   const steps = deriveEnvLifecycle({
     tier,
@@ -137,8 +140,8 @@ function useEnvLifecycle(target, enabled) {
     deployed: target.deployed,
     valuesFileExists: target.valuesFileExists,
     tenantsRepoUrl: tenantsRepo ? `https://github.com/${tenantsRepo.owner}/${tenantsRepo.repo}` : void 0,
-    gitopsRepoUrl: `https://github.com/${owner}/gitops-${appName}`,
-    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/gitops-${appName}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${appName}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
+    gitopsRepoUrl: `https://github.com/${owner}/${repos?.gitopsRepo}`,
+    valuesFileUrl: tier === "flight" && cluster ? `https://github.com/${owner}/${repos?.gitopsRepo}/blob/main/${cluster}/${env}/values.yaml` : `https://github.com/${owner}/${repos?.configRepo}/blob/main/${target.valuesFilePath ?? `${ENVS_ROOT}/envs/${env}.yaml`}`,
     valuesFilePath: target.valuesFilePath,
     pipelineStep: target.pipelineStep,
     ...extra,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppType, appRepos } from '../appRepos.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
@@ -19,6 +20,7 @@ function unlistedProvisioned(provisioned, declared) {
 function useProvisionedEnvs(appName, enabled, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [envs, setEnvs] = useState([]);
   useEffect(() => {
@@ -33,7 +35,7 @@ function useProvisionedEnvs(appName, enabled, refreshNonce = 0) {
           discoveryApi,
           fetchApi,
           cluster,
-          `/apis/catalog.hangar.io/v1alpha1/namespaces/app-${appName}-cicd/applicationenvironments`
+          `/apis/catalog.hangar.io/v1alpha1/namespaces/${appRepos(appName, appType).cicdNamespace}/applicationenvironments`
         );
         if (live) setEnvs(toProvisioned(list.items ?? [], appName));
       } catch {
@@ -43,7 +45,7 @@ function useProvisionedEnvs(appName, enabled, refreshNonce = 0) {
     return () => {
       live = false;
     };
-  }, [appName, enabled, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, appType, enabled, cluster, discoveryApi, fetchApi, refreshNonce]);
   return envs;
 }
 
