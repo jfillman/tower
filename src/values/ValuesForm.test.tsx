@@ -9,6 +9,12 @@ jest.mock('@backstage/core-components', () => ({
   ResponseErrorPanel: ({ error }: { error: Error }) => <div>{String(error)}</div>,
 }));
 jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false, data: undefined }) }));
+// The source scan (backend /app/env-reads); undefined, as when it cannot be read, unless a test sets it.
+let mockEnvReads: unknown;
+jest.mock('./useAppEnvReads', () => ({ useAppEnvReads: () => mockEnvReads }));
+afterEach(() => {
+  mockEnvReads = undefined;
+});
 
 const submit = jest.fn(async () => undefined);
 const resetSubmit = jest.fn();
@@ -328,6 +334,44 @@ describe('adding a component', () => {
     expect(screen.getByLabelText('Env vars reading host').textContent).toBe('→ POSTGRESQL_HOST');
     fireEvent.click(tab('Config'));
     for (const name of ['SPRING_DATASOURCE_URL', 'SPRING_DATASOURCE_USERNAME', 'SPRING_DATASOURCE_PASSWORD', 'POSTGRESQL_URI']) expect(screen.getByDisplayValue(name)).toBeTruthy();
+  });
+
+  it('wires a component under the names the app\'s code reads, and flags a component env var it never reads', () => {
+    // boarding-api, 2026-10-21: rabbitmq wired as RABBITMQ_USERNAME while events.js reads RABBITMQ_USER.
+    mockEnvReads = {
+      repo: 'app',
+      sha: 'abcdef1234',
+      scanned: 6,
+      truncated: false,
+      reads: ['RABBITMQ_HOST', 'RABBITMQ_PASSWORD', 'RABBITMQ_PORT', 'RABBITMQ_USER', 'RABBITMQ_VHOST'].map(name => ({
+        name,
+        files: ['events.js'],
+      })),
+    };
+    render(
+      <ConfigEditor
+        owner="o"
+        appName="app"
+        source={source()}
+        title="TEST"
+        layout="side"
+        componentCatalog={catalogJson as unknown as ComponentDefinition[]}
+        appKind="nodejsapplication"
+      />,
+    );
+    fireEvent.click(tab('Components'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Component type to add' }), { target: { value: 'rabbitmq' } });
+    fireEvent.click(screen.getByRole('button', { name: '+ Add component' }));
+    const note = screen.getByRole('status').textContent;
+    expect(note).toMatch(/^Added RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_VHOST/);
+    expect(note).toMatch(/All are the names the app's code reads \(events\.js\)/);
+    expect(note).not.toMatch(/does not read/);
+    expect(screen.getByLabelText('Env vars reading username').textContent).toBe('→ RABBITMQ_USER');
+    fireEvent.click(tab('Config'));
+    expect(screen.queryByText(/The app's code never reads/)).toBeNull();
+    // renamed by hand to a name the code does not read: flagged
+    fireEvent.change(screen.getByDisplayValue('RABBITMQ_USER'), { target: { value: 'RABBITMQ_USERNAME' } });
+    expect(screen.getByRole('note').textContent).toBe("The app's code never reads RABBITMQ_USERNAME");
   });
 
   it('points the env vars at a component\'s new name once the rename is finished', () => {

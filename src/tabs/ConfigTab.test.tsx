@@ -9,6 +9,7 @@ const files: Record<string, any> = {
 };
 jest.mock('../useReleaseContext', () => ({ useReleaseContext: () => ({ owner: 'o', appName: 'boarding-api', loading: false }) }));
 jest.mock('../values/annotatedValues', () => ({ ...jest.requireActual('../values/annotatedValues'), useChartValues: () => undefined }));
+jest.mock('../values/useAppEnvReads', () => ({ useAppEnvReads: () => undefined }));
 jest.mock('../values/componentCatalog', () => ({ ...jest.requireActual('../values/componentCatalog'), useComponentCatalog: () => undefined }));
 const DEFAULT_DEPLOY = { environments: [{ name: 'dev', tier: 'ground' }, { name: 'staging', tier: 'flight', cluster: 'example-prod' }, { name: 'prod', tier: 'flight', cluster: 'example-prod' }] };
 let deploy: any = DEFAULT_DEPLOY;

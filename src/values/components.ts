@@ -178,26 +178,111 @@ export const PROFILE_ENV: Record<EnvProfile, Record<string, Record<string, strin
   },
 };
 
+// The words an env var name ends in for each output, and the words its prefix ends in for each component type, for
+// matching an output to a name the app's code reads (`RABBITMQ_USER` is rabbitmq's username, `DB_NAME` a database's).
+// The component's own name (`board-mq` -> `BOARD_MQ`) counts as a prefix too, ahead of the type's words.
+const OUTPUT_WORDS: Record<string, string[]> = {
+  username: ['USER', 'USERNAME', 'LOGIN'],
+  password: ['PASSWORD', 'PASS', 'PWD'],
+  host: ['HOST', 'HOSTNAME', 'SERVER', 'ADDR', 'ADDRESS'],
+  port: ['PORT'],
+  vhost: ['VHOST', 'VIRTUAL_HOST'],
+  url: ['URL', 'URI'],
+  uri: ['URI', 'URL'],
+  database: ['DATABASE', 'DB', 'DBNAME', 'NAME'],
+  jdbcUri: ['JDBC_URL', 'JDBC_URI'],
+  uriSrv: ['SRV_URI', 'SRV_URL', 'URI_SRV'],
+  clientId: ['CLIENT_ID'],
+  clientSecret: ['CLIENT_SECRET'],
+  issuer: ['ISSUER', 'ISSUER_URL', 'ISSUER_URI'],
+  tokenUrl: ['TOKEN_URL', 'TOKEN_URI', 'TOKEN_ENDPOINT'],
+  jwksUrl: ['JWKS_URL', 'JWKS_URI', 'JWK_SET_URI'],
+};
+const TYPE_WORDS: Record<string, string[]> = {
+  rabbitmq: ['RABBITMQ', 'RABBIT', 'AMQP', 'MQ', 'BROKER'],
+  redis: ['REDIS', 'CACHE'],
+  postgresql: ['POSTGRESQL', 'POSTGRES', 'PG', 'DB', 'DATABASE'],
+  mongodb: ['MONGODB', 'MONGO', 'DB', 'DATABASE'],
+  dex: ['OAUTH', 'OAUTH2', 'OIDC', 'AUTH', 'DEX', 'SSO'],
+};
+
 /**
- * fromComponent env rows for the outputs of a component that nothing reads yet, named the way the app reads them
- * (`profile` + the component's `type`, see PROFILE_ENV) or `<COMPONENT>_<OUTPUT>` otherwise. A name already in use is
- * never overwritten: a profile name in use (a second PostgreSQL in a Spring app) falls back to `<COMPONENT>_<OUTPUT>`,
- * and a name still in use after that comes back as `skipped`. When the profile covers the type, the outputs it does not
- * name come back as `left` (unwired) unless `all` asks for every output, as the card's "+ Add environment variables" does.
+ * Output -> the env var name the app's code reads for it, from the names the source scan found (the backend's
+ * /app/env-reads). A name is `<PREFIX>_<WORD>`: WORD one of the output's words, PREFIX ending in the component's own
+ * name or one of its type's words. The closest prefix wins (the component's name, then the type's words in order), and
+ * no name is given to two outputs. Outputs with no such name are absent.
+ */
+export function matchReadNames(component: string, type: string | undefined, outputs: string[], reads: string[]): Record<string, string> {
+  const prefixes = [envNameFor(component, '').replace(/_$/, ''), ...(TYPE_WORDS[type ?? ''] ?? [])].filter(Boolean);
+  const pairs: Array<{ output: string; name: string; score: number }> = [];
+  for (const output of outputs) {
+    (OUTPUT_WORDS[output] ?? []).forEach((word, w) => {
+      for (const name of reads) {
+        if (!name.endsWith(`_${word}`)) continue;
+        const prefix = name.slice(0, -word.length - 1);
+        const p = prefixes.findIndex(x => prefix === x || prefix.endsWith(`_${x}`));
+        // An exact prefix beats a longer one ending in it; the output's earlier words beat its later ones.
+        if (p >= 0) pairs.push({ output, name, score: p * 100 + (prefix === prefixes[p] ? 0 : 50) + w });
+      }
+    });
+  }
+  pairs.sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
+  const out: Record<string, string> = {};
+  const used = new Set<string>();
+  for (const { output, name } of pairs) {
+    if (out[output] || used.has(name)) continue;
+    out[output] = name;
+    used.add(name);
+  }
+  return out;
+}
+
+/**
+ * fromComponent env rows for the outputs of a component that nothing reads yet. Names come, in order, from what the
+ * app's code reads (`reads`, the source scan: see matchReadNames), from the naming profile (`profile` + the component's
+ * `type`, see PROFILE_ENV), or `<COMPONENT>_<OUTPUT>`. A name already in use is never overwritten: a profile name in use
+ * (a second PostgreSQL in a Spring app) falls back to `<COMPONENT>_<OUTPUT>`, and a name still in use after that comes
+ * back as `skipped`. When the profile covers the type, or the code reads some of the component's outputs, the outputs
+ * not named come back as `left` (unwired) unless `all` asks for every output, as the card's "+ Add environment
+ * variables" does. With `reads`, `fromCode` lists the names taken from the code and `unread` the added names the code
+ * does not read (each one a guess the app may never see).
  */
 export function componentEnvRows(
   rows: Array<{ name: string; kind: string; component: string; output: string }>,
   component: string,
   outputs: string[],
-  opts: { type?: string; profile?: EnvProfile; all?: boolean } = {},
-): { add: Array<{ name: string; component: string; output: string }>; skipped: string[]; left: string[] } {
+  opts: { type?: string; profile?: EnvProfile; all?: boolean; reads?: string[] } = {},
+): {
+  add: Array<{ name: string; component: string; output: string }>;
+  skipped: string[];
+  left: string[];
+  fromCode: string[];
+  unread: string[];
+} {
   const add: Array<{ name: string; component: string; output: string }> = [];
   const skipped: string[] = [];
   const left: string[] = [];
+  const fromCode: string[] = [];
   const taken = new Set(rows.map(r => r.name.trim()));
   const covered = opts.profile && opts.type ? PROFILE_ENV[opts.profile][opts.type] : undefined;
+  const fromReads = opts.reads ? matchReadNames(component, opts.type, outputs, opts.reads) : {};
+  const codeReadsSome = Object.keys(fromReads).length > 0;
   for (const output of outputs) {
     if (rows.some(r => r.kind === 'component' && r.component.trim() === component && r.output.trim() === output)) continue;
+    const read = fromReads[output];
+    if (read) {
+      if (taken.has(read)) skipped.push(read);
+      else {
+        taken.add(read);
+        add.push({ name: read, component, output });
+        fromCode.push(read);
+      }
+      continue;
+    }
+    if (codeReadsSome && !opts.all) {
+      left.push(output);
+      continue;
+    }
     const native = (covered?.[output] ?? []).filter(n => !taken.has(n));
     if (covered && !covered[output] && !opts.all) {
       left.push(output);
@@ -213,7 +298,10 @@ export function componentEnvRows(
       add.push({ name, component, output });
     }
   }
-  return { add, skipped, left };
+  // A profile name is read by the framework or driver, not by the app's own code, so it is never "unread".
+  const read = new Set([...(opts.reads ?? []), ...Object.values(covered ?? {}).flat()]);
+  const unread = opts.reads ? add.map(a => a.name).filter(n => !read.has(n)) : [];
+  return { add, skipped, left, fromCode, unread };
 }
 
 /** Output -> the env var names reading it with fromComponent, for one component. */

@@ -1,4 +1,4 @@
-import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv, componentEnvRows, envNameFor, envProfileFor, PROFILE_ENV, renameComponentEnv, wiredOutputs } from './components';
+import { COMPONENT_OUTPUTS, declaredComponents, matchComponentOutput, outputsOf, withoutComponentEnv, componentEnvRows, envNameFor, matchReadNames, envProfileFor, PROFILE_ENV, renameComponentEnv, wiredOutputs } from './components';
 
 const comps = [
   { name: 'board-mq', type: 'rabbitmq' },
@@ -139,5 +139,100 @@ describe('wiring a component into env vars', () => {
     const rows = [env('A', 'redis', 'url'), env('B', 'redis', 'url'), env('C', 'mq', 'host'), env('D')];
     expect(wiredOutputs(rows, 'redis')).toEqual({ url: ['A', 'B'] });
     expect(renameComponentEnv(rows, 'redis', 'cache').map(r => r.component)).toEqual(['cache', 'cache', 'mq', '']);
+  });
+});
+
+describe('matchReadNames and componentEnvRows with the names the code reads', () => {
+  // boarding-api's source scan (events.js, auth.js, store.js), 2026-10-21.
+  const boarding = [
+    'FLIGHT_API_URL',
+    'HOSTNAME',
+    'OAUTH_CLIENT_ID',
+    'OAUTH_CLIENT_SECRET',
+    'OAUTH_TOKEN_URL',
+    'PORT',
+    'RABBITMQ_HOST',
+    'RABBITMQ_PASSWORD',
+    'RABBITMQ_PORT',
+    'RABBITMQ_USER',
+    'RABBITMQ_VHOST',
+    'REDIS_PASSWORD',
+    'REDIS_URL',
+  ];
+  // flight-api's (application.properties placeholders).
+  const flight = ['DB_HOST', 'DB_NAME', 'DB_PASSWORD', 'DB_PORT', 'DB_USER', 'PORT', 'RABBITMQ_USER', 'RABBITMQ_PASSWORD'];
+
+  it('wires a rabbitmq component under the names boarding-api reads, not RABBITMQ_USERNAME', () => {
+    expect(matchReadNames('rabbitmq', 'rabbitmq', outputsOf('rabbitmq'), boarding)).toEqual({
+      username: 'RABBITMQ_USER',
+      password: 'RABBITMQ_PASSWORD',
+      host: 'RABBITMQ_HOST',
+      port: 'RABBITMQ_PORT',
+      vhost: 'RABBITMQ_VHOST',
+    });
+    const { add, fromCode, unread } = componentEnvRows([], 'rabbitmq', outputsOf('rabbitmq'), {
+      type: 'rabbitmq',
+      profile: 'drivers',
+      reads: boarding,
+    });
+    expect(add.map(a => a.name)).toEqual(['RABBITMQ_USER', 'RABBITMQ_PASSWORD', 'RABBITMQ_HOST', 'RABBITMQ_PORT', 'RABBITMQ_VHOST']);
+    expect(fromCode).toHaveLength(5);
+    expect(unread).toEqual([]);
+  });
+
+  it('matches whatever the component is called, by its type', () => {
+    expect(matchReadNames('board-mq', 'rabbitmq', ['username'], boarding)).toEqual({ username: 'RABBITMQ_USER' });
+    expect(matchReadNames('board-oauth', 'dex', outputsOf('dex'), boarding)).toEqual({
+      clientId: 'OAUTH_CLIENT_ID',
+      clientSecret: 'OAUTH_CLIENT_SECRET',
+      tokenUrl: 'OAUTH_TOKEN_URL',
+    });
+    expect(matchReadNames('cache', 'redis', outputsOf('redis'), boarding)).toEqual({ url: 'REDIS_URL', password: 'REDIS_PASSWORD' });
+  });
+
+  it('leaves the outputs the code does not read unwired, unless all are asked for', () => {
+    const r = componentEnvRows([], 'board-oauth', outputsOf('dex'), { type: 'dex', reads: boarding });
+    expect(r.add.map(a => a.name)).toEqual(['OAUTH_CLIENT_ID', 'OAUTH_CLIENT_SECRET', 'OAUTH_TOKEN_URL']);
+    expect(r.left).toEqual(['issuer', 'jwksUrl']);
+    const all = componentEnvRows([], 'board-oauth', outputsOf('dex'), { type: 'dex', reads: boarding, all: true });
+    expect(all.add.map(a => a.name)).toContain('BOARD_OAUTH_ISSUER');
+    expect(all.unread).toEqual(['BOARD_OAUTH_ISSUER', 'BOARD_OAUTH_JWKS_URL']);
+  });
+
+  it("prefers the code's names over the Spring profile's, and DB_NAME is a database", () => {
+    const { add } = componentEnvRows([], 'flight-db', outputsOf('postgresql'), {
+      type: 'postgresql',
+      profile: 'spring-boot',
+      reads: flight,
+    });
+    expect(add.map(a => `${a.output}=${a.name}`)).toEqual([
+      'host=DB_HOST',
+      'port=DB_PORT',
+      'username=DB_USER',
+      'password=DB_PASSWORD',
+      'database=DB_NAME',
+    ]);
+  });
+
+  it('falls back to the profile and calls the names unread when the code reads none of them', () => {
+    const r = componentEnvRows([], 'rabbitmq', outputsOf('rabbitmq'), { type: 'rabbitmq', reads: ['PORT'] });
+    expect(r.add.map(a => a.name)).toEqual(['RABBITMQ_USERNAME', 'RABBITMQ_PASSWORD', 'RABBITMQ_HOST', 'RABBITMQ_PORT', 'RABBITMQ_VHOST']);
+    expect(r.unread).toHaveLength(5);
+    // a Spring profile name is read by Spring itself, so it is not called unread
+    const spring = componentEnvRows([], 'mq', outputsOf('rabbitmq'), { type: 'rabbitmq', profile: 'spring-boot', reads: [] });
+    expect(spring.unread).toEqual([]);
+  });
+
+  it('does not reuse a name already in the file, and does not give one name to two outputs', () => {
+    const rows = [{ name: 'REDIS_URL', kind: 'value', component: '', output: '' }];
+    const r = componentEnvRows(rows, 'cache', ['url', 'password'], { type: 'redis', reads: boarding });
+    expect(r.skipped).toEqual(['REDIS_URL']);
+    expect(r.add.map(a => a.name)).toEqual(['REDIS_PASSWORD']);
+    // uri and url share URL/URI words; DATABASE_URL goes to one of them only
+    expect(Object.values(matchReadNames('db', 'postgresql', ['uri', 'jdbcUri'], ['DATABASE_URL']))).toEqual(['DATABASE_URL']);
+  });
+
+  it('ignores a bare word with no component prefix (PORT, HOSTNAME)', () => {
+    expect(matchReadNames('cache', 'redis', ['port', 'host'], ['PORT', 'HOSTNAME'])).toEqual({});
   });
 });

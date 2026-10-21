@@ -11,6 +11,7 @@ jest.mock('@backstage/core-components', () => ({
 }));
 jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
 jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false, data: undefined }) }));
+jest.mock('./useAppEnvReads', () => ({ useAppEnvReads: () => undefined }));
 
 // The real staging values file of boarding-api (gitops-boarding-api, example-prod/staging), as Crossplane and a person
 // left it: env vars from a ConfigMap and a Secret, a rollout with probes and steps, an HTTPRoute, attached components.
