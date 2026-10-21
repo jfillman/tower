@@ -43,6 +43,11 @@ export interface EnvLifecycleInputs {
   valuesFilePath?: string;
   /** Ground: a pipeline has a deploy step for the environment. Undefined = unknown. */
   pipelineStep?: boolean;
+  /**
+   * 'infra' for an InfraService: no onboarding pull request (its environment file is added with the cicd.yaml change
+   * or by hand) and no build or deploy step (Argo CD deploys the values file; the component's operator runs it).
+   */
+  appType?: 'app' | 'infra';
 }
 
 const prLink = (label: string, pr?: PrSnapshot): StepLink[] | undefined =>
@@ -87,6 +92,22 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
     // Argo CD creates the namespace as soon as the values file exists, but nothing runs in it until a pipeline's deploy
     // step puts an image there - and a pipeline only has such a step if one was added (2026-10-12: a new test
     // environment sat at "Deployed: waiting" for good, since the ci pipeline only deployed to dev).
+    if (i.appType === 'infra') {
+      let infraWaiting: string | undefined;
+      if (!i.deployed) {
+        infraWaiting = i.valuesFileExists
+          ? `Waiting for Argo CD app ${i.appName}-${i.env} and the component it declares to come up.`
+          : `Nothing builds an InfraService: add ${valuesPath} to its gitops repo and Argo CD deploys it.`;
+      }
+      const live: EnvLifecycleStep = {
+        id: 'workload',
+        title: 'Deployed',
+        desc: 'Argo CD deploys the values file; the component it declares (a broker, say) is brought up by its operator.',
+        state: i.deployed ? 'done' : 'pend',
+        detail: infraWaiting,
+      };
+      return [cicd, file, live];
+    }
     let waiting: string | undefined;
     if (!i.deployed) {
       if (i.pipelineStep === false) {

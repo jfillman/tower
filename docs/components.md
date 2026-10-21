@@ -87,6 +87,12 @@ values are edited in its row on the Environments tab.
 **Key exports:** `ConfigTab`
 
 ### Deployments ("Ground Control")
+
+Every tab that lists environments reads them from the app's Rollouts, else its Deployments. An **InfraService** has
+neither: its environment is the StatefulSet its component's operator makes (`skyport-broker-server` for a RabbitMQ
+broker), so for a `kind:infraservice` entity Tower also takes a StatefulSet labelled with the service's `hangar.io/app`
+and `hangar.io/env`. The environment's Argo CD app is `<hangar.io/app>-<env>`. An app's own attached components run
+StatefulSets too, so this applies only to an InfraService.
 The CI/CD view of one environment: an env picker grouped Ground and Flight, an always-visible ArgoCD command
 panel (sync and health, Refresh and Sync), a notification banner, and the pipeline DAG. Clicking a DAG node drives
 the stage detail below it. The Rollout starts/completes steps carry real timestamps, and a rollout topology DAG shows

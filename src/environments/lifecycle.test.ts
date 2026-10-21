@@ -141,3 +141,15 @@ describe('Ground environment lifecycle: what the last step waits for', () => {
     expect(deriveEnvLifecycle({ ...base, ...g, onboardingPr: pr('merged', 26), valuesFileExists: true, pipelineStep: true, deployed: true }).every(s => s.state === 'done')).toBe(true);
   });
 });
+
+describe('an InfraService Ground environment', () => {
+  const infra: Partial<EnvLifecycleInputs> = { tier: 'ground', env: 'dev', appName: 'skyport-broker', declared: true, appType: 'infra' };
+  it('has no onboarding pull request or pipeline step to wait for', () => {
+    expect(states({ ...infra, valuesFileExists: true, deployed: true, pipelineStep: false })).toEqual(['cicd:done', 'values:done', 'workload:done']);
+  });
+  it('waits on Argo CD, not a pipeline, once its file exists', () => {
+    const live = deriveEnvLifecycle({ ...base, ...infra, valuesFileExists: true, pipelineStep: false }).find(s => s.id === 'workload')!;
+    expect(live.state).toBe('pend');
+    expect(live.detail).toBe('Waiting for Argo CD app skyport-broker-dev and the component it declares to come up.');
+  });
+});
