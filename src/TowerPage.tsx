@@ -10,7 +10,6 @@ import type { Entity } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { HangarMark } from './brand/HangarMark';
 import { AppPicker } from './AppPicker';
-import { AutopilotPlaceholder } from './AutopilotPlaceholder';
 import { CAP, hasCapabilities, type Capability } from './serviceClass';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -73,7 +72,6 @@ interface TabDef {
 
 export const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
-  { id: 'autopilot', label: 'Autopilot', Component: AutopilotPlaceholder, requires: [CAP.autopilot] },
   { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab, requires: [CAP.source] },
   { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },

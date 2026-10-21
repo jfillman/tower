@@ -19,6 +19,8 @@ import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
 import { usePlatformConfig } from '../platformConfig';
+import { AgentDefinitionPanel } from '../agentDefinition';
+import { CAP, capabilitiesOf } from '../serviceClass';
 
 // Each cluster's Grafana (tower.clusters.<cluster>.grafanaUrl in app-config,
 // fronting that cluster's kube-prometheus-stack Grafana) is as far as
@@ -482,6 +484,9 @@ export function OverviewTab() {
   const noSourceRepo = repos?.type === 'infra' ? 'none (an infra service: its config lives in the gitops repo)' : '—';
   const previewEnvs = environments.filter(env => isPreviewEnvName(env.env));
   const pipelineEnvs = environments.filter(env => !isPreviewEnvName(env.env));
+  const caps = capabilitiesOf(entity);
+  const isAgent = caps.has(CAP.autopilot);
+  const hasRuntime = caps.has(CAP.k8sRuntime) || caps.has(CAP.cloudRuntime);
   // Whether the grid shows a release rail at all (some environment has been deployed).
   const hasRail = pipelineEnvs.some(env => env.deployed !== false);
 
@@ -664,11 +669,16 @@ export function OverviewTab() {
         </FactGrid>
       </Panel>
 
+      {isAgent && <AgentDefinitionPanel entity={entity} />}
+
+      {/* An agent that runs only as AgentRuns has no environment to be empty of. */}
       {pipelineEnvs.length === 0 ? (
-        <TowerEmptyState
-          title="Nothing deployed yet"
-          description="This app hasn't shipped its first build to any environment yet - Tower reads Rollouts, Deployments and Pods live from each configured cluster, so there's nothing to show here until it has. This is expected for a freshly onboarded app, not an error."
-        />
+        hasRuntime && (
+          <TowerEmptyState
+            title="Nothing deployed yet"
+            description="This app hasn't shipped its first build to any environment yet - Tower reads Rollouts, Deployments and Pods live from each configured cluster, so there's nothing to show here until it has. This is expected for a freshly onboarded app, not an error."
+          />
+        )
       ) : (
       <div className={classes.grid} ref={setGridEl}>
         {computeReleaseTracks(pipelineEnvs).map(run => {

@@ -40,7 +40,7 @@ export const CAP = {
   valuesConfig: 'values-config', // configured through Helm values files in its repo
   k8sRuntime: 'k8s-runtime', // runs on a cluster Tower can read: Deployments, Topology
   cloudRuntime: 'cloud-runtime', // runs on a cloud service; no tab consumes this yet
-  autopilot: 'autopilot',
+  autopilot: 'autopilot', // an Autopilot agent: its definition on Overview; the Agent tab once it is built
 } as const;
 
 export interface ServiceClassDef {
@@ -93,12 +93,13 @@ export const SERVICE_CLASSES: Record<string, ServiceClassDef> = {
   // An Airframe InfraService (a shared component such as a broker): no source repo, no build, no image, no release
   // records. Its environments are values files in gitops-infra-<name> that Argo CD deploys, so it keeps the tabs that
   // read or edit those (Environments, Glidepath for cicd.yaml, App Configuration, Deployments, Topology) and its PRs
-  // and notifications, and drops Pipelines, Releases, Images and SLOs.
+  // and notifications, and drops Pipelines, Releases and Images. It keeps SLOs: a broker can have a real availability
+  // SLO, declared in its environment values like an app's (the tab says how when there is none).
   'infra-service': {
     id: 'infra-service',
     label: 'Infra service',
     labelPlural: 'Infra services',
-    capabilities: [CAP.source, CAP.ci, CAP.valuesConfig],
+    capabilities: [CAP.source, CAP.ci, CAP.valuesConfig, CAP.slo],
     defaultDeployTarget: 'k8s-rollout',
   },
   function: {
@@ -107,11 +108,22 @@ export const SERVICE_CLASSES: Record<string, ServiceClassDef> = {
     labelPlural: 'Functions',
     capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images],
   },
+  // An Autopilot agent in an ephemeral shape (task, session, scheduled, event, team): it runs as AgentRuns and
+  // leaves nothing deployed, so it gets Overview (with its agent definition) and its repo's pull requests.
   'ai-workload': {
     id: 'ai-workload',
     label: 'AI workload',
     labelPlural: 'AI workloads',
     capabilities: [CAP.source, CAP.autopilot],
+  },
+  // A long-running agent (the service shape) that Glidepath builds from its own repo into an image and deploys like a
+  // container app: every container-app tab, plus the agent definition on Overview.
+  'ai-service': {
+    id: 'ai-service',
+    label: 'AI service',
+    labelPlural: 'AI services',
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig, CAP.autopilot],
+    defaultDeployTarget: 'k8s-rollout',
   },
 };
 

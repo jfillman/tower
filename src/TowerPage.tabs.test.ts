@@ -50,31 +50,26 @@ describe('which tabs a service gets', () => {
     expect(ids(e)).toEqual(expect.arrayContaining(['overview', 'pipelines', 'deployments', 'releases', 'glidepath']));
   });
 
-  it('an InfraService drops Pipelines, Releases, Images and SLOs: nothing builds it', () => {
+  it('an InfraService drops Pipelines, Releases and Images (nothing builds it) and keeps SLOs', () => {
     expect(ids(entity(undefined, ['kind:infraservice']))).toEqual([
       'overview',
       'pull-requests',
       'deployments',
       'environments',
       'topology',
+      'slos',
       'notifications',
       'config',
       'glidepath',
     ]);
   });
 
-  it('an AI workload gets Overview, Autopilot and Pull Requests; no Glidepath tabs, so no Notifications', () => {
-    expect(ids(entity({ 'hangar.io/workload-type': 'ai' }))).toEqual(['overview', 'autopilot', 'pull-requests']);
+  it('an AI workload gets Overview and Pull Requests; no Glidepath tabs, so no Notifications', () => {
+    expect(ids(entity({ 'hangar.io/workload-type': 'ai' }))).toEqual(['overview', 'pull-requests']);
   });
 
-  it('an AI workload that runs as a service on a cluster also gets Deployments and Topology', () => {
-    expect(ids(entity({ 'hangar.io/service-class': 'ai-workload', 'hangar.io/deploy-target': 'k8s-rollout' }))).toEqual([
-      'overview',
-      'autopilot',
-      'pull-requests',
-      'deployments',
-      'topology',
-    ]);
+  it('an AI service (a long-running agent Glidepath builds) gets every container-app tab', () => {
+    expect(ids(entity({ 'hangar.io/service-class': 'ai-service' }))).toEqual(ids(entity(undefined, ['kind:goapplication'])));
   });
 
   it('never offers both Deployments tabs for one service', () => {
