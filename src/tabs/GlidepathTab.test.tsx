@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues } from './GlidepathTab';
+import { BUILD_AGENTS, GlidepathTab, agentOptions, buildCandidateValues, buildFormFromValues, glidepathSectionsFor } from './GlidepathTab';
 
 const submit = jest.fn();
 // A complete file, as a real one is: the form writes every field it has, so a sparse file would read as changed.
@@ -91,5 +91,12 @@ describe('Glidepath tab', () => {
     // YamlBlock colours a line in pieces: match on the whole line's text.
     const lines = Array.from(document.querySelectorAll('[data-yaml-line]')).map(e => e.textContent);
     expect(lines).toContain('  agent: nodejs-20');
+  });
+});
+
+describe('glidepathSectionsFor', () => {
+  it('leaves out the build, test, preview and pipeline sections for an InfraService', () => {
+    expect(glidepathSectionsFor('infra').map(x => x.id)).toEqual(['deploy', 'governance', 'notifications', 'secrets', 'advanced']);
+    expect(glidepathSectionsFor('app').map(x => x.id)[0]).toBe('build');
   });
 });

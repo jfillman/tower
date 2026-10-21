@@ -36,8 +36,8 @@ has all of the ones it requires; a tab with none required always shows.
 
 | Capability | Granted by | Tabs that need it |
 |---|---|---|
-| `source` | classes with a GitHub repo | Pull Requests, Notifications |
-| `ci` | classes onboarded to Glidepath (a `cicd.yaml`) | Pipelines, Environments, Glidepath |
+| `source` | classes with a GitHub repo | Pull Requests, Notifications (with `ci`) |
+| `ci` | classes onboarded to Glidepath (a `cicd.yaml`) | Pipelines, Environments, Notifications, Glidepath |
 | `build` | container-app, function: a source repo Glidepath builds | Pipelines (with `ci`) |
 | `releases` | container-app, function | Releases |
 | `images` | container-app, function | Images |
@@ -49,9 +49,36 @@ has all of the ones it requires; a tab with none required always shows.
 
 An **infra-service** (an Airframe InfraService such as a broker) has no source repo, build,
 image or release records: it gets `source`, `ci` and `values-config` but not `build`,
-`releases`, `images` or `slo`. So it shows Overview, Pull Requests, Deployments,
-Environments, Topology, Notifications, App Configuration and Glidepath, and not Pipelines,
-Releases, Images or SLOs. Its own filter chip on the Services list is "Infra services".
+`releases`, `images` or `slo`. Its own filter chip on the Services list is "Infra services".
+
+## Tabs by service type
+
+| Tab | Container app (Kubernetes) | Container app (cloud) | Function | Infra service | AI workload | AI workload on Kubernetes |
+|---|---|---|---|---|---|---|
+| Overview | yes | yes | yes | yes | yes | yes |
+| Autopilot | | | | | yes | yes |
+| Pull Requests | yes | yes | yes | yes (gitops-infra repo) | yes | yes |
+| Pipelines | yes | yes | yes | | | |
+| Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |
+| Releases | yes | yes | yes | | | |
+| Environments | yes | yes | yes | yes | | |
+| Topology | yes | | | yes | | yes |
+| Images | yes | yes | yes | | | |
+| SLOs | yes | | | | | |
+| Notifications | yes | yes | yes | yes | | |
+| App Configuration | yes | | | yes (no preview section) | | |
+| Glidepath | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | |
+
+"Container app (cloud)" is `aws-ecs` or `azure-container-apps`; "Function" is `aws-lambda` (LambdaFunction) or
+`azure-container-apps` (AzureFunction). "AI workload on Kubernetes" is an `ai-workload` whose
+`hangar.io/deploy-target` is `k8s-rollout` (the long-running *service* shape of an agent); the other Autopilot
+shapes (task, session, scheduled, event, team) run as ephemeral `AgentRun`s and have no target. The table is
+asserted by `src/TowerPage.tabs.test.ts`.
+
+Within a tab, an InfraService also gets less: App Configuration has no Preview environments section (nothing
+builds its pull requests) and the Glidepath tab shows only the sections its `cicd.yaml` uses. The tab-by-tab analysis per
+type, with the open questions (SLOs for InfraServices, an AI overview, agents Glidepath builds), is in the
+[Tower service types spec](https://claude.ai/artifact/TchwwJAoV7wjPdGWqcLnev).
 
 A class Tower has no entry for gets a label made from its slug, no capabilities, and
 `source` if its Component has a `github.com/project-slug`. It still lists, filters and

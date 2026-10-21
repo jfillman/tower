@@ -25,6 +25,7 @@ import { PageHeader, SectionTitle, Subtabs, YamlBlock } from '../ui';
 import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
 import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
+import { appRepos, appTypeOf, type AppType } from '../appRepos';
 
 // Tower's Glidepath tab (2026-09-16): full management of an app's own
 // cicd.yaml (the file that configures the Glidepath CI/CD engine itself)
@@ -346,6 +347,14 @@ const GLIDEPATH_TABS: Array<{ id: GlidepathTabId; label: string }> = [
   { id: 'pipelines', label: 'Pipelines' },
   { id: 'advanced', label: 'Advanced' },
 ];
+/**
+ * The sections an InfraService's cicd.yaml uses. Nothing builds or tests it and it has no pull request previews or
+ * pipelines of its own, so Build, Test, Preview environments and Pipelines would edit settings nothing reads.
+ */
+const INFRA_SECTIONS: ReadonlySet<GlidepathTabId> = new Set(['deploy', 'governance', 'notifications', 'secrets', 'advanced']);
+export const glidepathSectionsFor = (type: AppType) =>
+  type === 'infra' ? GLIDEPATH_TABS.filter(x => INFRA_SECTIONS.has(x.id)) : GLIDEPATH_TABS;
+
 const TAB_OF_FIELD: Partial<Record<CicdTopLevelField, GlidepathTabId>> = {
   build: 'build',
   test: 'test',
@@ -360,7 +369,9 @@ const TAB_OF_FIELD: Partial<Record<CicdTopLevelField, GlidepathTabId>> = {
 export function GlidepathTab() {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const { owner, appName, loading: contextLoading, error: contextError } = useReleaseContext();
+  const { owner, appName, loading: contextLoading, error: contextError, entity } = useReleaseContext();
+  const appType = appTypeOf(entity);
+  const sections = glidepathSectionsFor(appType);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const target = owner && appName ? { owner, appName } : undefined;
@@ -368,7 +379,7 @@ export function GlidepathTab() {
   const submitCicd = useSubmitCicdConfigChange();
 
   const [form, setForm] = useState<CicdFormState | undefined>(undefined);
-  const [tab, setTab] = useState<GlidepathTabId>('build');
+  const [tab, setTab] = useState<GlidepathTabId>(sections[0].id);
 
   useEffect(() => {
     if (cicd.data) setForm(buildFormFromValues(cicd.data.values));
@@ -426,10 +437,12 @@ export function GlidepathTab() {
     <div className={classes.root}>
       <PageHeader
         title="Glidepath"
-        subtitle={`${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName} repo; nothing is committed directly.`}
+        subtitle={`${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${
+          appName ? appRepos(appName, appType).configRepo : appName
+        } repo; nothing is committed directly.`}
         actions={<RefreshButton onClick={() => setRefreshNonce(n => n + 1)} label="Refresh" />}
       />
-      <Subtabs label="Glidepath sections" value={tab} onChange={setTab} tabs={GLIDEPATH_TABS.map(x => ({ ...x, marked: dirtyTabs.has(x.id) }))} />
+      <Subtabs label="Glidepath sections" value={tab} onChange={setTab} tabs={sections.map(x => ({ ...x, marked: dirtyTabs.has(x.id) }))} />
 
       {/* --- Build --------------------------------------------------------*/}
       {tab === 'build' && (
