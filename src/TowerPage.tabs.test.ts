@@ -63,6 +63,20 @@ describe('which tabs a service gets', () => {
     ]);
   });
 
+  it('an AI workload gets Overview, Autopilot and Pull Requests; no Glidepath tabs, so no Notifications', () => {
+    expect(ids(entity({ 'hangar.io/workload-type': 'ai' }))).toEqual(['overview', 'autopilot', 'pull-requests']);
+  });
+
+  it('an AI workload that runs as a service on a cluster also gets Deployments and Topology', () => {
+    expect(ids(entity({ 'hangar.io/service-class': 'ai-workload', 'hangar.io/deploy-target': 'k8s-rollout' }))).toEqual([
+      'overview',
+      'autopilot',
+      'pull-requests',
+      'deployments',
+      'topology',
+    ]);
+  });
+
   it('never offers both Deployments tabs for one service', () => {
     for (const target of ['k8s-rollout', 'aws-ecs', 'aws-lambda', 'azure-container-apps', 'something-new']) {
       const e = entity({ 'hangar.io/service-class': 'container-app', 'hangar.io/deploy-target': target });

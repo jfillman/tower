@@ -86,7 +86,8 @@ export const TABS: readonly TabDef[] = [
   { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
   { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
-  { id: 'notifications', label: 'Notifications', Component: NotificationsTab, requires: [CAP.source] },
+  // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
+  { id: 'notifications', label: 'Notifications', Component: NotificationsTab, requires: [CAP.source, CAP.ci] },
   { id: 'config', label: 'App Configuration', Component: ConfigTab, requires: [CAP.valuesConfig] },
   { id: 'glidepath', label: 'Glidepath', Component: GlidepathTab, requires: [CAP.ci] },
 ];

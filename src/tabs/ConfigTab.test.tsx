@@ -90,3 +90,8 @@ describe('configSections for an InfraService', () => {
     expect(flight?.hint).toContain('opens a PR on gitops-infra-skyport-broker');
   });
 });
+
+it('gives an InfraService no preview environment section: nothing builds its pull requests', () => {
+  expect(configSections('skyport-broker', [], 'infra').map(s => s.id)).toEqual(['base']);
+  expect(configSections('boarding-api', []).map(s => s.id)).toEqual(['base', 'preview']);
+});
