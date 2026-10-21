@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ConfigTab } from './ConfigTab';
+import { ConfigTab, configSections } from './ConfigTab';
 
 const selectors: any[] = [];
 const files: Record<string, any> = {
@@ -80,5 +80,13 @@ describe('App Configuration', () => {
     expect(screen.getByRole('region', { name: /Pending changes to the values/ })).toBeTruthy();
     expect(screen.getByText(/staging's own values moved/)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Environments tab' })).toBeTruthy();
+  });
+});
+
+describe('configSections for an InfraService', () => {
+  it("puts its Flight shared values in gitops-infra-<name>", () => {
+    const flight = configSections('skyport-broker', ['example-prod'], 'infra').find(s => s.id === 'flight-example-prod');
+    expect(flight?.path).toBe('gitops-infra-skyport-broker/example-prod/base.yaml');
+    expect(flight?.hint).toContain('opens a PR on gitops-infra-skyport-broker');
   });
 });

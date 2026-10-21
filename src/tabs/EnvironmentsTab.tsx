@@ -31,7 +31,9 @@ import {
   type Deploy,
   type EnvDef,
   type Staged,
+  uncopiedGroundAdds,
 } from '../environments/stagedChanges';
+import { appRepos, appTypeOf } from '../appRepos';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
 import { unlistedProvisioned, useProvisionedEnvs } from '../environments/provisionedEnvs';
 import { dump as dumpYaml } from 'js-yaml';
@@ -124,6 +126,8 @@ export function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
+  // The page's entity is this app's Component (useReleaseContext), so its kind tag says whether it is an InfraService.
+  const appType = appTypeOf(appEntity);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
   const loadValues = useEnvValuesLoader();
@@ -245,7 +249,7 @@ export function EnvironmentsTab() {
   }, [before, after]);
   const notes = useMemo(
     () => [
-      ...followUps(before, after, targetId, appName),
+      ...followUps(before, after, targetId, appName, appType),
       ...purged.map(
         name =>
           `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`,
@@ -258,7 +262,7 @@ export function EnvironmentsTab() {
         : []),
       ...releasePlan.skipped.map(k => `No ${k.stage} step added for ${k.env}: ${k.reason}.`),
     ],
-    [before, after, targetId, appName, releasePlan, flightOrderChanged, staged, purged],
+    [before, after, targetId, appName, appType, releasePlan, flightOrderChanged, staged, purged],
   );
   const deleteFiles = useMemo(() => deleteFilesFor(before, after, targetId, purged), [before, after, targetId, purged]);
 
@@ -369,6 +373,16 @@ export function EnvironmentsTab() {
   const openPr = async () => {
     if (!owner || !appName) return;
     setFailure(undefined);
+    // An InfraService's environment is its values file and nothing else makes one, so a new Ground one must copy values.
+    const uncopied = appType === 'infra' && !cloudBlock ? uncopiedGroundAdds(staged, before, after) : [];
+    if (uncopied.length > 0) {
+      setFailure(
+        `${uncopied.join(', ')}: an InfraService has no build and no onboarding pull request, so a new environment needs values to deploy. Use Duplicate… on an existing environment instead, or add ${ENVS_ROOT}/envs/<name>.yaml to ${
+          appRepos(appName, 'infra').gitopsRepo
+        } by hand. Nothing was changed.`,
+      );
+      return;
+    }
     // The ApplicationEnvironment request first, so the environment exists when cicd.yaml names it.
     const done = { ...launched };
     const reusedNow = { ...reused };

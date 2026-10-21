@@ -76,6 +76,8 @@ The config an app shares across its environments, as sub-tabs that each use the 
   layered under each Flight environment's `values.yaml` on that cluster (PR on the gitops repo, checked by the values
   gate like a release). A separate file on purpose: a source-repo change never reaches a Flight environment without a
   reviewed gitops PR.
+- An **InfraService** has one repo, `gitops-infra-<name>`, for both: its `glidepath/` folder and its `<cluster>/base.yaml`
+  files (the backend resolves the repo from the catalog's `kind:infraservice` tag, `appRepos.ts`).
 - **Preview environments**: `glidepath/pr-env.yaml`, the template of each pull request preview
 
 An app whose environments render their own chart (`deploy.chart`) gets the raw YAML editor for its shared values, as

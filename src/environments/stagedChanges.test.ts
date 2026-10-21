@@ -1,4 +1,5 @@
 import {
+  uncopiedGroundAdds,
   addedFlightEnvs,
   applyStaged,
   buildDeploy,
@@ -19,6 +20,7 @@ import {
   validateEnvironments,
   validateRemovals,
   type EnvDef,
+  type Staged,
 } from './stagedChanges';
 
 const ground = (name: string, extra: Partial<EnvDef> = {}): EnvDef => ({ name, tier: 'ground', ...extra });
@@ -197,11 +199,29 @@ describe('describeChanges', () => {
   });
 });
 
+describe('uncopiedGroundAdds', () => {
+  it('lists new Ground environments staged without values to copy', () => {
+    const staged: Staged[] = [
+      { kind: 'add', env: ground('qa') },
+      { kind: 'add', env: ground('uat'), copyValuesFrom: 'dev' },
+    ];
+    const before = [ground('dev')];
+    const after = [ground('dev'), ground('qa'), ground('uat')];
+    expect(uncopiedGroundAdds(staged, before, after)).toEqual(['qa']);
+  });
+});
+
 describe('followUps', () => {
   it('tells the user a new Ground environment gets its file from Glidepath after the merge', () => {
     const out = followUps([ground('dev')], [ground('dev'), ground('qa')], undefined);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatch(/glidepath\/envs\/qa\.yaml/);
+  });
+  it("says an InfraService's new Ground environment is added by this pull request, on its gitops repo", () => {
+    const out = followUps([ground('dev')], [ground('dev'), ground('qa')], undefined, 'skyport-broker', 'infra');
+    expect(out).toEqual([
+      'An InfraService gets no onboarding pull request, so this one adds glidepath/envs/qa.yaml to gitops-infra-skyport-broker itself, with the values of the environment it duplicates. Argo CD deploys qa when it merges.',
+    ]);
   });
   it('names the deleted file under glidepath/', () => {
     expect(followUps([ground('dev'), ground('qa')], [ground('dev')], undefined, 'shop')[0]).toMatch(/deletes glidepath\/envs\/qa\.yaml/);
