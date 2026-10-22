@@ -21,7 +21,7 @@ import { ClusterCheckPicker } from './ClusterCheckPicker';
 import { checkArgs } from './analysisCatalog';
 import { ComponentsEditor, parseComponents } from './ComponentsEditor';
 import { catalogOutputs, componentProblems, type ComponentDefinition } from './componentCatalog';
-import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
+import { annotateLayers, annotateValues, composeEnvLayers, mergeValues, useEnvValueLayers, type ChartValues, type EnvLayersTarget } from './annotatedValues';
 import { analysisProblems, templateRefs } from './analysis';
 import { componentEnvRows, declaredComponents, envProfileFor, type EnvProfile, matchComponentOutput, outputsOf, PROFILE_ENV, renameComponentEnv, wiredOutputs, withoutComponentEnv } from './components';
 import { useAppEnvReads } from './useAppEnvReads';
@@ -1222,6 +1222,67 @@ const RENAME_HINT: Record<EnvProfile | 'none', string> = {
   none: 'Rename them on the Config tab to the names this app reads.',
 };
 
+function fullValuesText(
+  chart: ChartValues | undefined,
+  target: EnvLayersTarget | undefined,
+  layers: Parameters<typeof composeEnvLayers>[0],
+  own: Record<string, unknown>,
+): string {
+  if (!target) return annotateValues(chart, own);
+  return annotateLayers(chart, composeEnvLayers(layers, own), [
+    `Effective values of ${target.env}, as Argo CD renders them: the chart defaults, then each layer below, later ones winning.`,
+    'Each value says where it comes from: "set here" (this file, with anything you have staged), "from <file>", or',
+    '"set by the platform (Argo CD Application)". An unmarked value is the chart default.',
+  ]);
+}
+
+function fullValuesHint(
+  haveChart: boolean,
+  target: EnvLayersTarget | undefined,
+  layers: { layers?: unknown[]; platformFrom?: string; error?: string },
+  staged: boolean,
+): string {
+  const parts: string[] = [];
+  if (!haveChart) parts.push("Tower could not read the chart's schema, so chart defaults and descriptions are missing.");
+  if (target && layers.error) parts.push(`Couldn't read the other layers (${layers.error}): this shows only this file over the chart defaults.`);
+  else if (target && !layers.layers) parts.push('Reading the shared base, release file and Argo CD Application…');
+  else if (target && layers.platformFrom === 'missing') {
+    parts.push("Tower could not read this environment's Argo CD Application, so values the platform sets (appName, cluster, envName) may show as defaults.");
+  }
+  if (!target) parts.push('A shared file: the chart defaults with this file laid over them; "# set here" marks what it sets.');
+  if (staged) parts.push('Includes your staged changes.');
+  return parts.join(' ');
+}
+
+/** Its own component so the layers are read only while the view is open. */
+function FullValues({
+  owner,
+  appName,
+  chart,
+  target,
+  own,
+  staged,
+  refreshKey,
+  hintClass,
+}: {
+  owner: string;
+  appName: string;
+  chart?: ChartValues;
+  target?: EnvLayersTarget;
+  own: Record<string, unknown>;
+  staged: boolean;
+  refreshKey: unknown;
+  hintClass: string;
+}) {
+  const layers = useEnvValueLayers(owner, appName, target, true, refreshKey);
+  return (
+    <>
+      <Typography className={hintClass}>{fullValuesHint(Boolean(chart), target, layers, staged)}</Typography>
+      <YamlBlock text={fullValuesText(chart, target, layers.layers, own)} title="Full values" maxHeight={480} filter aria-label="Full values" />
+    </>
+  );
+}
+
 export function ConfigEditor({
   owner,
   appName,
@@ -1238,10 +1299,16 @@ export function ConfigEditor({
   shared = false,
   workload,
   appKind,
+  layersTarget,
 }: {
   owner: string;
   appName: string;
   source: ValuesSource;
+  /**
+   * The environment this file belongs to, so "View full values (annotated)" shows every layer Argo CD renders with (the
+   * shared base, the release file, the values the Application sets), not just this file over the chart defaults.
+   */
+  layersTarget?: EnvLayersTarget;
   /** A shared values file (App Configuration) rather than one environment's: the PR summary words its effect so. */
   shared?: boolean;
   /** Names what is being edited in the panel, for example "TEST (example-dev)". */
@@ -1784,18 +1851,15 @@ export function ConfigEditor({
         </button>
         {showFull && (
           <>
-            <Typography className={classes.hint}>
-              {chart
-                ? 'The chart defaults with this file laid over them, every field with its description; "# set here" marks what the file sets. Changes you have staged in the form are included.'
-                : "Tower could not read the chart's schema, so this shows only the committed file."}
-              {dirty.size > 0 ? ' (Showing your staged changes.)' : ''}
-            </Typography>
-            <YamlBlock
-              text={annotateValues(chart, mergeValues(cfg.data.values, previewPatch) as Record<string, unknown>)}
-              title="Full values"
-              maxHeight={480}
-              filter
-              aria-label="Full values"
+            <FullValues
+              owner={owner}
+              appName={appName}
+              chart={chart}
+              target={layersTarget}
+              own={mergeValues(cfg.data.values, previewPatch) as Record<string, unknown>}
+              staged={dirty.size > 0}
+              refreshKey={source.data}
+              hintClass={classes.hint}
             />
           </>
         )}

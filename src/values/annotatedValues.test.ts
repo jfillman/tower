@@ -1,6 +1,6 @@
 import { load } from 'js-yaml';
 import fixture from './__fixtures__/chartValues.json';
-import { annotateValues, mergeValues, type ChartValues } from './annotatedValues';
+import { annotateLayers, annotateValues, composeEnvLayers, mergeValues, type ChartValues, type EnvValueLayer } from './annotatedValues';
 
 const chart = fixture as unknown as ChartValues;
 // A trimmed copy of boarding-api's staging file.
@@ -43,5 +43,42 @@ describe('annotateValues', () => {
     const bare = annotateValues(undefined, { appName: 'x', extra: { a: 1 } });
     expect(load(bare)).toEqual({ appName: 'x', extra: { a: 1 } });
     expect(bare).toContain('appName: x  # set here');
+  });
+});
+
+describe('the full values of an environment, every layer (2026-10-22: appName, cluster and envName showed as empty)', () => {
+  const backend: EnvValueLayer[] = [
+    { kind: 'shared', label: 'boarding-api/glidepath/base.yaml', values: { rollout: { replicas: 1, enabled: true } } },
+    { kind: 'env', label: 'boarding-api/glidepath/envs/dev.yaml', values: { rollout: { replicas: 3 } } },
+    { kind: 'release', label: 'boarding-api/glidepath/envs/dev.release.yaml', values: { release: { image: { repository: 'ghcr.io/x', tag: '1.0.2' } } } },
+    { kind: 'platform', label: 'Argo CD Application boarding-api-dev', values: { appName: 'boarding-api', cluster: 'hangar-dev', envName: 'dev', clusterType: 'dev' } },
+  ];
+  // what the form holds: the file plus a staged edit
+  const own = { rollout: { replicas: 4 } };
+  const text = annotateLayers(chart, composeEnvLayers(backend, own), ['header']);
+  const parsed = load(text) as Record<string, any>;
+  const line = (re: RegExp) => text.split('\n').find(l => re.test(l)) ?? '';
+
+  it('fills the platform-set values instead of the chart\'s empty defaults', () => {
+    expect(parsed.appName).toBe('boarding-api');
+    expect(parsed.cluster).toBe('hangar-dev');
+    expect(parsed.envName).toBe('dev');
+    expect(line(/^appName:/)).toContain('# set by the platform (Argo CD Application)');
+  });
+
+  it('lets the form (with staged changes) win over the shared base, and marks each value with its source', () => {
+    expect(parsed.rollout.replicas).toBe(4);
+    expect(line(/^ {2}replicas:/)).toContain('# set here');
+    expect(line(/^ {2}enabled:/)).toContain('# from base.yaml');
+    expect(line(/^ {4}tag:/)).toContain('# from dev.release.yaml');
+  });
+
+  it('puts the environment\'s own layer right after the shared base even when its file does not exist yet', () => {
+    const marks = composeEnvLayers(backend.filter(l => l.kind !== 'env'), own).map(l => l.mark);
+    expect(marks).toEqual(['from base.yaml', 'set here', 'from dev.release.yaml', 'set by the platform (Argo CD Application)']);
+  });
+
+  it('falls back to the file alone with no backend layers', () => {
+    expect(composeEnvLayers(undefined, own)).toEqual([{ mark: 'set here', values: own }]);
   });
 });

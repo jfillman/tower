@@ -369,6 +369,7 @@ function GroundValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       appName={ctx.appName as string}
       source={source}
       title={env.toUpperCase()}
+      layersTarget={{ env, tier: 'ground', cluster }}
       layout="inline"
       copyFrom={copyFrom}
       analysisCluster={cluster}
@@ -393,6 +394,7 @@ function FlightValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       appName={ctx.appName as string}
       source={source}
       title={`${env.toUpperCase()} (${cluster})`}
+      layersTarget={{ env, tier: 'flight', cluster }}
       prod={/^prod/i.test(env)}
       layout="inline"
       copyFrom={copyFrom}
