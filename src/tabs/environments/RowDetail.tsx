@@ -7,6 +7,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { buildDeploy, infraStarterValues, pipelinesNamingEnv, type CloudBlock, type Deploy, type EnvDef } from '../../environments/stagedChanges';
 import { useSubmitCicdConfigChange } from '../../useConfigData';
+import { envNamespace } from '../../appRepos';
 import { ConfigEditor } from '../../values/ValuesForm';
 import { ConfigMapFilesPanel, EnvXrPanel } from '../../values/FlightPanels';
 import { useChartValues } from '../../values/annotatedValues';
@@ -374,7 +375,7 @@ function GroundValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       analysisCluster={cluster}
       clusterAnalysisTemplates={clusterTemplates}
       componentCatalog={componentCatalog} chart={chart}
-      sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
+      sloContext={{ cluster, namespace: envNamespace(ctx.appName as string, ctx.appType, env), app: ctx.appName as string }}
       workload={{ view: view.data, live }}
       appKind={ctx.appKind}
     />
@@ -399,7 +400,7 @@ function FlightValues({ ctx, env, cluster, source, live }: { ctx: RowDetailConte
       analysisCluster={cluster}
       clusterAnalysisTemplates={clusterTemplates}
       componentCatalog={componentCatalog} chart={chart}
-      sloContext={{ cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName as string }}
+      sloContext={{ cluster, namespace: envNamespace(ctx.appName as string, ctx.appType, env), app: ctx.appName as string }}
       workload={{ view: view.data, live }}
       appKind={ctx.appKind}
     />

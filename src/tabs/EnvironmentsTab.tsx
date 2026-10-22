@@ -34,7 +34,7 @@ import {
   uncopiedGroundAdds,
   infraStarterValues,
 } from '../environments/stagedChanges';
-import { appTypeOf } from '../appRepos';
+import { appTypeOf, envNamespace } from '../appRepos';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment';
 import { unlistedProvisioned, useProvisionedEnvs } from '../environments/provisionedEnvs';
 import { dump as dumpYaml } from 'js-yaml';
@@ -253,7 +253,7 @@ export function EnvironmentsTab() {
       ...followUps(before, after, targetId, appName, appType),
       ...purged.map(
         name =>
-          `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`,
+          `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? envNamespace(appName, appType, name) : name} namespace.`,
       ),
       ...copiedEnvs(staged, after)
         .filter(x => x.env.tier === 'flight')

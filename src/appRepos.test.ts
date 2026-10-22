@@ -1,5 +1,5 @@
 import type { Entity } from '@backstage/catalog-model';
-import { appRepos, appTypeOf } from './appRepos';
+import { appRepos, appTypeOf, envNamespace } from './appRepos';
 
 const entity = (tags: string[]): Entity => ({ apiVersion: 'v1', kind: 'Component', metadata: { name: 'x', tags } });
 
@@ -22,5 +22,13 @@ describe('appRepos', () => {
       configRepo: 'gate-api',
       cicdNamespace: 'app-gate-api-cicd',
     });
+  });
+});
+
+describe('envNamespace', () => {
+  it('is infra-<name>-<env> for an InfraService and app-<name>-<env> otherwise', () => {
+    expect(envNamespace('skyport-auth', 'infra', 'dev')).toBe('infra-skyport-auth-dev');
+    expect(envNamespace('gate-api', 'app', 'dev')).toBe('app-gate-api-dev');
+    expect(envNamespace('gate-api', undefined, 'prod')).toBe('app-gate-api-prod');
   });
 });

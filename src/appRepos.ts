@@ -4,7 +4,8 @@ import { useAsyncEntity } from '@backstage/plugin-catalog-react';
 // An Airframe InfraService (a shared component such as a broker) has no source repo of its own: its cicd.yaml and
 // its environments' values live in gitops-infra-<name> (Airframe's InfraService composition and
 // ApplicationEnvironment spec.appType: infra), and its CI namespace is infra-<name>-cicd. Every other service is an
-// app: source repo <name>, gitops-<name>, app-<name>-cicd. Environment namespaces are app-<name>-<env> for both.
+// app: source repo <name>, gitops-<name>, app-<name>-cicd. Environment namespaces follow the same prefix:
+// app-<name>-<env>, or infra-<name>-<env> for an InfraService (glidepath#148, 2026-10-21; they were app- before).
 export type AppType = 'app' | 'infra';
 
 const INFRA_KIND_TAG = 'kind:infraservice';
@@ -29,6 +30,11 @@ export function appRepos(appName: string, type: AppType): AppRepos {
     return { type, gitopsRepo, configRepo: gitopsRepo, cicdNamespace: `infra-${appName}-cicd` };
   }
   return { type, sourceRepo: appName, gitopsRepo: `gitops-${appName}`, configRepo: appName, cicdNamespace: `app-${appName}-cicd` };
+}
+
+/** The namespace an environment of `appName` runs in: <type>-<name>-<env>. */
+export function envNamespace(appName: string, type: AppType | undefined, env: string): string {
+  return `${type === 'infra' ? 'infra' : 'app'}-${appName}-${env}`;
 }
 
 /**
