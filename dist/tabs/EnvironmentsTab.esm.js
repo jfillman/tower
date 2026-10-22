@@ -8,7 +8,7 @@ import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { readEnvironments, applyStaged, purgedEnvs, leftoverGroundEnvs, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, envFilePaths, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, uncopiedGroundAdds, infraStarterValues, buildDeploy, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
-import { appTypeOf } from '../appRepos.esm.js';
+import { appTypeOf, envNamespace } from '../appRepos.esm.js';
 import { useLaunchApplicationEnvironment } from '../environments/applicationEnvironment.esm.js';
 import { useProvisionedEnvs, unlistedProvisioned } from '../environments/provisionedEnvs.esm.js';
 import { dump } from 'js-yaml';
@@ -178,7 +178,7 @@ function EnvironmentsTab() {
     () => [
       ...followUps(before, after, targetId, appName, appType),
       ...purged.map(
-        (name) => `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? `app-${appName}-${name}` : name} namespace.`
+        (name) => `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? envNamespace(appName, appType, name) : name} namespace.`
       ),
       ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],

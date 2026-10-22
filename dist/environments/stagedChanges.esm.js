@@ -1,5 +1,5 @@
 import { ENVS_ROOT } from '../types.esm.js';
-import { appRepos } from '../appRepos.esm.js';
+import { envNamespace, appRepos } from '../appRepos.esm.js';
 
 const CLOUD_BLOCKS = ["ecs", "lambda", "azureContainerApps"];
 const TARGET_BLOCK = {
@@ -222,7 +222,7 @@ function followUps(before, after, target, appName, type = "app") {
     }
     if (e.tier !== "ground") continue;
     out.push(
-      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${ENVS_ROOT}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? `app-${appName}-${e.name}` : e.name} namespace.`
+      cloud ? `${e.name} is removed from cicd.yaml only. The ${target} resource it deployed to is not deleted: remove it in your cloud account.` : `The pull request also deletes ${ENVS_ROOT}/envs/${e.name}.yaml. After it merges Argo CD removes ${appName ? `${appName}-${e.name}` : `the ${e.name} Application`} and everything running in the ${appName ? envNamespace(appName, type, e.name) : e.name} namespace.`
     );
   }
   for (const e of after) {

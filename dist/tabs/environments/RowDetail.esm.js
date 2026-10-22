@@ -7,6 +7,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { pipelinesNamingEnv, infraStarterValues, buildDeploy } from '../../environments/stagedChanges.esm.js';
 import { useSubmitCicdConfigChange } from '../../useConfigData.esm.js';
+import { envNamespace } from '../../appRepos.esm.js';
 import { ConfigEditor } from '../../values/ValuesForm.esm.js';
 import { EnvXrPanel, ConfigMapFilesPanel } from '../../values/FlightPanels.esm.js';
 import { useChartValues } from '../../values/annotatedValues.esm.js';
@@ -310,7 +311,7 @@ function GroundValues({ ctx, env, cluster, source, live }) {
       clusterAnalysisTemplates: clusterTemplates,
       componentCatalog,
       chart,
-      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
+      sloContext: { cluster, namespace: envNamespace(ctx.appName, ctx.appType, env), app: ctx.appName },
       workload: { view: view.data, live },
       appKind: ctx.appKind
     }
@@ -336,7 +337,7 @@ function FlightValues({ ctx, env, cluster, source, live }) {
       clusterAnalysisTemplates: clusterTemplates,
       componentCatalog,
       chart,
-      sloContext: { cluster, namespace: `app-${ctx.appName}-${env}`, app: ctx.appName },
+      sloContext: { cluster, namespace: envNamespace(ctx.appName, ctx.appType, env), app: ctx.appName },
       workload: { view: view.data, live },
       appKind: ctx.appKind
     }
