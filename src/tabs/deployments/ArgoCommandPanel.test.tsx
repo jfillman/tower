@@ -41,41 +41,55 @@ const env = (over: Partial<EnvironmentSummary> = {}): EnvironmentSummary => ({
 
 const caps = (over: Record<string, unknown> = {}) => ({ data: { tier: 'ground', autoPrune: true, refresh: true, sync: true, force: true, terminate: true, ...over } });
 const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
+const openMore = () => fireEvent.click(button('More'));
+const menuItem = (name: RegExp) => screen.getByRole('menuitem', { name }) as HTMLElement;
 
 describe('ArgoCommandPanel controls (2026-10-10)', () => {
   it('has no separate Sync with prune: Sync follows the Application', () => {
     mockCaps = caps();
     render(<ArgoCommandPanel env={env()} argoActions={actions() as never} />);
     expect(screen.queryByRole('button', { name: 'Sync with prune' })).toBeNull();
-    expect(button('Sync').disabled).toBe(false);
+    expect(button('Sync 1 resource').disabled).toBe(false);
+  });
+
+  it('makes Sync the primary action only while the app is out of sync (2026-10-22)', () => {
+    mockCaps = caps();
+    const { rerender } = render(<ArgoCommandPanel env={env()} argoActions={actions() as never} />);
+    expect(button('Sync 1 resource').className).toMatch(/buttonPrimary/);
+    rerender(<ArgoCommandPanel env={env({ argoSyncStatus: 'Synced', argoResources: [] })} argoActions={actions() as never} />);
+    expect(button('Sync').className).not.toMatch(/buttonPrimary/);
   });
 
   it('confirms a force sync by naming what it replaces, then runs it', () => {
     mockCaps = caps();
     const a = actions();
     render(<ArgoCommandPanel env={env()} argoActions={a as never} />);
-    fireEvent.click(button('Force sync'));
+    openMore();
+    fireEvent.click(menuItem(/^Force sync…/));
     expect(screen.getByTestId('force-sync-confirm').textContent).toContain('Service/sky-marshall');
     expect(screen.getByTestId('force-sync-confirm').textContent).not.toContain('NetworkPolicy');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Force sync' })[1]);
+    fireEvent.click(button('Force sync'));
     expect(a.forceSync).toHaveBeenCalledWith('example-dev', 'sky-marshall-dev');
   });
 
   it('disables Force sync where the user may not (a Flight environment for an owner)', () => {
     mockCaps = caps({ tier: 'flight', sync: false, force: false });
     render(<ArgoCommandPanel env={env()} argoActions={actions() as never} />);
-    expect(button('Force sync').disabled).toBe(true);
-    expect(button('Force sync').title).toMatch(/only an admin/);
-    expect(button('Sync').disabled).toBe(true);
+    expect(button('Sync 1 resource').disabled).toBe(true);
+    openMore();
+    const force = menuItem(/^Force sync…/);
+    expect(force.getAttribute('aria-disabled')).toBe('true');
+    expect(force.title).toMatch(/only an admin/);
   });
 
   it('offers Terminate only while a sync is running', () => {
     mockCaps = caps();
     const a = actions();
     const { rerender } = render(<ArgoCommandPanel env={env()} argoActions={a as never} />);
-    expect(screen.queryByRole('button', { name: 'Terminate sync' })).toBeNull();
+    openMore();
+    expect(screen.queryByRole('menuitem', { name: /Terminate sync/ })).toBeNull();
     rerender(<ArgoCommandPanel env={env({ argoOperationPhase: 'Running' })} argoActions={a as never} />);
-    fireEvent.click(button('Terminate sync'));
+    fireEvent.click(menuItem(/^Terminate sync/));
     expect(a.terminate).toHaveBeenCalledWith('example-dev', 'sky-marshall-dev');
   });
 });

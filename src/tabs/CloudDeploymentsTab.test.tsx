@@ -143,7 +143,7 @@ describe('CloudDeploymentsTab', () => {
     renderTab();
     expect(screen.getByText('Flight environments')).toBeTruthy();
     expect(screen.getByText('2.0.0-bbbbbbb')).toBeTruthy();
-    expect(screen.getByText('pin PR open ↗')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /#8/ }).getAttribute('href')).toBe('https://github.com/example-org/smoke-ecs/pull/8');
     fireEvent.click(screen.getByRole('button', { name: 'Promote to prod' }));
     expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ env: 'prod', image: expect.stringContaining('ghcr.io/') }));
     fireEvent.click(screen.getByRole('button', { name: 'Roll back to 1.0.0-aaaaaaa' }));

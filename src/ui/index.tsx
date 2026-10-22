@@ -5,6 +5,8 @@ import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
 import { useBlocks, useControls, useData, useSection, useStatus, useUi } from './styles';
 
+export { MenuButton, type MenuAction } from './MenuButton';
+
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 
 const cx = (...c: Array<string | false | undefined>) => c.filter(Boolean).join(' ');

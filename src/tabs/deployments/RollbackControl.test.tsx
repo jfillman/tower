@@ -58,7 +58,7 @@ describe('RollbackControl', () => {
       targetReleaseId: 'good:example-prod/staging',
       reason: 'canary aborted on error rate',
     });
-    await screen.findByText(/Rollback PR opened/);
+    await screen.findByText('PR #9 opened');
   });
 
   it('says so when there is nothing to go back to, and stays disabled for a non-owner', async () => {

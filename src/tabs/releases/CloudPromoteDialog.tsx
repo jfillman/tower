@@ -5,12 +5,13 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { imageTag } from '../../types';
 import { useSubmitPin } from '../../environments/releasePins';
 import { Button } from '../../ui';
+import { useDialogSkin } from '../../ui/dialog';
+import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
 
 // Promote for a cloud target (glidepath ADR-0020): a Flight environment deploys only its pinned image, so promoting
 // opens a pull request on the app's own repo changing glidepath/releases/<env>.yaml - the same request the Deployments
@@ -47,6 +48,7 @@ export function CloudPromoteDialog({
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
+  const d = useDialogSkin();
   const submit = useSubmitPin();
   const close = () => {
     if (submit.loading) return;
@@ -55,10 +57,10 @@ export function CloudPromoteDialog({
   };
   const path = target ? `glidepath/releases/${target.env}.yaml` : '';
   return (
-    <Dialog open={target !== null} onClose={close} maxWidth="sm" fullWidth>
+    <Dialog open={target !== null} onClose={close} maxWidth="sm" fullWidth PaperProps={{ className: d.paper }}>
       {target && (
         <>
-          <DialogTitle>{target.flight ? `Promote ${appName} to ${target.env}?` : `${target.env} deploys on push`}</DialogTitle>
+          <DialogTitle className={d.title}>{target.flight ? `Promote ${appName} to ${target.env}?` : `${target.env} deploys on push`}</DialogTitle>
           <DialogContent>
             {!target.flight && (
               <DialogContentText className={c.text}>
@@ -75,21 +77,18 @@ export function CloudPromoteDialog({
               </DialogContentText>
             )}
             {submit.loading && <Progress />}
-            {submit.result && (
+            {submit.result?.unchanged && (
               <DialogContentText className={c.text}>
-                {submit.result.unchanged ? (
-                  <>
-                    {target.env} is already pinned to <span className={c.mono}>{imageTag(target.image)}</span>: nothing to do.
-                  </>
-                ) : (
-                  <>
-                    {submit.result.alreadyOpen ? 'The pin PR was already open; it now pins this image: ' : 'Pull request opened: '}
-                    <Link href={submit.result.prUrl} target="_blank" rel="noopener noreferrer" className={c.mono}>
-                      {submit.result.prUrl}
-                    </Link>
-                  </>
-                )}
+                {target.env} is already pinned to <span className={c.mono}>{imageTag(target.image)}</span>: nothing to do.
               </DialogContentText>
+            )}
+            {submit.result && !submit.result.unchanged && submit.result.prUrl && (
+              <PrReceipt
+                prUrl={submit.result.prUrl}
+                alreadyOpen={submit.result.alreadyOpen}
+                updated={submit.result.alreadyOpen}
+                next="merge it to deploy."
+              />
             )}
             {submit.error && <DialogContentText className={c.bad}>Couldn&apos;t promote: {submit.error}</DialogContentText>}
           </DialogContent>
@@ -106,7 +105,7 @@ export function CloudPromoteDialog({
                   if (r) onDone();
                 }}
               >
-                Open pin PR
+                {submit.loading ? OPENING_PR : 'Open pin PR'}
               </Button>
             )}
           </DialogActions>

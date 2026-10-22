@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
 import { Button, Hint } from '../ui';
+import { OPENING_PR, PrReceipt } from '../ui/PrRef';
 import { describeChart, type ChartRef } from '../environments/ownChart';
 import type { ValuesSource } from './sources';
 
@@ -13,6 +13,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>({
   noteGap: { marginBottom: 10 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   bar: { display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 },
+  receipt: { marginTop: 10 },
 });
 
 /**
@@ -43,14 +44,17 @@ export function RawValuesEditor({ source, chart }: { source: ValuesSource; chart
           onMouseDown={e => e.preventDefault()}
           onClick={() => void source.submitRaw(text, [`Edit ${source.data?.path ?? 'values'} as YAML (own chart)`]).catch(() => undefined)}
         >
-          {source.submitting ? 'Opening pull request…' : 'Open pull request'}
+          {source.submitting ? OPENING_PR : 'Open config PR'}
         </Button>
-        {source.result && (
-          <Link className={c.mono} href={source.result.prUrl} target="_blank" rel="noopener noreferrer">
-            {source.result.prUrl}
-          </Link>
-        )}
       </div>
+      {source.result && (
+        <PrReceipt
+          className={c.receipt}
+          prUrl={source.result.prUrl}
+          alreadyOpen={source.result.alreadyOpen}
+          next="merge it to apply these values."
+        />
+      )}
       {source.submitError && <ResponseErrorPanel error={new Error(source.submitError)} />}
     </div>
   );

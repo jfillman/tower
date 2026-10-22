@@ -10,6 +10,7 @@ import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePul
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
 import { Chip, EmptyNote, Hint, PageHeader, Section, StatusChip, TextLink, useTableKit } from '../ui';
+import { prFromSummary, prWord } from '../ui/PrRef';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -121,7 +122,7 @@ function PrTable({
               <td className={`${tc.td} ${classes.mono} ${classes.prNum}`}>#{pr.number}</td>
               <td className={tc.td}>
                 {variant === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
-                {pr.draft && <StatusChip tone="neutral">draft</StatusChip>}
+                <PrWordChip pr={pr} />
                 {showPreviewChip && hasPreviewLabel(pr) && <Chip className={classes.chipGapLeft}>preview</Chip>}
               </td>
               <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
@@ -135,6 +136,13 @@ function PrTable({
       </tbody>
     </table>
   );
+}
+
+// The one word PrRef shows (src/ui/PrRef.tsx prWord): draft, checks failing, changes requested, checks running, ready
+// to merge. The rows stay rows (the whole row opens the PR); this is the state a PrRef chip would carry.
+function PrWordChip({ pr }: { pr: PullRequestSummary }) {
+  const word = prWord(prFromSummary(pr));
+  return word ? <StatusChip tone={word.tone}>{word.text}</StatusChip> : null;
 }
 
 // Both existing tables above are open-PRs-only by design (their own "N

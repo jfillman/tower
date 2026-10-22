@@ -112,6 +112,14 @@ describe('ReleaseModeBar', () => {
     expect(onChange).toHaveBeenCalledWith('hand-flown');
   });
 
+  it('ends a mode change in a PR receipt, saying when the PR was already open', () => {
+    render(
+      <ReleaseModeBar info={modeInfo()} submitting={false} prUrl="https://github.com/o/platform/pull/57" alreadyOpen waitingForMerge onChange={jest.fn()} />,
+    );
+    expect(screen.getByText('PR #57 was already open')).toBeTruthy();
+    expect(screen.getByText(/The mode updates here once it lands/)).toBeTruthy();
+  });
+
   it('offers no change to someone who is not an admin', () => {
     render(<ReleaseModeBar info={modeInfo({ canSetMode: false, mode: 'hand-flown', source: 'app' })} submitting={false} onChange={jest.fn()} />);
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();

@@ -1,6 +1,7 @@
 import Link from '@material-ui/core/Link';
 import { formatDateTime } from './shared/format';
 import { ColumnLabel, Hint, StatusChip, type StatusTone } from './ui';
+import { PrRef } from './ui/PrRef';
 import { explain, isSharedCheckRide, verdictOf, type TestRunEvidence } from './supplyChain';
 import type { ReleaseRecord } from './useReleaseRecords';
 import type { ChangeRequestRef, TestEvidence } from './useReleaseRecordPersistence';
@@ -174,9 +175,7 @@ export function CommitSignatureBlock({ record, classes }: { record: Pick<Release
         {prUrl && (
           <>
             {' · '}
-            <Link href={prUrl} target="_blank" rel="noopener noreferrer">
-              PR #{proof.evidence?.pr}
-            </Link>
+            <PrRef pr={{ url: prUrl, number: proof.evidence?.pr }} size="inline" />
           </>
         )}
       </div>

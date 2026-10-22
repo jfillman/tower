@@ -155,7 +155,7 @@ export function phaseTone(t: HangarTokens, phase: RunPhase) {
     case 'failed':
       return { bg: t.badSoft, border: t.bad, fg: t.bad, label: 'failed', status: 'bad' as StatusTone };
     case 'running':
-      return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: 'running', status: 'warn' as StatusTone };
+      return { bg: t.skySoft, border: t.skyLine, fg: t.sky, label: 'running', status: 'info' as StatusTone };
     case 'cancelled':
       return { bg: t.panelAlt, border: t.line, fg: t.textLo, label: 'cancelled', status: 'neutral' as StatusTone };
     case 'pending':
@@ -167,7 +167,7 @@ export function phaseTone(t: HangarTokens, phase: RunPhase) {
 function miniDotColor(t: HangarTokens, phase: TaskPhase): string {
   if (phase === 'succeeded') return t.good;
   if (phase === 'failed') return t.bad;
-  if (phase === 'running') return t.amber;
+  if (phase === 'running') return t.sky;
   return t.textFaint;
 }
 

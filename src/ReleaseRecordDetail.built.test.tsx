@@ -60,7 +60,7 @@ describe('What was built', () => {
     expect(screen.getByText('2/3 passed')).toBeTruthy();
     expect(screen.queryByText(/has successfully validated your commit/)).toBeNull();
     expect(screen.getByText(/Trivy found 2 CRITICAL vulnerabilities/)).toBeTruthy();
-    expect(screen.getByText('View gitops PR #26')).toBeTruthy();
+    expect(screen.getByText('gitops PR #26 ↗')).toBeTruthy();
   });
   it('has no Tests and security section when there are no scans, test results or check ride', () => {
     renderDetail(record());

@@ -1,10 +1,10 @@
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import type { SubmittedChange } from '../../environments/submitted';
 import { relativeTime } from '../../shared/format';
 import { Button, Panel, SectionLabel } from '../../ui';
+import { PrRef } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -35,7 +35,7 @@ export function SubmittedPanel({
   if (records.length === 0) return null;
   return (
     <Panel className={c.panel} role="region" aria-label="Open pull requests">
-      <SectionLabel>Open pull requests</SectionLabel>
+      <SectionLabel>Open PRs</SectionLabel>
       <div className={ui.note}>Waiting for merge. This updates by itself every half minute.</div>
       {records.map(r => (
         <div key={r.id} className={c.record}>
@@ -43,13 +43,9 @@ export function SubmittedPanel({
           <span className={c.detail}>opened {relativeTime(new Date(r.at).toISOString())}</span>
           <div className={c.links}>
             {Object.entries(r.requests).map(([env, url]) => (
-              <Link key={env} href={url} target="_blank" rel="noopener noreferrer">
-                {env}: ApplicationEnvironment request
-              </Link>
+              <PrRef key={env} pr={{ url, title: `${env}: ApplicationEnvironment request` }} size="inline" label={`${env} request`} />
             ))}
-            <Link href={r.prUrl} target="_blank" rel="noopener noreferrer">
-              cicd.yaml pull request
-            </Link>
+            <PrRef pr={{ url: r.prUrl, title: 'cicd.yaml change' }} size="inline" label="cicd.yaml" />
           </div>
           <div className={c.actions}>
             <Button small onClick={() => onDismiss(r.id)}>

@@ -37,13 +37,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     width: 7,
     height: 7,
     borderRadius: '50%',
-    backgroundColor: ({ t }) => t.amber,
-    boxShadow: ({ t }) => `0 0 0 3px ${t.amberSoft}`,
-    animation: '$pulse 1.6s ease-in-out infinite',
-  },
-  '@keyframes pulse': {
-    '0%, 100%': { opacity: 1 },
-    '50%': { opacity: 0.5 },
+    backgroundColor: ({ t }) => t.sky,
+    boxShadow: ({ t }) => `0 0 0 3px ${t.skySoft}`,
   },
   activityBanner: {
     border: ({ t }) => `1px solid ${t.amberLine}`,

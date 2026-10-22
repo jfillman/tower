@@ -38,8 +38,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontWeight: 600,
     padding: '1px 7px',
     borderRadius: 10,
-    backgroundColor: ({ t }) => t.amber,
-    color: ({ t }) => t.bg,
+    // A count of things in motion is information, not a call to act: grey (amber is for "needs you").
+    backgroundColor: ({ t }) => t.panelAlt,
+    color: ({ t }) => t.textHi,
   },
   row: {
     display: 'grid',

@@ -130,8 +130,8 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
     fontWeight: 700,
     padding: '0 6px',
     borderRadius: 9,
-    backgroundColor: ({ t }) => t.amber,
-    color: ({ t }) => t.bg,
+    backgroundColor: ({ t }) => t.amberFill,
+    color: ({ t }) => t.onAmber,
     marginLeft: 6,
   },
 }));

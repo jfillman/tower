@@ -446,13 +446,22 @@ export interface PromoteRequest {
 }
 
 export interface PromoteResult {
-  // 'pipeline': the release Pipeline started but had not opened its PR yet when the request returned.
+  // 'pipeline': the release Pipeline started; Tower follows it to its PR (ReleaseRunTracker). A Flight promotion
+  // always returns this now - the backend no longer waits for the PR (2026-10-22).
   mode: 'pr' | 'direct-commit' | 'pipeline';
   // The release PipelineRun a Flight promotion started (app-<app>-cicd on the control-plane cluster).
   pipelineRun?: string;
   prUrl?: string;
   alreadyOpen?: boolean;
   commitUrl?: string;
+}
+
+/** GET /glidepath/release-run: where a release run started by Promote is, and its PR once open-release-pr opened it. */
+export interface ReleaseRunStatus {
+  state: 'running' | 'pr' | 'failed';
+  prUrl?: string;
+  reason?: string;
+  tasks: Array<{ name: string; state: 'done' | 'running' | 'pending' | 'failed' }>;
 }
 
 export interface DeployHistoryEntry {

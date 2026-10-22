@@ -420,7 +420,7 @@ export function renderPreviewEnvRow(
     items.push({
       key: 'pr',
       icon: PreviewIcon,
-      label: prNumber ? `PR #${prNumber}` : 'Pull request',
+      label: prNumber ? `PR #${prNumber}` : 'PR',
       href: prUrl,
     });
   }
@@ -522,7 +522,7 @@ export function renderConfigRow(
   if (prUrl)
     items.push({
       key: 'pr',
-      label: prNumber ? `PR #${prNumber}` : 'Pull request',
+      label: prNumber ? `PR #${prNumber}` : 'PR',
       href: prUrl,
     });
 
@@ -591,7 +591,7 @@ export function renderReleaseRow(
     items.push({
       key: 'pr',
       icon: PreviewIcon,
-      label: prNumber ? `PR #${prNumber}` : 'Pull request',
+      label: prNumber ? `PR #${prNumber}` : 'PR',
       href: prUrl,
     });
   }

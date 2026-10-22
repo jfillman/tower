@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { deepEqual } from '../deepEqual';
 import { RefreshButton } from '../RefreshButton';
-import { PrResultDialog } from '../PrResultDialog';
-import { preventFocusScroll } from '../preventFocusScroll';
+import { OPENING_PR, PrReceipt } from '../ui/PrRef';
+import { Button, Callout } from '../ui';
 import { useConfigMapFiles, useEnvXr, useSubmitConfigMapFiles, useSubmitEnvXrChange } from '../useConfigData';
 import type { Cls } from './styles';
 
@@ -54,31 +53,28 @@ export function EnvXrPanel({ owner, appName, env, classes }: { owner: string; ap
       <Typography className={classes.hint}>
         The only editable field on this XR - appName/cluster/env are this resource's own identity, not a setting.
       </Typography>
-      <PrResultDialog result={submitXr.result} error={submitXr.error} onClose={() => submitXr.reset()} />
       {submitXr.result && (
-        <Typography className={classes.note} style={{ marginTop: 10 }}>
-          {submitXr.result.alreadyOpen ? 'A PR for this change is already open: ' : 'PR opened: '}
-          <Link className={classes.resultLink} href={submitXr.result.prUrl} target="_blank" rel="noopener noreferrer">
-            {submitXr.result.prUrl}
-          </Link>
-        </Typography>
+        <PrReceipt
+          prUrl={submitXr.result.prUrl}
+          alreadyOpen={submitXr.result.alreadyOpen}
+          next="merge it to change this environment's resource."
+          className={classes.prReceipt}
+        />
       )}
       {submitXr.error && (
-        <Typography className={classes.errorList} style={{ marginTop: 10, listStyle: 'none', paddingLeft: 0 }}>
-          Couldn't open PR: {submitXr.error}
-        </Typography>
+        <Callout tone="bad" className={classes.prReceipt}>
+          Couldn&apos;t open the PR: {submitXr.error}
+        </Callout>
       )}
       {dirty && !submitXr.result && (
-        <button
-          type="button"
-          className={classes.btn}
-          style={{ marginTop: 12 }}
+        <Button
+          variant="primary"
+          className={classes.prReceipt}
           disabled={submitXr.loading}
-          onMouseDown={preventFocusScroll}
           onClick={() => submitXr.submit({ owner, appName, env, configMapGenerator: draft })}
         >
-          {submitXr.loading ? 'Opening PR…' : 'Open PR for this change'}
-        </button>
+          {submitXr.loading ? OPENING_PR : 'Open env PR'}
+        </Button>
       )}
     </div>
   );
@@ -186,12 +182,16 @@ export function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }: {
           <div key={i} className={classes.rowCard}>
             <div className={classes.rowCardHead}>
               <input className={classes.input} style={{ flex: 1 }} placeholder="app-settings.yaml" value={row.name} onChange={e => update(i, { name: e.target.value })} />
-              <button type="button" className={classes.removeBtn} onClick={() => remove(i)}>Remove</button>
+              <Button small onClick={() => remove(i)}>
+                Remove
+              </Button>
             </div>
             <textarea className={classes.textarea} rows={6} value={row.content} onChange={e => update(i, { content: e.target.value })} placeholder="file contents" />
           </div>
         ))}
-        <button type="button" className={classes.addBtn} onClick={add}>+ Add file</button>
+        <Button small onClick={add}>
+          + Add file
+        </Button>
       </div>
       {dirty && (
         <>
@@ -204,29 +204,30 @@ export function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }: {
           )}
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             {submitFiles.result ? (
-              <button type="button" className={classes.discardBtn} onClick={() => submitFiles.reset()}>Close</button>
+              <Button onClick={() => submitFiles.reset()}>Close</Button>
             ) : (
-              <button type="button" className={classes.discardBtn} onClick={discard} disabled={submitFiles.loading}>Discard</button>
+              <Button onClick={discard} disabled={submitFiles.loading}>
+                Discard
+              </Button>
             )}
-            <button type="button" className={classes.btn} disabled={errors.length > 0 || submitFiles.loading} onMouseDown={preventFocusScroll} onClick={onSubmit}>
-              {submitFiles.loading ? 'Opening PR…' : 'Open PR for these files'}
-            </button>
+            <Button variant="primary" disabled={errors.length > 0 || submitFiles.loading} onClick={onSubmit}>
+              {submitFiles.loading ? OPENING_PR : 'Open configmap PR'}
+            </Button>
           </div>
         </>
       )}
-      <PrResultDialog result={submitFiles.result} error={submitFiles.error} onClose={() => submitFiles.reset()} />
       {submitFiles.result && (
-        <Typography className={classes.note} style={{ marginTop: 10 }}>
-          {submitFiles.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-          <Link className={classes.resultLink} href={submitFiles.result.prUrl} target="_blank" rel="noopener noreferrer">
-            {submitFiles.result.prUrl}
-          </Link>
-        </Typography>
+        <PrReceipt
+          prUrl={submitFiles.result.prUrl}
+          alreadyOpen={submitFiles.result.alreadyOpen}
+          next="merge it to update the generated ConfigMap."
+          className={classes.prReceipt}
+        />
       )}
       {submitFiles.error && (
-        <Typography className={classes.errorList} style={{ marginTop: 10, listStyle: 'none', paddingLeft: 0 }}>
-          Couldn't open PR: {submitFiles.error}
-        </Typography>
+        <Callout tone="bad" className={classes.prReceipt}>
+          Couldn&apos;t open the PR: {submitFiles.error}
+        </Callout>
       )}
     </div>
   );

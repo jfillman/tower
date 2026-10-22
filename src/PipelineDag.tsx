@@ -267,7 +267,7 @@ function phaseColor(t: HangarTokens, phase: TaskPhase): { bg: string; border: st
     case 'failed':
       return { bg: t.badSoft, border: t.bad, fg: t.bad };
     case 'running':
-      return { bg: t.amberSoft, border: t.amber, fg: t.amberInk };
+      return { bg: t.skySoft, border: t.sky, fg: t.sky };
     case 'skipped':
       return { bg: t.panelAlt, border: t.line, fg: t.textFaint };
     case 'pending':
@@ -542,7 +542,7 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
           </div>
           <div className={classes.legend}>
             <span><span className={classes.legendDot} style={{ backgroundColor: t.good }} />succeeded</span>
-            <span><span className={classes.legendDot} style={{ backgroundColor: t.amber }} />running</span>
+            <span><span className={classes.legendDot} style={{ backgroundColor: t.sky }} />running</span>
             <span><span className={classes.legendDot} style={{ backgroundColor: t.bad }} />failed</span>
             <span><span className={classes.legendDot} style={{ backgroundColor: t.textFaint, opacity: 0.5 }} />pending / skipped</span>
           </div>

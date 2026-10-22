@@ -12,7 +12,8 @@ import {
   type ReleaseMode,
   type SignoffEvaluation,
 } from './releaseFlow';
-import { EmptyNote, Fact, FactGrid, Hint, SectionTitle, StatusChip, TextLink, Tile, type StatusTone } from './ui';
+import { EmptyNote, Fact, FactGrid, Hint, SectionTitle, StatusChip, Tile, type StatusTone } from './ui';
+import { PrRef } from './ui/PrRef';
 
 // A record's release notes and sign-off (Release Record R2). The notes are what the team wrote in
 // the draft before the release shipped, copied in when the record was written. The sign-off is
@@ -155,7 +156,7 @@ export function ReleaseSignoffPanel({
                 <StatusChip tone={missing && !requiresSignoff ? 'neutral' : SIGNOFF_TONE[signoff.status]} dot>
                   {SIGNOFF_LABEL[signoff.status]}
                 </StatusChip>
-                <TextLink href={signoff.prUrl}>{`PR #${signoff.prNumber} ↗`}</TextLink>
+                <PrRef pr={{ url: signoff.prUrl, number: signoff.prNumber, state: signoff.mergedBy ? 'merged' : 'open' }} size="inline" />
                 {signoff.mergedBy && (
                   <span className={classes.faint}>
                     merged by {signoff.mergedBy}

@@ -352,7 +352,7 @@ function dotStyle(t: HangarTokens, status: StageStatus) {
     case 'done':
       return { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good };
     case 'current':
-      return { backgroundColor: t.amberSoft, borderColor: t.amber, color: t.amberInk };
+      return { backgroundColor: t.skySoft, borderColor: t.sky, color: t.sky };
     case 'warn':
       return { backgroundColor: t.amberSoft, borderColor: t.amberLine, color: t.amberInk };
     case 'fail':

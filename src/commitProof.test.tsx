@@ -102,7 +102,7 @@ describe('where it shows', () => {
     render(<CommitSignatureBlock record={{ guardrails: ci(merge), guardrailsPrUrl: GITOPS }} classes={classes} />);
     expect(screen.getByText('GitHub merge')).toBeTruthy();
     expect(screen.getByText(/Proven by GitHub's signature/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'PR #173' }).getAttribute('href')).toBe('https://github.com/jfillman/backstage/pull/173');
+    expect(screen.getByRole('link', { name: /PR #173/ }).getAttribute('href')).toBe('https://github.com/jfillman/backstage/pull/173');
   });
   it('the record: gitsign has no hint, a failed gate shows nothing', () => {
     const { container, rerender } = render(<CommitSignatureBlock record={{ guardrails: ci(gitsign), guardrailsPrUrl: GITOPS }} classes={classes} />);

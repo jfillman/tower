@@ -28,7 +28,7 @@ function open(values: Record<string, any> = original, extra: { clusterAnalysisTe
 }
 const tab = (name: string) => fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${name}`) }));
 const patchOf = () => {
-  fireEvent.click(within(screen.getByRole('region', { name: /Pending changes to the values/ })).getByRole('button', { name: 'Open pull request' }));
+  fireEvent.click(within(screen.getByRole('region', { name: /Pending changes to the values/ })).getByRole('button', { name: 'Open config PR' }));
   return (submit.mock.calls[submit.mock.calls.length - 1] as unknown as [Record<string, any>])[0];
 };
 
@@ -291,7 +291,7 @@ describe('values form: network policy', () => {
     edit(() => boxes()[0], 'a: [');
     const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
     expect(region.getByText(/Network policy extra rules: fix the YAML syntax error/)).toBeTruthy();
-    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((region.getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(true);
     edit(() => boxes()[0], 'a: 1');
     expect(region.getByText(/must be a YAML list of rules/)).toBeTruthy();
   });
@@ -503,7 +503,7 @@ describe('values form: labels and annotations on the Rollout, pods and Service',
     edit(() => screen.getByLabelText('Pod labels 1 value'), 'x');
     const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
     expect(region.getByText(/Pod labels: "app.kubernetes.io\/name" is a label the chart owns/)).toBeTruthy();
-    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((region.getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -549,7 +549,7 @@ describe('values form: analysis templates and their scope', () => {
   it('blocks the pull request while a reference is wrong and allows it once it is declared', () => {
     open({ rollout: { replicas: 1, ports: [{ name: 'http', containerPort: 8080 }], canaryAnalysis: { templates: [{ templateName: 'mine' }] } } });
     edit(() => screen.getByRole('spinbutton', { name: /^Replicas$/ }), '2');
-    expect((region().getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((region().getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(true);
     expect(region().getByText(/canaryAnalysis: AnalysisTemplate "mine" is not declared in this file/)).toBeTruthy();
   });
 
@@ -645,11 +645,11 @@ describe('values form: components', () => {
     const region = within(screen.getByRole('region', { name: /Pending changes to the values/ }));
     expect(region.getByText('Component rabbitmq: brokerRef is required when mode is attach.')).toBeTruthy();
     expect(region.getByText('Component rabbitmq: vhost is required when mode is attach.')).toBeTruthy();
-    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((region.getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(true);
     edit(() => screen.getByLabelText('Component 1 vhost'), 'flights');
     edit(() => screen.getByLabelText('Component 1 brokerRef name'), 'b');
     edit(() => screen.getByLabelText('Component 1 brokerRef namespace'), 'n');
-    expect((region.getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((region.getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('keeps the raw YAML editor on the same tab, so a shape the form cannot draw is still editable', () => {

@@ -57,7 +57,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   edgeFlow: { strokeDasharray: '6 6', animationName: '$flow', animationTimingFunction: 'linear', animationIterationCount: 'infinite' },
   edgeLabel: { fontFamily: fontMono, fontSize: 10, fontWeight: 700 },
   tag: { fontFamily: fontMono, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '0 5px', borderRadius: 6, marginLeft: 4 },
-  traffic: { position: 'absolute', display: 'flex', alignItems: 'center', gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.amberInk, whiteSpace: 'nowrap', transform: 'translate(-50%, -100%)' },
+  traffic: { position: 'absolute', display: 'flex', alignItems: 'center', gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.sky, whiteSpace: 'nowrap', transform: 'translate(-50%, -100%)' },
   tabs: { display: 'flex', gap: 6, marginBottom: 10 },
   tabBtn: { fontFamily: fontMono, fontSize: 11, padding: '3px 10px', borderRadius: 6, border: ({ t }) => `1px solid ${t.line}`, background: 'none', color: ({ t }) => t.textLo, cursor: 'pointer' },
   tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
@@ -78,13 +78,13 @@ function podTone(p: TopoPod): Pick<TNode, 'tone' | 'pulse' | 'dim'> {
   if (p.phase === 'Failed') return { tone: 'bad' };
   if (p.phase === 'Succeeded') return { tone: 'good' };
   if (p.ready) return { tone: 'good' };
-  return { tone: 'amber', pulse: true };
+  return { tone: 'sky', pulse: true };
 }
 
 function arTone(phase: string): Pick<TNode, 'tone' | 'pulse'> {
   if (phase === 'Successful') return { tone: 'good' };
   if (phase === 'Failed' || phase === 'Error') return { tone: 'bad' };
-  if (phase === 'Running' || phase === 'Pending') return { tone: 'amber', pulse: true };
+  if (phase === 'Running' || phase === 'Pending') return { tone: 'sky', pulse: true };
   return { tone: 'faint' };
 }
 
@@ -95,7 +95,7 @@ function roleWeight(role: string, canaryWeight: number): number {
 }
 
 function roleTone(role: string): TNode['tone'] {
-  if (role === 'canary') return 'amber';
+  if (role === 'canary') return 'sky';
   if (role === 'stable') return 'good';
   return 'faint';
 }
@@ -103,7 +103,8 @@ function roleTone(role: string): TNode['tone'] {
 function rolloutTone(phase: string): TNode['tone'] {
   if (phase === 'Healthy') return 'good';
   if (phase === 'Degraded') return 'bad';
-  return 'amber';
+  // Paused waits on someone (amber); anything else is still moving (sky).
+  return phase === 'Paused' ? 'amber' : 'sky';
 }
 
 function podSub(p: TopoPod): string {
@@ -292,7 +293,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                       const active = weighted && e.weight! > 0;
                       const canaryEdge = e.to.startsWith('rs:') || e.from.startsWith('rs:');
                       const isCanary = canaryEdge && graph.nodes.find(n => n.id === (e.to.startsWith('rs:') ? e.to : e.from))?.tag === 'canary';
-                      const activeStroke = isCanary ? t.amber : t.good;
+                      const activeStroke = isCanary ? t.sky : t.good;
                       const stroke = active ? activeStroke : t.line;
                       // Faster flow = more traffic.
                       const dur = active ? 0.5 + (1 - e.weight! / 100) * 2.5 : 0;
@@ -321,7 +322,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
                   </svg>
                   {geom.pos.get('svc') && (
                     <span className={classes.traffic} style={{ left: geom.pos.get('svc')!.x, top: geom.pos.get('svc')!.y - NODE_H / 2 - 4 }}>
-                      <span className={dag.dot} style={{ backgroundColor: t.amber, animation: 'none' }} />
+                      <span className={dag.dot} style={{ backgroundColor: t.sky, animation: 'none' }} />
                       ~{rps} req/s in (simulated)
                     </span>
                   )}
@@ -358,7 +359,7 @@ export function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight
             </div>
             <div className={dag.legend}>
               <span><span className={dag.legendDot} style={{ backgroundColor: t.good }} />stable / healthy</span>
-              <span><span className={dag.legendDot} style={{ backgroundColor: t.amber }} />canary / starting</span>
+              <span><span className={dag.legendDot} style={{ backgroundColor: t.sky }} />canary / starting</span>
               <span><span className={dag.legendDot} style={{ backgroundColor: t.bad }} />failed</span>
               <span><span className={dag.legendDot} style={{ backgroundColor: t.textFaint, opacity: 0.5 }} />terminating / idle</span>
               <span>edge % = traffic weight (from Rollout status) · req/s is simulated</span>

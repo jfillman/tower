@@ -263,7 +263,7 @@ describe('EnvironmentsTab: staging a Ground environment', () => {
     k8sOld();
     renderTab();
     await stageAdd('qa');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open cicd.yaml PR' }));
     expect(submitMock).toHaveBeenCalledTimes(1);
     const req = submitMock.mock.calls[0][0];
     expect(req.owner).toBe('example-org');
@@ -400,7 +400,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     expect(panel().getByText('app-level value to app-fn-test2')).toBeTruthy();
     // a new-shape app is not "converted"
     expect(panel().queryByText(/Convert the environment list/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open cicd.yaml PR' }));
     const req = submitMock.mock.calls[0][0];
     expect(req.patch.deploy).toEqual({
       target: 'aws-lambda',
@@ -417,7 +417,7 @@ describe('EnvironmentsTab: a cloud environment\'s own resource', () => {
     fireEvent.change(screen.getByLabelText(/functionName \(optional\)/), { target: { value: 'app-fn-eu' } });
     fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open cicd.yaml PR' }));
     expect(submitMock.mock.calls[0][0].patch.deploy.environments[2]).toEqual({ name: 'eu', tier: 'ground', lambda: { functionName: 'app-fn-eu' } });
     // no follow-up about an environment file: a cloud environment has none
     expect(screen.queryByText(/glidepath\/envs/)).toBeNull();
@@ -439,7 +439,7 @@ describe('EnvironmentsTab: the result', () => {
     await stageAdd('qa');
     submitState = { loading: false, result: { prUrl: 'https://github.com/example-org/air-traffic-api/pull/9', alreadyOpen: false } };
     rerenderTab();
-    expect(screen.getByText(/pull\/9/)).toBeTruthy();
+    expect(screen.getByText(/PR #9 opened/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(resetMock).toHaveBeenCalled();
   });
@@ -550,7 +550,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     expect(panel().getByText('1')).toBeTruthy(); // numbered in the order they open
     expect(panel().getByText('2')).toBeTruthy();
     expect(panel().getByText(/Merge that one before the cicd\.yaml change/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open pull requests' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open environment PRs' })).toBeTruthy();
     // a Flight environment goes at the end, after the existing Flight one
     const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'staging', 'prodstaged: new']);
@@ -561,7 +561,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/example-org/gitops-cluster-dev-tenants/pull/42' });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     expect(launchMock.mock.invocationCallOrder[0]).toBeLessThan(submitMock.mock.invocationCallOrder[0]);
@@ -583,7 +583,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add to cicd.yaml' }));
     expect(panel().getByText('Add environment prod')).toBeTruthy();
     expect(screen.queryByText(/prod is provisioned on/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(launchMock).toHaveBeenCalledWith({ appName: 'air-traffic-api', env: 'prod', cluster: 'example-prod', owner: 'example-org' });
     const envs = submitMock.mock.calls[0][0].patch.deploy.environments;
@@ -611,7 +611,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete its files' }));
     expect(panel().getByText('Delete the leftover files of test')).toBeTruthy();
     expect(screen.queryByText(/test is still running/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     const req = submitMock.mock.calls[0][0];
     expect(req.deleteFiles).toEqual(['glidepath/envs/test.yaml', 'glidepath/envs/test.release.yaml']);
@@ -626,7 +626,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     rerenderTab();
     expect(await screen.findByText(/already in the tenants repo, nothing new opened/)).toBeTruthy();
@@ -638,7 +638,7 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     launchMock.mockResolvedValue({ status: 'failed', error: 'cluster not registered' });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     expect(await screen.findByText(/Creating prod failed: cluster not registered/)).toBeTruthy();
     expect(screen.getByText(/Nothing was changed in cicd\.yaml/)).toBeTruthy();
     expect(submitMock).not.toHaveBeenCalled();
@@ -658,16 +658,16 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     // the request opened, then cicd.yaml failed: both facts are shown
     expect(await screen.findByText(/GitHub is unavailable/)).toBeTruthy();
-    expect(screen.getByText(/pull\/42/)).toBeTruthy();
+    expect(screen.getByText('PR #42 opened')).toBeTruthy();
     expect(screen.getByText(/will not be opened again/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     rerenderTab();
     await waitFor(() => expect(screen.queryByText(/GitHub is unavailable/)).toBeNull());
     expect(screen.getByText(/\(already opened\)/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(2));
     expect(launchMock).toHaveBeenCalledTimes(1); // not repeated
   });
@@ -680,14 +680,15 @@ describe('EnvironmentsTab: staging a Flight environment', () => {
     });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(screen.getByRole('button', { name: 'Open pull requests' }));
-    expect(await screen.findByText(/Pull requests opened/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open environment PRs' }));
+    expect(await screen.findByText(/PRs opened/)).toBeTruthy();
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByText(/1\. ApplicationEnvironment request for prod/)).toBeTruthy();
-    expect(dialog.getByText(/pull\/42/)).toBeTruthy();
+    expect(dialog.getByText('PR #42 opened')).toBeTruthy();
     expect(dialog.getByText(/2\. cicd\.yaml change/)).toBeTruthy();
-    expect(dialog.getByText(/pull\/9/)).toBeTruthy();
-    expect(dialog.getByText(/Merge the ApplicationEnvironment request first, then the cicd\.yaml change/)).toBeTruthy();
+    expect(dialog.getByText('PR #9 opened')).toBeTruthy();
+    expect(dialog.getByText(/Next: merge this first, so the environment exists when cicd\.yaml names it/)).toBeTruthy();
+    expect(dialog.getByText(/Next: merge it after the ApplicationEnvironment request/)).toBeTruthy();
   });
 });
 
@@ -721,7 +722,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     renderTab();
     await confirmRemove('test');
     expect(panel().getByText('Remove environment test')).toBeTruthy();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     const req = submitMock.mock.calls[0][0];
     expect(req.patch.deploy.environments.map((e: any) => e.name)).toEqual(['dev', 'staging']);
@@ -747,7 +748,7 @@ describe('EnvironmentsTab: removing a Ground environment', () => {
     renderTab();
     await confirmRemove('test');
     expect(panel().getByText(/not deleted/)).toBeTruthy();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0].deleteFiles).toBeUndefined();
   });
@@ -808,7 +809,7 @@ describe('EnvironmentsTab: the values of a Ground environment', () => {
     expect(panel().getByText(/Nothing staged/)).toBeTruthy(); // the page-level panel is for cicd.yaml
     const values = within(screen.getByRole('region', { name: 'Pending changes to the values of TEST' }));
     expect(values.getByText(/rollout:/)).toBeTruthy();
-    fireEvent.click(values.getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(values.getByRole('button', { name: 'Open config PR' }));
     await waitFor(() => expect(platformSubmitMock).toHaveBeenCalledTimes(1));
     const req = platformSubmitMock.mock.calls[0][0];
     expect(req).toMatchObject({ owner: 'example-org', appName: 'air-traffic-api', selector: { kind: 'env', env: 'test' } });
@@ -865,7 +866,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
     launchMock.mockResolvedValue({ status: 'done', prUrl: 'https://github.com/o/tenants/pull/1' });
     renderTab();
     await stageFlight('prod', 'example-prod');
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     const req = submitMock.mock.calls[0][0];
     expect(req.patch.pipelines.ci.steps.at(-1)).toEqual({ stage: 'release', env: 'prod' });
@@ -884,7 +885,7 @@ describe('EnvironmentsTab: a release step for a new Flight environment', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stage environment' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(panel().queryByText('Add a release step for prod')).toBeNull();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull requests' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open environment PRs' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0].patch.pipelines).toBeUndefined();
   });
@@ -996,7 +997,7 @@ describe('EnvironmentsTab: after a pull request is opened', () => {
     const names = screen.getAllByRole('row').slice(1).map(r => within(r).getAllByRole('cell')[1].textContent);
     expect(names).toEqual(['dev', 'test', 'qaPR open', 'staging']); // a Ground environment goes before the Flight ones
     const open = within(screen.getByRole('region', { name: 'Open pull requests' }));
-    expect(open.getByRole('link', { name: 'cicd.yaml pull request' }).getAttribute('href')).toBe('https://github.com/example-org/air-traffic-api/pull/9');
+    expect(open.getByRole('link', { name: /cicd\.yaml PR #9/ }).getAttribute('href')).toBe('https://github.com/example-org/air-traffic-api/pull/9');
     expect(open.getByText(/Add environment qa/)).toBeTruthy();
   });
 
@@ -1155,7 +1156,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     await duplicate('test', 'qa');
     await stage();
     expect(panel().getByText('Add environment qa')).toBeTruthy();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(loadValuesMock).toHaveBeenCalledWith({ owner: 'example-org', appName: 'air-traffic-api', env: 'test', tier: 'ground', cluster: undefined });
     const req = submitMock.mock.calls[0][0];
@@ -1174,7 +1175,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'qa' } });
     fireEvent.click(screen.getByLabelText('Copy the values of test'));
     await stage();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0].createFiles).toBeUndefined();
     expect(loadValuesMock).not.toHaveBeenCalled();
@@ -1186,7 +1187,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     renderTab();
     await duplicate('test', 'qa');
     await stage();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(screen.getByText(/Could not read the values of test to copy them to qa/)).toBeTruthy());
     expect(submitMock).not.toHaveBeenCalled();
   });
@@ -1211,7 +1212,7 @@ describe('EnvironmentsTab: duplicating an environment', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'eu' } });
     await stage();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open cicd.yaml PR' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0].patch.deploy.environments[2]).toEqual({ name: 'eu', tier: 'ground', lambda: { region: 'eu-west-1' } });
     expect(submitMock.mock.calls[0][0].createFiles).toBeUndefined();

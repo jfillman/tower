@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import Link from '@material-ui/core/Link';
 import { dump as dumpYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Subtabs, YamlBlock } from '../ui';
+import { Button, Callout, Subtabs, YamlBlock } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
 import { RefreshButton } from '../RefreshButton';
-import { PrResultDialog } from '../PrResultDialog';
+import { PrReceipt } from '../ui/PrRef';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
 import { validateAgainstSchema, type JsonSchema, type SchemaIssue } from '../schemaValidate';
 import { deepEqual } from '../deepEqual';
@@ -2565,7 +2564,7 @@ export function ConfigEditor({
         stick={layout === 'side' ? 'top' : 'bottom'}
         busy={submitCfg.loading}
         canSubmit={canSubmit}
-        submitLabel="Open pull request"
+        submitLabel="Open config PR"
         onDiscard={discard}
         onSubmit={onSubmit}
       >
@@ -2573,16 +2572,10 @@ export function ConfigEditor({
           {title}: {cfg.data.path}. This file has its own pull request.
         </div>
         {submitCfg.result && (
-          <div className={ui.note}>
-            {submitCfg.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-            <Link className={classes.resultLink} href={submitCfg.result.prUrl} target="_blank" rel="noopener noreferrer">
-              {submitCfg.result.prUrl}
-            </Link>
-          </div>
+          <PrReceipt prUrl={submitCfg.result.prUrl} alreadyOpen={submitCfg.result.alreadyOpen} next="merge it to apply these values." />
         )}
-        {submitCfg.error && <div className={ui.problem}>Couldn&apos;t open PR: {submitCfg.error}</div>}
+        {submitCfg.error && <Callout tone="bad">Couldn&apos;t open the PR: {submitCfg.error}</Callout>}
       </PendingPanel>
-      <PrResultDialog result={submitCfg.result} error={submitCfg.error} onClose={() => submitCfg.reset()} />
     </div>
   );
 }

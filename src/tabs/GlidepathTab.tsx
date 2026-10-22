@@ -6,13 +6,12 @@ import Switch from '@material-ui/core/Switch';
 import TextField from '@material-ui/core/TextField';
 import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
-import Link from '@material-ui/core/Link';
 import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import { dump as dumpYaml, load as loadYaml } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
 import {
@@ -21,7 +20,8 @@ import {
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { PageHeader, SectionTitle, Subtabs, YamlBlock } from '../ui';
+import { Callout, PageHeader, SectionTitle, Subtabs, YamlBlock } from '../ui';
+import { PrReceipt } from '../ui/PrRef';
 import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
 import { CICD_TOP_LEVEL_FIELDS, type CicdTopLevelField } from '../types';
@@ -320,19 +320,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   govCaption: { fontSize: 11, color: ({ t }) => t.textLo, fontStyle: 'italic' },
   secretRow: { display: 'flex', alignItems: 'center', gap: 8 },
   submitBar: { display: 'flex', alignItems: 'center', gap: 12 },
-  submitBtn: {
-    fontFamily: fontDisplay,
-    fontSize: 13,
-    fontWeight: 600,
-    padding: '8px 18px',
-    borderRadius: 4,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: ({ t }) => t.amber,
-    color: '#1a1200',
-    '&:disabled': { opacity: 0.5, cursor: 'default' },
-  },
-  resultLink: { fontFamily: fontMono, fontSize: 12 },
 }));
 
 type GlidepathTabId = 'build' | 'test' | 'deploy' | 'preview' | 'governance' | 'notifications' | 'secrets' | 'pipelines' | 'advanced';
@@ -756,21 +743,19 @@ export function GlidepathTab() {
         problems={problems}
         emptyText="Nothing staged. Edit a field above and it is listed here."
         busy={submitCicd.loading}
-        busyLabel="Opening pull request…"
-        submitLabel="Open pull request"
+        submitLabel="Open cicd.yaml PR"
         onDiscard={() => cicd.data && setForm(buildFormFromValues(cicd.data.values))}
         onSubmit={handleSubmit}
         notes={['cicd.yaml is one file per app, so these changes go in one pull request.']}
       >
         {submitCicd.result && (
-          <Typography>
-            {submitCicd.result.alreadyOpen ? 'A pull request for this exact change is already open: ' : 'Pull request opened: '}
-            <Link className={classes.resultLink} href={submitCicd.result.prUrl} target="_blank" rel="noopener noreferrer">
-              {submitCicd.result.prUrl}
-            </Link>
-          </Typography>
+          <PrReceipt
+            prUrl={submitCicd.result.prUrl}
+            alreadyOpen={submitCicd.result.alreadyOpen}
+            next="merge it to apply these changes."
+          />
         )}
-        {submitCicd.error && <ResponseErrorPanel error={new Error(submitCicd.error)} />}
+        {submitCicd.error && <Callout tone="bad">Couldn&apos;t open the PR: {submitCicd.error}</Callout>}
       </PendingPanel>
     </div>
   );
