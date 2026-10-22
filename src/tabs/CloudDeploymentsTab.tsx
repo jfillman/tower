@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
@@ -11,7 +10,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, TextLink, useTableKit } from '../ui';
+import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, TabError, TabSkeleton, TextLink, Tooltip, useTableKit } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -21,12 +20,12 @@ import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, T
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { paddingBottom: 40 },
-  resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
+  resource: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14, marginBottom: 22 },
   cardBad: { borderColor: ({ t }) => t.bad, background: ({ t }) => t.badSoft },
   cardRun: { borderColor: ({ t }) => t.amberLine, background: ({ t }) => t.amberSoft },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
-  mono: { fontFamily: fontMono, fontSize: 12.5 },
+  sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
+  mono: { fontFamily: fontMono, fontSize: 12 },
 }));
 
 const PHASE_LABEL: Record<string, string> = {
@@ -76,8 +75,8 @@ export function CloudDeploymentsTab() {
     return <StatusChip tone={tone}>{PHASE_LABEL[d.phase] ?? d.phase}</StatusChip>;
   };
 
-  if (loading && runs.length === 0) return <Progress />;
-  if (error && runs.length === 0) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading && runs.length === 0) return <TabSkeleton />;
+  if (error && runs.length === 0) return <TabError error={error} what="deployments" />;
 
   const { current, inFlight, latestFailure, deploys, resource } = summary;
   const targetLabel = deploys[0]?.targetLabel;
@@ -186,9 +185,11 @@ export function CloudDeploymentsTab() {
                 {d.flowSlug ? ` (${d.flowSlug})` : ''}
               </td>
               <td className={`${tc.td} ${classes.mono}`}>{d.env ?? '—'}</td>
-              <td className={tc.td} title={formatDateTime(d.startTime)}>
-                {relativeTime(d.startTime)}
-              </td>
+              <Tooltip title={formatDateTime(d.startTime)}>
+                <td className={tc.td}>
+                  {relativeTime(d.startTime)}
+                </td>
+              </Tooltip>
               <td className={tc.td}>{duration(d.durationSec)}</td>
               <td className={tc.td}>
                 <TextLink onClick={() => openRun(d.runName)}>

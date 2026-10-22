@@ -1,6 +1,6 @@
 import type { Entity } from '@backstage/catalog-model';
 import { hasCapabilities } from './serviceClass';
-import { TABS } from './TowerPage';
+import { TABS, activeTabId } from './TowerPage';
 
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
 
@@ -22,13 +22,11 @@ describe('which tabs a service gets', () => {
       'pipelines',
       'deployments',
       'releases',
-      'environments',
       'topology',
       'images',
       'slos',
       'notifications',
-      'config',
-      'glidepath',
+      'configure',
     ]);
     expect(tabsFor(e).find(t => t.id === 'deployments')!.Component.name).toBe('DeploymentsTab');
   });
@@ -47,7 +45,7 @@ describe('which tabs a service gets', () => {
     expect(ids(e)).not.toEqual(expect.arrayContaining(['topology']));
     expect(ids(e)).not.toContain('config');
     expect(ids(e)).not.toContain('slos');
-    expect(ids(e)).toEqual(expect.arrayContaining(['overview', 'pipelines', 'deployments', 'releases', 'glidepath']));
+    expect(ids(e)).toEqual(expect.arrayContaining(['overview', 'pipelines', 'deployments', 'releases', 'configure']));
   });
 
   it('an InfraService drops Pipelines, Releases and Images (nothing builds it) and keeps SLOs', () => {
@@ -55,12 +53,10 @@ describe('which tabs a service gets', () => {
       'overview',
       'pull-requests',
       'deployments',
-      'environments',
       'topology',
       'slos',
       'notifications',
-      'config',
-      'glidepath',
+      'configure',
     ]);
   });
 
@@ -80,17 +76,26 @@ describe('which tabs a service gets', () => {
   });
 });
 
-describe('the Environments tab', () => {
+describe('the Configure tab (Environments, shared values, cicd.yaml; 2026-10-22)', () => {
   // [description, deploy-target annotation (none = the Kubernetes default), kind tag, expected Deployments tab]
   it.each([
     ['a Kubernetes app', undefined, 'kind:goapplication', 'DeploymentsTab'],
     ['an ECS service', 'aws-ecs', 'kind:goapplication', 'CloudDeploymentsTab'],
     ['a Lambda function', 'aws-lambda', 'kind:lambdafunction', 'CloudDeploymentsTab'],
     ['an Azure function', 'azure-container-apps', 'kind:azurefunction', 'CloudDeploymentsTab'],
-  ])('is offered to %s, since every Glidepath-built service has environments', (_n, target, tag, deployments) => {
+  ])('is offered to %s, since every Glidepath-built service has environments and a cicd.yaml', (_n, target, tag, deployments) => {
     const e = entity(target ? { 'hangar.io/deploy-target': target } : undefined, [tag]);
     // Guard against a vacuous test: the service must really be classed as the kind it claims to be.
     expect(tabsFor(e).find(t => t.id === 'deployments')!.Component.name).toBe(deployments);
-    expect(ids(e)).toContain('environments');
+    expect(ids(e)).toContain('configure');
+  });
+});
+
+describe('old tab links (2026-10-22)', () => {
+  it.each(['environments', 'config', 'glidepath'])('?tab=%s opens Configure', id => {
+    expect(activeTabId(id)).toBe('configure');
+  });
+  it('leaves every other tab alone', () => {
+    expect(activeTabId('releases')).toBe('releases');
   });
 });

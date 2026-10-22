@@ -38,13 +38,13 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   eyebrow: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textFaint,
   },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
-  description: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.5 },
+  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
+  description: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5 },
 }));
 
 export function TowerEmptyState({

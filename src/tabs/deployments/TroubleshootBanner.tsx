@@ -208,11 +208,11 @@ const useStyles = makeStyles(() => ({
 
 const useDetailStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   details: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 12 },
-  head: { fontFamily: fontMono, fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: ({ t }) => t.textLo, marginBottom: 4 },
+  head: { fontFamily: fontMono, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: ({ t }) => t.textLo, marginBottom: 4 },
   issue: { borderLeft: ({ t }) => `2px solid ${t.bad}`, paddingLeft: 10 },
   issueTitle: { fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.5, wordBreak: 'break-word' },
-  hint: { fontSize: 12.5, color: ({ t }) => t.textHi, marginTop: 2 },
+  hint: { fontSize: 12, color: ({ t }) => t.textHi, marginTop: 2 },
   warn: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, fontSize: 12, padding: '3px 0' },
 }));
 

@@ -5,7 +5,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { PrReceipt } from './ui/PrRef';
 import { useReleaseRunStatus } from './useReleaseData';
 import type { ReleaseRunStatus } from './types';
-import { Callout, IconButton, TextLink } from './ui';
+import { Callout, IconButton, TextLink, Tooltip } from './ui';
 
 // Promote to a Flight environment used to hold its dialog open for up to 90 s while the backend waited for the
 // release run to open its PR (2026-10-22: "the dialog sits for a very long time"). The dialog now closes as soon as
@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   steps: { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap: 6, marginTop: 10 },
   step: { display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 },
   bar: { height: 4, borderRadius: 2 },
-  stepName: { fontFamily: fontMono, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  stepName: { fontFamily: fontMono, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   receiptRow: { display: 'flex', alignItems: 'flex-start', gap: 8 },
   receipt: { flex: 1, minWidth: 0 },
 }));
@@ -123,12 +123,14 @@ export function ReleaseRunTracker({
       {data && data.tasks.length > 0 && (
         <div className={classes.steps} aria-label="Release run progress">
           {data.tasks.map(task => (
-            <div key={task.name} className={classes.step} title={`${task.name}: ${task.state}`}>
-              <span className={classes.bar} style={{ backgroundColor: barColour(t, task.state) }} />
-              <span className={classes.stepName} style={{ color: task.state === 'pending' ? t.textFaint : t.textHi }}>
-                {task.name}
-              </span>
-            </div>
+            <Tooltip key={task.name} title={`${task.name}: ${task.state}`}>
+              <div className={classes.step}>
+                <span className={classes.bar} style={{ backgroundColor: barColour(t, task.state) }} />
+                <span className={classes.stepName} style={{ color: task.state === 'pending' ? t.textFaint : t.textHi }}>
+                  {task.name}
+                </span>
+              </div>
+            </Tooltip>
           ))}
         </div>
       )}

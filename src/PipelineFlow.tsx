@@ -214,7 +214,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
     },
     label: {
       fontFamily: fontMono,
-      fontSize: 9.5,
+      fontSize: 11,
       letterSpacing: '0.04em',
       textTransform: 'uppercase',
       color: ({ t }) => t.textFaint,
@@ -223,7 +223,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
     },
     labelKind: {
       fontFamily: fontMono,
-      fontSize: 8,
+      fontSize: 11,
       letterSpacing: '0.06em',
       textTransform: 'uppercase',
       color: ({ t }) => t.textFaint,
@@ -237,7 +237,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
     drawerTitle: {
       fontFamily: fontDisplay,
       fontWeight: 700,
-      fontSize: 14,
+      fontSize: 13,
       color: ({ t }) => t.textHi,
       marginBottom: 10,
     },
@@ -249,7 +249,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
     kv: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
     kvLabel: {
       fontFamily: fontMono,
-      fontSize: 10,
+      fontSize: 11,
       textTransform: 'uppercase',
       letterSpacing: '0.05em',
       color: ({ t }) => t.textFaint,
@@ -261,7 +261,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
       wordBreak: 'break-word',
     },
     note: {
-      fontSize: 12.5,
+      fontSize: 12,
       fontStyle: 'italic',
       color: ({ t }) => t.textLo,
     },
@@ -287,7 +287,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
       alignItems: 'center',
       gap: 4,
       fontFamily: fontMono,
-      fontSize: 10.5,
+      fontSize: 11,
       letterSpacing: '0.03em',
       padding: '3px 9px',
       borderRadius: 12,
@@ -295,7 +295,7 @@ const useStyles = makeStyles<import('@material-ui/core/styles').Theme, { t: Hang
     },
     detailsToggle: {
       fontFamily: fontMono,
-      fontSize: 10.5,
+      fontSize: 11,
       letterSpacing: '0.04em',
       textTransform: 'uppercase',
       color: ({ t }) => t.sky,

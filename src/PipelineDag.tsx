@@ -16,7 +16,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TaskRunLogConsole, stepDuration } from './TaskRunLogConsole';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/types';
-import { EmptyNote, Fact, FactGrid, SectionTitle, YamlBlock } from './ui';
+import { EmptyNote, Fact, FactGrid, SectionTitle, Tooltip, YamlBlock } from './ui';
 
 // The one piece of the Tekton plugin the user actually wants adopted here
 // (2026-09-11: "the only part of the tekton plugin that i want incorporated
@@ -101,7 +101,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
     minWidth: 42,
     textAlign: 'center',
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     borderLeft: ({ t }) => `1px solid ${t.line}`,
     borderRight: ({ t }) => `1px solid ${t.line}`,
@@ -139,7 +139,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
     position: 'absolute',
     top: 0,
     fontFamily: fontMono,
-    fontSize: 9,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
@@ -190,7 +190,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   },
   hoverTitle: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -209,9 +209,9 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   hoverDuration: { color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   dotRow: { display: 'flex', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
-  nodeLabel: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textHi, textAlign: 'center', lineHeight: 1.2 },
-  nodeSub: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, letterSpacing: '0.03em' },
-  legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 2px 0', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  nodeLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, textAlign: 'center', lineHeight: 1.2 },
+  nodeSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, letterSpacing: '0.03em' },
+  legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 2px 0', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 6 },
   detail: { marginTop: 12, padding: '14px 16px', backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
   detailTitleGap: { marginBottom: 8 },
@@ -221,7 +221,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
     border: ({ t }) => `1px solid ${t.line}`,
     borderRadius: 4,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -230,7 +230,7 @@ export const usePipelineDagStyles = makeStyles<Theme, { t: HangarTokens }>(() =>
   ioSection: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioTitle: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -398,9 +398,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
           {run.pipelineName ?? 'pipeline'} &middot;{' '}
           <span className={classes.headTitleValue}>{run.name}</span>
           {run.archive && (
-            <span className={classes.archivedTag} title="Finished more than an hour ago: read from Tekton Results, the 30-day run archive">
-              archived
-            </span>
+            <Tooltip title="Finished more than an hour ago: read from Tekton Results, the 30-day run archive">
+              <span className={classes.archivedTag}>
+                archived
+              </span>
+            </Tooltip>
           )}
         </span>
         <div className={classes.controls}>
@@ -568,9 +570,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                       {run.params.map(p => (
                         <div key={p.name} className={classes.ioRow}>
                           <span className={classes.ioName}>{p.name}</span>
-                          <span className={classes.ioValue} title={p.value}>
-                            {truncateIoValue(p.value)}
-                          </span>
+                          <Tooltip title={p.value}>
+                            <span className={classes.ioValue}>
+                              {truncateIoValue(p.value)}
+                            </span>
+                          </Tooltip>
                         </div>
                       ))}
                     </div>
@@ -581,9 +585,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                       {run.results.map(r => (
                         <div key={r.name} className={classes.ioRow}>
                           <span className={classes.ioName}>{r.name}</span>
-                          <span className={classes.ioValue} title={r.value}>
-                            {truncateIoValue(r.value)}
-                          </span>
+                          <Tooltip title={r.value}>
+                            <span className={classes.ioValue}>
+                              {truncateIoValue(r.value)}
+                            </span>
+                          </Tooltip>
                         </div>
                       ))}
                     </div>
@@ -618,9 +624,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                   {openTaskRun.params.map(p => (
                     <div key={p.name} className={classes.ioRow}>
                       <span className={classes.ioName}>{p.name}</span>
-                      <span className={classes.ioValue} title={p.value}>
-                        {truncateIoValue(p.value)}
-                      </span>
+                      <Tooltip title={p.value}>
+                        <span className={classes.ioValue}>
+                          {truncateIoValue(p.value)}
+                        </span>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -631,9 +639,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                   {openTaskRun.results.map(r => (
                     <div key={r.name} className={classes.ioRow}>
                       <span className={classes.ioName}>{r.name}</span>
-                      <span className={classes.ioValue} title={r.value}>
-                        {truncateIoValue(r.value)}
-                      </span>
+                      <Tooltip title={r.value}>
+                        <span className={classes.ioValue}>
+                          {truncateIoValue(r.value)}
+                        </span>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>

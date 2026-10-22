@@ -29,7 +29,7 @@ import {
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers';
 import type { DeployHistoryEntry } from './types';
 import type { PipelineRunSummary } from './tekton/types';
-import { EmptyNote, FilterChip, FilterGroup, SectionTitle, TextLink } from './ui';
+import { EmptyNote, FilterChip, FilterGroup, SectionTitle, TextLink, Tooltip } from './ui';
 
 // Overview tab's "Recent Activity" panel (Concept 2 - Grouped Timeline, see
 // the published mockup artifact) - a typed, per-app, day-grouped read of the
@@ -312,7 +312,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // smaller badge (26->22), less vertical padding per row, tighter body gap.
   day: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
     color: ({ t }) => t.textFaint,
@@ -374,7 +374,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   time: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     whiteSpace: 'nowrap',
   },
@@ -387,7 +387,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 5,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     padding: '3px 9px 3px 7px',
@@ -395,7 +395,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   description: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     color: ({ t }) => t.textLo,
     whiteSpace: 'pre-wrap',
   },
@@ -414,7 +414,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 4,
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: '3px 9px 3px 7px',
     borderRadius: 100,
     border: 'none',
@@ -430,7 +430,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 4,
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: '3px 9px 3px 7px',
     borderRadius: 100,
   },
@@ -470,7 +470,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   subStepLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textLo,
   },
   // 2026-09-15 feedback: this used to be marginLeft: 'auto', which shoved
@@ -480,7 +480,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // label, never pushed to an edge).
   subStepTime: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     whiteSpace: 'nowrap',
   },
@@ -488,7 +488,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // <user>"), not the row's own primary structured metadata.
   authorLink: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     textDecoration: 'none',
     '&:hover': { textDecoration: 'underline', color: ({ t }) => t.sky },
@@ -711,12 +711,13 @@ export function RecentActivityPanel({
                           <Typography className={classes.rowTitle}>
                             {n.payload.title}
                           </Typography>
-                          <span
-                            className={classes.time}
-                            title={formatDateTime(String(n.created))}
-                          >
-                            {relativeTime(n.created)}
-                          </span>
+                          <Tooltip title={formatDateTime(String(n.created))}>
+                            <span
+                              className={classes.time}
+                            >
+                              {relativeTime(n.created)}
+                            </span>
+                          </Tooltip>
                         </div>
                         <div className={classes.chipRow}>
                           <span

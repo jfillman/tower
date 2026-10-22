@@ -5,6 +5,7 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../br
 import { formatDateTime, relativeTime } from '../shared/format';
 import { isStale } from '../fleet/usePolled';
 import { queueRowLink, queueSize, useBreakglassQueue, type BreakglassQueueRow } from './useBreakglassQueue';
+import { Tooltip } from '../ui';
 
 // The Break-glass strip on the Tower home page and the Ops Wall (gap G2): the requests you can decide, your approved
 // request waiting for its Start, and the reviews you can do, across every app. Hidden when there is nothing. Each
@@ -25,7 +26,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   label: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -42,8 +43,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.bad,
     color: ({ t }) => t.bg,
   },
-  stale: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.amberInk },
-  group: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, marginTop: 4 },
+  stale: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk },
+  group: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 4 },
   row: {
     display: 'grid',
     gridTemplateColumns: 'minmax(140px, 1fr) minmax(200px, 2.4fr) minmax(110px, 0.9fr)',
@@ -61,12 +62,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:disabled': { cursor: 'default', opacity: 0.7 },
     '@media (max-width: 700px)': { gridTemplateColumns: '1fr' },
   },
-  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, overflowWrap: 'anywhere' },
-  nameSub: { display: 'block', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, fontWeight: 400 },
-  what: { fontSize: 12.5, color: ({ t }) => t.textLo, minWidth: 0 },
+  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, overflowWrap: 'anywhere' },
+  nameSub: { display: 'block', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontWeight: 400 },
+  what: { fontSize: 12, color: ({ t }) => t.textLo, minWidth: 0 },
   whatMain: { display: 'block', color: ({ t }) => t.textHi, fontWeight: 500 },
   when: { fontFamily: fontMono, fontSize: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
-  whenSub: { display: 'block', fontSize: 10, letterSpacing: '0.08em', color: ({ t }) => t.textFaint },
+  whenSub: { display: 'block', fontSize: 11, letterSpacing: '0.08em', color: ({ t }) => t.textFaint },
   overdue: { color: ({ t }) => t.bad, fontWeight: 700 },
 }));
 
@@ -98,25 +99,27 @@ export function BreakglassQueueStrip({ onOpen }: { onOpen: (row: BreakglassQueue
   const row = (r: BreakglassQueueRow, what: string, when: JSX.Element) => {
     const link = queueRowLink(r);
     return (
-      <button
-        key={r.id}
-        type="button"
-        className={classes.row}
-        disabled={!link}
-        title={link ? `Open in Tower: ${r.app} ${r.env}` : 'The catalog no longer knows this app'}
-        onClick={() => link && onOpen(r, link)}
-        data-testid={`breakglass-queue-${r.id}`}
-      >
-        <span className={classes.name}>
-          {r.app}
-          <span className={classes.nameSub}>{r.env} · {r.pod}</span>
-        </span>
-        <span className={classes.what}>
-          <span className={classes.whatMain}>{what}</span>
-          <span title={r.reason}>“{r.reason.length > 90 ? `${r.reason.slice(0, 90)}…` : r.reason}”</span>
-        </span>
-        <span className={classes.when}>{when}</span>
-      </button>
+      <Tooltip key={r.id} title={link ? `Open in Tower: ${r.app} ${r.env}` : 'The catalog no longer knows this app'}>
+        <button
+          type="button"
+          className={classes.row}
+          disabled={!link}
+          onClick={() => link && onOpen(r, link)}
+          data-testid={`breakglass-queue-${r.id}`}
+        >
+          <span className={classes.name}>
+            {r.app}
+            <span className={classes.nameSub}>{r.env} · {r.pod}</span>
+          </span>
+          <span className={classes.what}>
+            <span className={classes.whatMain}>{what}</span>
+            <Tooltip title={r.reason}>
+              <span>“{r.reason.length > 90 ? `${r.reason.slice(0, 90)}…` : r.reason}”</span>
+            </Tooltip>
+          </span>
+          <span className={classes.when}>{when}</span>
+        </button>
+      </Tooltip>
     );
   };
 
@@ -127,7 +130,9 @@ export function BreakglassQueueStrip({ onOpen }: { onOpen: (row: BreakglassQueue
         <span className={classes.label}>
           Break-glass
           <span className={classes.badge}>{size}</span>
-          {stale && <span className={classes.stale} title={queue.error}>stale: last read {queue.updatedAt ? relativeTime(new Date(queue.updatedAt).toISOString()) : 'never'}</span>}
+          {stale && <Tooltip title={queue.error}>
+            <span className={classes.stale}>stale: last read {queue.updatedAt ? relativeTime(new Date(queue.updatedAt).toISOString()) : 'never'}</span>
+          </Tooltip>}
         </span>
         <span className={classes.group}>what needs you, across every app</span>
       </div>
@@ -159,9 +164,11 @@ export function BreakglassQueueStrip({ onOpen }: { onOpen: (row: BreakglassQueue
           r,
           `${shortUser(r.requester)} broke the glass: ${options(r)} session`,
           <>
-            <span className={r.overdue ? classes.overdue : undefined} title={r.endedAt ? `Ended ${formatDateTime(r.endedAt)}` : undefined}>
-              {r.overdue ? 'overdue' : 'ended'} {r.endedAt ? relativeTime(r.endedAt) : ''}
-            </span>
+            <Tooltip title={r.endedAt ? `Ended ${formatDateTime(r.endedAt)}` : undefined}>
+              <span className={r.overdue ? classes.overdue : undefined}>
+                {r.overdue ? 'overdue' : 'ended'} {r.endedAt ? relativeTime(r.endedAt) : ''}
+              </span>
+            </Tooltip>
             <span className={classes.whenSub}>{r.overdue ? 'more than 72 h ago' : 'review due'}</span>
           </>,
         ),

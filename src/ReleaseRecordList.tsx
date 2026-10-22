@@ -9,7 +9,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { outcomeChip } from './ReleaseOutcome';
 import { changeRequestTone } from './ReleaseRecordEvidence';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
-import { Count, IconButton, SectionTitle, StatusChip, TextLink, type StatusTone } from './ui';
+import { Count, IconButton, SectionTitle, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -46,7 +46,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '6px 12px',
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },
-  scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
+  scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.06em', color: ({ t }) => t.textHi, marginRight: 10 },
   chips: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
@@ -55,10 +55,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
   rungTodo: { color: ({ t }) => t.textFaint },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
+  sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   actions: { display: 'flex', alignItems: 'center', gap: 6 },
-  chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
+  chevron: { color: ({ t }) => t.textFaint, fontSize: 15, lineHeight: 1 },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 8 },
 }));
 
@@ -173,18 +173,22 @@ export function ReleaseRecordList({
                   </StatusChip>
                 )}
                 {record.changeRequest && (
-                  <StatusChip tone={changeRequestTone(record.changeRequest.state)} title={`Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? 'created'}`}>
-                    {record.changeRequest.number ?? 'change'}
-                  </StatusChip>
+                  <Tooltip title={`Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? 'created'}`}>
+                    <StatusChip tone={changeRequestTone(record.changeRequest.state)}>
+                      {record.changeRequest.number ?? 'change'}
+                    </StatusChip>
+                  </Tooltip>
                 )}
                 {(() => {
                   // How the commit was proven (provenance phase 3): only the proven paths, green, the line on hover.
                   const proof = commitProofOf(record);
                   const chip = commitProofChip(proof);
                   return chip && commitProofTone(proof) === 'ok' ? (
-                    <StatusChip tone="ok" title={`Commit: ${commitProofLine(proof)}`}>
-                      {chip}
-                    </StatusChip>
+                    <Tooltip title={`Commit: ${commitProofLine(proof)}`}>
+                      <StatusChip tone="ok">
+                        {chip}
+                      </StatusChip>
+                    </Tooltip>
                   ) : null;
                 })()}
               </span>

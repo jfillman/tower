@@ -1,7 +1,7 @@
 import Typography from '@material-ui/core/Typography';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Chip } from '../ui';
+import { Button, Chip, Tooltip } from '../ui';
 import { useUi } from '../ui/styles';
 import { catalogCheck, type CheckContext } from './analysisCatalog';
 import { useStyles } from './styles';
@@ -64,9 +64,11 @@ function CheckRow({
         <Typography className={classes.switchLabel}>
           {known ? `${known.title} ` : ''}
           <code>{name}</code>{' '}
-          <span title={why[data]}>
-            <Chip tone={TONE[data]}>{LABEL[data]}</Chip>
-          </span>
+          <Tooltip title={why[data]}>
+            <span>
+              <Chip tone={TONE[data]}>{LABEL[data]}</Chip>
+            </span>
+          </Tooltip>
         </Typography>
         {data !== 'found' && data !== 'checking' && <div className={ui.note}>{why[data]}</div>}
       </div>

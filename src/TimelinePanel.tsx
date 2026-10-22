@@ -7,7 +7,7 @@ import { useRepoHead } from './useReleaseData';
 import { extractShortShaFromImageTag } from './types';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { EmptyNote, SectionTitle } from './ui';
+import { EmptyNote, SectionTitle, Tooltip } from './ui';
 
 // Ported from GlidepathPage.tsx's ReleaseTimelinePanel + LeadTimePanel
 // (2026-09-06, "Add Release Timeline and Lead Time panels, backed by real
@@ -83,7 +83,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     paddingLeft: 6,
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     overflow: 'hidden',
     whiteSpace: 'nowrap',
     border: '1px solid transparent',
@@ -93,7 +93,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   emptyTrack: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontStyle: 'italic',
     color: ({ t }) => t.textFaint,
     display: 'flex',
@@ -112,7 +112,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 4,
     padding: '12px 14px',
   },
-  leadEnv: { fontFamily: fontMono, fontSize: 10.5, textTransform: 'lowercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint, marginBottom: 6 },
+  leadEnv: { fontFamily: fontMono, fontSize: 11, textTransform: 'lowercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint, marginBottom: 6 },
   leadValue: { fontFamily: fontMono, fontSize: 22, fontWeight: 600 },
   leadCaption: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 4 },
 }));
@@ -215,21 +215,21 @@ export function ReleaseTimelinePanel({
                 const stale = isLast && now - new Date(entry.date).getTime() > STALE_THRESHOLD_MS;
                 const color = colorForTag(entry.imageTag, isDark);
                 return (
-                  <div
-                    key={entry.sha}
-                    className={`${classes.seg} ${stale ? classes.segStale : ''}`}
-                    title={`${imageTag(entry.imageTag)} · deployed ${formatDateTime(entry.date)}${
+                  <Tooltip key={entry.sha} title={`${imageTag(entry.imageTag)} · deployed ${formatDateTime(entry.date)}${
                       stale ? ` · running ${relativeTime(entry.date)}` : ''
-                    }`}
-                    style={{
-                      left: pct(startMs),
-                      width: pct(endMs - startMs),
-                      backgroundColor: color,
-                      borderColor: stale ? t.amber : 'transparent',
-                    }}
-                  >
-                    {imageTag(entry.imageTag)}
-                  </div>
+                    }`}>
+                    <div
+                      className={`${classes.seg} ${stale ? classes.segStale : ''}`}
+                      style={{
+                        left: pct(startMs),
+                        width: pct(endMs - startMs),
+                        backgroundColor: color,
+                        borderColor: stale ? t.amber : 'transparent',
+                      }}
+                    >
+                      {imageTag(entry.imageTag)}
+                    </div>
+                  </Tooltip>
                 );
               })}
             </div>

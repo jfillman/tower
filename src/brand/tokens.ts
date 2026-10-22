@@ -108,3 +108,11 @@ export function useHangarTokens(): HangarTokens {
 export const fontDisplay = '"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif';
 export const fontBody = '"IBM Plex Sans", -apple-system, "Segoe UI", sans-serif';
 export const fontMono = '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace';
+
+/**
+ * The type scale (2026-10-22 UI pass): seven sizes, nothing under 11px. Before it Tower used 28 sizes from 8 to 64px,
+ * 139 declarations under 11. scripts/style-ratchet.mjs fails on any other text size (icon sizes are exempt).
+ *   xs 11 labels, chips, column heads · sm 12 meta, mono values, hints · md 13 body, buttons, cells
+ *   lg 15 section title · xl 18 card / dialog title · x2 22 stat value, page title · x3 32 Ops Wall KPIs
+ */
+export const fontScale = { xs: 11, sm: 12, md: 13, lg: 15, xl: 18, x2: 22, x3: 32 } as const;

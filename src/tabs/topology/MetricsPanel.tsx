@@ -57,7 +57,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   liveToggle: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: '3px 9px',
     borderRadius: 12,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -83,12 +83,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   tileHead: { display: 'flex', alignItems: 'center', gap: 6, color: ({ t }) => t.textFaint },
   tileIcon: { display: 'flex', fontSize: 15 },
-  tileLabel: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  tileLabel: { fontFamily: fontMono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' },
   tileValue: { fontFamily: fontMono, fontWeight: 700, fontSize: 18, color: ({ t }) => t.textHi },
-  tileNote: { fontSize: 10.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
+  tileNote: { fontSize: 11, fontStyle: 'italic', color: ({ t }) => t.textFaint },
 }));
 
-function Sparkline({ points, color, t }: { points: Array<{ time: number; value: number }>; color: string; t: HangarTokens }) {
+function Sparkline({ points, color }: { points: Array<{ time: number; value: number }>; color: string }) {
   const width = 130;
   const height = 30;
   if (points.length < 2) return <svg width={width} height={height} />;
@@ -110,9 +110,6 @@ function Sparkline({ points, color, t }: { points: Array<{ time: number; value: 
       <path d={areaPath} fill={color} opacity={0.14} stroke="none" />
       <path d={path} fill="none" stroke={color} strokeWidth={1.5} />
       <circle cx={width} cy={height - ((values[values.length - 1] - min) / span) * height} r={2.2} fill={color} />
-      <text x={0} y={height + 9} fontFamily={fontMono} fontSize={8} fill={t.textFaint}>
-        15m
-      </text>
     </svg>
   );
 }
@@ -126,7 +123,6 @@ function MetricTile({
   color,
   refreshNonce,
   classes,
-  t,
 }: {
   icon: JSX.Element;
   label: string;
@@ -136,7 +132,6 @@ function MetricTile({
   color: string;
   refreshNonce: number;
   classes: ReturnType<typeof useStyles>;
-  t: HangarTokens;
 }) {
   const { loading, error, series } = usePrometheusRangeQuery(
     cluster,
@@ -159,7 +154,7 @@ function MetricTile({
     body = (
       <>
         <span className={classes.tileValue}>{current !== undefined ? format(current) : '—'}</span>
-        <Sparkline points={points} color={color} t={t} />
+        <Sparkline points={points} color={color} />
       </>
     );
   }
@@ -233,12 +228,12 @@ export function MetricsPanel({
         </button>
       </div>
       <div className={classes.grid}>
-        <MetricTile icon={<SpeedIcon fontSize="inherit" />} label="CPU" query={cpuQuery} cluster={cluster} format={formatCores} color={t.sky} refreshNonce={nonce} classes={classes} t={t} />
-        <MetricTile icon={<MemoryIcon fontSize="inherit" />} label="Memory" query={memQuery} cluster={cluster} format={v => formatBytesPerSec(v).replace('/s', '')} color={t.amber} refreshNonce={nonce} classes={classes} t={t} />
-        <MetricTile icon={<ArrowDownwardIcon fontSize="inherit" />} label="Network in" query={rxQuery} cluster={cluster} format={formatBytesPerSec} color={t.good} refreshNonce={nonce} classes={classes} t={t} />
-        <MetricTile icon={<ArrowUpwardIcon fontSize="inherit" />} label="Network out" query={txQuery} cluster={cluster} format={formatBytesPerSec} color={t.good} refreshNonce={nonce} classes={classes} t={t} />
-        <MetricTile icon={<StorageIcon fontSize="inherit" />} label="Disk read" query={readQuery} cluster={cluster} format={formatBytesPerSec} color={t.textLo} refreshNonce={nonce} classes={classes} t={t} />
-        <MetricTile icon={<StorageIcon fontSize="inherit" />} label="Disk write" query={writeQuery} cluster={cluster} format={formatBytesPerSec} color={t.textLo} refreshNonce={nonce} classes={classes} t={t} />
+        <MetricTile icon={<SpeedIcon fontSize="inherit" />} label="CPU" query={cpuQuery} cluster={cluster} format={formatCores} color={t.sky} refreshNonce={nonce} classes={classes} />
+        <MetricTile icon={<MemoryIcon fontSize="inherit" />} label="Memory" query={memQuery} cluster={cluster} format={v => formatBytesPerSec(v).replace('/s', '')} color={t.amber} refreshNonce={nonce} classes={classes} />
+        <MetricTile icon={<ArrowDownwardIcon fontSize="inherit" />} label="Network in" query={rxQuery} cluster={cluster} format={formatBytesPerSec} color={t.good} refreshNonce={nonce} classes={classes} />
+        <MetricTile icon={<ArrowUpwardIcon fontSize="inherit" />} label="Network out" query={txQuery} cluster={cluster} format={formatBytesPerSec} color={t.good} refreshNonce={nonce} classes={classes} />
+        <MetricTile icon={<StorageIcon fontSize="inherit" />} label="Disk read" query={readQuery} cluster={cluster} format={formatBytesPerSec} color={t.textLo} refreshNonce={nonce} classes={classes} />
+        <MetricTile icon={<StorageIcon fontSize="inherit" />} label="Disk write" query={writeQuery} cluster={cluster} format={formatBytesPerSec} color={t.textLo} refreshNonce={nonce} classes={classes} />
       </div>
     </div>
   );

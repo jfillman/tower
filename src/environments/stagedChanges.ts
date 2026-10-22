@@ -1,6 +1,6 @@
 import { ENVS_ROOT } from '../types';
 import { appRepos, envNamespace, type AppType } from '../appRepos';
-// The editing model behind the Environments tab (glidepath docs/admin/envs-overhaul-requirements.md,
+// The editing model behind Configure › Environments (glidepath docs/admin/envs-overhaul-requirements.md,
 // section 4): edits are STAGED, shown together in the pending-changes panel, and only then turned
 // into one change to cicd.yaml. Everything here is pure so the rules can be tested exhaustively.
 //
@@ -295,7 +295,7 @@ export function validateRemovals(before: EnvDef[], after: EnvDef[], pipelines: u
       problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
     }
     for (const p of pipelinesNamingEnv(pipelines, e.name)) {
-      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in the Glidepath tab first.`);
+      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in Configure › Pipeline first.`);
     }
   }
   return problems;

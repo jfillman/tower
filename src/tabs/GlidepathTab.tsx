@@ -10,7 +10,6 @@ import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import { dump as dumpYaml, load as loadYaml } from 'js-yaml';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
@@ -20,7 +19,7 @@ import {
 } from '../useConfigData';
 import { RefreshButton } from '../RefreshButton';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { Callout, PageHeader, SectionTitle, Subtabs, YamlBlock } from '../ui';
+import { Callout, PageHeader, SectionTitle, Subtabs, TabError, TabSkeleton, YamlBlock } from '../ui';
 import { PrReceipt } from '../ui/PrRef';
 import { PendingPanel, type PendingLine } from '../ui/PendingPanel';
 import { deepEqual } from '../deepEqual';
@@ -256,7 +255,7 @@ export function buildCandidateValues(
       sourceVolume: { size: form.buildSourceVolumeSize },
     },
     test: { enabled: form.testEnabled, ...(form.testName.trim() ? { name: form.testName.trim() } : {}) },
-    // The environment list (deploy.environments) is the Environments tab's; keep it and every other key this form
+    // The environment list (deploy.environments) is Configure › Environments's; keep it and every other key this form
     // has no field for (`target`, the per-target blocks, `chart`) and write only the strategy.
     deploy: { ...originalDeploy, strategy: form.strategy },
     ephemeralEnvironments: {
@@ -389,8 +388,8 @@ export function GlidepathTab() {
   const lines: PendingLine[] = (Object.keys(patch) as CicdTopLevelField[]).map(k => ({ title: `Update ${k}`, detail: `cicd.yaml › ${k}` }));
   const problems = yamlBlocksValid ? [] : ['A YAML block (deploy environments or pipelines) is not valid YAML. Fix it before opening the pull request.'];
 
-  if (contextLoading) return <Progress />;
-  if (contextError) return <ResponseErrorPanel error={new Error(contextError)} />;
+  if (contextLoading) return <TabSkeleton />;
+  if (contextError) return <TabError error={contextError} what="cicd.yaml" />;
   if (!owner || !appName) {
     return (
       <TowerEmptyState
@@ -399,15 +398,15 @@ export function GlidepathTab() {
       />
     );
   }
-  if (cicd.loading || !form) return <Progress />;
-  if (cicd.error) return <ResponseErrorPanel error={new Error(cicd.error)} />;
+  if (cicd.loading || !form) return <TabSkeleton />;
+  if (cicd.error) return <TabError error={cicd.error} what="cicd.yaml" />;
 
   const summary: string[] = [];
   for (const key of Object.keys(patch)) summary.push(`updated \`${key}\``);
 
   async function handleSubmit() {
     if (!owner || !appName || !yamlBlocksValid || !dirty) return;
-    await submitCicd.submit({ owner, appName, patch, summary, via: 'Glidepath tab' });
+    await submitCicd.submit({ owner, appName, patch, summary, via: 'Configure › Pipeline' });
     setRefreshNonce(n => n + 1);
   }
 
@@ -423,7 +422,7 @@ export function GlidepathTab() {
   return (
     <div className={classes.root}>
       <PageHeader
-        title="Glidepath"
+        title="Pipeline"
         subtitle={`${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${
           appName ? appRepos(appName, appType).configRepo : appName
         } repo; nothing is committed directly.`}
@@ -550,7 +549,7 @@ export function GlidepathTab() {
       <div className={classes.section}>
         <SectionTitle>Deploy</SectionTitle>
         <Typography className={classes.govCaption}>
-          The environments are edited in the Environments tab (deploy.environments).
+          The environments are edited in Configure › Environments (deploy.environments).
         </Typography>
         <div className={classes.row}>
           <Select value={form.strategy} disabled>

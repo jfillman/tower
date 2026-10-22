@@ -68,7 +68,7 @@ Tekton pipeline execution visibility:
 
 **Key exports:** `PipelinesTab`, `PipelineFlow`, `PipelineRunList`
 
-### Config ("App Configuration")
+### Config (Configure › Shared values; was "App Configuration")
 
 The config an app shares across its environments, as sub-tabs that each use the values form and its Pending changes panel:
 - **Ground shared values**: `glidepath/base.yaml`, the values every Ground environment starts from (PR on the app's repo)
@@ -82,7 +82,7 @@ The config an app shares across its environments, as sub-tabs that each use the 
 
 An app whose environments render their own chart (`deploy.chart`) gets the raw YAML editor for its shared values, as
 its environment rows do; previews render the default chart, so their template keeps the form. An environment's own
-values are edited in its row on the Environments tab.
+values are edited in its row in Configure › Environments.
 
 **Key exports:** `ConfigTab`
 

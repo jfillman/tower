@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { Button, Chip, Hint, TierChip } from '../../ui';
+import { ActionReason, Button, Chip, Hint, TierChip, Tooltip } from '../../ui';
 import { RollbackControl } from './RollbackControl';
 
 // Argo Rollouts controls (glidepath ADR-0021 phase 4; replaces the disabled "Tier 2" placeholder row). The
@@ -78,7 +78,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
   },
   row: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
-  label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  label: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
   confirm: {
     display: 'flex',
     gap: 8,
@@ -90,8 +90,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.amberInk,
     fontSize: 12,
   },
-  bad: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.bad },
-  ok: { fontSize: 11.5, color: ({ t }) => t.good },
+  bad: { fontSize: 11, fontStyle: 'italic', color: ({ t }) => t.bad },
+  ok: { fontSize: 11, color: ({ t }) => t.good },
 }));
 
 function errorMessage(e: unknown): string {
@@ -210,22 +210,22 @@ export function RolloutControls({
       {data && (
         <div className={c.row}>
           {actions.map(a => (
-            <Button
-              key={a.name}
-              small
-              variant={ACTION_COPY[a.name].danger ? 'danger' : 'default'}
-              title={titleFor(a)}
-              disabled={a.disabled || !a.allowed || Boolean(pending)}
-              onClick={() => click(a)}
-            >
-              {pending === a.name ? `${ACTION_COPY[a.name].label}…` : ACTION_COPY[a.name].label}
-              {a.bypass && !a.disabled ? ' ⚠' : ''}
-            </Button>
+            <Tooltip key={a.name} title={titleFor(a)}>
+              <Button
+                small
+                variant={ACTION_COPY[a.name].danger ? 'danger' : 'default'}
+                disabled={a.disabled || !a.allowed || Boolean(pending)}
+                onClick={() => click(a)}
+              >
+                {pending === a.name ? `${ACTION_COPY[a.name].label}…` : ACTION_COPY[a.name].label}
+                {a.bypass && !a.disabled ? ' ⚠' : ''}
+              </Button>
+            </Tooltip>
           ))}
         </div>
       )}
       {noneAllowed && (
-        <Hint>Only the app's owning team (or an admin) can run these. Hover a button for what it does.</Hint>
+        <ActionReason>Only the app&apos;s owning team (or an admin) can run these. Hover or focus a button for what it does.</ActionReason>
       )}
       {confirming && (
         <div className={c.confirm}>

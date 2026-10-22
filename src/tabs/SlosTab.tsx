@@ -3,10 +3,9 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Tooltip from '@material-ui/core/Tooltip';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { Card, Chip, ColumnLabel, Count, EmptyNote, PageHeader, Section, SectionTitle, Stat, StatusChip, TextLink, TierChip } from '../ui';
+import { Card, Chip, ColumnLabel, Count, EmptyNote, PageHeader, PanelSkeleton, Section, SectionTitle, Stat, StatusChip, TabError, TabSkeleton, TextLink, TierChip } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useSlos } from '../useSlos';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
@@ -36,7 +35,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   sub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
   explainer: { fontSize: 13, lineHeight: 1.5, color: ({ t }) => t.textLo, margin: '2px 0 14px' },
-  windowsCaption: { fontSize: 11.5, lineHeight: 1.4, color: ({ t }) => t.textFaint, margin: '2px 0 6px' },
+  windowsCaption: { fontSize: 11, lineHeight: 1.4, color: ({ t }) => t.textFaint, margin: '2px 0 6px' },
   headRight: { display: 'flex', alignItems: 'center', gap: 8 },
   statsRow: { display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 12 },
   budget: { flex: '1 1 220px', display: 'flex', flexDirection: 'column' },
@@ -54,8 +53,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   windows: { display: 'flex', gap: 6, height: 60, marginTop: 4, marginBottom: 4 },
   windowBar: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', gap: 4 },
   windowBarFill: { width: '100%', maxWidth: 22, borderRadius: '2px 2px 0 0' },
-  windowLabel: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre' },
+  windowLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  query: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre' },
 }));
 
 const WINDOWS = ['5m', '30m', '1h', '2h', '6h', '1d', '3d', '30d'] as const;
@@ -262,7 +261,7 @@ function SloCard({
         </div>
       </div>
 
-      {loading && meta.samples.length === 0 && <Progress />}
+      {loading && meta.samples.length === 0 && <PanelSkeleton />}
       {anyError && (
         <EmptyNote>Couldn't query Prometheus: {anyError}</EmptyNote>
       )}
@@ -365,15 +364,15 @@ export function SlosTab() {
   const { slos, loading, refreshing, error } = useSlos();
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="SLOs" />;
   if (slos.length === 0) {
     return (
       <div>
         <PageHeader title="SLOs" subtitle="Burn-rate views for the service level objectives each environment declares." />
         <TowerEmptyState
           title="No SLOs declared"
-          description="Turn on a common SLO in an environment's Values form (Environments tab, Release sub-tab), or add an `slos:` entry to that environment's values file (airframe's slos.catalog.hangar.io XRD), to get burn-rate views here."
+          description="Turn on a common SLO in an environment's Values form (Configure › Environments, Release sub-tab), or add an `slos:` entry to that environment's values file (airframe's slos.catalog.hangar.io XRD), to get burn-rate views here."
         />
       </div>
     );

@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { Button, Hint } from '../../ui';
+import { Button, Hint, Tooltip } from '../../ui';
 
 // What the break-glass form (BreakglassPanel, per pod) and the environment view (BreakglassEnvironmentView, per
 // environment) share: the session record as the backend lists it, the API helper, the sessions hook, the terminal
@@ -98,7 +98,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   radios: { display: 'flex', flexDirection: 'column', gap: 6 },
   radio: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: ({ t }) => t.textHi, cursor: 'pointer' },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   // Shared with BreakglassEnvironmentView and BreakglassPanel, which use them inline inside labels and rows.
   hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
   link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
@@ -114,7 +114,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
     border: ({ t }) => `1px solid ${t.bad}`,
     color: ({ t }) => t.bad,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: 700,
   },
   bannerMeta: { fontWeight: 400, color: ({ t }) => t.textHi },
@@ -126,7 +126,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   rowMeta: { color: ({ t }) => t.textFaint },
   badge: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: 700,
     padding: '0 6px',
     borderRadius: 9,
@@ -361,14 +361,18 @@ export function OpenSession({
           {open.processAccess ? ', with process access' : ''}
           {open.volumeAccess ? ', with volume access' : ''}
         </span>
-        <span className={`${classes.bannerMeta} ${classes.countdown}`} title={`Ends at ${new Date(open.expiresAt).toLocaleString()}`}>
-          {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
-        </span>
+        <Tooltip title={`Ends at ${new Date(open.expiresAt).toLocaleString()}`}>
+          <span className={`${classes.bannerMeta} ${classes.countdown}`}>
+            {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
+          </span>
+        </Tooltip>
         <span style={{ flex: 1 }} />
         {!open.extendedAt && (
-          <Button small disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => onExtend(open.id)}>
-            Extend +15 min
-          </Button>
+          <Tooltip title="Your one free extension: 15 more minutes, no approval.">
+            <Button small disabled={ending} onClick={() => onExtend(open.id)}>
+              Extend +15 min
+            </Button>
+          </Tooltip>
         )}
         <Button small variant="danger" disabled={ending} onClick={() => onEnd(open.id)}>
           {ending ? 'Ending…' : 'End session'}

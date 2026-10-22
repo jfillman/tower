@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { useReleaseContext } from '../useReleaseContext';
 import { appKindOf } from '../workloadType';
@@ -15,7 +14,7 @@ import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { ownChartOf, type ChartRef } from '../environments/ownChart';
 import { usePlatformConfig } from '../platformConfig';
 import { appRepos, appTypeOf, type AppType } from '../appRepos';
-import { PageHeader, Panel, Subtabs } from '../ui';
+import { PageHeader, Panel, Subtabs, TabError, TabSkeleton } from '../ui';
 import { useUi } from '../ui/styles';
 import { useHangarTokens } from '../brand/tokens';
 import type { PlatformEnvSelector } from '../types';
@@ -33,7 +32,7 @@ import type { PlatformEnvSelector } from '../types';
 // shared values, as its environment rows do: the form describes Airframe's chart. Previews always render the default
 // chart, so their template keeps the form.
 //
-// An environment's own values (Ground and Flight) are edited in the Environments tab, in that environment's row.
+// An environment's own values (Ground and Flight) are edited in Configure › Environments, in that environment's row.
 
 type Section =
   | { id: 'base'; label: string; title: string; hint: string; path: string; kind: 'base' }
@@ -122,13 +121,13 @@ export function ConfigTab() {
   const own = ownChartOf(deploy, '', platform.airframeChart);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="shared values" />;
   if (!owner || !appName) {
     return (
       <TowerEmptyState
         title="Can't resolve this app's source repo"
-        description="App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
+        description="Shared values need a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
       />
     );
   }
@@ -150,11 +149,11 @@ export function ConfigTab() {
 
   return (
     <div>
-      <PageHeader title="App Configuration" subtitle={`What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.`} />
+      <PageHeader title="Shared values" subtitle={`What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.`} />
       <Panel style={{ padding: 12, marginBottom: 16 }}>
         <span className={ui.note}>
           {legacyEnv ? `${legacyEnv}'s own values moved: ` : "An environment's own values are edited in its row on the "}
-          <a href="#environments" onClick={e => { e.preventDefault(); toEnvironments(); }}>Environments tab</a>.
+          <a href="#environments" onClick={e => { e.preventDefault(); toEnvironments(); }}>Configure › Environments</a>.
         </span>
       </Panel>
       <Subtabs label="App configuration sections" value={active.id} onChange={setSection} tabs={sections.map(s => ({ id: s.id, label: s.label }))} />

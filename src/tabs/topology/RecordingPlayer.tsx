@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime } from '../../shared/format';
-import { Button, StatusChip } from '../../ui';
+import { Button, StatusChip, Tooltip } from '../../ui';
 import { clock, eventsUntil, parseCast, parseSize, sha256Hex, type Cast } from './castPlayback';
 
 // The break-glass recording player (phase 4): the session's asciicast replayed in xterm.js, read-only, with play/pause,
@@ -18,7 +18,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 6, border: ({ t }) => `1px solid ${t.line}` },
   bar: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   screen: { maxHeight: 420, overflow: 'auto', borderRadius: 6, backgroundColor: '#0b0f14', padding: 6 },
   seek: { flex: 1, minWidth: 120 },
   clock: { fontVariantNumeric: 'tabular-nums' },
@@ -165,25 +165,35 @@ export function RecordingPlayer({ session, onClose }: { session: PlayableSession
         <b>Recording</b>
         <span className={classes.meta}>{session.id}</span>
         {integrity === 'match' && (
-          <StatusChip tone="ok" title={`SHA-256 ${session.recordingSha256}`}>SHA-256 matches the session record</StatusChip>
+          <Tooltip title={`SHA-256 ${session.recordingSha256}`}>
+            <StatusChip tone="ok">SHA-256 matches the session record</StatusChip>
+          </Tooltip>
         )}
         {integrity === 'mismatch' && (
-          <StatusChip tone="bad" title={`The record says ${session.recordingSha256}`}>SHA-256 does not match the session record</StatusChip>
+          <Tooltip title={`The record says ${session.recordingSha256}`}>
+            <StatusChip tone="bad">SHA-256 does not match the session record</StatusChip>
+          </Tooltip>
         )}
         {session.recordingRekorIndex !== undefined && (
-          <StatusChip tone="ok" title={`rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ''})`}>
-            anchored in Rekor #{session.recordingRekorIndex}
-          </StatusChip>
+          <Tooltip title={`rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ''})`}>
+            <StatusChip tone="ok">
+              anchored in Rekor #{session.recordingRekorIndex}
+            </StatusChip>
+          </Tooltip>
         )}
         {session.recordingRekorIndex === undefined && session.recordingSha256 && (
-          <StatusChip tone="warn" title={session.anchorError ?? 'The backend retries for a day after the session ends'}>
-            not anchored in Rekor
-          </StatusChip>
+          <Tooltip title={session.anchorError ?? 'The backend retries for a day after the session ends'}>
+            <StatusChip tone="warn">
+              not anchored in Rekor
+            </StatusChip>
+          </Tooltip>
         )}
         {integrity === 'unchecked' && (
-          <StatusChip tone="neutral" title="The browser can hash only on https or localhost, and only a session with a stored hash">
-            integrity not checked
-          </StatusChip>
+          <Tooltip title="The browser can hash only on https or localhost, and only a session with a stored hash">
+            <StatusChip tone="neutral">
+              integrity not checked
+            </StatusChip>
+          </Tooltip>
         )}
         <span style={{ flex: 1 }} />
         <Button small onClick={onClose}>Close</Button>

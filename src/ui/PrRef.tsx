@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontBody, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { Tooltip } from './Tooltip';
 import type { PullRequestSummary } from '../pullRequests/usePullRequests';
 
 // One way to show a pull request (docs/design-system.md, "Pull requests"). Before this, Tower drew a PR seven ways
@@ -23,7 +24,12 @@ export interface PrLike {
   title?: string;
   state?: PrState;
   repo?: string;
-  ci?: { state: 'success' | 'failure' | 'pending' | 'unknown'; totalChecks: number; passedChecks: number };
+  ci?: {
+    state: 'success' | 'failure' | 'pending' | 'unknown';
+    totalChecks: number;
+    passedChecks: number;
+    checks?: Array<{ name: string; status: string; conclusion?: string }>;
+  };
   review?: { state: string };
 }
 
@@ -37,6 +43,21 @@ export function prFromSummary(pr: PullRequestSummary): PrLike {
   if (pr.state === 'merged') state = 'merged';
   else if (pr.draft) state = 'draft';
   return { number: pr.number, url: pr.url, title: pr.title, state, repo: pr.repo, ci: pr.ci, review: pr.review };
+}
+
+/** What the kit Tooltip on a chip or card says: the title, then the checks that are not passing. */
+function prDetail(pr: PrLike): ReactNode {
+  const ci = pr.ci;
+  if (!ci) return pr.title;
+  const notPassing = (ci.checks ?? []).filter(
+    run => run.status !== 'completed' || (run.conclusion && run.conclusion !== 'success' && run.conclusion !== 'skipped'),
+  );
+  const lines = [
+    pr.title,
+    `Checks: ${ci.passedChecks} of ${ci.totalChecks} passed`,
+    ...notPassing.map(run => `  ${run.name}: ${run.status === 'completed' ? run.conclusion : run.status.replace('_', ' ')}`),
+  ].filter(Boolean);
+  return lines.join('\n');
 }
 
 const GLYPH: Record<PrState, string> = { open: '○', draft: '◌', merged: '✓', closed: '✕' };
@@ -79,7 +100,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     gap: 6,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1,
     padding: '4px 8px',
     borderRadius: 4,
@@ -106,7 +127,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   cardBody: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flexGrow: 1 },
   cardTop: { display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 },
-  num: { fontFamily: fontMono, fontSize: 12.5, flexShrink: 0 },
+  num: { fontFamily: fontMono, fontSize: 12, flexShrink: 0 },
   title: { fontFamily: fontBody, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   dot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
@@ -121,8 +142,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 6,
     border: '1px solid',
   },
-  receiptHead: { display: 'flex', alignItems: 'center', gap: 8, fontFamily: fontBody, fontSize: 13.5, fontWeight: 600, color: ({ t }) => t.textHi },
-  receiptNext: { fontFamily: fontBody, fontSize: 12.5, color: ({ t }) => t.textLo },
+  receiptHead: { display: 'flex', alignItems: 'center', gap: 8, fontFamily: fontBody, fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
+  receiptNext: { fontFamily: fontBody, fontSize: 12, color: ({ t }) => t.textLo },
 }));
 
 function wordStyle(t: HangarTokens, w: Word) {
@@ -169,14 +190,16 @@ export function PrRef({
 
   if (size === 'chip') {
     return (
-      <a className={cx(c.chip, className)} href={pr.url} target="_blank" rel="noopener noreferrer" title={pr.title}>
-        {glyph}
-        <span style={{ color: state === 'open' ? t.sky : t.textLo, textDecoration: state === 'closed' ? 'line-through' : undefined }}>
-          #{n ?? '?'}
-        </span>
-        {!done && pr.ci && <span className={c.dot} style={{ backgroundColor: ciColor(t, pr.ci) }} />}
-        {word && <span style={{ color: word.tone === 'bad' ? t.bad : t.textLo }}>{word.text}</span>}
-      </a>
+      <Tooltip title={prDetail(pr)}>
+        <a className={cx(c.chip, className)} href={pr.url} target="_blank" rel="noopener noreferrer">
+          {glyph}
+          <span style={{ color: state === 'open' ? t.sky : t.textLo, textDecoration: state === 'closed' ? 'line-through' : undefined }}>
+            #{n ?? '?'}
+          </span>
+          {!done && pr.ci && <span className={c.dot} style={{ backgroundColor: ciColor(t, pr.ci) }} />}
+          {word && <span style={{ color: word.tone === 'bad' ? t.bad : t.textLo }}>{word.text}</span>}
+        </a>
+      </Tooltip>
     );
   }
 
@@ -184,29 +207,31 @@ export function PrRef({
     meta ??
     [pr.repo, pr.ci ? `${pr.ci.passedChecks}/${pr.ci.totalChecks} checks` : undefined].filter(Boolean).join(' · ');
   return (
-    <a className={cx(c.card, className)} href={pr.url} target="_blank" rel="noopener noreferrer">
-      {glyph}
-      <span className={c.cardBody}>
-        <span className={c.cardTop}>
-          <span className={c.num} style={{ color: state === 'open' ? t.sky : t.textLo }}>
-            {numText}
-          </span>
-          {pr.title && (
-            <span className={c.title} style={{ color: done ? t.textLo : t.textHi }} title={pr.title}>
-              {pr.title}
+    <Tooltip title={pr.ci ? prDetail(pr) : undefined}>
+      <a className={cx(c.card, className)} href={pr.url} target="_blank" rel="noopener noreferrer">
+        {glyph}
+        <span className={c.cardBody}>
+          <span className={c.cardTop}>
+            <span className={c.num} style={{ color: state === 'open' ? t.sky : t.textLo }}>
+              {numText}
             </span>
-          )}
+            {pr.title && (
+              <span className={c.title} style={{ color: done ? t.textLo : t.textHi }} title={pr.title}>
+                {pr.title}
+              </span>
+            )}
+          </span>
+          {metaLine && <span className={c.meta}>{metaLine}</span>}
         </span>
-        {metaLine && <span className={c.meta}>{metaLine}</span>}
-      </span>
-      {!done && pr.ci && !word && <span className={c.dot} style={{ backgroundColor: ciColor(t, pr.ci) }} />}
-      {word && (
-        <span className={c.word} style={wordStyle(t, word)}>
-          {word.text}
-        </span>
-      )}
-      <span className={c.arrow}>↗</span>
-    </a>
+        {!done && pr.ci && !word && <span className={c.dot} style={{ backgroundColor: ciColor(t, pr.ci) }} />}
+        {word && (
+          <span className={c.word} style={wordStyle(t, word)}>
+            {word.text}
+          </span>
+        )}
+        <span className={c.arrow}>↗</span>
+      </a>
+    </Tooltip>
   );
 }
 

@@ -4,13 +4,12 @@ import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
-import { Count, EmptyNote, Fact, FactGrid, FilterBar, FilterChips, PageHeader, StatusChip, TextLink } from '../ui';
+import { Count, EmptyNote, Fact, FactGrid, FilterBar, FilterChips, PageHeader, PanelSkeleton, StatusChip, TabError, TabSkeleton, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow';
 import { ImageTagPill } from './deployments/ImageTagPill';
@@ -81,7 +80,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   footer: {
     padding: '10px 20px',
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
   },
 }));
@@ -103,8 +102,8 @@ export function ImagesTab() {
   const [searchParams] = useSearchParams();
   const highlightTag = searchParams.get('imageTag') ?? undefined;
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="images" />;
   // Preview environments deliberately excluded here: this platform's
   // PR-validation builds push to their own "-pr" GHCR package suffix (see
   // glidepath's docs/admin/naming-conventions.md and build-image.yaml's
@@ -256,7 +255,7 @@ function ImagesTable({
           options={[...PAGE_SIZE_OPTIONS.map(n => ({ id: String(n), label: String(n) })), { id: 'all', label: 'All' }]}
         />
       </FilterBar>
-      {versions.loading && <Progress />}
+      {versions.loading && <PanelSkeleton />}
       {versions.error && (
         <EmptyNote inset>Couldn't list image versions: {versions.error}</EmptyNote>
       )}
@@ -382,7 +381,7 @@ function ImagePanel({
       </div>
       {expanded && (
         <div className={classes.detailBody}>
-          {provenance?.loading && <Progress />}
+          {provenance?.loading && <PanelSkeleton />}
           {provenance?.error && (
             <EmptyNote inset>
               Couldn't reach the registry for attestations: {provenance.error}

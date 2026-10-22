@@ -80,7 +80,7 @@ describe('App Configuration', () => {
     renderTab('/tower?tab=config&env=staging');
     expect(screen.getByRole('region', { name: /Pending changes to the values/ })).toBeTruthy();
     expect(screen.getByText(/staging's own values moved/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Environments tab' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Configure › Environments' })).toBeTruthy();
   });
 });
 

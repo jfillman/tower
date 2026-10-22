@@ -229,7 +229,7 @@ describe('EnvironmentsTab: reading', () => {
     ctx = { ...base, pipelineOrder: { lower: ['dev'], upper: [] }, environments: [env({ env: 'dev' })] };
     renderTab();
     expect(screen.getByText(/Read-only/)).toBeTruthy();
-    expect(screen.getByText(/Glidepath tab/)).toBeTruthy();
+    expect(screen.getByText(/Configure › Pipeline/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add environment' })).toBeNull();
     expect(screen.queryByLabelText('Pending changes')).toBeNull();
   });

@@ -14,7 +14,7 @@ const MAIN: NoteCategory[] = ['added', 'changed', 'fixed', 'security'];
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { display: 'flex', flexDirection: 'column', gap: 10 },
-  summary: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, fontSize: 12.5, color: ({ t }) => t.textLo },
+  summary: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, fontSize: 12, color: ({ t }) => t.textLo },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',

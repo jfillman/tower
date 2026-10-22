@@ -18,7 +18,7 @@ import { slugHue } from './PipelineRunList';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseCell, ReleaseRow } from './useReleaseContext';
 import type { EnvironmentSummary } from './types';
-import { Button, SectionTitle, StatusChip, TextLink } from './ui';
+import { Button, SectionTitle, StatusChip, TextLink, Tooltip } from './ui';
 
 // Top-of-tab release matrix: rows are releases (newest first), columns are
 // environments in the app's own real promotionOrder. Reading a column
@@ -57,7 +57,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   rowHead: {
     textAlign: 'left',
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: 600,
     color: ({ t }) => t.textHi,
     padding: '9px 10px 9px 0',
@@ -78,7 +78,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginLeft: 8,
     fontFamily: fontMono,
     fontWeight: 400,
-    fontSize: 10,
+    fontSize: 11,
     padding: '1px 7px',
     borderRadius: 8,
     border: '1px solid',
@@ -126,21 +126,21 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   close: {
     marginLeft: 'auto',
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     cursor: 'pointer',
     background: 'none',
     border: 'none',
   },
   prRow: { marginBottom: 10 },
-  fact: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 6 },
+  fact: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 6 },
   // How the build's commit was proven (provenance phase 3): green for every passing path, like the record.
   proofChip: {
     display: 'inline-block',
     marginLeft: 8,
     fontFamily: fontMono,
     fontWeight: 400,
-    fontSize: 10,
+    fontSize: 11,
     padding: '1px 7px',
     borderRadius: 8,
     border: '1px solid',
@@ -285,35 +285,39 @@ export function ReleaseMatrix({
             {releases.map(row => (
               <tr key={row.imageTag} className={`${classes.row} ${row.current ? classes.rowCurrent : ''}`}>
                 <th className={`${classes.rowHead} ${row.current ? classes.rowCurrentHead : ''}`}>
-                  <button
-                    type="button"
-                    className={classes.rowHeadLink}
-                    onClick={() => goToImage(row.imageTag)}
-                    title={`View ${row.imageTag} in the Images tab`}
-                  >
-                    {names?.get(row.imageTag) && <span className={classes.releaseName}>{names.get(row.imageTag)}</span>}
-                    {row.imageTag}
-                  </button>
-                  {row.nickname && (
-                    <span
-                      className={classes.nicknameChip}
-                      style={{
-                        color: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
-                        borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
-                        backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`,
-                      }}
-                      title="This build's flow, from the CI/CD tab"
+                  <Tooltip title={`View ${row.imageTag} in the Images tab`}>
+                    <button
+                      type="button"
+                      className={classes.rowHeadLink}
+                      onClick={() => goToImage(row.imageTag)}
                     >
-                      {row.nickname}
-                    </span>
+                      {names?.get(row.imageTag) && <span className={classes.releaseName}>{names.get(row.imageTag)}</span>}
+                      {row.imageTag}
+                    </button>
+                  </Tooltip>
+                  {row.nickname && (
+                    <Tooltip title="This build's flow, from the CI/CD tab">
+                      <span
+                        className={classes.nicknameChip}
+                        style={{
+                          color: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
+                          borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
+                          backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`,
+                        }}
+                      >
+                        {row.nickname}
+                      </span>
+                    </Tooltip>
                   )}
                   {(() => {
                     const proof = proofs?.get(row.imageTag);
                     const chip = proof && PROVEN.has(proof.state) ? commitProofChip(proof) : undefined;
                     return chip ? (
-                      <span className={classes.proofChip} title={`Commit: ${commitProofLine(proof!)}`}>
-                        {chip}
-                      </span>
+                      <Tooltip title={`Commit: ${commitProofLine(proof!)}`}>
+                        <span className={classes.proofChip}>
+                          {chip}
+                        </span>
+                      </Tooltip>
                     ) : null;
                   })()}
                 </th>

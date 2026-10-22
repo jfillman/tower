@@ -2,13 +2,12 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { useSearchParams } from 'react-router-dom';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import type { Notification } from '@backstage/plugin-notifications-common';
 import { relativeTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { TowerEmptyState } from '../TowerEmptyState';
-import { EmptyNote, PageHeader, Section } from '../ui';
+import { EmptyNote, PageHeader, Section, TabError, TabSkeleton } from '../ui';
 import { isRecentNotification, useAppNotifications } from '../useAppNotifications';
 import { renderNotificationDescription } from '../notificationFormatting';
 
@@ -36,7 +35,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   dot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 6 },
   body: { flex: 1, minWidth: 0 },
   head: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  title: { fontFamily: fontDisplay, fontWeight: 400, fontSize: 13.5, color: ({ t }) => t.textLo },
+  title: { fontFamily: fontDisplay, fontWeight: 400, fontSize: 13, color: ({ t }) => t.textLo },
   titleNew: { fontWeight: 700, color: ({ t }) => t.textHi },
   time: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   // Inline within a description line (2026-09-12: "any image should take you
@@ -65,7 +64,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   topic: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     padding: '1px 6px',
@@ -128,8 +127,8 @@ export function NotificationsTab() {
     return next;
   });
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="notifications" />;
   if (notifications.length === 0) {
     return (
       <div>

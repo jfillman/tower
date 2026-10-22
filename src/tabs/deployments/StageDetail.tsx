@@ -15,7 +15,7 @@ import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import { imageTag, type ArgoResourceNode, type CanaryProgress, type EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
-import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
+import { Button, EmptyNote, SectionTitle, StatusChip, TextLink, Tooltip } from '../../ui';
 import { PrRef, prFromSummary } from '../../ui/PrRef';
 
 // Rollout controls (RolloutControls.tsx) sit in the "Rollout starts" and "Rollout completes" stage details, next
@@ -44,12 +44,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 9 },
   headIcon: { display: 'flex', color: ({ t }) => t.sky, flexShrink: 0 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  body: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   chipPos: { alignSelf: 'flex-start' },
   '@keyframes livePulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.5 } },
   // Amber + pulsing while the canary is live (2026-09-23 feedback).
   resourceList: { display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 },
-  resourceRow: { display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11.5 },
+  resourceRow: { display: 'flex', alignItems: 'center', gap: 9, padding: '6px 10px', borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11 },
   resourceRowPinned: { border: ({ t }) => `1px solid ${t.skyLine}` },
   resourceDot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
   resourceKind: { color: ({ t }) => t.sky, fontWeight: 600, minWidth: 80, flexShrink: 0 },
@@ -183,13 +183,14 @@ function MergedBody({
           )}
         </div>
         <div>
-          <Button
-            small
-            disabled
-            title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now."
-          >
-            Merge PR
-          </Button>
+          <Tooltip title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now.">
+            <Button
+              small
+              disabled
+            >
+              Merge PR
+            </Button>
+          </Tooltip>
         </div>
       </>
     );

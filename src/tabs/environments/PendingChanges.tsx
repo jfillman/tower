@@ -9,8 +9,8 @@ import { useUi } from '../../ui/styles';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   section: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12 },
-  detail: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
-  prList: { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5, marginTop: 8 },
+  detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
+  prList: { display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, marginTop: 8 },
 }));
 
 const TONE: Partial<Record<ChangeLine['kind'], 'add' | 'remove'>> = { add: 'add', remove: 'remove' };

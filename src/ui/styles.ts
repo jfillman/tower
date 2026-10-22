@@ -10,7 +10,7 @@ import { fontBody, fontDisplay, fontMono, type HangarTokens } from '../brand/tok
 export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // ---- page chrome
   pageHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 14 },
-  pageTitle: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 26, lineHeight: 1.1, color: ({ t }) => t.textHi },
+  pageTitle: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: ({ t }) => t.textHi },
   pageSub: { margin: '4px 0 0', fontFamily: fontBody, fontSize: 13, color: ({ t }) => t.textLo },
   pageActions: { display: 'flex', gap: 8, alignItems: 'center' },
   // ---- surfaces
@@ -28,7 +28,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
   columnLabel: {
     fontFamily: fontMono,
     fontWeight: 500,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textLo,
@@ -128,7 +128,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // ---- form fields
   field: { display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 },
   fieldLabel: { display: 'flex', justifyContent: 'space-between', gap: 8, fontFamily: fontBody, fontSize: 12, fontWeight: 500, color: ({ t }) => t.textLo },
-  fieldSource: { fontFamily: fontMono, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: ({ t }) => t.textLo },
+  fieldSource: { fontFamily: fontMono, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: ({ t }) => t.textLo },
   fieldSourceSet: { color: ({ t }) => t.sky },
   input: {
     width: '100%',
@@ -144,9 +144,9 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:focus': { outline: 'none', borderColor: ({ t }) => t.sky },
   },
   formSection: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 14, marginTop: 14 },
-  formSectionTitle: { margin: '0 0 10px', fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
-  note: { fontSize: 12.5, color: ({ t }) => t.textLo },
-  problem: { fontSize: 12.5, color: ({ t }) => t.bad },
+  formSectionTitle: { margin: '0 0 10px', fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
+  note: { fontSize: 12, color: ({ t }) => t.textLo },
+  problem: { fontSize: 12, color: ({ t }) => t.bad },
 }));
 
 // Filters, search and text links. A separate hook: makeStyles with function values builds every rule per hook call,
@@ -278,8 +278,8 @@ export const useSection = makeStyles<Theme, { t: HangarTokens }>(() => ({
   title: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, lineHeight: 1.3, color: ({ t }) => t.textHi },
   title2: { fontSize: 13 },
   count: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
-  empty: { margin: 0, fontFamily: fontBody, fontSize: 12.5, fontStyle: 'italic', lineHeight: 1.5, color: ({ t }) => t.textLo },
-  hint: { margin: 0, fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textLo },
+  empty: { margin: 0, fontFamily: fontBody, fontSize: 12, fontStyle: 'italic', lineHeight: 1.5, color: ({ t }) => t.textLo },
+  hint: { margin: 0, fontFamily: fontBody, fontSize: 12, lineHeight: 1.5, color: ({ t }) => t.textLo },
   inset: { padding: '12px 18px' },
 }));
 
@@ -289,7 +289,7 @@ export const useSection = makeStyles<Theme, { t: HangarTokens }>(() => ({
 const columnLabelLook = {
   fontFamily: fontMono,
   fontWeight: 500,
-  fontSize: 10.5,
+  fontSize: 11,
   letterSpacing: '0.1em',
   textTransform: 'uppercase' as const,
 };
@@ -307,7 +307,7 @@ export const useData = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:last-child': { borderBottom: 'none' },
   },
   factLabel: { ...columnLabelLook, color: ({ t }) => t.textLo, whiteSpace: 'nowrap' },
-  factValue: { fontFamily: fontMono, fontSize: 12.5, lineHeight: 1.4, color: ({ t }) => t.textHi, overflowWrap: 'anywhere', minWidth: 0 },
+  factValue: { fontFamily: fontMono, fontSize: 12, lineHeight: 1.4, color: ({ t }) => t.textHi, overflowWrap: 'anywhere', minWidth: 0 },
   factValueInline: { textAlign: 'right' },
   table: { width: '100%', borderCollapse: 'collapse', '& tbody tr:last-child td': { borderBottom: 'none' } },
   th: {
@@ -379,19 +379,19 @@ export const useBlocks = makeStyles<Theme, { t: HangarTokens }>(() => ({
   calloutIconGlyph: { color: ({ t }) => t.bg },
   calloutBody: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 },
   calloutTitle: { margin: 0, fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, lineHeight: 1.35 },
-  calloutText: { fontFamily: fontBody, fontSize: 12.5, lineHeight: 1.5, color: ({ t }) => t.textHi },
+  calloutText: { fontFamily: fontBody, fontSize: 12, lineHeight: 1.5, color: ({ t }) => t.textHi },
   calloutActions: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   info: { color: ({ t }) => t.sky, backgroundColor: ({ t }) => t.skySoft, borderColor: ({ t }) => t.skyLine },
   warn: { color: ({ t }) => t.amberInk, backgroundColor: ({ t }) => t.amberSoft, borderColor: ({ t }) => t.amberLine },
   bad: { color: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft, borderColor: ({ t }) => t.bad },
   ok: { color: ({ t }) => t.good, backgroundColor: ({ t }) => t.goodSoft, borderColor: ({ t }) => t.good },
   neutral: { color: ({ t }) => t.textLo, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line },
-  calloutLabel: { fontFamily: fontMono, fontWeight: 500, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase' },
+  calloutLabel: { fontFamily: fontMono, fontWeight: 500, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' },
   stat: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
   statLabel: {
     fontFamily: fontMono,
     fontWeight: 500,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textLo,

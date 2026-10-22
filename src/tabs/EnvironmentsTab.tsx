@@ -4,7 +4,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { buildEnvironmentRows, type EnvironmentRow } from '../environmentRows';
 import {
@@ -47,7 +46,7 @@ import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
 import { appKindOf } from '../workloadType';
 import { usePlatformConfig } from '../platformConfig';
-import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TierChip } from '../ui';
+import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TabError, TabSkeleton, TierChip, Tooltip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
@@ -111,7 +110,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 15, color: ({ t }) => t.textHi },
   nameRemoved: { textDecoration: 'line-through', color: ({ t }) => t.textLo },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
-  health: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 12.5 },
+  health: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 },
   empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: 'center', fontSize: 13 },
   unlisted: { marginBottom: 12 },
 }));
@@ -143,6 +142,11 @@ export function EnvironmentsTab() {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | undefined>();
+  // ?row=<env> opens that environment's row: Configure's "Find a setting" links to an environment's values file.
+  const rowParam = searchParams.get('row');
+  useEffect(() => {
+    if (rowParam) setOpen(rowParam);
+  }, [rowParam]);
   const [removing, setRemoving] = useState<string | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
   const [menu, setMenu] = useState<{ name: string; el: HTMLElement } | undefined>();
@@ -259,7 +263,7 @@ export function EnvironmentsTab() {
         .filter(x => x.env.tier === 'flight')
         .map(x => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
       ...(flightOrderChanged
-        ? ['This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too.']
+        ? ['This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in Configure › Pipeline if they should change too.']
         : []),
       ...releasePlan.skipped.map(k => `No ${k.stage} step added for ${k.env}: ${k.reason}.`),
     ],
@@ -320,8 +324,8 @@ export function EnvironmentsTab() {
     return out;
   }, [canEdit, liveRows, before, after, targetLabel, pending]);
 
-  if (loading && rows.length === 0) return <Progress />;
-  if (error && rows.length === 0) return <ResponseErrorPanel error={new Error(String(error))} />;
+  if (loading && rows.length === 0) return <TabSkeleton />;
+  if (error && rows.length === 0) return <TabError error={String(error)} what="environments" />;
 
   const isCloudRow = (r: DisplayRow) => r.target !== 'Kubernetes' || Boolean(cloudBlock);
   const counts = {
@@ -423,7 +427,7 @@ export function EnvironmentsTab() {
       appName,
       patch: { deploy: buildDeploy(deploy, after), ...(releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {}) },
       summary: changes.map(l => l.title),
-      via: 'Environments tab',
+      via: 'Configure › Environments',
       ...(deleteFiles.length > 0 ? { deleteFiles } : {}),
       ...(createFiles.length > 0 ? { createFiles } : {}),
     });
@@ -501,8 +505,8 @@ export function EnvironmentsTab() {
       />
       {!canEdit && (
         <Hint style={{ marginBottom: 12 }}>
-          Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment
-          values are in App Configuration.
+          Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in Configure › Pipeline; Flight environment
+          values are in Configure › Shared values.
         </Hint>
       )}
       <div className={canEdit ? c.layout : undefined}>
@@ -646,7 +650,9 @@ export function EnvironmentsTab() {
                             {r.deployedAt && (
                               <>
                                 {'  '}
-                                <span title={formatDateTime(r.deployedAt)}>{relativeTime(r.deployedAt)}</span>
+                                <Tooltip title={formatDateTime(r.deployedAt)}>
+                                  <span>{relativeTime(r.deployedAt)}</span>
+                                </Tooltip>
                               </>
                             )}
                           </span>

@@ -3,10 +3,9 @@ import type { ReactNode } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
 import { dump as dumpYaml } from 'js-yaml';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Callout, Subtabs, YamlBlock } from '../ui';
+import { Button, Callout, PanelSkeleton, Subtabs, TabError, Tooltip, YamlBlock } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
@@ -69,7 +68,7 @@ function asRecord(v: unknown): Record<string, unknown> {
 // "if you enable [a switch] and then disable it, the changes panel still
 // thinks there's an edit" - toggling back to the original value must read
 // as clean again, which a touched-once flag can never do). Extracted to
-// ../deepEqual so the Glidepath tab's own dirty-state tracking can share it.
+// ../deepEqual so Configure › Pipeline's own dirty-state tracking can share it.
 
 // --- configMaps / secrets forms (2026-09-13: "unclear how to configure" /
 // "I'd like Secrets to be form based" / "ConfigMaps to be more form based") -
@@ -473,12 +472,16 @@ function StepsBuilder({
           <div className={classes.row} style={{ alignItems: 'flex-start' }}>
             <Typography className={classes.stepNumber}>{i + 1}.</Typography>
             <div className={classes.stepOrderCol}>
-              <button type="button" className={classes.orderBtn} disabled={i === 0} onClick={() => move(i, -1)} title="Move up">
-                ▲
-              </button>
-              <button type="button" className={classes.orderBtn} disabled={i === steps.length - 1} onClick={() => move(i, 1)} title="Move down">
-                ▼
-              </button>
+              <Tooltip title="Move up">
+                <button type="button" className={classes.orderBtn} disabled={i === 0} onClick={() => move(i, -1)}>
+                  ▲
+                </button>
+              </Tooltip>
+              <Tooltip title="Move down">
+                <button type="button" className={classes.orderBtn} disabled={i === steps.length - 1} onClick={() => move(i, 1)}>
+                  ▼
+                </button>
+              </Tooltip>
             </div>
             <select
               className={classes.select}
@@ -1355,9 +1358,9 @@ export function ConfigEditor({
   };
 
   // The error first: with no data there is never a form, so checking "no form yet" first would show a spinner forever.
-  if (cfg.error && !cfg.data) return <ResponseErrorPanel error={new Error(cfg.error)} />;
-  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return <Progress />;
-  if (cfg.error) return <ResponseErrorPanel error={new Error(cfg.error)} />;
+  if (cfg.error && !cfg.data) return <TabError error={cfg.error} what="the values file" />;
+  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return <PanelSkeleton />;
+  if (cfg.error) return <TabError error={cfg.error} what="the values file" />;
   if (!cfg.data) return null;
 
   // No imperative "touched" tracking any more (2026-09-13 bug: toggling a
@@ -2429,30 +2432,32 @@ export function ConfigEditor({
                         />
                         <input className={classes.input} placeholder="key" aria-label={`Variable ${i + 1} key`} value={v.refKey} onChange={e => setRow({ refKey: e.target.value })} />
                         {matchOf(v) && (
-                          <button
-                            type="button"
-                            className={classes.linkBtn}
-                            title="airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently"
-                            onClick={() => {
-                              const m = matchOf(v);
-                              if (m) setRow({ kind: 'component', component: m.name, output: m.output, refName: '', refKey: '' });
-                            }}
-                          >
-                            Use component {matchOf(v)?.name}.{matchOf(v)?.output} instead
-                          </button>
+                          <Tooltip title="airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently">
+                            <button
+                              type="button"
+                              className={classes.linkBtn}
+                              onClick={() => {
+                                const m = matchOf(v);
+                                if (m) setRow({ kind: 'component', component: m.name, output: m.output, refName: '', refKey: '' });
+                              }}
+                            >
+                              Use component {matchOf(v)?.name}.{matchOf(v)?.output} instead
+                            </button>
+                          </Tooltip>
                         )}
                       </>
                     )}
                   </>
                 )}
                 {unreadByCode(v) && (
-                  <span
-                    className={classes.hint}
-                    role="note"
-                    title={`Scanned ${envReads?.repo ?? 'the source repo'} at ${(envReads?.sha ?? '').slice(0, 7)} (${envReads?.scanned ?? 0} files)`}
-                  >
-                    The app's code never reads {v.name.trim()}
-                  </span>
+                  <Tooltip title={`Scanned ${envReads?.repo ?? 'the source repo'} at ${(envReads?.sha ?? '').slice(0, 7)} (${envReads?.scanned ?? 0} files)`}>
+                    <span
+                      className={classes.hint}
+                      role="note"
+                    >
+                      The app's code never reads {v.name.trim()}
+                    </span>
+                  </Tooltip>
                 )}
                 <button type="button" className={classes.removeBtn} onClick={() => setF('envVars', form.envVars.filter((_, j) => j !== i), 'env')}>
                   Remove

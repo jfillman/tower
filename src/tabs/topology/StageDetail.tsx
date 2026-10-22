@@ -78,12 +78,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   serviceCardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   serviceName: { fontFamily: fontMono, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
-  serviceMeta: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  serviceMeta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   fullWidthDetail: { marginTop: 4 },
   strategyGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px 20px' },
   stepsList: { display: 'flex', flexDirection: 'column', gap: 4 },
   stepRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 },
-  stepIndex: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, width: 18, flexShrink: 0 },
+  stepIndex: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, width: 18, flexShrink: 0 },
 }));
 
 function RouteDetail({ env, classes, t }: { env: EnvironmentSummary; classes: ReturnType<typeof useStyles>; t: HangarTokens }) {

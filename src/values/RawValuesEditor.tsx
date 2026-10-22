@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { YamlBlockEditor, validateYamlBlock } from '../YamlBlockEditor';
-import { Button, Hint } from '../ui';
+import { Button, Callout, Hint } from '../ui';
 import { OPENING_PR, PrReceipt } from '../ui/PrRef';
 import { describeChart, type ChartRef } from '../environments/ownChart';
 import type { ValuesSource } from './sources';
@@ -55,7 +54,7 @@ export function RawValuesEditor({ source, chart }: { source: ValuesSource; chart
           next="merge it to apply these values."
         />
       )}
-      {source.submitError && <ResponseErrorPanel error={new Error(source.submitError)} />}
+      {source.submitError && <Callout tone="bad">Couldn&apos;t open the PR: {source.submitError}</Callout>}
     </div>
   );
 }

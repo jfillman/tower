@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
-import { EmptyNote, PageHeader } from '../ui';
+import { EmptyNote, PageHeader, TabError, TabSkeleton } from '../ui';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
@@ -81,8 +80,8 @@ export function TopologyTab() {
     [withTier, selectedEnv, pipelineRuns.runs],
   );
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="the topology" onRetry={refresh} />;
   if (environments.length === 0) {
     return (
       <div className={classes.main}>

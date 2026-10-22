@@ -1,6 +1,6 @@
 import { envTierOf, health, imageTag, isPreviewEnvName, type EnvironmentSummary, type Health } from './types';
 
-// One row of the Environments table. Built from what Tower already knows about each environment
+// One row of Configure › Environmentsle. Built from what Tower already knows about each environment
 // (useReleaseContext merges the declared environments, the live Kubernetes ones and the cloud ones
 // derived from deploy runs), plus its tier from the app's own cicd.yaml.
 

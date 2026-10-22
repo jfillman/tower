@@ -2,7 +2,7 @@ import Switch from '@material-ui/core/Switch';
 import Typography from '@material-ui/core/Typography';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery';
 import { useHangarTokens } from '../brand/tokens';
-import { Chip } from '../ui';
+import { Chip, Tooltip } from '../ui';
 import { useUi } from '../ui/styles';
 import { presetOn, SLO_PRESETS, SLO_PRESETS_NOTE, togglePreset, type SloContext, type SloPreset } from './sloCatalog';
 import { useStyles } from './styles';
@@ -56,11 +56,13 @@ function PresetRow({
       <div style={{ flex: 1 }}>
         <Typography className={classes.switchLabel}>
           {preset.title}{' '}
-          <span title={why[data]}>
-            <Chip tone={TONE[data]}>
-              {{ checking: 'checking', found: 'data found', none: 'no data yet', unreachable: 'cannot check' }[data]}
-            </Chip>
-          </span>
+          <Tooltip title={why[data]}>
+            <span>
+              <Chip tone={TONE[data]}>
+                {{ checking: 'checking', found: 'data found', none: 'no data yet', unreachable: 'cannot check' }[data]}
+              </Chip>
+            </span>
+          </Tooltip>
         </Typography>
         <div className={ui.note}>{preset.description}</div>
         {data !== 'found' && data !== 'checking' && !on && <div className={ui.note}>{why[data]}</div>}

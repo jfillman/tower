@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { Button, Callout, EmptyNote, Stat, StatusChip, Tile, type StatusTone } from './ui';
+import { Button, Callout, EmptyNote, Stat, StatusChip, type StatusTone, Tile, Tooltip } from './ui';
 import { PrRef, prFromSummary } from './ui/PrRef';
 import { outcomeChip } from './ReleaseOutcome';
 import { statusPill } from './ReleaseRecordList';
@@ -37,13 +37,13 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   eyebrow: { fontFamily: fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' },
   push: { marginLeft: 'auto' },
   nameRow: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', minWidth: 0 },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 26, letterSpacing: '0.04em', color: ({ t }) => t.textHi, lineHeight: 1.1 },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, letterSpacing: '0.04em', color: ({ t }) => t.textHi, lineHeight: 1.1 },
   nameSmall: { fontSize: 22 },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, overflowWrap: 'anywhere' },
   path: { display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   arrow: { color: ({ t }) => t.textFaint, fontSize: 12 },
   minis: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 },
-  line: { fontSize: 12.5, color: ({ t }) => t.textLo },
+  line: { fontSize: 12, color: ({ t }) => t.textLo },
   bad: { color: ({ t }) => t.bad },
   bake: { display: 'grid', gap: 4 },
   bakeSeg: { height: 7, borderRadius: 3 },
@@ -68,10 +68,12 @@ function CommitLine({ proof, className }: { proof: CommitProof; className: strin
   if (proof.evidence?.mergedBy) who = ` by ${proof.evidence.mergedBy}`;
   else if (proof.evidence?.signer) who = `, ${proof.evidence.signer}`;
   return (
-    <span className={className} title={commitProofLine(proof)}>
-      Commit: {chip}
-      {who}
-    </span>
+    <Tooltip title={commitProofLine(proof)}>
+      <span className={className}>
+        Commit: {chip}
+        {who}
+      </span>
+    </Tooltip>
   );
 }
 

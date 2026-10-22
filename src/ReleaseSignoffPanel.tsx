@@ -28,9 +28,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '@media (max-width: 900px)': { gridTemplateColumns: '1fr' },
   },
   column: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 },
-  section: { fontSize: 12.5, color: ({ t }) => t.textHi },
+  section: { fontSize: 12, color: ({ t }) => t.textHi },
   list: { margin: '2px 0 0', paddingLeft: 18 },
-  line: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, fontSize: 12.5 },
+  line: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, fontSize: 12 },
   faint: { color: ({ t }) => t.textFaint, fontSize: 12 },
 }));
 

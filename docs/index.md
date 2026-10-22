@@ -38,15 +38,15 @@ Part of the [Hangar](https://github.com/jfillman/hangar) Internal Developer Plat
 
 ## Features
 
-Tabs, in the order of a change's lifecycle: **Overview**, **Pull Requests**, **Pipelines**, **Deployments**,
-**Releases**, **Topology**, **Images**, **SLOs**, **Notifications**, **App Configuration**, **Glidepath**. Plus a
-fleet-wide dashboard.
+Tabs, in the order of a change's lifecycle: **Overview**, **Pull requests**, **Pipelines**, **Deployments**,
+**Releases**, **Topology**, **Images**, **SLOs**, **Notifications**, **Configure** (sub-tabs Environments, Shared
+values, Pipeline). Plus a fleet-wide dashboard.
 
 - **Release Records**: structured release history, persisted as git commits, with compare and export; every release gets a tree name (ASPEN, BIRCH...), and a live **Next release** draft shows scope, open PRs, linked issues, candidate images and readiness before anything reaches Flight, with release notes the team writes; release modes (Hand-flown, Assisted) with a sign-off on the production release PR; each record's outcome (clean, rolled back) written back, a changelog, opt-in GitHub Releases, scheduled releases with milestones and Jira links, and a fleet release calendar
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
 - **Deployments ("Ground Control")**: plain-language troubleshooting, the six-step delivery path per environment, Argo CD Refresh, Sync, Force sync and Terminate, Rollout controls (resume, pause, abort, retry, restart, promote), Roll back
 - **Pull requests and checks**: the PRs in flight and their gates
-- **App Configuration and Glidepath**: edit an app's environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
+- **Configure** (Environments, Shared values, Pipeline): edit an app's environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images**: burn rate, live objects, artifact catalog
 - **Fleet dashboards**: Fleet Grid and Ops Wall
 - **Hangar sign-in page**: the branded first screen (mark, product family, one sign-in box), light and dark, installed with one line; see [Installation](installation.md#sign-in-page)

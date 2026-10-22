@@ -5,7 +5,7 @@ import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
-import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink } from './ui';
+import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -101,7 +101,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', width: 70, flexShrink: 0, whiteSpace: 'nowrap' },
   slugChip: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: '1px 7px',
     borderRadius: 8,
     border: '1px solid',
@@ -110,7 +110,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   errorLine: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.bad,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -254,17 +254,18 @@ function MiniDag({ run, maxCols, maxRows }: { run: PipelineRunSummary; maxCols: 
 function FlowSlugChip({ slug, classes }: { slug: string; classes: ReturnType<typeof useStyles> }) {
   const hue = slugHue(slug);
   return (
-    <span
-      className={classes.slugChip}
-      style={{
-        color: `hsl(${hue}, 65%, 60%)`,
-        borderColor: `hsl(${hue}, 65%, 60%)`,
-        backgroundColor: `hsla(${hue}, 65%, 60%, 0.12)`,
-      }}
-      title="Shared by every stage of this same flow execution, including the build that started it"
-    >
-      flow: {slug}
-    </span>
+    <Tooltip title="Shared by every stage of this same flow execution, including the build that started it">
+      <span
+        className={classes.slugChip}
+        style={{
+          color: `hsl(${hue}, 65%, 60%)`,
+          borderColor: `hsl(${hue}, 65%, 60%)`,
+          backgroundColor: `hsla(${hue}, 65%, 60%, 0.12)`,
+        }}
+      >
+        flow: {slug}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -521,9 +522,11 @@ export function PipelineRunList({
                   <StatusChip tone={tone.status}>{tone.label}</StatusChip>
                 </div>
                 <span className={classes.when}>{durationLabel}</span>
-                <span className={classes.when} title={run.startTime ? formatDateTime(run.startTime) : undefined}>
-                  {run.startTime ? relativeTime(run.startTime) : '—'}
-                </span>
+                <Tooltip title={run.startTime ? formatDateTime(run.startTime) : undefined}>
+                  <span className={classes.when}>
+                    {run.startTime ? relativeTime(run.startTime) : '—'}
+                  </span>
+                </Tooltip>
               </div>
             </div>
           );

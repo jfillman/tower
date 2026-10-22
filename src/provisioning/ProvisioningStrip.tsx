@@ -2,7 +2,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { fmtDuration, stateLabel, type ProvisioningItem } from './shared';
-import { TextLink } from '../ui';
+import { TextLink, Tooltip } from '../ui';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   strip: {
@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   label: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -65,7 +65,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     overflowWrap: 'anywhere',
   },
   cur: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: ({ t }) => t.textLo,
     minWidth: 0,
     '@media (max-width: 700px)': { display: 'none' },
@@ -79,7 +79,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   etaSub: {
     display: 'block',
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
   },
@@ -117,16 +117,18 @@ export function SegmentBar({
         if (s.state === 'done') fill = t.good;
         else if (s.state === 'fail') fill = t.bad;
         return (
-          <i key={s.id} className={classes.seg} title={`${s.title}: ${stateLabel[s.state]}`}>
-            <b
-              style={{
-                display: 'block',
-                height: '100%',
-                width: `${Math.round(s.fraction * 100)}%`,
-                backgroundColor: fill,
-              }}
-            />
-          </i>
+          <Tooltip key={s.id} title={`${s.title}: ${stateLabel[s.state]}`}>
+            <i className={classes.seg}>
+              <b
+                style={{
+                  display: 'block',
+                  height: '100%',
+                  width: `${Math.round(s.fraction * 100)}%`,
+                  backgroundColor: fill,
+                }}
+              />
+            </i>
+          </Tooltip>
         );
       })}
     </div>

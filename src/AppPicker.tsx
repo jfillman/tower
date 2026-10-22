@@ -4,7 +4,6 @@ import type { Theme } from '@material-ui/core/styles';
 import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
@@ -22,7 +21,7 @@ import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
-import { EmptyNote, FilterBar, FilterChips, SearchField, TextLink, useTableKit } from './ui';
+import { EmptyNote, FilterBar, FilterChips, PanelSkeleton, SearchField, TabError, TextLink, Tooltip, useTableKit } from './ui';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -119,7 +118,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 12,
     flexWrap: 'wrap',
   },
-  sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
+  sub: { fontSize: 13, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
   list: {
     border: ({ t }) => `1px solid ${t.line}`,
@@ -143,11 +142,11 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 15,
     color: ({ t }) => t.textHi,
   },
-  meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
+  meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
   // The owner can be long and so can the type chip ("Function · AWS Lambda"): the footer wraps, the owner moves to its
   // own line, right-aligned, and only then ellipsises (2026-10-12: a Lambda card cut the team name off).
-  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  owner: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, minWidth: 0, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   rowMain: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -156,7 +155,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   starredSection: { marginBottom: 20 },
   starredLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -192,7 +191,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     fontFamily: fontDisplay,
     fontWeight: 600,
-    fontSize: 14,
+    fontSize: 13,
     color: ({ t }) => t.textLo,
     '&:hover': { color: ({ t }) => t.textHi },
   },
@@ -217,7 +216,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   sectionLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -246,7 +245,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 8,
   },
   cardDesc: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: ({ t }) => t.textLo,
     display: '-webkit-box',
     WebkitLineClamp: 2,
@@ -446,7 +445,7 @@ export function AppPicker({
   );
   const filteredMinusStarred = filtered.filter(e => !starred.has(stringifyEntityRef(e)));
 
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (error) return <TabError error={error} what="the service list" />;
 
   const activate = (ref: string) => ({
     role: 'button' as const,
@@ -463,19 +462,20 @@ export function AppPicker({
   const renderStar = (ref: string) => {
     const isStarred = starred.has(ref);
     return (
-      <button
-        type="button"
-        className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
-        title={isStarred ? 'Unstar' : 'Star'}
-        aria-pressed={isStarred}
-        aria-label={`${isStarred ? 'Unstar' : 'Star'} ${ref}`}
-        onClick={ev => {
-          ev.stopPropagation();
-          toggleStarred(ref);
-        }}
-      >
-        {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
-      </button>
+      <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
+        <button
+          type="button"
+          className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
+          aria-pressed={isStarred}
+          aria-label={`${isStarred ? 'Unstar' : 'Star'} ${ref}`}
+          onClick={ev => {
+            ev.stopPropagation();
+            toggleStarred(ref);
+          }}
+        >
+          {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+        </button>
+      </Tooltip>
     );
   };
 
@@ -501,9 +501,11 @@ export function AppPicker({
         <div className={classes.cardDesc}>{e.metadata.description}</div>
         <div className={classes.cardFoot}>
           {renderTypeChip(e)}
-          <span className={classes.owner} title={e.spec?.owner as string | undefined}>
-            {ownerLabel(e.spec?.owner)}
-          </span>
+          <Tooltip title={e.spec?.owner as string | undefined}>
+            <span className={classes.owner}>
+              {ownerLabel(e.spec?.owner)}
+            </span>
+          </Tooltip>
         </div>
       </div>
     );
@@ -531,9 +533,11 @@ export function AppPicker({
                   <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
                 </td>
                 <td className={tc.td}>{renderTypeChip(e)}</td>
-                <td className={`${tc.td} ${classes.meta}`} title={e.spec?.owner as string | undefined}>
-                  {ownerLabel(e.spec?.owner)}
-                </td>
+                <Tooltip title={e.spec?.owner as string | undefined}>
+                  <td className={`${tc.td} ${classes.meta}`}>
+                    {ownerLabel(e.spec?.owner)}
+                  </td>
+                </Tooltip>
                 <td className={`${tc.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
               </tr>
             );
@@ -626,7 +630,7 @@ export function AppPicker({
             <SearchField label="Search services" placeholder="Search services…" value={query} onChange={setQuery} />
           </FilterBar>
           {!entities ? (
-            <Progress />
+            <PanelSkeleton />
           ) : (
             <>
               {starredEntities.length > 0 && (

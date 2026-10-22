@@ -111,7 +111,7 @@ export function deriveEnvLifecycle(i: EnvLifecycleInputs): EnvLifecycleStep[] {
     let waiting: string | undefined;
     if (!i.deployed) {
       if (i.pipelineStep === false) {
-        waiting = `No pipeline has a deploy step for ${i.env}: nothing deploys here until one is added in the Glidepath tab (Add environment can add it next time).`;
+        waiting = `No pipeline has a deploy step for ${i.env}: nothing deploys here until one is added in Configure › Pipeline (Add environment can add it next time).`;
       } else if (!i.valuesFileExists) {
         waiting = 'Starts with the image of the environment before it when the onboarding pull request merges; after that, the pipeline\'s deploy step (a push to the default branch) puts each new image here.';
       } else {

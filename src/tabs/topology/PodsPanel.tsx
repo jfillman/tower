@@ -12,7 +12,7 @@ import { PodRestartControl } from './PodRestartControl';
 import { YamlView } from './YamlView';
 import type { EnvironmentSummary, EnvTier, K8sResourceRef, PodSummary } from '../../types';
 import { BreakglassPanel } from './BreakglassPanel';
-import { Button, Fact, FactGrid, FilterChip, SectionTitle, StatusChip } from '../../ui';
+import { Button, Fact, FactGrid, FilterChip, SectionTitle, StatusChip, Tooltip } from '../../ui';
 
 // Items 6 & 7 of the Topology-tab modernization ("pod logs should be
 // accessible" / "more info/details about each resource, especially pods").
@@ -100,9 +100,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0 },
   cardMeta: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 },
-  cardName: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  cardSub: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
-  restartBadge: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
+  cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  cardSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  restartBadge: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
   detail: {
     marginTop: 12,
     padding: '14px 16px',
@@ -114,7 +114,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 12,
   },
   detailHead: { display: 'flex', alignItems: 'center', gap: 8 },
-  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
+  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   titleGap: { marginBottom: 6 },
   containerRow: {
     display: 'flex',
@@ -128,7 +128,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexWrap: 'wrap',
   },
   containerName: { color: ({ t }) => t.textHi, fontWeight: 600, minWidth: 90 },
-  containerRes: { color: ({ t }) => t.textFaint, fontSize: 10 },
+  containerRes: { color: ({ t }) => t.textFaint, fontSize: 11 },
   conditionRow: { display: 'flex', gap: 8, fontSize: 11, alignItems: 'baseline' },
   conditionType: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, minWidth: 90 },
   conditionOk: { color: ({ t }) => t.good },
@@ -138,7 +138,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // full-width row below the action buttons, one at a time - never squeezed
   // next to the summary grid or another pod's panel.
   panelBody: { marginTop: 2 },
-  none: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
+  none: { fontSize: 11, fontStyle: 'italic', color: ({ t }) => t.textFaint },
 }));
 
 type OpenPanel = 'logs' | 'yaml' | 'metrics' | 'debug' | null;
@@ -283,29 +283,29 @@ function PodDetail({
         {tier === 'upper' ? (
           // The cluster refuses exec into app namespaces on Flight (tower-breakglass-no-exec) for everyone but
           // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
-          <span className={classes.cardSub} title="On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.">
-            exec is refused on Flight; use Debug
-          </span>
+          <Tooltip title="On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.">
+            <span className={classes.cardSub}>
+              exec is refused on Flight; use Debug
+            </span>
+          </Tooltip>
         ) : (
-          <Button small
-            
-            title="For operators with their own cluster access. Debug records the session; exec does not."
-            onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}>
-            <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
-            {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
-          </Button>
+          <Tooltip title="For operators with their own cluster access. Debug records the session; exec does not.">
+            <Button small
+              onClick={() => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, 'kubectl-exec')}>
+              <FileCopyOutlinedIcon style={{ fontSize: 12 }} />
+              {copied === 'kubectl-exec' ? 'copied' : 'copy kubectl exec'}
+            </Button>
+          </Tooltip>
         )}
         <PodRestartControl env={env} podName={pod.name} noteClass={classes.cardSub} badClass={classes.conditionBad} />
-        <Button small
-          
-          title={
-            tier === 'upper'
+        <Tooltip title={tier === 'upper'
               ? 'Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves.'
-              : 'Open a recorded, time-boxed debug shell on this pod (break-glass).'
-          }
-          onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}>
-          Debug
-        </Button>
+              : 'Open a recorded, time-boxed debug shell on this pod (break-glass).'}>
+          <Button small
+            onClick={e => keepAnchored(e.currentTarget, () => setPanel(p => (p === 'debug' ? null : 'debug')))}>
+            Debug
+          </Button>
+        </Tooltip>
       </div>
 
       {panel === 'logs' && (

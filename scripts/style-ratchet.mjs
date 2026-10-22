@@ -124,6 +124,19 @@ for (const [file, src] of Object.entries(sources)) {
 }
 dangling.sort();
 
+// 3. the type scale (brand/tokens.ts fontScale): a text size off the seven steps is an error, not a count. An icon's size
+// (a line naming an Icon, or a style key ending in Icon/icon) is not text and is exempt.
+const SCALE = new Set([11, 12, 13, 15, 18, 22, 32]);
+const offScaleFont = [];
+for (const [file, src] of Object.entries(sources)) {
+  src.split('\n').forEach((line, i) => {
+    if (/Icon\b|[a-z]Icon:|\bicon\w*:/i.test(line)) return;
+    for (const m of line.matchAll(/fontSize(?::\s*|=\{)(\d+(?:\.\d+)?)/g)) {
+      if (!SCALE.has(Number(m[1]))) offScaleFont.push(`${file}:${i + 1} fontSize ${m[1]}`);
+    }
+  });
+}
+
 const current = { counts, dangling };
 if (process.argv.includes('--update')) {
   writeFileSync(BASELINE, `${JSON.stringify(current, null, 2)}\n`);
@@ -147,6 +160,10 @@ const fresh = dangling.filter(d => !known.has(d));
 if (fresh.length) {
   failed = true;
   console.error(`style-ratchet: class names used but not defined in their sheet (they render unstyled):\n  ${fresh.join('\n  ')}`);
+}
+if (offScaleFont.length) {
+  failed = true;
+  console.error(`style-ratchet: text sizes off the type scale (11/12/13/15/18/22/32, brand/tokens.ts fontScale):\n  ${offScaleFont.join('\n  ')}`);
 }
 if (failed) process.exit(1);
 console.log('style-ratchet: ok', counts);

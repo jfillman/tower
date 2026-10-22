@@ -8,6 +8,7 @@ import { TallArrow } from './SignalRail';
 import { preventFocusScroll } from './preventFocusScroll';
 import { ImageTagPill } from './tabs/deployments/ImageTagPill';
 import { ENV_TIER_LABEL, type EnvTier, type Health } from './types';
+import { Tooltip } from './ui';
 
 // The tiered Ground/Flight env picker built for "Ground Control" (the
 // Deployments tab redesign) - pulled out into its own shared component so
@@ -60,10 +61,10 @@ export const useEnvPickerStyles = makeStyles<Theme, { t: HangarTokens }>(() => (
   tierRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   tierConnector: { display: 'flex', alignItems: 'center', gap: 6, padding: '1px 0 1px 42px' },
   tierConnectorArrow: { color: ({ t }) => t.amber, display: 'flex' },
-  tierConnectorLabel: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
+  tierConnectorLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   tierLabel: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
@@ -97,9 +98,9 @@ export const useEnvPickerStyles = makeStyles<Theme, { t: HangarTokens }>(() => (
   tierIcon: { flexShrink: 0, display: 'flex', color: ({ t }) => t.textFaint, opacity: 0.7, fontSize: 14 },
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi, lineHeight: 1.3 },
   envMeta: { display: 'flex', flexDirection: 'column', gap: 1 },
-  envCluster: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint },
+  envCluster: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   envImageRow: { display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 },
-  incomingTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.amberInk, fontWeight: 700 },
+  incomingTag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk, fontWeight: 700 },
   statusDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
   tierArrow: { color: ({ t }) => t.amber, flexShrink: 0, display: 'flex' },
 }));
@@ -166,10 +167,14 @@ export function EnvPicker({
                   onMouseDown={preventFocusScroll}
                   onClick={item.onClick}
                 >
-                  <span className={classes.statusDot} style={{ backgroundColor: dotColor(t, item.health) }} title={item.health} />
-                  <span className={classes.tierIcon} title={ENV_TIER_LABEL[g.tier]}>
-                    {tierIconFor(g.tier)}
-                  </span>
+                  <Tooltip title={item.health}>
+                    <span className={classes.statusDot} style={{ backgroundColor: dotColor(t, item.health) }} />
+                  </Tooltip>
+                  <Tooltip title={ENV_TIER_LABEL[g.tier]}>
+                    <span className={classes.tierIcon}>
+                      {tierIconFor(g.tier)}
+                    </span>
+                  </Tooltip>
                   <span className={classes.envMeta}>
                     <span className={classes.envName}>{item.envName}</span>
                     <span className={classes.envCluster}>{item.cluster}</span>

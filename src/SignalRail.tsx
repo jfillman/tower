@@ -15,6 +15,7 @@ import { parseGitopsPrTitle } from './useReleaseContext';
 import type { CdDelivery, CdStep, CdStepKey, CdStepStatus } from './useCdDelivery';
 import { imageTag as imageTagOf } from './types';
 import type { PrCheckRun, PullRequestSummary } from './pullRequests/usePullRequests';
+import { Tooltip } from './ui';
 
 // Shared CD-delivery rendering primitives - originally this file's own
 // "Signal Rail" component (the 2026-09-11 CD-panel mockup option the user
@@ -99,13 +100,13 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   dotCurrent: { animation: '$pulse 1.6s ease-in-out infinite' },
   label: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     color: ({ t }) => t.textFaint,
     textAlign: 'center',
   },
-  meta: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint, textAlign: 'center' },
+  meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'center' },
   gatesTogglePulse: { animation: '$pulse 1.6s ease-in-out infinite' },
   // Real GitHub Check Runs on the release PR's head commit - this
   // platform's release guardrails (sast/image-scan/provenance/sbom/values/itsm/qa/
@@ -123,7 +124,7 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   ledgerHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   ledgerTitle: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -139,11 +140,11 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   gateRowLast: { borderBottom: 'none' },
   gateRowTop: { display: 'flex', alignItems: 'center', gap: 10 },
   gateRowDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  gateName: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, flex: 1 },
-  gateStatusText: { fontFamily: fontMono, fontSize: 10.5, whiteSpace: 'nowrap' },
+  gateName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, flex: 1 },
+  gateStatusText: { fontFamily: fontMono, fontSize: 11, whiteSpace: 'nowrap' },
   gateLink: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     color: ({ t }) => t.sky,
     textDecoration: 'none',
     marginLeft: 8,
@@ -154,7 +155,7 @@ export const useSignalRailStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   // up with the name, not the dot itself.
   gateMessage: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     paddingLeft: 18,
     lineHeight: 1.5,
@@ -334,9 +335,11 @@ export function Rail({
               <StepIcon stepKey={step.key} status={step.status} />
             </span>
             <span className={classes.label}>{step.key === labelOverride?.key ? labelOverride.text : step.label}</span>
-            <span className={classes.meta} title={step.at ? formatDateTime(step.at) : undefined}>
-              {stepMetaText(step, metaOverride)}
-            </span>
+            <Tooltip title={step.at ? formatDateTime(step.at) : undefined}>
+              <span className={classes.meta}>
+                {stepMetaText(step, metaOverride)}
+              </span>
+            </Tooltip>
             {step.key === belowKey && below}
           </div>
           {i < steps.length - 1 && (

@@ -20,7 +20,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 8,
   },
   title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18, color: ({ t }) => t.textHi, marginBottom: 6 },
-  body: { fontSize: 13.5, color: ({ t }) => t.textLo, maxWidth: 480, margin: '0 auto' },
+  body: { fontSize: 13, color: ({ t }) => t.textLo, maxWidth: 480, margin: '0 auto' },
 }));
 
 // Rollout is incremental (see HANDOFF-tower-module.md) - Releases and Pull

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { ErrorBoundary, Progress, ResponseErrorPanel } from '@backstage/core-components';
+import { ErrorBoundary} from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import type { Entity } from '@backstage/catalog-model';
@@ -14,7 +14,7 @@ import { CAP, hasCapabilities, type Capability } from './serviceClass';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
-import { EnvironmentsTab } from './tabs/EnvironmentsTab';
+import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab';
 import { TopologyTab } from './tabs/TopologyTab';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
@@ -22,14 +22,13 @@ import { DeploymentsTab } from './tabs/DeploymentsTab';
 import { CloudDeploymentsTab } from './tabs/CloudDeploymentsTab';
 import { hasCloudDeployInFlight } from './cloudDeploy';
 import { ImagesTab } from './tabs/ImagesTab';
-import { ConfigTab } from './tabs/ConfigTab';
-import { GlidepathTab } from './tabs/GlidepathTab';
 import { SlosTab } from './tabs/SlosTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { useAppNotifications } from './useAppNotifications';
 import { useTektonPipelineRuns } from './tekton/useTektonPipelineRuns';
 import { TowerEnvironmentsProvider, useTowerEnvironments } from './useTowerEnvironments';
 import { isRolloutActive } from './types';
+import { TabError, TabSkeleton, Tooltip } from './ui';
 
 // Order follows the real lifecycle of a change (2026-09-11 decision, see
 // HANDOFF-tower-pr-integration.md's successor discussion): a PR is proposed,
@@ -72,25 +71,29 @@ interface TabDef {
 
 export const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
-  { id: 'pull-requests', label: 'Pull Requests', Component: PullRequestsTab, requires: [CAP.source] },
+  { id: 'pull-requests', label: 'Pull requests', Component: PullRequestsTab, requires: [CAP.source] },
   { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
   // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
   // exactly one deploy target, so only one of the two ever passes the capability filter.
   { id: 'deployments', label: 'Deployments', Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: 'releases', label: 'Releases', Component: ReleasesTab, requires: [CAP.releases] },
-  // Every environment of the service, whatever it deploys to (read-only; editing comes later).
-  { id: 'environments', label: 'Environments', Component: EnvironmentsTab, requires: [CAP.ci] },
   { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
   { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
   { id: 'notifications', label: 'Notifications', Component: NotificationsTab, requires: [CAP.source, CAP.ci] },
-  { id: 'config', label: 'App Configuration', Component: ConfigTab, requires: [CAP.valuesConfig] },
-  { id: 'glidepath', label: 'Glidepath', Component: GlidepathTab, requires: [CAP.ci] },
+  // Environments, shared values and cicd.yaml: everything that lives in git (2026-10-22, was three tabs). Their old ids
+  // are now its sub-tabs; activeTabId() maps them here so old deep links still work.
+  { id: 'configure', label: 'Configure', Component: ConfigureTab, requires: [CAP.ci] },
 ];
 
 type TabId = string;
+
+/** The top-level tab a ?tab= value opens: the old Environments / App Configuration / Glidepath ids open Configure. */
+export function activeTabId(tabParam: TabId): TabId {
+  return isConfigureSubtab(tabParam) ? 'configure' : tabParam;
+}
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // minHeight: 100vh, not 100% - a percentage height only resolves once
@@ -113,7 +116,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   backLink: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: '0.04em',
     color: ({ t }) => t.textFaint,
     cursor: 'pointer',
@@ -124,7 +127,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:hover': { color: ({ t }) => t.textHi },
   },
   titleRow: { display: 'flex', alignItems: 'center', gap: 10 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 24, color: ({ t }) => t.textHi },
+  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, color: ({ t }) => t.textHi },
   tabbar: {
     display: 'flex',
     gap: 2,
@@ -134,7 +137,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   tab: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
     padding: '10px 16px',
@@ -159,7 +162,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '0 4px',
     marginLeft: 6,
     borderRadius: 100,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 700,
     backgroundColor: ({ t }) => t.bad,
     color: ({ t }) => t.bg,
@@ -248,11 +251,11 @@ export function TowerPage() {
       </div>
     );
   } else if (loading) {
-    body = <Progress />;
+    body = <TabSkeleton />;
   } else if (error) {
     body = (
       <div style={{ padding: 24 }}>
-        <ResponseErrorPanel error={new Error(error)} />
+        <TabError error={error} what="this service" />
       </div>
     );
   } else if (!entity) {
@@ -357,7 +360,7 @@ function TowerAppShellInner({
   const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
 
   const tabs = TABS.filter(tabDef => hasCapabilities(entity, tabDef.requires));
-  const activeTab = tabs.find(tabDef => tabDef.id === tabParam) ?? tabs[0];
+  const activeTab = tabs.find(tabDef => tabDef.id === activeTabId(tabParam)) ?? tabs[0];
   const { Component } = activeTab;
   return (
     <>
@@ -389,10 +392,14 @@ function TowerAppShellInner({
                 focused on that CICD tab") - it's a live activity signal, not
                 an unread/unseen marker that should clear once you've looked. */}
             {tabDef.id === 'pipelines' && ciActive && (
-              <span className={classes.tabActivityDot} title="A pipeline is running" />
+              <Tooltip title="A pipeline is running">
+                <span className={classes.tabActivityDot} />
+              </Tooltip>
             )}
             {tabDef.id === 'deployments' && cdActive && (
-              <span className={classes.tabActivityDot} title="A rollout is in progress" />
+              <Tooltip title="A rollout is in progress">
+                <span className={classes.tabActivityDot} />
+              </Tooltip>
             )}
           </button>
         ))}

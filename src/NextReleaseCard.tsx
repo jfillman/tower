@@ -5,7 +5,7 @@ import { relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { NextRelease, NextReleaseCandidate, ReadinessState } from './nextRelease';
-import { Button, Card, EmptyNote, Hint, SectionTitle, StatusChip, TextLink, Tile } from './ui';
+import { Button, Card, EmptyNote, Hint, SectionTitle, StatusChip, TextLink, Tile, Tooltip } from './ui';
 
 // The Record list's "Next release" card (Release Record proposal R1, 2026-10-13): the
 // release in progress, before it reaches Flight - what's merged, what's still open, the
@@ -25,7 +25,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     marginBottom: 14,
   },
   meta: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 19, letterSpacing: '0.06em', color: ({ t }) => t.textHi },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18, letterSpacing: '0.06em', color: ({ t }) => t.textHi },
   version: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.amberInk },
   after: { fontSize: 12, color: ({ t }) => t.textLo },
   grid: {
@@ -35,15 +35,15 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '@media (max-width: 980px)': { gridTemplateColumns: '1fr' },
   },
   column: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 },
-  item: { display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12.5, padding: '2px 0', minWidth: 0 },
+  item: { display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12, padding: '2px 0', minWidth: 0 },
   prTitle: { color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   faint: { color: ({ t }) => t.textFaint, fontSize: 12 },
   planned: { borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, paddingBottom: 8, marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 4 },
   sub: { borderTop: ({ t }) => `1px solid ${t.lineSoft}`, marginTop: 8, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 },
   issues: { display: 'flex', flexWrap: 'wrap', gap: 8, fontFamily: fontMono, fontSize: 11, marginTop: 4 },
-  tag: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi },
+  tag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi },
   cand: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 },
-  leadMark: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.amberInk, letterSpacing: '0.06em' },
+  leadMark: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk, letterSpacing: '0.06em' },
   meter: { height: 6, borderRadius: 3, backgroundColor: ({ t }) => t.panelAlt, overflow: 'hidden', margin: '2px 0 6px' },
   meterFill: { display: 'block', height: '100%', backgroundColor: ({ t }) => t.amber },
   check: { fontFamily: fontMono, width: 14, flex: '0 0 14px', textAlign: 'center' },
@@ -110,9 +110,11 @@ export function NextReleaseCard({
             {name ? 'next release · draft' : 'draft'}
           </StatusChip>
           {next.suggestedVersion && (
-            <span className={classes.version} title={`From the merged PRs${next.breaking ? ', including a breaking change' : ''}`}>
-              v{next.suggestedVersion} suggested
-            </span>
+            <Tooltip title={`From the merged PRs${next.breaking ? ', including a breaking change' : ''}`}>
+              <span className={classes.version}>
+                v{next.suggestedVersion} suggested
+              </span>
+            </Tooltip>
           )}
           {previousLabel && <span className={classes.after}>after {previousLabel}</span>}
           {modeLabel && <span className={classes.after}>· {modeLabel}</span>}
