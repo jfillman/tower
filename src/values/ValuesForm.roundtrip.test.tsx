@@ -12,6 +12,8 @@ jest.mock('@backstage/core-components', () => ({
 jest.mock('../usePrometheusQuery', () => ({ usePrometheusInstantQuery: () => ({ loading: false, samples: [{ metric: {}, time: 0, value: 4 }] }) }));
 jest.mock('../useConfigData', () => ({ useValuesSchema: () => ({ loading: false, data: undefined }) }));
 jest.mock('./useAppEnvReads', () => ({ useAppEnvReads: () => undefined }));
+let mockLayers: Record<string, unknown> = {};
+jest.mock('./annotatedValues', () => ({ ...jest.requireActual('./annotatedValues'), useEnvValueLayers: () => mockLayers }));
 
 // The real staging values file of boarding-api (gitops-boarding-api, example-prod/staging), as Crossplane and a person
 // left it: env vars from a ConfigMap and a Secret, a rollout with probes and steps, an HTTPRoute, attached components.
@@ -21,7 +23,7 @@ const original = load(readFileSync(join(__dirname, '__fixtures__/boarding-api-st
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 const submit = jest.fn(async () => undefined);
-function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[]; chart?: any } = {}) {
+function open(values: Record<string, any> = original, extra: { clusterAnalysisTemplates?: string[]; analysisCluster?: string; sloContext?: { cluster: string; namespace: string; app: string }; componentCatalog?: any[]; chart?: any; layersTarget?: any } = {}) {
   const data = { values: clone(values), raw: 'x', path: 'p' };
   const src: ValuesSource = { loading: false, data, refresh: jest.fn(), submit, submitRaw: jest.fn(), submitting: false, resetSubmit: jest.fn() };
   render(<ConfigEditor owner="o" appName="boarding-api" source={src} title="STAGING" layout="side" {...extra} />);
@@ -672,5 +674,23 @@ describe('values form: full annotated values', () => {
     fireEvent.change(screen.getByRole('spinbutton', { name: /^Replicas$/ }), { target: { value: '7' } });
     expect(view()).not.toBe(before);
     expect(view()).toContain('replicas: 7');
+  });
+
+  it('lays every layer Argo CD renders with over the defaults, so platform-set values are not shown empty (2026-10-22)', () => {
+    mockLayers = {
+      platformFrom: 'application',
+      layers: [
+        { kind: 'shared', label: 'boarding-api/glidepath/base.yaml', values: { rollout: { enabled: true } } },
+        { kind: 'platform', label: 'Argo CD Application boarding-api-staging', values: { appName: 'boarding-api', envName: 'staging', clusterType: 'dev' } },
+      ],
+    };
+    open({ ...original, appName: undefined, envName: undefined }, { chart: fixtureJson('chartValues.json'), layersTarget: { env: 'staging', tier: 'ground', cluster: 'example-dev' } });
+    fireEvent.click(screen.getByRole('button', { name: /View full values/ }));
+    const view = screen.getByLabelText('Full values').textContent ?? '';
+    expect(view).toMatch(/appName: boarding-api {2}# set by the platform \(Argo CD Application\)/);
+    expect(view).toMatch(/envName: staging {2}# set by the platform/);
+    expect(view).toContain('# from base.yaml');
+    expect(view).not.toMatch(/appName: ''/);
+    mockLayers = {};
   });
 });
