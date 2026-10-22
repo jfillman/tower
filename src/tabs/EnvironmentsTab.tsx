@@ -46,7 +46,7 @@ import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData';
 import { useReleaseContext } from '../useReleaseContext';
 import { appKindOf } from '../workloadType';
 import { usePlatformConfig } from '../platformConfig';
-import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TabError, TabSkeleton, TierChip } from '../ui';
+import { Button, Callout, Chip, ColumnLabel, FilterBar, FilterChips, HEALTH_LABEL, Hint, IconButton, PageHeader, Panel, StatusDot, TabError, TabSkeleton, TierChip, Tooltip } from '../ui';
 import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } from './environments/dialogs';
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
@@ -142,6 +142,11 @@ export function EnvironmentsTab() {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | undefined>();
+  // ?row=<env> opens that environment's row: Configure's "Find a setting" links to an environment's values file.
+  const rowParam = searchParams.get('row');
+  useEffect(() => {
+    if (rowParam) setOpen(rowParam);
+  }, [rowParam]);
   const [removing, setRemoving] = useState<string | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
   const [menu, setMenu] = useState<{ name: string; el: HTMLElement } | undefined>();
@@ -645,7 +650,9 @@ export function EnvironmentsTab() {
                             {r.deployedAt && (
                               <>
                                 {'  '}
-                                <span title={formatDateTime(r.deployedAt)}>{relativeTime(r.deployedAt)}</span>
+                                <Tooltip title={formatDateTime(r.deployedAt)}>
+                                  <span>{relativeTime(r.deployedAt)}</span>
+                                </Tooltip>
                               </>
                             )}
                           </span>

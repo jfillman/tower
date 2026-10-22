@@ -72,7 +72,9 @@ its own title, chip, table header and button styles with slightly different numb
 - **Reasons you can see** (2026-10-22). Why a primary action is unavailable is an `ActionReason` under the action bar
   (lock icon, one sentence, what you can still do), with the disabled button's `aria-describedby` on it; never only a
   tooltip. Detail that blocks nothing (what a button does, a PR's failing checks) is the kit `Tooltip`: 300 ms on hover,
-  immediate on keyboard focus, works on a disabled button. A native `title=` is only for a truncated value's full text.
+  immediate on keyboard focus, works on a disabled button, and attaches straight to a DOM element (no wrapper, no
+  layout change). A native `title=` is only for a truncated value's full text (the title repeats what the element
+  shows). The 2026-10-22 sweep moved 100 other native titles to the kit Tooltip.
 - **Loading and errors in Hangar** (2026-10-22). A tab loading is a `TabSkeleton` (header, three tiles, a panel of
   rows); a panel inside a tab is a `PanelSkeleton`. The shimmer stops under `prefers-reduced-motion`. A tab or panel
   that could not load is a `TabError`: "Couldn't load <what>", the first line of the error, Retry where the tab has a
@@ -81,6 +83,11 @@ its own title, chip, table header and button styles with slightly different numb
   Environments / Shared values (base.yaml) / Pipeline (cicd.yaml). The sub-tab ids are the old tab ids
   (`environments`, `config`, `glidepath`), so `?tab=environments` and every other old link still lands in place.
   Tab labels are sentence case.
+  A sub-tab, once opened, stays mounted (hidden), so changes staged in it survive switching away; every `PendingPanel`
+  reports its line count to the nearest `StagedScope` (src/configure/stagedScope.tsx), Configure marks the sub-tabs
+  holding staged changes and names them above the content. Each sub-tab still opens its own PR. **Find a setting**
+  (src/configure) searches key paths and values across `cicd.yaml`, the shared values files and every environment's
+  values file, read once on first use, and opens the sub-tab (and the environment's row, `?row=<env>`) that edits it.
 - **Nothing waits in a dialog for a pipeline.** Promote to a Flight environment closes once the release run starts;
   `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`) and becomes the
   PR's receipt.

@@ -8,6 +8,7 @@ import { TallArrow } from './SignalRail';
 import { preventFocusScroll } from './preventFocusScroll';
 import { ImageTagPill } from './tabs/deployments/ImageTagPill';
 import { ENV_TIER_LABEL, type EnvTier, type Health } from './types';
+import { Tooltip } from './ui';
 
 // The tiered Ground/Flight env picker built for "Ground Control" (the
 // Deployments tab redesign) - pulled out into its own shared component so
@@ -166,10 +167,14 @@ export function EnvPicker({
                   onMouseDown={preventFocusScroll}
                   onClick={item.onClick}
                 >
-                  <span className={classes.statusDot} style={{ backgroundColor: dotColor(t, item.health) }} title={item.health} />
-                  <span className={classes.tierIcon} title={ENV_TIER_LABEL[g.tier]}>
-                    {tierIconFor(g.tier)}
-                  </span>
+                  <Tooltip title={item.health}>
+                    <span className={classes.statusDot} style={{ backgroundColor: dotColor(t, item.health) }} />
+                  </Tooltip>
+                  <Tooltip title={ENV_TIER_LABEL[g.tier]}>
+                    <span className={classes.tierIcon}>
+                      {tierIconFor(g.tier)}
+                    </span>
+                  </Tooltip>
                   <span className={classes.envMeta}>
                     <span className={classes.envName}>{item.envName}</span>
                     <span className={classes.envCluster}>{item.cluster}</span>

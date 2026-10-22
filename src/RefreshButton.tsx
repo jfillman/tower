@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
 import RefreshIcon from '@material-ui/icons/Refresh';
-import { Button } from './ui';
+import { Button, Tooltip } from './ui';
 
 // A handful of Tower's data hooks (PR/deploy-history/provenance/GHCR - see
 // useReleaseData.ts/usePullRequests.ts's own comments) are deliberately
@@ -45,22 +45,23 @@ export function RefreshButton({ onClick, label = 'Refresh', busy }: { onClick: (
   if (label && spinning) text = 'Refreshing…';
   else if (label && phase === 'done') text = 'Refreshed';
   return (
-    <Button
-      small
-      disabled={spinning}
-      aria-live="polite"
-      onClick={() => {
-        setPhase('spinning');
-        onClick();
-      }}
-      title="Re-fetch PR, deploy-history, and image data"
-    >
-      {phase === 'done' && !spinning ? (
-        <CheckIcon style={{ fontSize: 14 }} aria-hidden />
-      ) : (
-        <RefreshIcon style={{ fontSize: 14 }} className={spinning ? classes.spin : undefined} aria-hidden />
-      )}
-      {text}
-    </Button>
+    <Tooltip title="Re-fetch PR, deploy-history, and image data">
+      <Button
+        small
+        disabled={spinning}
+        aria-live="polite"
+        onClick={() => {
+          setPhase('spinning');
+          onClick();
+        }}
+      >
+        {phase === 'done' && !spinning ? (
+          <CheckIcon style={{ fontSize: 14 }} aria-hidden />
+        ) : (
+          <RefreshIcon style={{ fontSize: 14 }} className={spinning ? classes.spin : undefined} aria-hidden />
+        )}
+        {text}
+      </Button>
+    </Tooltip>
   );
 }

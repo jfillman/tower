@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
-import { Button, Hint } from '../../ui';
+import { Button, Hint, Tooltip } from '../../ui';
 
 // What the break-glass form (BreakglassPanel, per pod) and the environment view (BreakglassEnvironmentView, per
 // environment) share: the session record as the backend lists it, the API helper, the sessions hook, the terminal
@@ -361,14 +361,18 @@ export function OpenSession({
           {open.processAccess ? ', with process access' : ''}
           {open.volumeAccess ? ', with volume access' : ''}
         </span>
-        <span className={`${classes.bannerMeta} ${classes.countdown}`} title={`Ends at ${new Date(open.expiresAt).toLocaleString()}`}>
-          {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
-        </span>
+        <Tooltip title={`Ends at ${new Date(open.expiresAt).toLocaleString()}`}>
+          <span className={`${classes.bannerMeta} ${classes.countdown}`}>
+            {remaining(open.expiresAt, now)} left{open.extendedAt ? ' (extended)' : ''}
+          </span>
+        </Tooltip>
         <span style={{ flex: 1 }} />
         {!open.extendedAt && (
-          <Button small disabled={ending} title="Your one free extension: 15 more minutes, no approval." onClick={() => onExtend(open.id)}>
-            Extend +15 min
-          </Button>
+          <Tooltip title="Your one free extension: 15 more minutes, no approval.">
+            <Button small disabled={ending} onClick={() => onExtend(open.id)}>
+              Extend +15 min
+            </Button>
+          </Tooltip>
         )}
         <Button small variant="danger" disabled={ending} onClick={() => onEnd(open.id)}>
           {ending ? 'Ending…' : 'End session'}

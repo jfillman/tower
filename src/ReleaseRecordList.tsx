@@ -9,7 +9,7 @@ import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import { outcomeChip } from './ReleaseOutcome';
 import { changeRequestTone } from './ReleaseRecordEvidence';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
-import { Count, IconButton, SectionTitle, StatusChip, TextLink, type StatusTone } from './ui';
+import { Count, IconButton, SectionTitle, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -173,18 +173,22 @@ export function ReleaseRecordList({
                   </StatusChip>
                 )}
                 {record.changeRequest && (
-                  <StatusChip tone={changeRequestTone(record.changeRequest.state)} title={`Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? 'created'}`}>
-                    {record.changeRequest.number ?? 'change'}
-                  </StatusChip>
+                  <Tooltip title={`Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? 'created'}`}>
+                    <StatusChip tone={changeRequestTone(record.changeRequest.state)}>
+                      {record.changeRequest.number ?? 'change'}
+                    </StatusChip>
+                  </Tooltip>
                 )}
                 {(() => {
                   // How the commit was proven (provenance phase 3): only the proven paths, green, the line on hover.
                   const proof = commitProofOf(record);
                   const chip = commitProofChip(proof);
                   return chip && commitProofTone(proof) === 'ok' ? (
-                    <StatusChip tone="ok" title={`Commit: ${commitProofLine(proof)}`}>
-                      {chip}
-                    </StatusChip>
+                    <Tooltip title={`Commit: ${commitProofLine(proof)}`}>
+                      <StatusChip tone="ok">
+                        {chip}
+                      </StatusChip>
+                    </Tooltip>
                   ) : null;
                 })()}
               </span>

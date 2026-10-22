@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { PodsPanel } from './PodsPanel';
 import type { EnvironmentSummary } from '../../types';
 
@@ -25,9 +25,9 @@ describe('PodsPanel: kubectl exec (gap G3)', () => {
     expect(screen.getByRole('button', { name: /copy kubectl logs/ })).toBeTruthy();
   });
 
-  it('keeps it on Ground, labelled for operators', () => {
+  it('keeps it on Ground, labelled for operators', async () => {
     render(<PodsPanel env={env} tier="lower" />);
-    const b = screen.getByRole('button', { name: /copy kubectl exec/ });
-    expect(b.getAttribute('title')).toContain('Debug records the session');
+    fireEvent.mouseOver(screen.getByRole('button', { name: /copy kubectl exec/ }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain('Debug records the session');
   });
 });

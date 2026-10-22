@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
-import { Button, Hint, SectionTitle, TextLink } from '../../ui';
+import { Button, Hint, SectionTitle, TextLink, Tooltip } from '../../ui';
 
 // Clean up an app's old images (2026-10-10; backstage imagePrune.ts). Two steps on purpose: the plan says exactly
 // which package versions would be deleted and why every other release is kept, and Prune deletes exactly that plan
@@ -266,9 +266,11 @@ export function ImageCleanup({ owner, appName }: { owner: string; appName: strin
             </TextLink>
           </div>
           <div className={c.head}>
-            <Button small variant="danger" disabled={!!busy || !!blocker} title={blocker} onClick={() => setConfirming(true)}>
-              {busy === 'prune' ? 'Deleting…' : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}`}
-            </Button>
+            <Tooltip title={blocker}>
+              <Button small variant="danger" disabled={!!busy || !!blocker} onClick={() => setConfirming(true)}>
+                {busy === 'prune' ? 'Deleting…' : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}`}
+              </Button>
+            </Tooltip>
             {blocker && <Hint>{blocker}</Hint>}
           </div>
           {confirming && (

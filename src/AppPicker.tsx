@@ -21,7 +21,7 @@ import { toItems, useNow } from './provisioning/shared';
 import { typicalFor, useProvisioningHistory } from './provisioning/provisioningHistory';
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
-import { EmptyNote, FilterBar, FilterChips, PanelSkeleton, SearchField, TabError, TextLink, useTableKit } from './ui';
+import { EmptyNote, FilterBar, FilterChips, PanelSkeleton, SearchField, TabError, TextLink, Tooltip, useTableKit } from './ui';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -462,19 +462,20 @@ export function AppPicker({
   const renderStar = (ref: string) => {
     const isStarred = starred.has(ref);
     return (
-      <button
-        type="button"
-        className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
-        title={isStarred ? 'Unstar' : 'Star'}
-        aria-pressed={isStarred}
-        aria-label={`${isStarred ? 'Unstar' : 'Star'} ${ref}`}
-        onClick={ev => {
-          ev.stopPropagation();
-          toggleStarred(ref);
-        }}
-      >
-        {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
-      </button>
+      <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
+        <button
+          type="button"
+          className={`${classes.starBtn} ${isStarred ? classes.starBtnActive : ''}`}
+          aria-pressed={isStarred}
+          aria-label={`${isStarred ? 'Unstar' : 'Star'} ${ref}`}
+          onClick={ev => {
+            ev.stopPropagation();
+            toggleStarred(ref);
+          }}
+        >
+          {isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+        </button>
+      </Tooltip>
     );
   };
 
@@ -500,9 +501,11 @@ export function AppPicker({
         <div className={classes.cardDesc}>{e.metadata.description}</div>
         <div className={classes.cardFoot}>
           {renderTypeChip(e)}
-          <span className={classes.owner} title={e.spec?.owner as string | undefined}>
-            {ownerLabel(e.spec?.owner)}
-          </span>
+          <Tooltip title={e.spec?.owner as string | undefined}>
+            <span className={classes.owner}>
+              {ownerLabel(e.spec?.owner)}
+            </span>
+          </Tooltip>
         </div>
       </div>
     );
@@ -530,9 +533,11 @@ export function AppPicker({
                   <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
                 </td>
                 <td className={tc.td}>{renderTypeChip(e)}</td>
-                <td className={`${tc.td} ${classes.meta}`} title={e.spec?.owner as string | undefined}>
-                  {ownerLabel(e.spec?.owner)}
-                </td>
+                <Tooltip title={e.spec?.owner as string | undefined}>
+                  <td className={`${tc.td} ${classes.meta}`}>
+                    {ownerLabel(e.spec?.owner)}
+                  </td>
+                </Tooltip>
                 <td className={`${tc.td} ${classes.tdDesc}`}>{e.metadata.description}</td>
               </tr>
             );

@@ -14,7 +14,7 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
-import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TabError, TabSkeleton, TextLink } from '../ui';
+import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TabError, TabSkeleton, TextLink, Tooltip } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
 import { usePlatformConfig } from '../platformConfig';
@@ -700,27 +700,28 @@ export function OverviewTab() {
             <div key={run.envs[0].key} className={classes.track}>
               {trackRows(run.envs, gridWidth).map(rowEnvs => (
                 <div key={rowEnvs[0].key} className={classes.trackRow}>
-                <button
-                  type="button"
-                  className={classes.trackLabel}
-                  title={`View ${imageTag(run.image)} in the Images tab`}
-                  onClick={() => goToImage(imageTag(run.image))}
-                >
-                  {imageTag(run.image)}
-                  {nickname && (
-                    <span
-                      className={classes.trackNickname}
-                      style={{
-                        color: `hsl(${slugHue(nickname)}, 65%, 60%)`,
-                        borderColor: `hsl(${slugHue(nickname)}, 65%, 60%)`,
-                        backgroundColor: `hsla(${slugHue(nickname)}, 65%, 60%, 0.12)`,
-                      }}
-                    >
-                      {nickname}
-                    </span>
-                  )}
-                  {' '}· live in {n} env{n === 1 ? '' : 's'}
-                </button>
+                <Tooltip title={`View ${imageTag(run.image)} in the Images tab`}>
+                  <button
+                    type="button"
+                    className={classes.trackLabel}
+                    onClick={() => goToImage(imageTag(run.image))}
+                  >
+                    {imageTag(run.image)}
+                    {nickname && (
+                      <span
+                        className={classes.trackNickname}
+                        style={{
+                          color: `hsl(${slugHue(nickname)}, 65%, 60%)`,
+                          borderColor: `hsl(${slugHue(nickname)}, 65%, 60%)`,
+                          backgroundColor: `hsla(${slugHue(nickname)}, 65%, 60%, 0.12)`,
+                        }}
+                      >
+                        {nickname}
+                      </span>
+                    )}
+                    {' '}· live in {n} env{n === 1 ? '' : 's'}
+                  </button>
+                </Tooltip>
                   {rowEnvs.map(env => renderEnvCard(env, { skipImage: true }))}
                 </div>
               ))}

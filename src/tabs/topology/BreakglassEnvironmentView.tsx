@@ -6,7 +6,7 @@ import LockOpenIcon from '@material-ui/icons/LockOpen';
 import { useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime, relativeTime } from '../../shared/format';
 import type { EnvironmentSummary, EnvTier } from '../../types';
-import { Button, SectionTitle, StatusChip } from '../../ui';
+import { Button, SectionTitle, StatusChip, Tooltip } from '../../ui';
 import { RecordingPlayer } from './RecordingPlayer';
 import {
   OpenSession,
@@ -194,9 +194,11 @@ export function BreakglassEnvironmentView({
       );
     }
     return (
-      <Button small variant="danger" disabled={ending === s.id} title={`End ${shortUser(s.requester)}'s session (${s.approver === info.user ? 'you approved it' : 'admin'})`} onClick={() => setConfirmEnd(s.id)}>
-        {label}
-      </Button>
+      <Tooltip title={`End ${shortUser(s.requester)}'s session (${s.approver === info.user ? 'you approved it' : 'admin'})`}>
+        <Button small variant="danger" disabled={ending === s.id} onClick={() => setConfirmEnd(s.id)}>
+          {label}
+        </Button>
+      </Tooltip>
     );
   };
 
@@ -233,11 +235,13 @@ export function BreakglassEnvironmentView({
                 <a className={classes.link} href={r.ticketUrl} target="_blank" rel="noopener noreferrer">{r.ticketUrl}</a>
               )}
               {(r.podImage || r.podImageId) && (
-                <span className={classes.bannerMeta} data-testid={`breakglass-request-image-${r.id}`} title={r.podImageId ?? ''}>
-                  The pod runs {r.podImage ?? 'an unknown image'}
-                  {r.podImageId?.includes('@sha256:') ? ` (${r.podImageId.slice(r.podImageId.indexOf('@sha256:') + 8, r.podImageId.indexOf('@sha256:') + 20)}…)` : ''}
-                  {r.podImage?.includes(':') ? `; release ${r.podImage.slice(r.podImage.lastIndexOf(':') + 1)} in the Releases tab` : ''}
-                </span>
+                <Tooltip title={r.podImageId ?? ''}>
+                  <span className={classes.bannerMeta} data-testid={`breakglass-request-image-${r.id}`}>
+                    The pod runs {r.podImage ?? 'an unknown image'}
+                    {r.podImageId?.includes('@sha256:') ? ` (${r.podImageId.slice(r.podImageId.indexOf('@sha256:') + 8, r.podImageId.indexOf('@sha256:') + 20)}…)` : ''}
+                    {r.podImage?.includes(':') ? `; release ${r.podImage.slice(r.podImage.lastIndexOf(':') + 1)} in the Releases tab` : ''}
+                  </span>
+                </Tooltip>
               )}
               {r.mode === 'copy' && (
                 <span className={r.holdApp ? classes.bannerMeta : classes.warn}>
@@ -312,8 +316,12 @@ export function BreakglassEnvironmentView({
                 {s.processAccess ? ' + process access' : ''}
                 {s.volumeAccess ? ' + volume access' : ''})
               </span>
-              <span className={classes.rowMeta} title={`Ends at ${formatDateTime(s.expiresAt)}`}>ends {relativeTime(s.expiresAt)}</span>
-              {s.glassBroken && <StatusChip tone="bad" title="Opened by an admin with no second person">glass broken</StatusChip>}
+              <Tooltip title={`Ends at ${formatDateTime(s.expiresAt)}`}>
+                <span className={classes.rowMeta}>ends {relativeTime(s.expiresAt)}</span>
+              </Tooltip>
+              {s.glassBroken && <Tooltip title="Opened by an admin with no second person">
+                <StatusChip tone="bad">glass broken</StatusChip>
+              </Tooltip>}
               {s.attached === false && <span className={classes.rowMeta}>terminal closed</span>}
               {hostTerminal && s.requester === info.user && open?.id !== s.id && (
                 <Button small onClick={() => setOpen(s)}>Reopen terminal</Button>
@@ -338,74 +346,105 @@ export function BreakglassEnvironmentView({
             data-testid={`breakglass-session-${s.id}`}
           >
             <StatusChip tone={stateTone(s)}>{s.state}</StatusChip>
-            <span title={formatDateTime(s.createdAt)}>{relativeTime(s.createdAt)}</span>
+            <Tooltip title={formatDateTime(s.createdAt)}>
+              <span>{relativeTime(s.createdAt)}</span>
+            </Tooltip>
             <span>
               {s.mode}
               {s.processAccess ? ' + process access' : ''}
               {s.volumeAccess ? (
-                <span title={(s.volumes ?? []).map(v => v.path).join('\n') || 'no volumes'}> + volume access</span>
+                <Tooltip title={(s.volumes ?? []).map(v => v.path).join('\n') || 'no volumes'}>
+                  <span> + volume access</span>
+                </Tooltip>
               ) : (
                 ''
               )}
-              {s.mode === 'copy' && s.holdApp ? <span title="The copy ran a sleep instead of the app"> · app held</span> : ''}
+              {s.mode === 'copy' && s.holdApp ? <Tooltip title="The copy ran a sleep instead of the app">
+                <span> · app held</span>
+              </Tooltip> : ''}
             </span>
             <span>{s.pod}</span>
             {s.sensitive && (
-              <StatusChip tone="warn" title="Could read Secrets: the recording is for admins, the approver, the reviewer and the requester">sensitive</StatusChip>
+              <Tooltip title="Could read Secrets: the recording is for admins, the approver, the reviewer and the requester">
+                <StatusChip tone="warn">sensitive</StatusChip>
+              </Tooltip>
             )}
             {s.recycleWaivedReason && (
-              <span className={classes.rowMeta} title={s.recycleWaivedReason}>pod kept by the approver</span>
+              <Tooltip title={s.recycleWaivedReason}>
+                <span className={classes.rowMeta}>pod kept by the approver</span>
+              </Tooltip>
             )}
             <span className={classes.rowMeta}>{shortUser(s.requester)}</span>
-            <span className={classes.rowMeta} title={s.reason}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
+            <Tooltip title={s.reason}>
+              <span className={classes.rowMeta}>“{s.reason.length > 60 ? `${s.reason.slice(0, 60)}…` : s.reason}”</span>
+            </Tooltip>
             {s.ticketUrl && (
               <a className={classes.link} href={s.ticketUrl} target="_blank" rel="noopener noreferrer">ticket</a>
             )}
             {s.approver && !(s.endReason ?? '').startsWith('denied') && <span className={classes.rowMeta}>approved by {shortUser(s.approver)}</span>}
-            {s.glassBroken && <StatusChip tone="bad" title="Opened by an admin with no second person">glass broken</StatusChip>}
+            {s.glassBroken && <Tooltip title="Opened by an admin with no second person">
+              <StatusChip tone="bad">glass broken</StatusChip>
+            </Tooltip>}
             {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
             {s.reviewState === 'due' && s.noReviewer && (
-              <span className={classes.bad} title="Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)">
-                no one else can review this
-              </span>
+              <Tooltip title="Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)">
+                <span className={classes.bad}>
+                  no one else can review this
+                </span>
+              </Tooltip>
             )}
-            {s.reviewState === 'due' && s.reviewEscalatedAt && <StatusChip tone="bad" title={`Escalated ${formatDateTime(s.reviewEscalatedAt)}`}>overdue</StatusChip>}
+            {s.reviewState === 'due' && s.reviewEscalatedAt && <Tooltip title={`Escalated ${formatDateTime(s.reviewEscalatedAt)}`}>
+              <StatusChip tone="bad">overdue</StatusChip>
+            </Tooltip>}
             {s.reviewState === 'done' && (
-              <span className={classes.rowMeta} title={`${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ''}`}>
-                reviewed by {shortUser(s.reviewedBy ?? '')}
-              </span>
+              <Tooltip title={`${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ''}`}>
+                <span className={classes.rowMeta}>
+                  reviewed by {shortUser(s.reviewedBy ?? '')}
+                </span>
+              </Tooltip>
             )}
             {s.endReason && (
-              <span className={classes.rowMeta} title={s.endReason}>
-                {s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}…` : s.endReason}
-              </span>
+              <Tooltip title={s.endReason}>
+                <span className={classes.rowMeta}>
+                  {s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}…` : s.endReason}
+                </span>
+              </Tooltip>
             )}
             {s.mode === 'live' && s.state === 'ended' && (
               <span className={classes.rowMeta}>{s.recycled ? 'pod restarted' : 'pod not restarted'}</span>
             )}
-            {s.cleanupNotes && <span className={classes.warn} title={s.cleanupNotes}>notes</span>}
+            {s.cleanupNotes && <Tooltip title={s.cleanupNotes}>
+              <span className={classes.warn}>notes</span>
+            </Tooltip>}
             {s.recordingKey && (
               <>
                 {s.recordingRekorIndex !== undefined ? (
-                  <span className={classes.rowMeta} title={`Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ''}) holds this recording's SHA-256, signed by the platform`}>
-                    anchored #{s.recordingRekorIndex}
-                  </span>
+                  <Tooltip title={`Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ''}) holds this recording's SHA-256, signed by the platform`}>
+                    <span className={classes.rowMeta}>
+                      anchored #{s.recordingRekorIndex}
+                    </span>
+                  </Tooltip>
                 ) : (
-                  <span className={classes.warn} title={s.anchorError ?? 'Not yet anchored in the transparency log'}>
-                    not anchored
-                  </span>
+                  <Tooltip title={s.anchorError ?? 'Not yet anchored in the transparency log'}>
+                    <span className={classes.warn}>
+                      not anchored
+                    </span>
+                  </Tooltip>
                 )}
-                <button type="button" className={classes.link} onClick={() => setPlaying(s)} title="Play the recording here">
-                  play
-                </button>
-                <button
-                  type="button"
-                  className={classes.link}
-                  onClick={() => download(s)}
-                  title={`SHA-256 ${s.recordingSha256 ?? ''}${s.recordingExpiresAt ? `\nKept until ${formatDateTime(s.recordingExpiresAt)}` : ''}`}
-                >
-                  download
-                </button>
+                <Tooltip title="Play the recording here">
+                  <button type="button" className={classes.link} onClick={() => setPlaying(s)}>
+                    play
+                  </button>
+                </Tooltip>
+                <Tooltip title={`SHA-256 ${s.recordingSha256 ?? ''}${s.recordingExpiresAt ? `\nKept until ${formatDateTime(s.recordingExpiresAt)}` : ''}`}>
+                  <button
+                    type="button"
+                    className={classes.link}
+                    onClick={() => download(s)}
+                  >
+                    download
+                  </button>
+                </Tooltip>
               </>
             )}
             {mayReview(s, info) && (
@@ -445,9 +484,11 @@ export function BreakglassEnvironmentCard({ env, tier, linkedSessionId }: { env:
         <SectionTitle level={2}>
           Break-glass
           {count > 0 && (
-            <span className={shared.badge} data-testid="breakglass-needs-you" title="Requests you can decide, your approved request, or reviews you can do">
-              {count}
-            </span>
+            <Tooltip title="Requests you can decide, your approved request, or reviews you can do">
+              <span className={shared.badge} data-testid="breakglass-needs-you">
+                {count}
+              </span>
+            </Tooltip>
           )}
         </SectionTitle>
       </div>

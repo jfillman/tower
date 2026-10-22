@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime, relativeTime } from '../../shared/format';
-import { EmptyNote, Hint, Panel, PanelSkeleton, StatusChip, type StatusTone, TextLink } from '../../ui';
+import { EmptyNote, Hint, Panel, PanelSkeleton, StatusChip, type StatusTone, TextLink, Tooltip } from '../../ui';
 import { downloadTestReport, type TestRun, type TestRunsState } from '../../useTestRuns';
 
 // The Tests view under Pipelines (Glidepath test framework, phase 4): every test run Glidepath started for this
@@ -110,11 +110,15 @@ export function TestRunsPanel({ state }: { state: TestRunsState }) {
               <StatusChip tone={statusTone(run.status)} dot>
                 {run.status}
               </StatusChip>
-              {run.statusNote && <Hint title={run.statusNote}>agent said aborted</Hint>}
-              <span className={classes.when} title={run.startedAt ? formatDateTime(run.startedAt) : undefined}>
-                {run.startedAt ? relativeTime(run.startedAt) : ''}
-                {duration(run.durationMs) ? ` · ${duration(run.durationMs)}` : ''}
-              </span>
+              {run.statusNote && <Tooltip title={run.statusNote}>
+                <Hint>agent said aborted</Hint>
+              </Tooltip>}
+              <Tooltip title={run.startedAt ? formatDateTime(run.startedAt) : undefined}>
+                <span className={classes.when}>
+                  {run.startedAt ? relativeTime(run.startedAt) : ''}
+                  {duration(run.durationMs) ? ` · ${duration(run.durationMs)}` : ''}
+                </span>
+              </Tooltip>
             </div>
             <div className={classes.facts}>
               {run.env && (
@@ -141,13 +145,15 @@ export function TestRunsPanel({ state }: { state: TestRunsState }) {
               </span>
             </div>
             {run.steps.length > 0 && (
-              <div className={classes.steps} title={`${passed} of ${run.steps.length} steps passed`}>
-                {run.steps.map((s, i) => (
-                  <span key={`${s.name}-${i}`} className={`${classes.step} ${s.status === 'passed' ? '' : classes.stepFailed}`}>
-                    {s.name} · {s.status}
-                  </span>
-                ))}
-              </div>
+              <Tooltip title={`${passed} of ${run.steps.length} steps passed`}>
+                <div className={classes.steps}>
+                  {run.steps.map((s, i) => (
+                    <span key={`${s.name}-${i}`} className={`${classes.step} ${s.status === 'passed' ? '' : classes.stepFailed}`}>
+                      {s.name} · {s.status}
+                    </span>
+                  ))}
+                </div>
+              </Tooltip>
             )}
             <div className={classes.actions}>
               {run.hasReport && (

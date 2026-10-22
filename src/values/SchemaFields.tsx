@@ -11,6 +11,7 @@ import {
   type SchemaNode,
   type Spec,
 } from './componentCatalog';
+import { Tooltip } from '../ui';
 
 // The fields of one component's `spec`, drawn from its XRD schema: a select for an enum, a number box for a number, a switch for
 // a boolean, one line per item for a list of strings, a small group for an object of strings. Only the fields of the mode in
@@ -134,15 +135,15 @@ export function SchemaFields({
           control = (
             <div className={classes.rowList}>
               {Object.entries(node.properties).map(([k, n]) => (
-                <input
-                  key={k}
-                  className={classes.input}
-                  aria-label={`${label} ${k}`}
-                  placeholder={`${k}${subRequired.has(k) ? ' (required)' : ''}`}
-                  value={typeof sub[k] === 'string' ? (sub[k] as string) : ''}
-                  onChange={e => change(f, setField(sub, k, e.target.value))}
-                  title={cleanDescription(n.description)}
-                />
+                <Tooltip key={k} title={cleanDescription(n.description)}>
+                  <input
+                    className={classes.input}
+                    aria-label={`${label} ${k}`}
+                    placeholder={`${k}${subRequired.has(k) ? ' (required)' : ''}`}
+                    value={typeof sub[k] === 'string' ? (sub[k] as string) : ''}
+                    onChange={e => change(f, setField(sub, k, e.target.value))}
+                  />
+                </Tooltip>
               ))}
             </div>
           );

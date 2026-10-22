@@ -5,7 +5,7 @@ import { relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { NicknameChip } from './tabs/deployments/ImageTagPill';
 import type { NextRelease, NextReleaseCandidate, ReadinessState } from './nextRelease';
-import { Button, Card, EmptyNote, Hint, SectionTitle, StatusChip, TextLink, Tile } from './ui';
+import { Button, Card, EmptyNote, Hint, SectionTitle, StatusChip, TextLink, Tile, Tooltip } from './ui';
 
 // The Record list's "Next release" card (Release Record proposal R1, 2026-10-13): the
 // release in progress, before it reaches Flight - what's merged, what's still open, the
@@ -110,9 +110,11 @@ export function NextReleaseCard({
             {name ? 'next release · draft' : 'draft'}
           </StatusChip>
           {next.suggestedVersion && (
-            <span className={classes.version} title={`From the merged PRs${next.breaking ? ', including a breaking change' : ''}`}>
-              v{next.suggestedVersion} suggested
-            </span>
+            <Tooltip title={`From the merged PRs${next.breaking ? ', including a breaking change' : ''}`}>
+              <span className={classes.version}>
+                v{next.suggestedVersion} suggested
+              </span>
+            </Tooltip>
           )}
           {previousLabel && <span className={classes.after}>after {previousLabel}</span>}
           {modeLabel && <span className={classes.after}>· {modeLabel}</span>}

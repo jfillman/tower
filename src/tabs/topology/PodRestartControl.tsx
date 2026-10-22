@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { useArgoCapabilities } from '../../useReleaseData';
 import type { EnvironmentSummary } from '../../types';
-import { Button } from '../../ui';
+import { Button, Tooltip } from '../../ui';
 
 // Restart one pod (2026-10-10; backstage /argo/pod-restart). Delegated through Argo CD, which deletes the pod; its
 // ReplicaSet starts a replacement. A delete skips the PodDisruptionBudget, so the backend refuses the last ready pod
@@ -59,13 +59,14 @@ export function PodRestartControl({
 
   return (
     <>
-      <Button small
-        
-        disabled={!!blocked || step === 'busy'}
-        title={blocked ?? 'Delete this pod so its ReplicaSet starts a new one. Changes nothing in git.'}
-        onClick={() => setStep('confirm')}>
-        {step === 'busy' ? 'Restarting…' : 'Restart pod'}
-      </Button>
+      <Tooltip title={blocked ?? 'Delete this pod so its ReplicaSet starts a new one. Changes nothing in git.'}>
+        <Button small
+          
+          disabled={!!blocked || step === 'busy'}
+          onClick={() => setStep('confirm')}>
+          {step === 'busy' ? 'Restarting…' : 'Restart pod'}
+        </Button>
+      </Tooltip>
       {(step === 'confirm' || step === 'downtime') && (
         <div data-testid="pod-restart-confirm" style={{ flexBasis: '100%', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span className={noteClass}>

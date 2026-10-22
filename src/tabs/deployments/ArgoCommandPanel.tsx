@@ -320,9 +320,11 @@ export function ArgoCommandPanel({
         <Callout tone="info" title={`Last operation: ${env.argoOperationPhase ?? 'unknown'}`}>
           {env.argoOperationMessage}
           {env.argoReconciledAt && (
-            <div className={classes.opBannerMeta} title={formatDateTime(env.argoReconciledAt)}>
-              Last reconcile: {relativeTime(env.argoReconciledAt)}
-            </div>
+            <Tooltip title={formatDateTime(env.argoReconciledAt)}>
+              <div className={classes.opBannerMeta}>
+                Last reconcile: {relativeTime(env.argoReconciledAt)}
+              </div>
+            </Tooltip>
           )}
         </Callout>
       )}

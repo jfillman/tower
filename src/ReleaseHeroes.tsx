@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { Button, Callout, EmptyNote, Stat, StatusChip, Tile, type StatusTone } from './ui';
+import { Button, Callout, EmptyNote, Stat, StatusChip, type StatusTone, Tile, Tooltip } from './ui';
 import { PrRef, prFromSummary } from './ui/PrRef';
 import { outcomeChip } from './ReleaseOutcome';
 import { statusPill } from './ReleaseRecordList';
@@ -68,10 +68,12 @@ function CommitLine({ proof, className }: { proof: CommitProof; className: strin
   if (proof.evidence?.mergedBy) who = ` by ${proof.evidence.mergedBy}`;
   else if (proof.evidence?.signer) who = `, ${proof.evidence.signer}`;
   return (
-    <span className={className} title={commitProofLine(proof)}>
-      Commit: {chip}
-      {who}
-    </span>
+    <Tooltip title={commitProofLine(proof)}>
+      <span className={className}>
+        Commit: {chip}
+        {who}
+      </span>
+    </Tooltip>
   );
 }
 

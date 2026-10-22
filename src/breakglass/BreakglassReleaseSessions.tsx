@@ -3,7 +3,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { formatDateTime, relativeTime } from '../shared/format';
 import type { ReleaseRecord } from '../useReleaseRecords';
-import { EmptyNote, StatusChip, TextLink } from '../ui';
+import { EmptyNote, StatusChip, TextLink, Tooltip } from '../ui';
 import { shortUser, useBreakglassSessions, type BreakglassSession } from '../tabs/topology/breakglassShared';
 
 // Break-glass sessions during a release (gaps phase C, G12): the sessions started in an environment while this
@@ -48,7 +48,9 @@ function EnvSessions({ appName, env, window, onOpen }: { appName: string; env: s
       {inWindow.map(s => (
         <div key={s.id} className={classes.row}>
           <span className={classes.meta}>{env}</span>
-          <span title={formatDateTime(s.startedAt)}>{relativeTime(s.startedAt!)}</span>
+          <Tooltip title={formatDateTime(s.startedAt)}>
+            <span>{relativeTime(s.startedAt!)}</span>
+          </Tooltip>
           <span>
             <b>{shortUser(s.requester)}</b> · {s.mode}
             {s.processAccess ? ' + process access' : ''}
@@ -57,7 +59,9 @@ function EnvSessions({ appName, env, window, onOpen }: { appName: string; env: s
           {s.glassBroken && <StatusChip tone="bad">glass broken</StatusChip>}
           {s.sensitive && <StatusChip tone="warn">sensitive</StatusChip>}
           {s.reviewState === 'due' && <StatusChip tone="warn">review due</StatusChip>}
-          <span className={classes.meta} title={s.reason}>“{s.reason.length > 50 ? `${s.reason.slice(0, 50)}…` : s.reason}”</span>
+          <Tooltip title={s.reason}>
+            <span className={classes.meta}>“{s.reason.length > 50 ? `${s.reason.slice(0, 50)}…` : s.reason}”</span>
+          </Tooltip>
           {onOpen && (
             <TextLink onClick={() => onOpen(s)}>
               open

@@ -2,7 +2,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { fmtDuration, stateLabel, type ProvisioningItem } from './shared';
-import { TextLink } from '../ui';
+import { TextLink, Tooltip } from '../ui';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   strip: {
@@ -117,16 +117,18 @@ export function SegmentBar({
         if (s.state === 'done') fill = t.good;
         else if (s.state === 'fail') fill = t.bad;
         return (
-          <i key={s.id} className={classes.seg} title={`${s.title}: ${stateLabel[s.state]}`}>
-            <b
-              style={{
-                display: 'block',
-                height: '100%',
-                width: `${Math.round(s.fraction * 100)}%`,
-                backgroundColor: fill,
-              }}
-            />
-          </i>
+          <Tooltip key={s.id} title={`${s.title}: ${stateLabel[s.state]}`}>
+            <i className={classes.seg}>
+              <b
+                style={{
+                  display: 'block',
+                  height: '100%',
+                  width: `${Math.round(s.fraction * 100)}%`,
+                  backgroundColor: fill,
+                }}
+              />
+            </i>
+          </Tooltip>
         );
       })}
     </div>

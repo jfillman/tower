@@ -10,7 +10,7 @@ import { formatDateTime, relativeTime } from '../shared/format';
 import { useCicdConfig } from '../useConfigData';
 import { readEnvironments, type Deploy } from '../environments/stagedChanges';
 import { FlightPins } from './cloud/FlightPins';
-import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, TabError, TabSkeleton, TextLink, useTableKit } from '../ui';
+import { Card, Chip, EmptyNote, PageHeader, Stat, StatusChip, type StatusTone, TabError, TabSkeleton, TextLink, Tooltip, useTableKit } from '../ui';
 
 // The Deployments tab for a service that deploys to a cloud target (AWS ECS or Lambda, Azure
 // Container Apps) instead of a Kubernetes Rollout. The Kubernetes tab reads Argo Rollouts; there
@@ -185,9 +185,11 @@ export function CloudDeploymentsTab() {
                 {d.flowSlug ? ` (${d.flowSlug})` : ''}
               </td>
               <td className={`${tc.td} ${classes.mono}`}>{d.env ?? '—'}</td>
-              <td className={tc.td} title={formatDateTime(d.startTime)}>
-                {relativeTime(d.startTime)}
-              </td>
+              <Tooltip title={formatDateTime(d.startTime)}>
+                <td className={tc.td}>
+                  {relativeTime(d.startTime)}
+                </td>
+              </Tooltip>
               <td className={tc.td}>{duration(d.durationSec)}</td>
               <td className={tc.td}>
                 <TextLink onClick={() => openRun(d.runName)}>

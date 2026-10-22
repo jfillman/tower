@@ -9,7 +9,7 @@ import { useFleetEnvironments, fleetEnvColumns } from '../../useFleetEnvironment
 import { useFleetSlos } from '../../useFleetSlos';
 import { health, imageTag, isRolloutActive } from '../../types';
 import { healthColor, healthLabel, latestEnv, tileStatus, worstStatus } from './dashboardStyles';
-import { PanelSkeleton } from '../../ui';
+import { PanelSkeleton, Tooltip } from '../../ui';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   kpis: {
@@ -158,11 +158,12 @@ export function FleetGridDashboard() {
                       const status = tileStatus(app, col);
                       return (
                         <div key={col} className={classes.stage}>
-                          <span
-                            className={classes.dot}
-                            style={{ backgroundColor: healthColor(t, status) }}
-                            title={`${col}: ${healthLabel(status)}`}
-                          />
+                          <Tooltip title={`${col}: ${healthLabel(status)}`}>
+                            <span
+                              className={classes.dot}
+                              style={{ backgroundColor: healthColor(t, status) }}
+                            />
+                          </Tooltip>
                           <span className={classes.stageLabel}>{col}</span>
                         </div>
                       );

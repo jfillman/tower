@@ -19,6 +19,7 @@ import {
   PipelineIcon,
   PreviewIcon,
 } from './activityIcons';
+import { Tooltip } from './ui';
 
 // Per-topic custom row bodies for RecentActivityPanel - 2026-09-14 feedback:
 // a combo of the "Grouped timeline" mockup's day-grouped/connector-line
@@ -140,12 +141,13 @@ function PillChain({
 }) {
   return (
     <div className={ctx.classes.pillChain}>
-      <span
-        className={ctx.classes.time}
-        title={formatDateTime(String(n.created))}
-      >
-        {relativeTime(n.created)}
-      </span>
+      <Tooltip title={formatDateTime(String(n.created))}>
+        <span
+          className={ctx.classes.time}
+        >
+          {relativeTime(n.created)}
+        </span>
+      </Tooltip>
       {items.map((item, i) => {
         const plain = item.variant === 'plain';
         const interactive = Boolean(item.href || item.onClick);
@@ -164,34 +166,38 @@ function PillChain({
         let node: ReactNode;
         if (item.href) {
           node = (
-            <a
-              className={className}
-              style={style}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={item.title}
-            >
-              {inner}
-            </a>
+            <Tooltip title={item.title}>
+              <a
+                className={className}
+                style={style}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {inner}
+              </a>
+            </Tooltip>
           );
         } else if (item.onClick) {
           node = (
-            <button
-              type="button"
-              className={className}
-              style={style}
-              onClick={item.onClick}
-              title={item.title}
-            >
-              {inner}
-            </button>
+            <Tooltip title={item.title}>
+              <button
+                type="button"
+                className={className}
+                style={style}
+                onClick={item.onClick}
+              >
+                {inner}
+              </button>
+            </Tooltip>
           );
         } else {
           node = (
-            <span className={className} style={style} title={item.title}>
-              {inner}
-            </span>
+            <Tooltip title={item.title}>
+              <span className={className} style={style}>
+                {inner}
+              </span>
+            </Tooltip>
           );
         }
         return (
@@ -752,12 +758,13 @@ export function renderReleaseOutcomeRow(
               <span className={ctx.classes.subStepLabel}>
                 {sib.payload.title}
               </span>
-              <span
-                className={ctx.classes.subStepTime}
-                title={formatDateTime(String(sib.created))}
-              >
-                {relativeTime(sib.created)}
-              </span>
+              <Tooltip title={formatDateTime(String(sib.created))}>
+                <span
+                  className={ctx.classes.subStepTime}
+                >
+                  {relativeTime(sib.created)}
+                </span>
+              </Tooltip>
             </div>
           ))}
         </div>

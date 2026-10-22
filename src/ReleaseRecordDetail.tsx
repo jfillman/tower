@@ -19,7 +19,7 @@ import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanCont
 import { countedSignoffs, useReleaseSignoff } from './releaseFlow';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
-import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
+import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink, Tooltip } from './ui';
 import { OPENING_PR, PrReceipt, PrRef, prFromSummary } from './ui/PrRef';
 import { isSignedAndAttested } from './supplyChain';
 import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, hasCommitSignature } from './ReleaseRecordEvidence';
@@ -438,9 +438,11 @@ export function ReleaseRecordDetail({
                 </span>
               </span>
               {record.imageDigest && (
-                <span title={record.imageDigest}>
-                  Digest <span className={classes.imageRef}>{`${record.imageDigest.slice(0, 19)}…`}</span>
-                </span>
+                <Tooltip title={record.imageDigest}>
+                  <span>
+                    Digest <span className={classes.imageRef}>{`${record.imageDigest.slice(0, 19)}…`}</span>
+                  </span>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -598,9 +600,11 @@ export function ReleaseRecordDetail({
           <div className={classes.builtBody}>
             <div className={classes.builtSummary}>
               {record.imageDigest && (
-                <span className={classes.summaryItem} title={record.imageDigest}>
-                  <ColumnLabel>digest</ColumnLabel> {record.imageDigest.replace(/^sha256:/, '').slice(0, 12)}…
-                </span>
+                <Tooltip title={record.imageDigest}>
+                  <span className={classes.summaryItem}>
+                    <ColumnLabel>digest</ColumnLabel> {record.imageDigest.replace(/^sha256:/, '').slice(0, 12)}…
+                  </span>
+                </Tooltip>
               )}
               {record.hasSbom && <span className={classes.chip}>SBOM attached</span>}
               <SupplyChainChips provenance={record.provenance} />
@@ -836,9 +840,11 @@ export function ReleaseRecordDetail({
               {/* A section heading for the group below, not a control's label - a
                   plain span avoids jsx-a11y's label/control-association rule, which
                   doesn't apply here (nothing single here for it to label). */}
-              <span className={classes.humanLabel} title="Added after release. They don't change the score: sign-off happens on the release PR before it merges.">
-                Acknowledgements
-              </span>
+              <Tooltip title="Added after release. They don't change the score: sign-off happens on the release PR before it merges.">
+                <span className={classes.humanLabel}>
+                  Acknowledgements
+                </span>
+              </Tooltip>
               {form.approvals.length === 0 && <Typography className={classes.humanNote}>No acknowledgements yet.</Typography>}
               {form.approvals.length > 0 && (
                 <div className={classes.approvalList}>
@@ -935,11 +941,13 @@ function GateGrid({ checks, classes, t }: { checks: PrCheckRun[]; classes: Retur
         {checks.map(check => {
           const tone = gateCheckTone(t, check);
           return (
-            <div key={check.name} className={classes.gateTile} title={`${formatGateName(check.name)}: ${tone.label}`}>
-              <span className={classes.gateDot} style={{ backgroundColor: tone.color }} />
-              <span className={classes.gateTileName}>{formatGateName(check.name)}</span>
-              {tone.label !== 'passed' && <span style={{ color: tone.color }}>{tone.label}</span>}
-            </div>
+            <Tooltip key={check.name} title={`${formatGateName(check.name)}: ${tone.label}`}>
+              <div className={classes.gateTile}>
+                <span className={classes.gateDot} style={{ backgroundColor: tone.color }} />
+                <span className={classes.gateTileName}>{formatGateName(check.name)}</span>
+                {tone.label !== 'passed' && <span style={{ color: tone.color }}>{tone.label}</span>}
+              </div>
+            </Tooltip>
           );
         })}
       </div>

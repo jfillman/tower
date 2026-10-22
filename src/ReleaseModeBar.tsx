@@ -9,7 +9,7 @@ import {
   type ReleaseMode,
   type ReleaseModeInfo,
 } from './releaseFlow';
-import { Button, Callout, StatusChip, TextLink, type StatusTone } from './ui';
+import { Button, Callout, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
 import { OPENING_PR, PrReceipt } from './ui/PrRef';
 
 // The app's release mode at the top of the Record tab (Release Record R2): Hand-flown needs a
@@ -77,18 +77,18 @@ export function ReleaseModeBar({
           {RELEASE_MODES.filter(m => m !== info.mode).map(m => {
             const available = info.settable.includes(m);
             return (
-              <Button
-                key={m}
-                small
-                disabled={!available || submitting}
-                title={RELEASE_MODE_HELP[m]}
-                onClick={() => {
-                  setPressed(m);
-                  onChange(m);
-                }}
-              >
-{modeLabel(m, available)}
-              </Button>
+              <Tooltip key={m} title={RELEASE_MODE_HELP[m]}>
+                <Button
+                  small
+                  disabled={!available || submitting}
+                  onClick={() => {
+                    setPressed(m);
+                    onChange(m);
+                  }}
+                >
+  {modeLabel(m, available)}
+                </Button>
+              </Tooltip>
             );
           })}
           <span className={classes.caption}>Opens a PR to {where}; it takes effect when it merges.</span>

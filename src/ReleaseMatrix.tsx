@@ -18,7 +18,7 @@ import { slugHue } from './PipelineRunList';
 import type { ProvenanceState } from './useReleaseData';
 import type { ReleaseCell, ReleaseRow } from './useReleaseContext';
 import type { EnvironmentSummary } from './types';
-import { Button, SectionTitle, StatusChip, TextLink } from './ui';
+import { Button, SectionTitle, StatusChip, TextLink, Tooltip } from './ui';
 
 // Top-of-tab release matrix: rows are releases (newest first), columns are
 // environments in the app's own real promotionOrder. Reading a column
@@ -285,35 +285,39 @@ export function ReleaseMatrix({
             {releases.map(row => (
               <tr key={row.imageTag} className={`${classes.row} ${row.current ? classes.rowCurrent : ''}`}>
                 <th className={`${classes.rowHead} ${row.current ? classes.rowCurrentHead : ''}`}>
-                  <button
-                    type="button"
-                    className={classes.rowHeadLink}
-                    onClick={() => goToImage(row.imageTag)}
-                    title={`View ${row.imageTag} in the Images tab`}
-                  >
-                    {names?.get(row.imageTag) && <span className={classes.releaseName}>{names.get(row.imageTag)}</span>}
-                    {row.imageTag}
-                  </button>
-                  {row.nickname && (
-                    <span
-                      className={classes.nicknameChip}
-                      style={{
-                        color: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
-                        borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
-                        backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`,
-                      }}
-                      title="This build's flow, from the CI/CD tab"
+                  <Tooltip title={`View ${row.imageTag} in the Images tab`}>
+                    <button
+                      type="button"
+                      className={classes.rowHeadLink}
+                      onClick={() => goToImage(row.imageTag)}
                     >
-                      {row.nickname}
-                    </span>
+                      {names?.get(row.imageTag) && <span className={classes.releaseName}>{names.get(row.imageTag)}</span>}
+                      {row.imageTag}
+                    </button>
+                  </Tooltip>
+                  {row.nickname && (
+                    <Tooltip title="This build's flow, from the CI/CD tab">
+                      <span
+                        className={classes.nicknameChip}
+                        style={{
+                          color: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
+                          borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
+                          backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`,
+                        }}
+                      >
+                        {row.nickname}
+                      </span>
+                    </Tooltip>
                   )}
                   {(() => {
                     const proof = proofs?.get(row.imageTag);
                     const chip = proof && PROVEN.has(proof.state) ? commitProofChip(proof) : undefined;
                     return chip ? (
-                      <span className={classes.proofChip} title={`Commit: ${commitProofLine(proof!)}`}>
-                        {chip}
-                      </span>
+                      <Tooltip title={`Commit: ${commitProofLine(proof!)}`}>
+                        <span className={classes.proofChip}>
+                          {chip}
+                        </span>
+                      </Tooltip>
                     ) : null;
                   })()}
                 </th>

@@ -28,7 +28,7 @@ import { useAppNotifications } from './useAppNotifications';
 import { useTektonPipelineRuns } from './tekton/useTektonPipelineRuns';
 import { TowerEnvironmentsProvider, useTowerEnvironments } from './useTowerEnvironments';
 import { isRolloutActive } from './types';
-import { TabError, TabSkeleton } from './ui';
+import { TabError, TabSkeleton, Tooltip } from './ui';
 
 // Order follows the real lifecycle of a change (2026-09-11 decision, see
 // HANDOFF-tower-pr-integration.md's successor discussion): a PR is proposed,
@@ -392,10 +392,14 @@ function TowerAppShellInner({
                 focused on that CICD tab") - it's a live activity signal, not
                 an unread/unseen marker that should clear once you've looked. */}
             {tabDef.id === 'pipelines' && ciActive && (
-              <span className={classes.tabActivityDot} title="A pipeline is running" />
+              <Tooltip title="A pipeline is running">
+                <span className={classes.tabActivityDot} />
+              </Tooltip>
             )}
             {tabDef.id === 'deployments' && cdActive && (
-              <span className={classes.tabActivityDot} title="A rollout is in progress" />
+              <Tooltip title="A rollout is in progress">
+                <span className={classes.tabActivityDot} />
+              </Tooltip>
             )}
           </button>
         ))}

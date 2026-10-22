@@ -16,7 +16,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { TaskRunLogConsole, stepDuration } from './TaskRunLogConsole';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, TaskPhase, TaskRunSummary } from './tekton/types';
-import { EmptyNote, Fact, FactGrid, SectionTitle, YamlBlock } from './ui';
+import { EmptyNote, Fact, FactGrid, SectionTitle, Tooltip, YamlBlock } from './ui';
 
 // The one piece of the Tekton plugin the user actually wants adopted here
 // (2026-09-11: "the only part of the tekton plugin that i want incorporated
@@ -398,9 +398,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
           {run.pipelineName ?? 'pipeline'} &middot;{' '}
           <span className={classes.headTitleValue}>{run.name}</span>
           {run.archive && (
-            <span className={classes.archivedTag} title="Finished more than an hour ago: read from Tekton Results, the 30-day run archive">
-              archived
-            </span>
+            <Tooltip title="Finished more than an hour ago: read from Tekton Results, the 30-day run archive">
+              <span className={classes.archivedTag}>
+                archived
+              </span>
+            </Tooltip>
           )}
         </span>
         <div className={classes.controls}>
@@ -568,9 +570,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                       {run.params.map(p => (
                         <div key={p.name} className={classes.ioRow}>
                           <span className={classes.ioName}>{p.name}</span>
-                          <span className={classes.ioValue} title={p.value}>
-                            {truncateIoValue(p.value)}
-                          </span>
+                          <Tooltip title={p.value}>
+                            <span className={classes.ioValue}>
+                              {truncateIoValue(p.value)}
+                            </span>
+                          </Tooltip>
                         </div>
                       ))}
                     </div>
@@ -581,9 +585,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                       {run.results.map(r => (
                         <div key={r.name} className={classes.ioRow}>
                           <span className={classes.ioName}>{r.name}</span>
-                          <span className={classes.ioValue} title={r.value}>
-                            {truncateIoValue(r.value)}
-                          </span>
+                          <Tooltip title={r.value}>
+                            <span className={classes.ioValue}>
+                              {truncateIoValue(r.value)}
+                            </span>
+                          </Tooltip>
                         </div>
                       ))}
                     </div>
@@ -618,9 +624,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                   {openTaskRun.params.map(p => (
                     <div key={p.name} className={classes.ioRow}>
                       <span className={classes.ioName}>{p.name}</span>
-                      <span className={classes.ioValue} title={p.value}>
-                        {truncateIoValue(p.value)}
-                      </span>
+                      <Tooltip title={p.value}>
+                        <span className={classes.ioValue}>
+                          {truncateIoValue(p.value)}
+                        </span>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -631,9 +639,11 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                   {openTaskRun.results.map(r => (
                     <div key={r.name} className={classes.ioRow}>
                       <span className={classes.ioName}>{r.name}</span>
-                      <span className={classes.ioValue} title={r.value}>
-                        {truncateIoValue(r.value)}
-                      </span>
+                      <Tooltip title={r.value}>
+                        <span className={classes.ioValue}>
+                          {truncateIoValue(r.value)}
+                        </span>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>

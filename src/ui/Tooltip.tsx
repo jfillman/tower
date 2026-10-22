@@ -48,15 +48,19 @@ export function Tooltip({ title, children }: { title: ReactNode; children: React
   const t = useHangarTokens();
   const c = useStyles({ t });
   if (!title) return children;
-  // The target is wrapped: MUI's Tooltip needs a child that holds a ref (the kit Button does not forward one), and a
-  // disabled button fires no pointer or focus events, so the wrapper is what listens. Focus on an enabled child
-  // bubbles to it; a disabled one is reached by tabbing to the wrapper itself.
+  // A DOM element (span, div, td, a) takes the tooltip directly, so nothing about its layout changes. A component
+  // child is wrapped: MUI's Tooltip needs a child that holds a ref (the kit Button, StatusChip and friends do not
+  // forward one). So is a disabled control, which fires no pointer or focus events: the wrapper listens instead, and
+  // is itself focusable so a keyboard user can still reach the reason.
   const disabled = Boolean((children.props as { disabled?: boolean }).disabled);
-  const target = (
-    <span style={{ display: 'inline-flex' }} tabIndex={disabled ? 0 : undefined}>
-      {children}
-    </span>
-  );
+  const target =
+    typeof children.type === 'string' && !disabled ? (
+      children
+    ) : (
+      <span style={{ display: 'inline-flex' }} tabIndex={disabled ? 0 : undefined}>
+        {children}
+      </span>
+    );
   return (
     <MuiTooltip title={title} enterDelay={300} enterNextDelay={150} classes={{ tooltip: c.tip }} placement="bottom">
       {target}

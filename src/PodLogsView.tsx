@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { Button, EmptyNote, FilterChip, FilterSelect, SectionTitle } from './ui';
+import { Button, EmptyNote, FilterChip, FilterSelect, SectionTitle, Tooltip } from './ui';
 
 // Item 6: "Pod logs". kubernetesProxyApiRef.getPodLogs handles cluster
 // auth/routing the same way NamespaceEvents' proxy() call does - confirmed
@@ -126,9 +126,11 @@ export function PodLogsView({
         {containers.length > 1 && (
           <FilterSelect label="Container" value={container} onChange={setContainer} options={containers.map(c => ({ value: c, label: c }))} />
         )}
-        <FilterChip on={previous} title="The container's previous run (before its last restart)" onClick={() => setPrevious(v => !v)}>
-          Previous run
-        </FilterChip>
+        <Tooltip title="The container's previous run (before its last restart)">
+          <FilterChip on={previous} onClick={() => setPrevious(v => !v)}>
+            Previous run
+          </FilterChip>
+        </Tooltip>
         {live ? (
           <span className={classes.liveBadge}>
             <span className={classes.liveDot} />

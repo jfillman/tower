@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { StatusChip, TextLink } from './ui';
+import { StatusChip, TextLink, Tooltip } from './ui';
 import { ReleaseRecordList } from './ReleaseRecordList';
 import { ReleaseRecordDetail } from './ReleaseRecordDetail';
 import { ReleaseRecordCompare } from './ReleaseRecordCompare';
@@ -104,9 +104,11 @@ export function ReleaseRecordPanel({
         </StatusChip>
       ))}
       {records.length > PICKER_RECENT && (
-        <TextLink onClick={() => setOpenId(null)} title="Every record is in the list below the draft">
-          + {records.length - PICKER_RECENT} older
-        </TextLink>
+        <Tooltip title="Every record is in the list below the draft">
+          <TextLink onClick={() => setOpenId(null)}>
+            + {records.length - PICKER_RECENT} older
+          </TextLink>
+        </Tooltip>
       )}
     </div>
   );

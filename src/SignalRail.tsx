@@ -15,6 +15,7 @@ import { parseGitopsPrTitle } from './useReleaseContext';
 import type { CdDelivery, CdStep, CdStepKey, CdStepStatus } from './useCdDelivery';
 import { imageTag as imageTagOf } from './types';
 import type { PrCheckRun, PullRequestSummary } from './pullRequests/usePullRequests';
+import { Tooltip } from './ui';
 
 // Shared CD-delivery rendering primitives - originally this file's own
 // "Signal Rail" component (the 2026-09-11 CD-panel mockup option the user
@@ -334,9 +335,11 @@ export function Rail({
               <StepIcon stepKey={step.key} status={step.status} />
             </span>
             <span className={classes.label}>{step.key === labelOverride?.key ? labelOverride.text : step.label}</span>
-            <span className={classes.meta} title={step.at ? formatDateTime(step.at) : undefined}>
-              {stepMetaText(step, metaOverride)}
-            </span>
+            <Tooltip title={step.at ? formatDateTime(step.at) : undefined}>
+              <span className={classes.meta}>
+                {stepMetaText(step, metaOverride)}
+              </span>
+            </Tooltip>
             {step.key === belowKey && below}
           </div>
           {i < steps.length - 1 && (

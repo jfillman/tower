@@ -5,6 +5,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { Button, Chip, Panel, SectionLabel } from './index';
 import { useUi } from './styles';
 import { OPENING_PR } from './PrRef';
+import { useReportStaged } from '../configure/stagedScope';
 
 // The "Pending changes" panel every editing tab uses (Environments, the values form, App Configuration, Glidepath):
 // what is staged, what blocks it, then Discard and the one amber button that opens the pull request. Edits are
@@ -68,6 +69,8 @@ export function PendingPanel({
   const c = useStyles({ t });
   const ui = useUi({ t });
   const ok = canSubmit ?? (lines.length > 0 && problems.length === 0);
+  // Configure marks a sub-tab that holds staged changes, so switching away does not hide them (configure/stagedScope).
+  useReportStaged(lines.length);
   return (
     <Panel accent={accent} className={`${c.panel} ${stick === 'top' ? c.stickTop : ''} ${stick === 'bottom' ? c.stickBottom : ''}`} role="region" aria-label={heading} {...rest}>
       <div className={c.head}>

@@ -15,7 +15,7 @@ import { RolloutControls } from './RolloutControls';
 import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import { imageTag, type ArgoResourceNode, type CanaryProgress, type EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
-import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
+import { Button, EmptyNote, SectionTitle, StatusChip, TextLink, Tooltip } from '../../ui';
 import { PrRef, prFromSummary } from '../../ui/PrRef';
 
 // Rollout controls (RolloutControls.tsx) sit in the "Rollout starts" and "Rollout completes" stage details, next
@@ -183,13 +183,14 @@ function MergedBody({
           )}
         </div>
         <div>
-          <Button
-            small
-            disabled
-            title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now."
-          >
-            Merge PR
-          </Button>
+          <Tooltip title="Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now.">
+            <Button
+              small
+              disabled
+            >
+              Merge PR
+            </Button>
+          </Tooltip>
         </div>
       </>
     );

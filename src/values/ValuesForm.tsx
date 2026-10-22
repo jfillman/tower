@@ -5,7 +5,7 @@ import Switch from '@material-ui/core/Switch';
 import { dump as dumpYaml } from 'js-yaml';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Callout, PanelSkeleton, Subtabs, TabError, YamlBlock } from '../ui';
+import { Button, Callout, PanelSkeleton, Subtabs, TabError, Tooltip, YamlBlock } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
@@ -472,12 +472,16 @@ function StepsBuilder({
           <div className={classes.row} style={{ alignItems: 'flex-start' }}>
             <Typography className={classes.stepNumber}>{i + 1}.</Typography>
             <div className={classes.stepOrderCol}>
-              <button type="button" className={classes.orderBtn} disabled={i === 0} onClick={() => move(i, -1)} title="Move up">
-                ▲
-              </button>
-              <button type="button" className={classes.orderBtn} disabled={i === steps.length - 1} onClick={() => move(i, 1)} title="Move down">
-                ▼
-              </button>
+              <Tooltip title="Move up">
+                <button type="button" className={classes.orderBtn} disabled={i === 0} onClick={() => move(i, -1)}>
+                  ▲
+                </button>
+              </Tooltip>
+              <Tooltip title="Move down">
+                <button type="button" className={classes.orderBtn} disabled={i === steps.length - 1} onClick={() => move(i, 1)}>
+                  ▼
+                </button>
+              </Tooltip>
             </div>
             <select
               className={classes.select}
@@ -2428,30 +2432,32 @@ export function ConfigEditor({
                         />
                         <input className={classes.input} placeholder="key" aria-label={`Variable ${i + 1} key`} value={v.refKey} onChange={e => setRow({ refKey: e.target.value })} />
                         {matchOf(v) && (
-                          <button
-                            type="button"
-                            className={classes.linkBtn}
-                            title="airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently"
-                            onClick={() => {
-                              const m = matchOf(v);
-                              if (m) setRow({ kind: 'component', component: m.name, output: m.output, refName: '', refKey: '' });
-                            }}
-                          >
-                            Use component {matchOf(v)?.name}.{matchOf(v)?.output} instead
-                          </button>
+                          <Tooltip title="airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently">
+                            <button
+                              type="button"
+                              className={classes.linkBtn}
+                              onClick={() => {
+                                const m = matchOf(v);
+                                if (m) setRow({ kind: 'component', component: m.name, output: m.output, refName: '', refKey: '' });
+                              }}
+                            >
+                              Use component {matchOf(v)?.name}.{matchOf(v)?.output} instead
+                            </button>
+                          </Tooltip>
                         )}
                       </>
                     )}
                   </>
                 )}
                 {unreadByCode(v) && (
-                  <span
-                    className={classes.hint}
-                    role="note"
-                    title={`Scanned ${envReads?.repo ?? 'the source repo'} at ${(envReads?.sha ?? '').slice(0, 7)} (${envReads?.scanned ?? 0} files)`}
-                  >
-                    The app's code never reads {v.name.trim()}
-                  </span>
+                  <Tooltip title={`Scanned ${envReads?.repo ?? 'the source repo'} at ${(envReads?.sha ?? '').slice(0, 7)} (${envReads?.scanned ?? 0} files)`}>
+                    <span
+                      className={classes.hint}
+                      role="note"
+                    >
+                      The app's code never reads {v.name.trim()}
+                    </span>
+                  </Tooltip>
                 )}
                 <button type="button" className={classes.removeBtn} onClick={() => setF('envVars', form.envVars.filter((_, j) => j !== i), 'env')}>
                   Remove

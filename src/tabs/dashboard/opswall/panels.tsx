@@ -23,7 +23,7 @@ import type {
 } from '../../../fleet/opsWallModel';
 import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
-import { FilterChip, FilterGroup, StatusChip, type StatusTone } from '../../../ui';
+import { FilterChip, FilterGroup, StatusChip, type StatusTone, Tooltip } from '../../../ui';
 import { PrRef } from '../../../ui/PrRef';
 import type { CalendarEntry } from '../../../releaseFlow';
 
@@ -246,11 +246,13 @@ export function PipelinesPanel({
                   {p.phase === 'pending' && <span className={c.mono}>queued</span>}
                   {p.slow && <span className={c.staleNote}>slow</span>}
                 </div>
-                <div className={c.rowDetail} title={p.title}>
-                  {[p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
+                <Tooltip title={p.title}>
+                  <div className={c.rowDetail}>
+                    {[p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </Tooltip>
               </div>
               <div className={c.rowSide}>
                 {p.progress && (
@@ -261,10 +263,12 @@ export function PipelinesPanel({
                     </span>
                   </>
                 )}
-                <span className={c.age} title="elapsed / typical for this pipeline">
-                  {fmtSeconds(p.elapsedSec)}
-                  {p.typicalSec !== undefined ? ` / ~${fmtSeconds(p.typicalSec)}` : ''}
-                </span>
+                <Tooltip title="elapsed / typical for this pipeline">
+                  <span className={c.age}>
+                    {fmtSeconds(p.elapsedSec)}
+                    {p.typicalSec !== undefined ? ` / ~${fmtSeconds(p.typicalSec)}` : ''}
+                  </span>
+                </Tooltip>
                 <Links links={p.links} />
               </div>
             </div>
@@ -284,21 +288,21 @@ export function PipelinesPanel({
       ) : (
         <div className={c.runStrip} aria-label={`Last ${strip.length} finished runs, oldest first`}>
           {strip.map(r => (
-            <a
-              key={r.key}
-              className={c.runCell}
-              style={{ backgroundColor: statusColor(t, r.status) }}
-              href={towerHref(r.app, 'pipelines', { run: r.name })}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`${r.app} · ${r.pipeline} · ${r.status}${
+            <Tooltip key={r.key} title={`${r.app} · ${r.pipeline} · ${r.status}${
                 r.durationSec !== undefined ? ` in ${fmtSeconds(r.durationSec)}` : ''
-              } · ${fmtAge(now, r.endTime)} ago`}
-            >
-              <span className={c.srOnly}>
-                {r.app} {r.pipeline} {r.status}
-              </span>
-            </a>
+              } · ${fmtAge(now, r.endTime)} ago`}>
+              <a
+                className={c.runCell}
+                style={{ backgroundColor: statusColor(t, r.status) }}
+                href={towerHref(r.app, 'pipelines', { run: r.name })}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className={c.srOnly}>
+                  {r.app} {r.pipeline} {r.status}
+                </span>
+              </a>
+            </Tooltip>
           ))}
         </div>
       )}
@@ -500,9 +504,11 @@ function Trend({ now, before, lowerIsBetter }: { now?: number; before?: number; 
   const up = now > before;
   const good = lowerIsBetter ? !up : up;
   return (
-    <span className={c.mono} style={{ color: good ? t.good : t.bad }} title="vs the previous window">
-      {up ? '▲' : '▼'}
-    </span>
+    <Tooltip title="vs the previous window">
+      <span className={c.mono} style={{ color: good ? t.good : t.bad }}>
+        {up ? '▲' : '▼'}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -705,9 +711,11 @@ export function ActivityPanel({
               <div className={c.rowMain}>
                 <div className={c.rowTitle}>{n.payload.title}</div>
                 {n.payload.description && (
-                  <div className={c.rowDetail} title={n.payload.description}>
-                    {n.payload.description.split('\n')[0]}
-                  </div>
+                  <Tooltip title={n.payload.description}>
+                    <div className={c.rowDetail}>
+                      {n.payload.description.split('\n')[0]}
+                    </div>
+                  </Tooltip>
                 )}
               </div>
               <div className={c.rowSide}>
@@ -782,9 +790,11 @@ export function ReleaseCalendarPanel({
               </div>
               <div className={c.rowSide}>
                 {e.next.targetDate && (
-                  <span className={c.age} title={e.next.targetDate}>
-                    {due}
-                  </span>
+                  <Tooltip title={e.next.targetDate}>
+                    <span className={c.age}>
+                      {due}
+                    </span>
+                  </Tooltip>
                 )}
                 {href && <Links links={[{ label: 'Open', href }]} />}
               </div>

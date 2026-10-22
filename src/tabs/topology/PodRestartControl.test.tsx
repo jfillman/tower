@@ -54,11 +54,12 @@ describe('PodRestartControl', () => {
     expect(screen.queryByRole('button', { name: 'Restart anyway' })).toBeNull();
   });
 
-  it('is disabled, with the reason, for someone who may not', () => {
+  it('is disabled, with the reason in the kit tooltip (reachable on a disabled button), for someone who may not', async () => {
     mockCaps = { data: { podRestart: false } };
     renderIt();
     const b = screen.getByRole('button', { name: 'Restart pod' }) as HTMLButtonElement;
     expect(b.disabled).toBe(true);
-    expect(b.title).toMatch(/owning team/);
+    fireEvent.mouseOver(b.parentElement!);
+    expect((await screen.findByRole('tooltip')).textContent).toMatch(/owning team/);
   });
 });

@@ -7,7 +7,7 @@ import { useRepoHead } from './useReleaseData';
 import { extractShortShaFromImageTag } from './types';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import { EmptyNote, SectionTitle } from './ui';
+import { EmptyNote, SectionTitle, Tooltip } from './ui';
 
 // Ported from GlidepathPage.tsx's ReleaseTimelinePanel + LeadTimePanel
 // (2026-09-06, "Add Release Timeline and Lead Time panels, backed by real
@@ -215,21 +215,21 @@ export function ReleaseTimelinePanel({
                 const stale = isLast && now - new Date(entry.date).getTime() > STALE_THRESHOLD_MS;
                 const color = colorForTag(entry.imageTag, isDark);
                 return (
-                  <div
-                    key={entry.sha}
-                    className={`${classes.seg} ${stale ? classes.segStale : ''}`}
-                    title={`${imageTag(entry.imageTag)} · deployed ${formatDateTime(entry.date)}${
+                  <Tooltip key={entry.sha} title={`${imageTag(entry.imageTag)} · deployed ${formatDateTime(entry.date)}${
                       stale ? ` · running ${relativeTime(entry.date)}` : ''
-                    }`}
-                    style={{
-                      left: pct(startMs),
-                      width: pct(endMs - startMs),
-                      backgroundColor: color,
-                      borderColor: stale ? t.amber : 'transparent',
-                    }}
-                  >
-                    {imageTag(entry.imageTag)}
-                  </div>
+                    }`}>
+                    <div
+                      className={`${classes.seg} ${stale ? classes.segStale : ''}`}
+                      style={{
+                        left: pct(startMs),
+                        width: pct(endMs - startMs),
+                        backgroundColor: color,
+                        borderColor: stale ? t.amber : 'transparent',
+                      }}
+                    >
+                      {imageTag(entry.imageTag)}
+                    </div>
+                  </Tooltip>
                 );
               })}
             </div>

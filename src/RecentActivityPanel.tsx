@@ -29,7 +29,7 @@ import {
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers';
 import type { DeployHistoryEntry } from './types';
 import type { PipelineRunSummary } from './tekton/types';
-import { EmptyNote, FilterChip, FilterGroup, SectionTitle, TextLink } from './ui';
+import { EmptyNote, FilterChip, FilterGroup, SectionTitle, TextLink, Tooltip } from './ui';
 
 // Overview tab's "Recent Activity" panel (Concept 2 - Grouped Timeline, see
 // the published mockup artifact) - a typed, per-app, day-grouped read of the
@@ -711,12 +711,13 @@ export function RecentActivityPanel({
                           <Typography className={classes.rowTitle}>
                             {n.payload.title}
                           </Typography>
-                          <span
-                            className={classes.time}
-                            title={formatDateTime(String(n.created))}
-                          >
-                            {relativeTime(n.created)}
-                          </span>
+                          <Tooltip title={formatDateTime(String(n.created))}>
+                            <span
+                              className={classes.time}
+                            >
+                              {relativeTime(n.created)}
+                            </span>
+                          </Tooltip>
                         </div>
                         <div className={classes.chipRow}>
                           <span
