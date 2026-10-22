@@ -18,7 +18,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { display: 'flex', flexDirection: 'column', gap: 6, padding: 8, borderRadius: 6, border: ({ t }) => `1px solid ${t.line}` },
   bar: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   screen: { maxHeight: 420, overflow: 'auto', borderRadius: 6, backgroundColor: '#0b0f14', padding: 6 },
   seek: { flex: 1, minWidth: 120 },
   clock: { fontVariantNumeric: 'tabular-nums' },

@@ -316,7 +316,7 @@ describe('removing environments', () => {
   it('refuses a removal a pipeline step still uses, naming the pipeline', () => {
     const after = [ground('dev'), flight('prod', 'example-prod')];
     expect(validateRemovals(before, after, { ci: { steps: [{ env: 'qa' }] } })).toEqual([
-      'Pipeline "ci" still has a step for "qa". Remove that step in the Glidepath tab first.',
+      'Pipeline "ci" still has a step for "qa". Remove that step in Configure › Pipeline first.',
     ]);
     expect(validateRemovals(before, after, { ci: { steps: [{ env: 'dev' }] } })).toEqual([]);
   });
@@ -327,7 +327,7 @@ describe('removing environments', () => {
     expect(validateRemovals(before, [ground('dev'), ground('qa')], undefined, 'aws-lambda')).toEqual([]);
     // A pipeline step that still deploys to it blocks a cloud removal like any other.
     expect(validateRemovals(before, [ground('dev'), ground('qa')], { ci: { steps: [{ env: 'prod' }] } }, 'aws-lambda')).toEqual([
-      'Pipeline "ci" still has a step for "prod". Remove that step in the Glidepath tab first.',
+      'Pipeline "ci" still has a step for "prod". Remove that step in Configure › Pipeline first.',
     ]);
   });
 

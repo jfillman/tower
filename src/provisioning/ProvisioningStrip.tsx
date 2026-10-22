@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   label: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -65,7 +65,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     overflowWrap: 'anywhere',
   },
   cur: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: ({ t }) => t.textLo,
     minWidth: 0,
     '@media (max-width: 700px)': { display: 'none' },
@@ -79,7 +79,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   etaSub: {
     display: 'block',
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
   },

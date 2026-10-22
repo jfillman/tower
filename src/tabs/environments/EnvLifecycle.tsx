@@ -11,7 +11,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel, padding: '10px 14px' },
   head: { display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' },
   title: { fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo },
+  sub: { fontSize: 12, color: ({ t }) => t.textLo },
   list: { listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 },
   item: { display: 'grid', gridTemplateColumns: '18px 1fr', gap: 10, alignItems: 'start' },
   dot: { width: 10, height: 10, borderRadius: '50%', marginTop: 4, border: '2px solid transparent' },

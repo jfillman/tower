@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import { Progress } from '@backstage/core-components';
 import { deepEqual } from '../deepEqual';
 import { RefreshButton } from '../RefreshButton';
 import { OPENING_PR, PrReceipt } from '../ui/PrRef';
-import { Button, Callout } from '../ui';
+import { Button, Callout, PanelSkeleton } from '../ui';
 import { useConfigMapFiles, useEnvXr, useSubmitConfigMapFiles, useSubmitEnvXrChange } from '../useConfigData';
 import type { Cls } from './styles';
 
@@ -22,7 +21,7 @@ export function EnvXrPanel({ owner, appName, env, classes }: { owner: string; ap
     if (xr.data) setDraft(xr.data.configMapGenerator);
   }, [xr.data]);
 
-  if (xr.loading) return <Progress />;
+  if (xr.loading) return <PanelSkeleton />;
   if (xr.error) {
     return (
       <div className={classes.section} style={{ marginBottom: 16 }}>
@@ -119,7 +118,7 @@ export function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filesData.data]);
 
-  if (filesData.loading || !rows || !originalRows) return <Progress />;
+  if (filesData.loading || !rows || !originalRows) return <PanelSkeleton />;
   if (filesData.error) {
     return (
       <div className={classes.section} style={{ marginBottom: 16 }}>

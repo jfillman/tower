@@ -42,7 +42,7 @@ has all of the ones it requires; a tab with none required always shows.
 | `releases` | container-app, function, ai-service | Releases |
 | `images` | container-app, function, ai-service | Images |
 | `slo` | container-app, infra-service, ai-service | SLOs (also needs `k8s-runtime`) |
-| `values-config` | container-app, infra-service, ai-service; removed by cloud targets | App Configuration |
+| `values-config` | container-app, infra-service, ai-service; removed by cloud targets | Configure › Shared values |
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
 | `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
 | `autopilot` | ai-workload, ai-service | no tab yet: the agent definition on Overview |
@@ -66,19 +66,19 @@ requires `autopilot` until it is.
 | Pipelines | yes | yes | yes | | | yes |
 | Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |
 | Releases | yes | yes | yes | | | yes |
-| Environments | yes | yes | yes | yes | | yes |
+| Configure › Environments | yes | yes | yes | yes | | yes |
 | Topology | yes | | | yes | | yes |
 | Images | yes | yes | yes | | | yes |
 | SLOs | yes | | | yes | | yes |
 | Notifications | yes | yes | yes | yes | | yes |
-| App Configuration | yes | | | yes (no preview section) | | yes |
-| Glidepath | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |
+| Configure › Shared values | yes | | | yes (no preview section) | | yes |
+| Configure › Pipeline | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |
 
 "Container app (cloud)" is `aws-ecs` or `azure-container-apps`; "Function" is `aws-lambda` (LambdaFunction) or
 `azure-container-apps` (AzureFunction). The table is asserted by `src/TowerPage.tabs.test.ts`.
 
-Within a tab, an InfraService also gets less: App Configuration has no Preview environments section (nothing
-builds its pull requests) and the Glidepath tab shows only the sections its `cicd.yaml` uses. The tab-by-tab
+Within a tab, an InfraService also gets less: Configure › Shared values has no Preview environments section (nothing
+builds its pull requests) and Configure › Pipeline shows only the sections its `cicd.yaml` uses. The tab-by-tab
 analysis is in the [Tower service types spec](https://claude.ai/artifact/TchwwJAoV7wjPdGWqcLnev).
 
 ## An agent's definition

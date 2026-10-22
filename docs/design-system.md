@@ -23,6 +23,10 @@ its own title, chip, table header and button styles with slightly different numb
   the fill's own steps (no brightness filter); a disabled primary goes grey, not translucent amber.
 - **Fonts.** Condensed display (`fontDisplay`) for titles, names and sub-tabs; Plex Sans for body; Plex Mono for
   labels, values, paths and chips.
+- **Type scale** (2026-10-22). Seven sizes, `fontScale` in `brand/tokens.ts`, nothing under 11px: **11** labels, chips,
+  column heads · **12** meta, mono values, hints · **13** body, buttons, table cells · **15** section title · **18**
+  card / dialog title · **22** stat value, page title · **32** Ops Wall KPIs. It replaced 28 sizes from 8 to 64px (139
+  declarations under 11). `yarn ratchet` fails on any other text size; an icon's size is exempt.
 - **Surfaces.** A `Panel` is a 1px `line` border, 6px radius, `panel` background. An accented panel (amber line)
   is for the pending-changes panel only.
 - **Labels.** `SectionLabel` (mono, uppercase, 11px) names a block; `ColumnLabel` (10.5px) heads a column.
@@ -65,6 +69,18 @@ its own title, chip, table header and button styles with slightly different numb
   "Open <kind> PR", shows `OPENING_PR` ("Opening PR…") on the pressed button, and ends in a `PrReceipt` in place of
   its actions: "PR #57 opened" or "PR #55 was already open[ · updated]", the PR as a card, and "Next: …". Never a raw
   URL, never a second dialog over the first. Use "PR" in labels, "pull request" only in sentences.
+- **Reasons you can see** (2026-10-22). Why a primary action is unavailable is an `ActionReason` under the action bar
+  (lock icon, one sentence, what you can still do), with the disabled button's `aria-describedby` on it; never only a
+  tooltip. Detail that blocks nothing (what a button does, a PR's failing checks) is the kit `Tooltip`: 300 ms on hover,
+  immediate on keyboard focus, works on a disabled button. A native `title=` is only for a truncated value's full text.
+- **Loading and errors in Hangar** (2026-10-22). A tab loading is a `TabSkeleton` (header, three tiles, a panel of
+  rows); a panel inside a tab is a `PanelSkeleton`. The shimmer stops under `prefers-reduced-motion`. A tab or panel
+  that could not load is a `TabError`: "Couldn't load <what>", the first line of the error, Retry where the tab has a
+  refresh, the rest behind Details. Backstage's `Progress` and `ResponseErrorPanel` are not used.
+- **Configure** (2026-10-22). Environments, shared values and `cicd.yaml` are one top-level tab with sub-tabs
+  Environments / Shared values (base.yaml) / Pipeline (cicd.yaml). The sub-tab ids are the old tab ids
+  (`environments`, `config`, `glidepath`), so `?tab=environments` and every other old link still lands in place.
+  Tab labels are sentence case.
 - **Nothing waits in a dialog for a pipeline.** Promote to a Flight environment closes once the release run starts;
   `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`) and becomes the
   PR's receipt.
@@ -99,7 +115,7 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Kit
 
-`PageHeader`, `Panel`, `Section`, `MenuButton`, `PrRef`, `PrReceipt`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `Card`, `Tile`, `Callout`, `Stat`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
+`PageHeader`, `Panel`, `Section`, `MenuButton`, `PrRef`, `PrReceipt`, `Tooltip`, `ActionReason`, `TabSkeleton`, `PanelSkeleton`, `Skeleton`, `TabError`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `Card`, `Tile`, `Callout`, `Stat`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
 `FilterBar`, `FilterChips`, `FilterChip`, `FilterGroup`, `FilterSelect`, `SearchField`, `TextLink`, `Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 

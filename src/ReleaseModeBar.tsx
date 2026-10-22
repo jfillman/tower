@@ -17,7 +17,7 @@ import { OPENING_PR, PrReceipt } from './ui/PrRef';
 // change it with a PR to the platform-owned release-modes file; everyone else just sees it.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  bar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12, fontSize: 12.5 },
+  bar: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12, fontSize: 12 },
   caption: { color: ({ t }) => t.textLo },
   help: { color: ({ t }) => t.textLo, flex: '1 1 320px', minWidth: 0 },
   choices: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, width: '100%' },

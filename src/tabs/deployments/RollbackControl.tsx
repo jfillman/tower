@@ -4,7 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
-import { Button, Callout, Hint } from '../../ui';
+import { ActionReason, Button, Callout, Hint } from '../../ui';
 import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
 
 // Roll back a Kubernetes Flight environment (glidepath ADR-0021 phase 4). A rollback is a release of an earlier image:
@@ -27,7 +27,7 @@ interface RollbackPlan {
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 8, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
-  label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  label: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.05em' },
   row: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   mono: { fontFamily: fontMono, fontSize: 11 },
   input: {
@@ -39,7 +39,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     minWidth: 220,
   },
-  ok: { fontSize: 11.5, color: ({ t }) => t.good },
+  ok: { fontSize: 11, color: ({ t }) => t.good },
 }));
 
 const tagOf = (image?: string) => (image ? image.slice(image.lastIndexOf(':') + 1) : '?');
@@ -148,13 +148,14 @@ export function RollbackControl({
             small
             variant="danger"
             disabled={!allowed || busy || confirming || !target || !reason.trim()}
-            title={allowed ? undefined : "Only the app's owning team (or an admin) can roll back."}
+            aria-describedby={allowed ? undefined : 'rollback-reason'}
             onClick={() => setConfirming(true)}
           >
             Roll back
           </Button>
         </div>
       )}
+      {!allowed && <ActionReason id="rollback-reason">Only the app&apos;s owning team (or an admin) can roll back.</ActionReason>}
       {confirming && chosen && (
         <div className={c.row}>
           <Hint>

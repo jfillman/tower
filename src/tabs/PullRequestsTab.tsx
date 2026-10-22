@@ -3,13 +3,13 @@ import { appRepos, appTypeOf } from '../appRepos';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
-import { Progress, ResponseErrorPanel, MissingAnnotationEmptyState } from '@backstage/core-components';
+import { MissingAnnotationEmptyState } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format';
 import { usePullRequests, type PullRequestSummary } from '../pullRequests/usePullRequests';
 import { parseGitopsPrTitle } from '../useReleaseContext';
 import { RefreshButton } from '../RefreshButton';
-import { Chip, EmptyNote, Hint, PageHeader, Section, StatusChip, TextLink, useTableKit } from '../ui';
+import { Chip, EmptyNote, Hint, PageHeader, Section, StatusChip, TabError, TabSkeleton, TextLink, useTableKit } from '../ui';
 import { prFromSummary, prWord } from '../ui/PrRef';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 
@@ -205,8 +205,8 @@ export function PullRequestsTab() {
   if (!projectSlug || !owner || !appName) {
     return <MissingAnnotationEmptyState annotation="github.com/project-slug" />;
   }
-  if (prs.loading) return <Progress />;
-  if (prs.error) return <ResponseErrorPanel error={new Error(prs.error)} />;
+  if (prs.loading) return <TabSkeleton />;
+  if (prs.error) return <TabError error={prs.error} what="pull requests" />;
 
   const all = prs.data ?? [];
   // usePullRequests now also returns a bounded window of recently-merged

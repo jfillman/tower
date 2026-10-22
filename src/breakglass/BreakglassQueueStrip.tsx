@@ -25,7 +25,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   label: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.08em',
     color: ({ t }) => t.textFaint,
@@ -42,8 +42,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.bad,
     color: ({ t }) => t.bg,
   },
-  stale: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.amberInk },
-  group: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, marginTop: 4 },
+  stale: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk },
+  group: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 4 },
   row: {
     display: 'grid',
     gridTemplateColumns: 'minmax(140px, 1fr) minmax(200px, 2.4fr) minmax(110px, 0.9fr)',
@@ -61,12 +61,12 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:disabled': { cursor: 'default', opacity: 0.7 },
     '@media (max-width: 700px)': { gridTemplateColumns: '1fr' },
   },
-  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, overflowWrap: 'anywhere' },
-  nameSub: { display: 'block', fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, fontWeight: 400 },
-  what: { fontSize: 12.5, color: ({ t }) => t.textLo, minWidth: 0 },
+  name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, overflowWrap: 'anywhere' },
+  nameSub: { display: 'block', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontWeight: 400 },
+  what: { fontSize: 12, color: ({ t }) => t.textLo, minWidth: 0 },
   whatMain: { display: 'block', color: ({ t }) => t.textHi, fontWeight: 500 },
   when: { fontFamily: fontMono, fontSize: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
-  whenSub: { display: 'block', fontSize: 10, letterSpacing: '0.08em', color: ({ t }) => t.textFaint },
+  whenSub: { display: 'block', fontSize: 11, letterSpacing: '0.08em', color: ({ t }) => t.textFaint },
   overdue: { color: ({ t }) => t.bad, fontWeight: 700 },
 }));
 

@@ -71,7 +71,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   col: { padding: '18px 20px', backgroundColor: ({ t }) => t.panel },
   colLeft: { borderRight: ({ t }) => `1px solid ${t.line}`, '@media (max-width: 760px)': { borderRight: 'none', borderBottom: ({ t }) => `1px solid ${t.line}` } },
   colHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 14 },
-  ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, color: ({ t }) => t.textHi },
+  ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   kv: { display: 'flex', flexDirection: 'column', gap: 8 },
   mid: {
     width: 150,
@@ -84,7 +84,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '@media (max-width: 760px)': { flexDirection: 'row', flexWrap: 'wrap', width: '100%', justifyContent: 'space-around' },
   },
   metric: { width: '100%', textAlign: 'center' },
-  metricLbl: { fontSize: 9.5, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  metricLbl: { fontSize: 11, color: ({ t }) => t.textFaint, textTransform: 'uppercase', letterSpacing: '0.06em' },
   metricDelta: { fontFamily: fontMono, fontSize: 13, fontWeight: 600, marginTop: 2 },
 }));
 

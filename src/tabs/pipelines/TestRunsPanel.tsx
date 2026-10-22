@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Progress } from '@backstage/core-components';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime, relativeTime } from '../../shared/format';
-import { EmptyNote, Hint, Panel, StatusChip, TextLink, type StatusTone } from '../../ui';
+import { EmptyNote, Hint, Panel, PanelSkeleton, StatusChip, type StatusTone, TextLink } from '../../ui';
 import { downloadTestReport, type TestRun, type TestRunsState } from '../../useTestRuns';
 
 // The Tests view under Pipelines (Glidepath test framework, phase 4): every test run Glidepath started for this
@@ -20,7 +19,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   workflow: { fontWeight: 600, color: ({ t }) => t.textHi, fontSize: 13 },
   role: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textLo,
@@ -29,10 +28,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   facts: { display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12, color: ({ t }) => t.textLo },
   fact: { display: 'flex', gap: 4, minWidth: 0 },
   factLabel: { color: ({ t }) => t.textFaint },
-  factValue: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, overflowWrap: 'anywhere' },
+  factValue: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflowWrap: 'anywhere' },
   steps: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 },
   step: {
-    fontSize: 11.5,
+    fontSize: 11,
     padding: '1px 8px',
     borderRadius: 10,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -76,7 +75,7 @@ export function TestRunsPanel({ state }: { state: TestRunsState }) {
   const discoveryApi = useApi(discoveryApiRef);
   const [downloadError, setDownloadError] = useState<string | undefined>();
 
-  if (state.loading && state.runs.length === 0) return <Progress />;
+  if (state.loading && state.runs.length === 0) return <PanelSkeleton />;
   if (state.error) return <EmptyNote inset>Couldn't read the test runs: {state.error}</EmptyNote>;
   if (state.runs.length === 0) {
     return (

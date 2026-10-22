@@ -73,7 +73,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   bindingHead: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   kindChip: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
@@ -84,7 +84,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.sky,
   },
   bindingName: { fontFamily: fontMono, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  bindingMeta: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  bindingMeta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   subjectRow: {
     display: 'flex',
     alignItems: 'center',
@@ -94,7 +94,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panel,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     alignSelf: 'flex-start',
   },
   subjectKind: { color: ({ t }) => t.textFaint },
@@ -111,7 +111,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panel,
   },
   ruleGroup: { display: 'flex', flexDirection: 'column', gap: 5 },
-  ruleLabel: { fontFamily: fontMono, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint },
+  ruleLabel: { fontFamily: fontMono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint },
   pillRow: { display: 'flex', gap: 5, flexWrap: 'wrap' },
   pill: {
     fontFamily: fontMono,

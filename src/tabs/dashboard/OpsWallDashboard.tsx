@@ -4,7 +4,6 @@ import { useApi } from '@backstage/core-plugin-api';
 import { stringifyEntityRef, type Entity } from '@backstage/catalog-model';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import { notificationsApiRef } from '@backstage/plugin-notifications';
-import { Progress } from '@backstage/core-components';
 import Tooltip from '@material-ui/core/Tooltip';
 import { useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { DEFAULT_DORA_WINDOW, DORA_WINDOWS, isDoraWindow } from '../../fleet/dora';
@@ -34,7 +33,7 @@ import {
   ReleaseCalendarPanel,
 } from './opswall/panels';
 import { useOpsStyles } from './opswall/styles';
-import { FilterChips, FilterSelect } from '../../ui';
+import { FilterChips, FilterSelect, TabSkeleton } from '../../ui';
 import { usePlatformConfig } from '../../platformConfig';
 
 // The Ops Wall: what is happening across the fleet right now and what needs a human. Every
@@ -239,7 +238,7 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
     return list.filter(n => names.some(a => `${n.payload.title} ${n.payload.description ?? ''}`.includes(a)));
   }, [activity.data, appFilter]);
 
-  if (roster.loading) return <Progress />;
+  if (roster.loading) return <TabSkeleton />;
 
   const k = model.kpis;
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

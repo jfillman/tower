@@ -78,7 +78,7 @@ Nothing in this tab is a bare button:
 - **A button you may not use is greyed out with the reason**, for example "On a Flight environment only an admin
   may do this". Tower asks the backend what you may do (`/argo/capabilities`, the Rollout action list), and the
   backend still checks every request.
-- **The workload status** (App Configuration → Values → Workload → Deployment) says what the release file asks for
+- **The workload status** (Configure › Shared values → Values → Workload → Deployment) says what the release file asks for
   and what is actually running, so a canary in progress or an unsynced change shows as a difference instead of being
   hidden.
 
@@ -128,7 +128,7 @@ image back, so git stops asking for the bad one.
 
 ## Environments that run no workload
 
-The Deployment switch (App Configuration → Values → Workload) says whether an environment runs a service at all
+The Deployment switch (Configure › Shared values → Values → Workload) says whether an environment runs a service at all
 (`rollout.enabled`). An environment that is off runs only Jobs, CronJobs and components. Releases and promotions to it
 are refused before any PR or commit. Turning it off removes the Rollout and Service on the next sync; turning it back
 on brings them back with its next release.

@@ -1,6 +1,6 @@
 import type { EnvDef } from './stagedChanges';
 
-// Changes the user has submitted from the Environments tab whose pull request is not merged yet. Without a record
+// Changes the user has submitted from Configure › Environments whose pull request is not merged yet. Without a record
 // the tab forgot them the moment the pull request opened: the new environment vanished from the table and the
 // panel emptied, and a person had to leave the tab and come back after the merge to see anything (2026-10-04).
 // The record is kept in the browser (localStorage, keyed by service), pure helpers decide what is still pending.

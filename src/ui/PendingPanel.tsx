@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   lines: { display: 'flex', flexDirection: 'column', gap: 12 },
   line: { display: 'flex', flexDirection: 'column', gap: 2 },
   lineTitle: { fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
-  detail: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
+  detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
   plus: { color: ({ t }) => t.good, marginRight: 4 },
   minus: { color: ({ t }) => t.bad, marginRight: 4 },
   buttons: { display: 'flex', gap: 8 },

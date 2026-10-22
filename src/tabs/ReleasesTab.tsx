@@ -3,10 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { commitProofOf, type CommitProof } from '../commitProof';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { RefreshButton } from '../RefreshButton';
-import { PageHeader, StatusChip, Subtabs } from '../ui';
+import { PageHeader, PanelSkeleton, StatusChip, Subtabs, TabError, TabSkeleton } from '../ui';
 import { usePromote } from '../useReleaseData';
 import { applyCloudPins, parseGitopsPrTitle, useReleaseContext } from '../useReleaseContext';
 import { usePinnedTags } from '../environments/releasePins';
@@ -241,8 +240,8 @@ export function ReleasesTab() {
       return next;
     });
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="releases" onRetry={refresh} />;
 
   const pipelineEnvironments = pipelineEnvironmentsForRecords;
   const previewEnvironments = environments.filter(env => isPreviewEnvName(env.env));
@@ -395,7 +394,7 @@ export function ReleasesTab() {
 
         {activeTab === 'log' &&
           (deployHistory.loading ? (
-            <Progress />
+            <PanelSkeleton />
           ) : (
             <ReleaseLog
               entries={buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory.data ?? {}, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns)}
@@ -407,7 +406,7 @@ export function ReleasesTab() {
 
         {activeTab === 'lead' &&
           (deployHistory.loading ? (
-            <Progress />
+            <PanelSkeleton />
           ) : (
             <LeadTimePanel environments={pipelineEnvironments} history={deployHistory.data ?? {}} repoRef={repoRef} gitopsPrs={gitopsPrs} />
           ))}

@@ -16,7 +16,7 @@ import type { Entity } from '@backstage/catalog-model';
 //                             azure-container-apps, ... Optional.
 //                             Mirrors cicd.yaml's deploy.target, written once at
 //                             onboarding by the same XRD parameter. cicd.yaml stays
-//                             the source of truth; the Glidepath tab shows it.
+//                             the source of truth; Configure › Pipeline shows it.
 //
 // A tab declares the capabilities it needs (`requires` in TowerPage). A class
 // grants capabilities, and its deploy target adds or removes some (a Lambda has no

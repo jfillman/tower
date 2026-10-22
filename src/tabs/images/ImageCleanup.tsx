@@ -84,9 +84,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   head: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   pkg: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   row: { display: 'grid', gridTemplateColumns: '64px minmax(140px, 220px) 1fr', gap: 8, fontSize: 12, alignItems: 'baseline' },
-  del: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, color: ({ t }) => t.bad },
-  keep: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  mono: { fontFamily: fontMono, fontSize: 11.5 },
+  del: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: ({ t }) => t.bad },
+  keep: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  mono: { fontFamily: fontMono, fontSize: 11 },
   reasons: { color: ({ t }) => t.textLo },
   confirm: {
     display: 'flex',

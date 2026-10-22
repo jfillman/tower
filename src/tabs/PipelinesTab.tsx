@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { useReleaseContext } from '../useReleaseContext';
 import { linkFlowSlugsByChainId, useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
@@ -15,7 +14,7 @@ import { PipelineRunList } from '../PipelineRunList';
 import { PipelineDag } from '../PipelineDag';
 import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
-import { Count, FilterBar, FilterChips, PageHeader } from '../ui';
+import { Count, FilterBar, FilterChips, PageHeader, PanelSkeleton, TabError, TabSkeleton } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { TestRunsPanel } from './pipelines/TestRunsPanel';
 import { useTestRuns } from '../useTestRuns';
@@ -32,7 +31,7 @@ import { usePlatformConfig } from '../platformConfig';
 // cross-link to it at the bottom.
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   dagGap: { marginTop: 12 },
-  warnNote: { fontSize: 11.5, fontFamily: fontMono, padding: '10px 20px 0', color: ({ t }) => t.amberInk },
+  warnNote: { fontSize: 11, fontFamily: fontMono, padding: '10px 20px 0', color: ({ t }) => t.amberInk },
   dotLive: {
     width: 7,
     height: 7,
@@ -71,8 +70,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     textAlign: 'left',
     '&:hover': { backgroundColor: ({ t }) => t.panelAlt },
   },
-  activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
-  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
+  activityChipSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
 }));
 
 // How far back the run list reaches. 'live' is what the cluster still holds (Tekton deletes a finished run about an
@@ -202,8 +201,8 @@ export function PipelinesTab() {
       return next;
     });
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="pipelines" onRetry={refresh} />;
 
   const activeRunItems = pipelineRuns.runs.filter(r => r.phase === 'running');
   // A delivery in flight (a rollout moving) belongs with the running pipelines: one place for what is active right now.
@@ -212,9 +211,9 @@ export function PipelinesTab() {
   let ciBody: JSX.Element;
   const listLoading = pipelineRuns.loading || (historyRange !== 'live' && archivedPipelineRuns.loading);
   if (pipelineRuns.error && !pipelineRuns.loading && listRuns.length === 0) {
-    ciBody = <ResponseErrorPanel error={new Error(pipelineRuns.error)} />;
+    ciBody = <TabError error={pipelineRuns.error} what="pipeline runs" onRetry={refreshAll} />;
   } else if (listLoading && listRuns.length === 0) {
-    ciBody = <Progress />;
+    ciBody = <PanelSkeleton />;
   } else {
     ciBody = (
       <>

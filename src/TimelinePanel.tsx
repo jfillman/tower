@@ -83,7 +83,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     alignItems: 'center',
     paddingLeft: 6,
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     overflow: 'hidden',
     whiteSpace: 'nowrap',
     border: '1px solid transparent',
@@ -93,7 +93,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   emptyTrack: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontStyle: 'italic',
     color: ({ t }) => t.textFaint,
     display: 'flex',
@@ -112,7 +112,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 4,
     padding: '12px 14px',
   },
-  leadEnv: { fontFamily: fontMono, fontSize: 10.5, textTransform: 'lowercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint, marginBottom: 6 },
+  leadEnv: { fontFamily: fontMono, fontSize: 11, textTransform: 'lowercase', letterSpacing: '0.04em', color: ({ t }) => t.textFaint, marginBottom: 6 },
   leadValue: { fontFamily: fontMono, fontSize: 22, fontWeight: 600 },
   leadCaption: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 4 },
 }));

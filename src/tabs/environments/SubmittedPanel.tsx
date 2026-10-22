@@ -11,8 +11,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   panel: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12 },
   record: { display: 'flex', flexDirection: 'column', gap: 4, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 10 },
   title: { fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
-  detail: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
-  links: { display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12.5 },
+  detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
+  links: { display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12 },
   actions: { display: 'flex', gap: 8 },
 }));
 

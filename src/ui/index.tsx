@@ -6,6 +6,8 @@ import type { Health } from '../types';
 import { useBlocks, useControls, useData, useSection, useStatus, useUi } from './styles';
 
 export { MenuButton, type MenuAction } from './MenuButton';
+export { ActionReason, Tooltip } from './Tooltip';
+export { PanelSkeleton, Skeleton, TabError, TabSkeleton } from './LoadState';
 
 // Small shared pieces of the plugin's look. See ./styles.ts and docs/design-system.md.
 

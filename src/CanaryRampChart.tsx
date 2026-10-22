@@ -23,7 +23,7 @@ const STEP_COL = 64;
 const STEP_GAP = 2;
 const STEP_LINE = 14;
 const STEP_PITCH = STEP_COL + STEP_GAP + STEP_LINE + STEP_GAP; // 82
-const CHART_GUTTER = 32; // left space reserved for 0/25/50/75/100% axis labels
+const CHART_GUTTER = 38; // left space reserved for 0/25/50/75/100% axis labels (11px mono, the type-scale floor)
 const CHART_TRAIL = 14;
 const CHART_HEIGHT = 130;
 
@@ -37,7 +37,7 @@ function contentWidth(stepCount: number): number {
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { padding: '14px 16px', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 8, backgroundColor: ({ t }) => t.panelAlt },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 },
-  headTitle: { fontFamily: fontMono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint },
+  headTitle: { fontFamily: fontMono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: ({ t }) => t.textFaint },
   headTitleValue: { color: ({ t }) => t.textLo, textTransform: 'none' },
   // Chart+ramp on the left (its own horizontal scroll for a long step list),
   // background analysis pinned on the right, never scrolled out of view with
@@ -71,7 +71,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   backgroundAnalysis: { flex: '1 1 380px', minWidth: 320 },
   backgroundAnalysisTitle: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -93,9 +93,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   chartHalo: { transformBox: 'fill-box', transformOrigin: 'center', animation: '$halo 1.6s ease-out infinite' },
   nowLabelLive: { animation: '$pulse 1.2s ease-in-out infinite' },
   line: { flex: `0 0 ${STEP_LINE}px`, height: 2, marginTop: STEP_COL / 2 },
-  label: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, textAlign: 'center', lineHeight: 1.3 },
-  labelValue: { display: 'block', color: ({ t }) => t.textHi, fontSize: 10 },
-  legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '8px 2px 0', fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
+  label: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'center', lineHeight: 1.3 },
+  labelValue: { display: 'block', color: ({ t }) => t.textHi, fontSize: 11 },
+  legend: { display: 'flex', gap: 16, flexWrap: 'wrap', padding: '8px 2px 0', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block', marginRight: 5 },
   analysisCard: { marginTop: 12, padding: '12px 14px', border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel },
   analysisHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -103,16 +103,16 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // messages need to surface better") - distinct from `note` (this
   // platform's generic "nothing to show" italic caption elsewhere in this
   // file) since this is an actual reported fact, not an absence.
-  analysisMessage: { fontSize: 11.5, lineHeight: 1.5, marginBottom: 8, padding: '6px 8px', borderRadius: 6 },
-  metricMessage: { fontFamily: fontMono, fontSize: 10, marginTop: 4 },
+  analysisMessage: { fontSize: 11, lineHeight: 1.5, marginBottom: 8, padding: '6px 8px', borderRadius: 6 },
+  metricMessage: { fontFamily: fontMono, fontSize: 11, marginTop: 4 },
   analysisName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
-  badge: { fontFamily: fontMono, fontSize: 10, padding: '2px 8px', borderRadius: 10, border: '1px solid' },
-  query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginBottom: 10, overflowX: 'auto', whiteSpace: 'pre' },
+  badge: { fontFamily: fontMono, fontSize: 11, padding: '2px 8px', borderRadius: 10, border: '1px solid' },
+  query: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: '6px 8px', borderRadius: 4, marginBottom: 10, overflowX: 'auto', whiteSpace: 'pre' },
   measureRow: { display: 'flex', gap: 14, alignItems: 'center', fontFamily: fontMono, fontSize: 11, padding: '4px 0', borderBottom: ({ t }) => `1px dashed ${t.lineSoft}` },
   measureRowLast: { borderBottom: 'none' },
   measureTime: { color: ({ t }) => t.textFaint, width: 172, flexShrink: 0, whiteSpace: 'nowrap' },
   measureVal: { color: ({ t }) => t.textHi },
-  cond: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 8 },
+  cond: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 8 },
 }));
 
 function stepLabelParts(s: CanaryStepDef): { icon: string; text: string; caption: string } {
@@ -320,7 +320,7 @@ export function CanaryRampChart({
               {ticks.map(tick => (
                 <g key={tick}>
                   <line x1={CHART_GUTTER} y1={yFor(tick)} x2={width - CHART_TRAIL} y2={yFor(tick)} stroke={t.lineSoft} strokeWidth={1} />
-                  <text x={CHART_GUTTER - 6} y={yFor(tick) + 3} textAnchor="end" fontFamily={fontMono} fontSize={9} fill={t.textFaint}>{tick}%</text>
+                  <text x={CHART_GUTTER - 6} y={yFor(tick) + 3} textAnchor="end" fontFamily={fontMono} fontSize={11} fill={t.textFaint}>{tick}%</text>
                 </g>
               ))}
               <path d={pendingPath} fill="none" stroke={t.textFaint} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.55} />

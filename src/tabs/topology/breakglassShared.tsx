@@ -98,7 +98,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   radios: { display: 'flex', flexDirection: 'column', gap: 6 },
   radio: { display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: ({ t }) => t.textHi, cursor: 'pointer' },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   // Shared with BreakglassEnvironmentView and BreakglassPanel, which use them inline inside labels and rows.
   hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
   link: { color: ({ t }) => t.sky, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' },
@@ -114,7 +114,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
     border: ({ t }) => `1px solid ${t.bad}`,
     color: ({ t }) => t.bad,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: 700,
   },
   bannerMeta: { fontWeight: 400, color: ({ t }) => t.textHi },
@@ -126,7 +126,7 @@ export const useBreakglassStyles = makeStyles<Theme, { t: HangarTokens }>(() => 
   rowMeta: { color: ({ t }) => t.textFaint },
   badge: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: 700,
     padding: '0 6px',
     borderRadius: 9,

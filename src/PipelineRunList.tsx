@@ -101,7 +101,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: 'right', width: 70, flexShrink: 0, whiteSpace: 'nowrap' },
   slugChip: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: '1px 7px',
     borderRadius: 8,
     border: '1px solid',
@@ -110,7 +110,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   errorLine: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.bad,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

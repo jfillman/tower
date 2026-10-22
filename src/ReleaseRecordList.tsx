@@ -46,7 +46,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     padding: '6px 12px',
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },
-  scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
+  scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: '0.06em', color: ({ t }) => t.textHi, marginRight: 10 },
   chips: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 },
@@ -55,10 +55,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
   rungTodo: { color: ({ t }) => t.textFaint },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
+  sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: 'nowrap' },
   actions: { display: 'flex', alignItems: 'center', gap: 6 },
-  chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
+  chevron: { color: ({ t }) => t.textFaint, fontSize: 15, lineHeight: 1 },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 8 },
 }));
 

@@ -19,7 +19,7 @@ import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   text: { color: ({ t }) => t.textLo, lineHeight: 1.6 },
-  mono: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
+  mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   bad: { color: ({ t }) => t.bad },
 }));
 

@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
 import { useArgoActions } from '../useReleaseData';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns';
 import { RefreshButton } from '../RefreshButton';
-import { Count, EmptyNote, PageHeader, Section, SectionTitle, TierChip } from '../ui';
+import { Count, EmptyNote, PageHeader, Section, SectionTitle, TabError, TabSkeleton, TierChip } from '../ui';
 import { PipelineFlow, buildSupplyChainStages } from '../PipelineFlow';
 import { Rail, deliveryTag, useSignalRailStyles } from '../SignalRail';
 import { EnvPicker, type EnvPickerGroup } from '../EnvPicker';
@@ -274,8 +273,8 @@ export function DeploymentsTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEnv, liveCurrentKey]);
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="deployments" onRetry={refresh} />;
   if (cdEnvs.length === 0) {
     return (
       <div className={classes.main}>

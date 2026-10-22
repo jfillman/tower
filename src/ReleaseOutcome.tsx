@@ -41,7 +41,7 @@ function toneColour(t: HangarTokens, tone: StatusTone): string {
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  line: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 10, fontSize: 12.5 },
+  line: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 10, fontSize: 12 },
 }));
 
 export function ReleaseOutcomePanel({

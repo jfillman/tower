@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   stack: { display: 'flex', flexDirection: 'column', gap: 12 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   noteGap: { marginTop: 8 },
-  problem: { fontSize: 12.5, color: ({ t }) => t.bad, marginTop: 10 },
+  problem: { fontSize: 12, color: ({ t }) => t.bad, marginTop: 10 },
 }));
 
 function useDialogStyles() {
@@ -143,7 +143,7 @@ export function AddEnvironmentDialog({
               <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 Without a deploy step nothing in CI deploys to this environment: Argo CD creates its namespace and waits for
                 an image that never comes. It goes right after the step for the environment before it. Untick to edit the
-                pipeline yourself in the Glidepath tab.
+                pipeline yourself in Configure › Pipeline.
               </Hint>
             </>
           )}
@@ -210,7 +210,7 @@ export function AddEnvironmentDialog({
               />
               <Hint className={c.noteGap} style={{ marginTop: -6 }}>
                 Without a release step nothing in CI releases to this environment. It goes right after the step for the
-                environment before it. Untick to edit the pipeline yourself in the Glidepath tab.
+                environment before it. Untick to edit the pipeline yourself in Configure › Pipeline.
               </Hint>
             </>
           )}
@@ -293,7 +293,7 @@ export function RemoveEnvironmentDialog({
         {blocked ? (
           <DialogContentText className={c.problem} style={{ marginTop: 0 }}>
             {blockedBy.map(p => `Pipeline "${p}"`).join(', ')} still {blockedBy.length > 1 ? 'have' : 'has'} a step for {name}. Remove
-            the step in the Glidepath tab first, then come back.
+            the step in Configure › Pipeline first, then come back.
           </DialogContentText>
         ) : (
           <div className={c.stack}>

@@ -3,10 +3,9 @@ import type { ReactNode } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
 import { dump as dumpYaml } from 'js-yaml';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData';
 import { useHangarTokens } from '../brand/tokens';
-import { Button, Callout, Subtabs, YamlBlock } from '../ui';
+import { Button, Callout, PanelSkeleton, Subtabs, TabError, YamlBlock } from '../ui';
 import { PendingPanel } from '../ui/PendingPanel';
 import { useUi } from '../ui/styles';
 import type { ValuesSource } from './sources';
@@ -69,7 +68,7 @@ function asRecord(v: unknown): Record<string, unknown> {
 // "if you enable [a switch] and then disable it, the changes panel still
 // thinks there's an edit" - toggling back to the original value must read
 // as clean again, which a touched-once flag can never do). Extracted to
-// ../deepEqual so the Glidepath tab's own dirty-state tracking can share it.
+// ../deepEqual so Configure › Pipeline's own dirty-state tracking can share it.
 
 // --- configMaps / secrets forms (2026-09-13: "unclear how to configure" /
 // "I'd like Secrets to be form based" / "ConfigMaps to be more form based") -
@@ -1355,9 +1354,9 @@ export function ConfigEditor({
   };
 
   // The error first: with no data there is never a form, so checking "no form yet" first would show a spinner forever.
-  if (cfg.error && !cfg.data) return <ResponseErrorPanel error={new Error(cfg.error)} />;
-  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return <Progress />;
-  if (cfg.error) return <ResponseErrorPanel error={new Error(cfg.error)} />;
+  if (cfg.error && !cfg.data) return <TabError error={cfg.error} what="the values file" />;
+  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return <PanelSkeleton />;
+  if (cfg.error) return <TabError error={cfg.error} what="the values file" />;
   if (!cfg.data) return null;
 
   // No imperative "touched" tracking any more (2026-09-13 bug: toggling a

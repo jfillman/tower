@@ -100,9 +100,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   dot: { width: 9, height: 9, borderRadius: '50%', flexShrink: 0 },
   cardMeta: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 },
-  cardName: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  cardSub: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
-  restartBadge: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
+  cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  cardSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  restartBadge: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
   detail: {
     marginTop: 12,
     padding: '14px 16px',
@@ -114,7 +114,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     gap: 12,
   },
   detailHead: { display: 'flex', alignItems: 'center', gap: 8 },
-  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
+  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   titleGap: { marginBottom: 6 },
   containerRow: {
     display: 'flex',
@@ -128,7 +128,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flexWrap: 'wrap',
   },
   containerName: { color: ({ t }) => t.textHi, fontWeight: 600, minWidth: 90 },
-  containerRes: { color: ({ t }) => t.textFaint, fontSize: 10 },
+  containerRes: { color: ({ t }) => t.textFaint, fontSize: 11 },
   conditionRow: { display: 'flex', gap: 8, fontSize: 11, alignItems: 'baseline' },
   conditionType: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, minWidth: 90 },
   conditionOk: { color: ({ t }) => t.good },
@@ -138,7 +138,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // full-width row below the action buttons, one at a time - never squeezed
   // next to the summary grid or another pod's panel.
   panelBody: { marginTop: 2 },
-  none: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.textFaint },
+  none: { fontSize: 11, fontStyle: 'italic', color: ({ t }) => t.textFaint },
 }));
 
 type OpenPanel = 'logs' | 'yaml' | 'metrics' | 'debug' | null;

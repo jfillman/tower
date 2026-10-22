@@ -24,7 +24,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   steps: { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap: 6, marginTop: 10 },
   step: { display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 },
   bar: { height: 4, borderRadius: 2 },
-  stepName: { fontFamily: fontMono, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  stepName: { fontFamily: fontMono, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   receiptRow: { display: 'flex', alignItems: 'flex-start', gap: 8 },
   receipt: { flex: 1, minWidth: 0 },
 }));

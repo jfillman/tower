@@ -34,9 +34,9 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   body: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px 22px', maxWidth: 760 },
   facts: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px 16px', alignItems: 'baseline' },
-  mono: { fontFamily: fontMono, fontSize: 12.5 },
+  mono: { fontFamily: fontMono, fontSize: 12 },
   steps: { margin: '6px 0 0', paddingLeft: 20, lineHeight: 1.7 },
-  foot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12, color: ({ t }) => t.textLo, fontSize: 12.5 },
+  foot: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12, color: ({ t }) => t.textLo, fontSize: 12 },
 }));
 
 export interface RowDetailContext {
@@ -170,7 +170,7 @@ function RowDetailBody({ row, ctx, source }: RowProps & { source?: ValuesSource 
                 </>
               ) : (
                 <span className={ui.problem}>
-                  No pipeline step {def.tier === 'ground' ? 'deploys' : 'releases'} to {row.name}. Add one in the Glidepath tab.
+                  No pipeline step {def.tier === 'ground' ? 'deploys' : 'releases'} to {row.name}. Add one in Configure › Pipeline.
                 </span>
               )}
             </div>
@@ -312,7 +312,7 @@ function CreateInfraValues({ ctx, env, path }: { ctx: RowDetailContext; env: str
       appName: ctx.appName as string,
       patch: { deploy: buildDeploy(ctx.deploy, ctx.siblings) },
       summary: [`Add ${path}, a starter values file for the ${env} environment (no component yet)`],
-      via: 'Environments tab',
+      via: 'Configure › Environments',
       createFiles: [{ path, content: infraStarterValues(env) }],
     });
   return (
@@ -448,7 +448,7 @@ function Danger({ row, ctx, removed }: { row: DisplayRow & { def: EnvDef }; ctx:
         Tower does not remove Flight environments. Deleting the ApplicationEnvironment does not delete the files it wrote, so a partial
         removal would leave an Application still deploying. By hand, in this order:
         <ol className={c.steps}>
-          <li>Remove the pipeline step that releases to {row.name} (Glidepath tab).</li>
+          <li>Remove the pipeline step that releases to {row.name} (Configure › Pipeline).</li>
           <li>
             In the tenants repo, delete{' '}
             <span className={c.mono}>

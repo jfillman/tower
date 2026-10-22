@@ -7,7 +7,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
-import { Button, Callout, Card, EmptyNote, Fact, MenuButton, SectionTitle, StatusChip, TextLink, Tile, useTableKit } from '../../ui';
+import { ActionReason, Button, Callout, Card, EmptyNote, Fact, MenuButton, SectionTitle, Tooltip, StatusChip, TextLink, Tile, useTableKit } from '../../ui';
 import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
@@ -45,7 +45,7 @@ function syncWaveFor(node: ArgoResourceNode, k8sResources: K8sResourceRef[]): st
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   headRow: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   statusChips: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
-  revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  revision: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   actions: { display: 'flex', gap: 6, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
@@ -54,7 +54,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // Always visible, not gated behind "show details" - these are exactly
   // the kind of thing that banner exists to hide by default (routine
   // sync/revision facts), not this.
-  opBannerMeta: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 2 },
+  opBannerMeta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
   // The per-action explainer table (2026-09-16: "easy to understand
   // explainers on which sync option to enable depending on the argocd
   // state and what its possible errors are") - a short, always-the-same
@@ -71,10 +71,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
   },
-  guideRow: { display: 'flex', gap: 10, fontSize: 11.5 },
+  guideRow: { display: 'flex', gap: 10, fontSize: 11 },
   guideName: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, flex: '0 0 132px' },
   guideBody: { color: ({ t }) => t.textLo, lineHeight: 1.5 },
-  guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
+  guideRoadmapTag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontStyle: 'italic' },
   detail: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' },
   kvFull: { gridColumn: '1 / -1' },
@@ -95,7 +95,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   cellMessage: { padding: '6px 8px', color: ({ t }) => t.textFaint, verticalAlign: 'top', wordBreak: 'break-word', maxWidth: 260 },
   hookBadge: {
     display: 'inline-block',
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: 700,
     padding: '2px 7px',
     borderRadius: 10,
@@ -228,6 +228,7 @@ export function ArgoCommandPanel({
   // Sync is the view's primary action only while there is something to sync; at rest it is an ordinary button, so
   // amber on this card means "out of step", not "a button lives here".
   const appOutOfSync = env.argoSyncStatus === 'OutOfSync';
+  const syncReasonId = `argo-sync-reason-${env.argoAppName}`;
   const syncLabel = appOutOfSync && outOfSync > 0 ? `Sync ${outOfSync} resource${outOfSync === 1 ? '' : 's'}` : 'Sync';
 
   return (
@@ -238,13 +239,13 @@ export function ArgoCommandPanel({
         </div>
         {currentImage?.tag && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {incomingImage?.tag && <span style={{ fontSize: 10, color: t.textFaint, fontFamily: fontMono }}>LIVE</span>}
+            {incomingImage?.tag && <span style={{ fontSize: 11, color: t.textFaint, fontFamily: fontMono }}>LIVE</span>}
             <ImageTagPill tag={currentImage.tag} nickname={currentImage.nickname} size="small" />
           </span>
         )}
         {incomingImage?.tag && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, color: t.amberInk, fontFamily: fontMono, fontWeight: 700 }}>⇢ DEPLOYING</span>
+            <span style={{ fontSize: 11, color: t.amberInk, fontFamily: fontMono, fontWeight: 700 }}>⇢ DEPLOYING</span>
             <ImageTagPill tag={incomingImage.tag} nickname={incomingImage.nickname} size="small" />
           </span>
         )}
@@ -254,18 +255,22 @@ export function ArgoCommandPanel({
           {env.argoRevision && <span className={classes.revision}>@ {env.argoRevision.slice(0, 9)}</span>}
         </div>
         <div className={classes.actions}>
-          <Button small title={SYNC_GUIDE[0].body} disabled={!canAct || Boolean(argoActions.pending)} onClick={() => act(argoActions.refresh)}>
-            {argoActions.pending === 'refresh' ? 'Refreshing…' : 'Refresh'}
-          </Button>
-          <Button
-            small
-            variant={appOutOfSync ? 'primary' : 'default'}
-            title={may('sync') ? SYNC_GUIDE[2].body : notAllowed('sync')}
-            disabled={!canAct || Boolean(argoActions.pending) || !may('sync')}
-            onClick={() => act(argoActions.sync)}
-          >
-            {argoActions.pending === 'sync' ? 'Syncing…' : syncLabel}
-          </Button>
+          <Tooltip title={SYNC_GUIDE[0].body}>
+            <Button small disabled={!canAct || Boolean(argoActions.pending)} onClick={() => act(argoActions.refresh)}>
+              {argoActions.pending === 'refresh' ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          </Tooltip>
+          <Tooltip title={may('sync') ? SYNC_GUIDE[2].body : undefined}>
+            <Button
+              small
+              variant={appOutOfSync ? 'primary' : 'default'}
+              aria-describedby={may('sync') ? undefined : syncReasonId}
+              disabled={!canAct || Boolean(argoActions.pending) || !may('sync')}
+              onClick={() => act(argoActions.sync)}
+            >
+              {argoActions.pending === 'sync' ? 'Syncing…' : syncLabel}
+            </Button>
+          </Tooltip>
           <MenuButton
             actions={[
               {
@@ -305,6 +310,11 @@ export function ArgoCommandPanel({
           </TextLink>
         </div>
       </div>
+      {!may('sync') && (
+        <ActionReason id={syncReasonId}>
+          {notAllowed('sync')} {caps.data?.tier === 'flight' ? 'You can still Refresh, and Terminate a running sync.' : ''}
+        </ActionReason>
+      )}
 
       {(env.argoOperationMessage || env.argoOperationPhase) && (
         <Callout tone="info" title={`Last operation: ${env.argoOperationPhase ?? 'unknown'}`}>

@@ -57,7 +57,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   k: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: '0.1em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textFaint,
@@ -65,7 +65,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   v: {
     fontFamily: fontDisplay,
     fontWeight: 500,
-    fontSize: 20,
+    fontSize: 18,
     color: ({ t }) => t.textHi,
     fontVariantNumeric: 'tabular-nums',
   },
@@ -109,7 +109,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   liDone: { '&::before': { backgroundColor: ({ t }) => t.good } },
   name: {
     fontWeight: 600,
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: '22px',
     color: ({ t }) => t.textHi,
     display: 'flex',
@@ -120,8 +120,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   nameMuted: { color: ({ t }) => t.textFaint, fontWeight: 500 },
   nameRun: { color: ({ t }) => t.sky },
   nameFail: { color: ({ t }) => t.bad },
-  desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
-  detail: { fontSize: 12.5, color: ({ t }) => t.amberText, marginTop: 2 },
+  desc: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.4 },
+  detail: { fontSize: 12, color: ({ t }) => t.amberText, marginTop: 2 },
   links: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 },
   action: {
     marginTop: 6,
@@ -149,17 +149,17 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   eventDone: { color: ({ t }) => t.good },
   eventStart: { color: ({ t }) => t.sky },
   eventFail: { color: ({ t }) => t.bad },
-  created: { width: '100%', borderCollapse: 'collapse', fontSize: 12.5 },
+  created: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   createdRow: {
     borderTop: ({ t }) => `1px solid ${t.line}`,
     '& td': { padding: '5px 8px 5px 0', color: ({ t }) => t.textLo, verticalAlign: 'middle' },
-    '& td:first-child': { fontFamily: fontMono, fontSize: 11.5, whiteSpace: 'nowrap', color: ({ t }) => t.textFaint },
+    '& td:first-child': { fontFamily: fontMono, fontSize: 11, whiteSpace: 'nowrap', color: ({ t }) => t.textFaint },
   },
   dot: { display: 'inline-block', width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   linkState: { color: ({ t }) => t.textFaint, marginLeft: 6 },
   tag: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
     color: ({ t }) => t.textFaint,

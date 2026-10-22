@@ -5,7 +5,6 @@ import type { Theme } from '@material-ui/core/styles';
 import { useSearchParams } from 'react-router-dom';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { gitopsPrForEnv, lastDeployedAt, nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
@@ -15,7 +14,7 @@ import { slugHue } from '../PipelineRunList';
 import { RecentActivityPanel } from '../RecentActivityPanel';
 import { TowerEmptyState } from '../TowerEmptyState';
 import { RefreshButton } from '../RefreshButton';
-import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TextLink } from '../ui';
+import { Fact, FactGrid, HEALTH_LABEL, healthColor, healthTone, Hint, PageHeader, Panel, Section, StatusChip, TabError, TabSkeleton, TextLink } from '../ui';
 import { useAppNotifications } from '../useAppNotifications';
 import { health, imageTag, isPreviewEnvName, previewPrNumber, type EnvironmentSummary } from '../types';
 import { usePlatformConfig } from '../platformConfig';
@@ -196,7 +195,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     display: 'inline-block',
     marginLeft: 6,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: '1px 7px',
     borderRadius: 8,
     border: '1px solid',
@@ -267,7 +266,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   pendingPrLabel: {
     display: 'block',
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.amberInk,
@@ -280,7 +279,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   previewPrLabel: {
     display: 'block',
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: ({ t }) => t.textFaint,
@@ -293,7 +292,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // the collapsed rail chip below (which is the new "own row" ask).
   previewBadge: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     color: ({ t }) => t.textFaint,
@@ -341,8 +340,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // Amber ("new/informational"), not the old bad/red - this is a count of
   // recent activity, not an alert or an error state.
   notifDot: { width: 8, height: 8, borderRadius: '50%', backgroundColor: ({ t }) => t.amber, flexShrink: 0 },
-  notifText: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
-  notifLink: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky },
+  notifText: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
+  notifLink: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky },
 }));
 
 // Splits a release track's envs into rows that fit `gridWidth` - each row then gets its own
@@ -469,8 +468,8 @@ export function OverviewTab() {
     return next;
   });
 
-  if (loading) return <Progress />;
-  if (error) return <ResponseErrorPanel error={new Error(error)} />;
+  if (loading) return <TabSkeleton />;
+  if (error) return <TabError error={error} what="the overview" onRetry={refresh} />;
 
   // Falls back to the catalog's github.com/project-slug (owner/appName) when no
   // deployed image's provenance has resolved a repoRef yet (2026-09-24: "for a

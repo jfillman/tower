@@ -99,3 +99,22 @@ describe('forceSyncTargets', () => {
     expect(forceSyncTargets([{ kind: 'Job', name: 'migrate', syncStatus: 'OutOfSync' }, { kind: 'Service', name: 's', syncStatus: 'Synced' }, { kind: 'X', name: 'y' }])).toEqual(['Job/migrate']);
   });
 });
+
+describe('ArgoCommandPanel: why Sync is unavailable (2026-10-22)', () => {
+  it('says it under the bar and points the disabled button at it, instead of only a tooltip', () => {
+    mockCaps = caps({ tier: 'flight', sync: false, force: false });
+    render(<ArgoCommandPanel env={env()} argoActions={actions() as never} />);
+    const sync = button('Sync 1 resource');
+    expect(sync.disabled).toBe(true);
+    const reason = document.getElementById(sync.getAttribute('aria-describedby')!)!;
+    expect(reason.textContent).toMatch(/On a Flight environment only an admin may do this/);
+    expect(reason.textContent).toMatch(/You can still Refresh/);
+  });
+
+  it('shows no reason when Sync is allowed', () => {
+    mockCaps = caps();
+    render(<ArgoCommandPanel env={env()} argoActions={actions() as never} />);
+    expect(button('Sync 1 resource').getAttribute('aria-describedby')).toBeNull();
+    expect(screen.queryByText(/only an admin/)).toBeNull();
+  });
+});
