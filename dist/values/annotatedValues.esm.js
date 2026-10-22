@@ -62,39 +62,104 @@ function wrap(text, width) {
   }
   return out;
 }
-function emit(node, effective, own, root, indent, lines) {
+function origin(layers, key) {
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const v = layers[i].values;
+    if (v !== void 0 && key in v) return layers[i].mark;
+  }
+  return void 0;
+}
+function emit(node, effective, layers, root, indent, lines) {
   const pad = " ".repeat(indent);
   const props = isObj(node.properties) ? Object.keys(node.properties) : [];
   const keys = [...props.filter((k) => k in effective), ...Object.keys(effective).filter((k) => !props.includes(k))];
   for (const key of keys) {
     const value = effective[key];
     const child = childSchema(node, key, root);
-    const fromFile = own !== void 0 && key in own;
+    const from = origin(layers, key);
     const description = typeof child.description === "string" ? child.description : "";
     if (description) for (const l of wrap(description, Math.max(40, 100 - indent))) lines.push(`${pad}# ${l}`);
     if (isObj(value) && Object.keys(value).length > 0) {
-      lines.push(`${pad}${key}:${fromFile && !isObj(own?.[key]) ? "  # set here" : ""}`);
-      emit(child, value, isObj(own?.[key]) ? own[key] : void 0, root, indent + 2, lines);
+      const setWhole = from !== void 0 && layers.some((l) => l.mark === from && l.values && key in l.values && !isObj(l.values[key]));
+      lines.push(`${pad}${key}:${setWhole ? `  # ${from}` : ""}`);
+      const inner = layers.map((l) => ({ mark: l.mark, values: l.values && isObj(l.values[key]) ? l.values[key] : void 0 }));
+      emit(child, value, inner, root, indent + 2, lines);
     } else {
       const body = dump({ [key]: value }, { indent: 2, lineWidth: 100, noRefs: true }).trimEnd().split("\n");
-      body.forEach((l, i) => lines.push(`${pad}${l}${i === 0 && fromFile ? "  # set here" : ""}`));
+      body.forEach((l, i) => lines.push(`${pad}${l}${i === 0 && from ? `  # ${from}` : ""}`));
     }
     lines.push("");
   }
 }
-function annotateValues(chart, values) {
+function annotateLayers(chart, layers, header) {
   const defaults = chart?.defaults ?? {};
-  const effective = mergeValues(defaults, values);
+  const effective = layers.reduce((acc, l) => mergeValues(acc, l.values), defaults);
   const root = chart?.schema ?? {};
-  const lines = [
-    "# Effective values: the chart defaults with this environment's file laid over them.",
-    '# Fields marked "# set here" come from the file; everything else is the chart default.',
-    ""
-  ];
-  emit(resolve(root, root), effective, values, root, 0, lines);
+  const lines = [...header.map((h) => `# ${h}`), ""];
+  emit(resolve(root, root), effective, layers.map((l) => ({ mark: l.mark, values: l.values })), root, 0, lines);
   return `${lines.join("\n").trimEnd()}
 `;
 }
+function annotateValues(chart, values) {
+  return annotateLayers(chart, [{ mark: "set here", values }], [
+    "Effective values: the chart defaults with this file laid over them.",
+    'Fields marked "# set here" come from the file; everything else is the chart default.'
+  ]);
+}
+function useEnvValueLayers(owner, appName, target, enabled, refreshKey) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({});
+  const key = owner && appName && target ? `${owner}/${appName}/${target.env}/${target.tier}/${target.cluster ?? ""}/${target.argoApp ?? ""}` : "";
+  useEffect(() => {
+    if (!key || !target) return void 0;
+    let live = true;
+    (async () => {
+      try {
+        const base = await discoveryApi.getBaseUrl("glidepath");
+        const q = new URLSearchParams({
+          owner,
+          appName,
+          env: target.env,
+          tier: target.tier,
+          ...target.cluster ? { cluster: target.cluster } : {},
+          ...target.argoApp ? { argoApp: target.argoApp } : {}
+        });
+        const res = await fetchApi.fetch(`${base}/environment/values-layers?${q}`);
+        const body = await res.json().catch(() => void 0);
+        if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
+        if (live) setState(body);
+      } catch (e) {
+        if (live) setState({ error: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [discoveryApi, fetchApi, key, enabled, refreshKey]);
+  return state;
+}
+function fileName(label) {
+  return label.split("/").pop() ?? label;
+}
+function composeEnvLayers(backend, own) {
+  const out = [];
+  let ownPlaced = false;
+  const placeOwn = () => {
+    if (!ownPlaced) out.push({ mark: "set here", values: own });
+    ownPlaced = true;
+  };
+  for (const l of backend ?? []) {
+    if (l.kind === "env") {
+      placeOwn();
+      continue;
+    }
+    if (l.kind !== "shared") placeOwn();
+    out.push({ mark: l.kind === "platform" ? "set by the platform (Argo CD Application)" : `from ${fileName(l.label)}`, values: l.values });
+  }
+  placeOwn();
+  return out;
+}
 
-export { annotateValues, mergeValues, useChartValues };
+export { annotateLayers, annotateValues, composeEnvLayers, mergeValues, useChartValues, useEnvValueLayers };
 //# sourceMappingURL=annotatedValues.esm.js.map

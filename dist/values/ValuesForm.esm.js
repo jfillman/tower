@@ -19,7 +19,7 @@ import { ClusterCheckPicker } from './ClusterCheckPicker.esm.js';
 import { checkArgs } from './analysisCatalog.esm.js';
 import { parseComponents, ComponentsEditor } from './ComponentsEditor.esm.js';
 import { componentProblems, catalogOutputs } from './componentCatalog.esm.js';
-import { annotateValues, mergeValues } from './annotatedValues.esm.js';
+import { mergeValues, useEnvValueLayers, annotateValues, annotateLayers, composeEnvLayers } from './annotatedValues.esm.js';
 import { analysisProblems, templateRefs } from './analysis.esm.js';
 import { declaredComponents, PROFILE_ENV, withoutComponentEnv, renameComponentEnv, componentEnvRows, wiredOutputs, envProfileFor, outputsOf, matchComponentOutput } from './components.esm.js';
 import { useAppEnvReads } from './useAppEnvReads.esm.js';
@@ -870,6 +870,42 @@ const RENAME_HINT = {
   drivers: "Those are the names the app's driver reads on its own where it has them; rename any on the Config tab if this app reads others.",
   none: "Rename them on the Config tab to the names this app reads."
 };
+function fullValuesText(chart, target, layers, own) {
+  if (!target) return annotateValues(chart, own);
+  return annotateLayers(chart, composeEnvLayers(layers, own), [
+    `Effective values of ${target.env}, as Argo CD renders them: the chart defaults, then each layer below, later ones winning.`,
+    'Each value says where it comes from: "set here" (this file, with anything you have staged), "from <file>", or',
+    '"set by the platform (Argo CD Application)". An unmarked value is the chart default.'
+  ]);
+}
+function fullValuesHint(haveChart, target, layers, staged) {
+  const parts = [];
+  if (!haveChart) parts.push("Tower could not read the chart's schema, so chart defaults and descriptions are missing.");
+  if (target && layers.error) parts.push(`Couldn't read the other layers (${layers.error}): this shows only this file over the chart defaults.`);
+  else if (target && !layers.layers) parts.push("Reading the shared base, release file and Argo CD Application\u2026");
+  else if (target && layers.platformFrom === "missing") {
+    parts.push("Tower could not read this environment's Argo CD Application, so values the platform sets (appName, cluster, envName) may show as defaults.");
+  }
+  if (!target) parts.push('A shared file: the chart defaults with this file laid over them; "# set here" marks what it sets.');
+  if (staged) parts.push("Includes your staged changes.");
+  return parts.join(" ");
+}
+function FullValues({
+  owner,
+  appName,
+  chart,
+  target,
+  own,
+  staged,
+  refreshKey,
+  hintClass
+}) {
+  const layers = useEnvValueLayers(owner, appName, target, true, refreshKey);
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx(Typography, { className: hintClass, children: fullValuesHint(Boolean(chart), target, layers, staged) }),
+    /* @__PURE__ */ jsx(YamlBlock, { text: fullValuesText(chart, target, layers.layers, own), title: "Full values", maxHeight: 480, filter: true, "aria-label": "Full values" })
+  ] });
+}
 function ConfigEditor({
   owner,
   appName,
@@ -885,7 +921,8 @@ function ConfigEditor({
   chart,
   shared = false,
   workload,
-  appKind
+  appKind,
+  layersTarget
 }) {
   const tokens = useHangarTokens();
   const classes = useStyles({ t: tokens });
@@ -1294,22 +1331,19 @@ function ConfigEditor({
         /* @__PURE__ */ jsx(RefreshButton, { onClick: source.refresh })
       ] }),
       /* @__PURE__ */ jsx("button", { type: "button", className: classes.advancedToggle, onClick: () => setShowFull((v) => !v), children: showFull ? "\u25BE Hide full values (annotated)" : "\u25B8 View full values (annotated)" }),
-      showFull && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs(Typography, { className: classes.hint, children: [
-          chart ? 'The chart defaults with this file laid over them, every field with its description; "# set here" marks what the file sets. Changes you have staged in the form are included.' : "Tower could not read the chart's schema, so this shows only the committed file.",
-          dirty.size > 0 ? " (Showing your staged changes.)" : ""
-        ] }),
-        /* @__PURE__ */ jsx(
-          YamlBlock,
-          {
-            text: annotateValues(chart, mergeValues(cfg.data.values, previewPatch)),
-            title: "Full values",
-            maxHeight: 480,
-            filter: true,
-            "aria-label": "Full values"
-          }
-        )
-      ] }),
+      showFull && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsx(
+        FullValues,
+        {
+          owner,
+          appName,
+          chart,
+          target: layersTarget,
+          own: mergeValues(cfg.data.values, previewPatch),
+          staged: dirty.size > 0,
+          refreshKey: source.data,
+          hintClass: classes.hint
+        }
+      ) }),
       copyFrom && copyFrom.options.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsxs("select", { className: classes.input, "aria-label": "Copy values from", value: "", onChange: (e) => void copyValues(e.target.value), style: { maxWidth: 260 }, children: [
           /* @__PURE__ */ jsx("option", { value: "", children: "Copy values from\u2026" }),
