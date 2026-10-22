@@ -7,7 +7,8 @@ import { promoteCandidates, rollbackCandidate, usePinState, useSubmitPin } from 
 import { useImageVersions } from '../../useReleaseData';
 import type { ImageVersion } from '../../types';
 import { relativeTime } from '../../shared/format';
-import { Button, Chip, Panel, SectionLabel, TierChip } from '../../ui';
+import { Button, Callout, Panel, SectionLabel, TierChip } from '../../ui';
+import { OPENING_PR, PrReceipt, PrRef } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
 
 // Release pins for a cloud target's Flight environments (glidepath ADR-0020, slice 5). Each Flight environment shows
@@ -32,7 +33,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     border: ({ t }) => `1px solid ${t.line}`,
   },
-  ok: { fontSize: 12.5, color: ({ t }) => t.good },
   bad: { fontSize: 12.5, color: ({ t }) => t.bad },
 }));
 
@@ -99,6 +99,8 @@ function FlightPinRow({
   );
   const [image, setImage] = useState('');
   const [confirmRollback, setConfirmRollback] = useState(false);
+  // Which action was pressed: it carries the busy label, and the receipt's next step depends on it.
+  const [pressed, setPressed] = useState<'promote' | 'rollback'>();
   useEffect(() => {
     if (!image && candidates[0]) setImage(candidates[0].image);
   }, [candidates, image]);
@@ -108,8 +110,9 @@ function FlightPinRow({
   const back = rollbackCandidate(state);
   const busy = submit.loading;
   const run = async (body: { image?: string; promotedFrom?: string; rollbackTo?: string }) => {
-    setConfirmRollback(false);
+    setPressed(body.rollbackTo ? 'rollback' : 'promote');
     const r = await submit.submit({ owner, appName, env, ...body });
+    setConfirmRollback(false);
     if (r) setNonce(n => n + 1);
   };
 
@@ -119,11 +122,7 @@ function FlightPinRow({
         <span className={c.name}>{env}</span>
         <TierChip tier="flight" />
         <span className={c.mono}>{state?.path ?? `glidepath/releases/${env}.yaml`}</span>
-        {state?.openPr && (
-          <a href={state.openPr.url} target="_blank" rel="noreferrer">
-            <Chip tone="flight">pin PR open ↗</Chip>
-          </a>
-        )}
+        {state?.openPr && <PrRef pr={{ url: state.openPr.url, title: `The open pin PR for ${env}` }} size="chip" />}
       </div>
 
       {pin.error && <div className={c.bad}>Could not read the pin: {pin.error}</div>}
@@ -161,7 +160,7 @@ function FlightPinRow({
               disabled={busy || !image}
               onClick={() => run({ image, promotedFrom: deploys.find(d => d.imageRef === image)?.env ?? previous })}
             >
-              Promote to {env}
+              {busy && pressed === 'promote' ? OPENING_PR : `Promote to ${env}`}
             </Button>
           </>
         ) : (
@@ -174,7 +173,7 @@ function FlightPinRow({
                 Open a pull request pinning {env} back to {back.pin.tag}?
               </span>
               <Button variant="danger" disabled={busy} onClick={() => run({ rollbackTo: back.sha })}>
-                Open rollback PR
+                {busy && pressed === 'rollback' ? OPENING_PR : 'Open rollback PR'}
               </Button>
               <Button onClick={() => setConfirmRollback(false)}>Cancel</Button>
             </>
@@ -185,18 +184,19 @@ function FlightPinRow({
           ))}
       </div>
 
-      {submit.error && <div className={c.bad}>{submit.error}</div>}
+      {submit.error && <Callout tone="bad">{submit.error}</Callout>}
       {submit.result &&
         (submit.result.unchanged ? (
           <div className={ui.note}>{env} is already pinned to {submit.result.pin.tag}; no pull request needed.</div>
         ) : (
-          <div className={c.ok}>
-            {submit.result.alreadyOpen ? 'Updated the open pin PR' : 'Opened a pin PR'} for {submit.result.pin.tag}:{' '}
-            <a href={submit.result.prUrl} target="_blank" rel="noreferrer">
-              {submit.result.prUrl}
-            </a>
-            . Merge it to deploy.
-          </div>
+          submit.result.prUrl && (
+            <PrReceipt
+              prUrl={submit.result.prUrl}
+              alreadyOpen={submit.result.alreadyOpen}
+              updated={submit.result.alreadyOpen}
+              next={pressed === 'rollback' ? 'merge it to roll back.' : 'merge it to deploy.'}
+            />
+          )
         ))}
     </Panel>
   );

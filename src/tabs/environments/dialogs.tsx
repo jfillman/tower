@@ -10,12 +10,13 @@ import Checkbox from '@material-ui/core/Checkbox';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { flightClusterOptions, flightClusterProblem, useRegisteredClusters } from '../../environments/registeredClusters';
 import { applyStaged, validateAddedFlight, validateEnvironments, type CloudBlock, type EnvDef } from '../../environments/stagedChanges';
-import { Button, Field, Hint } from '../../ui';
+import { Button, Callout, Field, Hint } from '../../ui';
+import { PrReceipt, PrRef } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
+import { useDialogSkin } from '../../ui/dialog';
 import { MAIN_FIELD } from './shared';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -350,8 +351,6 @@ export function RemoveEnvironmentDialog({
   );
 }
 
-const EXISTING_NOTE = { merged: ' (already in the tenants repo, nothing new opened)', open: ' (already open)' } as const;
-
 export function ChangeResultDialog({
   requests,
   cicdPrUrl,
@@ -365,34 +364,36 @@ export function ChangeResultDialog({
   onClose: () => void;
 }) {
   const { c } = useDialogStyles();
+  const d = useDialogSkin();
+  // Each PR is its own receipt, numbered in merge order: the ApplicationEnvironment request(s), then cicd.yaml.
+  const ordered = requests.some(r => r.existing !== 'merged') && Boolean(cicdPrUrl);
   return (
     <Dialog open onClose={onClose} PaperProps={{ className: c.paper }}>
-      <DialogTitle>{error ? 'Something needs attention' : 'Pull requests opened'}</DialogTitle>
-      <DialogContent>
-        {error && <DialogContentText className={c.problem} style={{ marginTop: 0 }}>{error}</DialogContentText>}
-        {requests.length > 0 && (
-          <DialogContentText component="div">
-            {requests.map((r, i) => (
-              <div key={r.env}>
-                {i + 1}. ApplicationEnvironment request for {r.env}
-                {r.existing ? EXISTING_NOTE[r.existing] : ''}:{' '}
-                <Link href={r.url} target="_blank" rel="noopener noreferrer">
-                  {r.url}
-                </Link>
-              </div>
-            ))}
-          </DialogContentText>
+      <DialogTitle className={d.title}>{error ? 'Something needs attention' : 'PRs opened'}</DialogTitle>
+      <DialogContent className={c.stack}>
+        {error && <Callout tone="bad">{error}</Callout>}
+        {requests.map((r, i) =>
+          r.existing === 'merged' ? (
+            <DialogContentText key={r.env} component="div">
+              {i + 1}. The ApplicationEnvironment request for {r.env} is already in the tenants repo, nothing new opened:{' '}
+              <PrRef pr={{ url: r.url, state: 'merged' }} size="inline" />
+            </DialogContentText>
+          ) : (
+            <PrReceipt
+              key={r.env}
+              prUrl={r.url}
+              title={`${i + 1}. ApplicationEnvironment request for ${r.env}`}
+              alreadyOpen={r.existing === 'open'}
+              next={cicdPrUrl ? 'merge this first, so the environment exists when cicd.yaml names it.' : 'merge it to create the environment.'}
+            />
+          ),
         )}
         {cicdPrUrl && (
-          <DialogContentText component="div">
-            {requests.length > 0 ? `${requests.length + 1}. ` : ''}cicd.yaml change:{' '}
-            <Link href={cicdPrUrl} target="_blank" rel="noopener noreferrer">
-              {cicdPrUrl}
-            </Link>
-          </DialogContentText>
-        )}
-        {requests.some(r => r.existing !== 'merged') && cicdPrUrl && (
-          <DialogContentText>Merge the ApplicationEnvironment request first, then the cicd.yaml change.</DialogContentText>
+          <PrReceipt
+            prUrl={cicdPrUrl}
+            title={`${requests.length > 0 ? `${requests.length + 1}. ` : ''}cicd.yaml change`}
+            next={ordered ? 'merge it after the ApplicationEnvironment request.' : 'merge it to apply the change.'}
+          />
         )}
         {error && requests.length > 0 && !cicdPrUrl && (
           <DialogContentText>The request(s) above are already open and will not be opened again if you try again.</DialogContentText>

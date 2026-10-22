@@ -9,6 +9,18 @@ its own title, chip, table header and button styles with slightly different numb
 
 - **Tokens, never hex.** Colours come from `useHangarTokens()`. Text on a solid amber fill is `onAmber`; `amberInk`
   is for text on `amberSoft`, not on amber.
+- **Amber has four tokens, one per job** (the "Refined" tuning, 2026-10-22). Dark mode uses the same amber for all of
+  them; light mode splits them, because `#B9791F` reads mustard-brown as a fill and fails AA as text (3.6:1).
+
+  | Token | Job | Light | Dark |
+  |---|---|---|---|
+  | `amberFill` (+ `amberFillHover`, `amberFillPress`) | A fill behind text: the primary button, a count badge. Text on it is `onAmber` | `#E2A03A` | `#E8A33D` |
+  | `amber` | Strokes, dots, bars, underlines, and the 1px edge of an amber fill | `#B9791F` | `#E8A33D` |
+  | `amberText` | Amber words on a panel: an eyebrow, the Flight chip, a slow time | `#7A5115` | `#E8A33D` |
+  | `amberSoft` / `amberLine` / `amberInk` | The warn tint: background, border, text | unchanged | unchanged |
+
+  Never `color: t.amber` on text, and never a fill of `t.amber` behind text. The primary button's hover and press are
+  the fill's own steps (no brightness filter); a disabled primary goes grey, not translucent amber.
 - **Fonts.** Condensed display (`fontDisplay`) for titles, names and sub-tabs; Plex Sans for body; Plex Mono for
   labels, values, paths and chips.
 - **Surfaces.** A `Panel` is a 1px `line` border, 6px radius, `panel` background. An accented panel (amber line)
@@ -38,6 +50,24 @@ its own title, chip, table header and button styles with slightly different numb
   be stale), `bad` red (failed), `ok`, `neutral`; optional `label` (mono caps), `icon` and `actions`. Say a thing once:
   "Couldn't reach ArgoCD" is one amber callout in the ArgoCD card, and the troubleshoot banner stays out of it.
 - **Headline numbers.** A `Stat`: label, a 22px condensed value (`tone` colours it), an optional caption.
+- **Amber is attention, sky is motion** (2026-10-22). Anything moving on its own (a running pipeline or task, a
+  progressing rollout, a canary, a pod starting, a live log or metric) is sky; amber is kept for what waits on a person
+  or is out of step (paused, OutOfSync, pending sign-off, stale, slow). Only the tab bar's activity dot pulses; in-panel
+  "live" dots are still. A count badge is grey (`panelAlt`) unless the count is "needs you" (break-glass). Focus rings
+  and focused inputs are sky, so a ring stays visible around an amber button.
+- **One amber primary, and only when it is the next step.** A primary that is not needed right now drops to a default
+  button (the ArgoCD card's Sync is primary only while OutOfSync). Rarely used actions go in a `MenuButton` ("More ▾",
+  src/ui/MenuButton.tsx): items carry a hint, `danger`, and a disabled reason in their tooltip.
+- **Pull requests** (src/ui/PrRef.tsx). A PR on screen is a `PrRef`: `inline` (sky mono "PR #482 ↗" in a sentence),
+  `chip` (square: state glyph, #482, checks dot, one word) or `card` (a row with the title and a meta line; `PrButton`
+  is this). State glyphs ○ open, ◌ draft, ✓ merged, ✕ closed; the one word is what it waits on (`prWord`: checks
+  failing, changes requested, checks running, ready to merge) or how it ended. Every action that opens a PR is labelled
+  "Open <kind> PR", shows `OPENING_PR` ("Opening PR…") on the pressed button, and ends in a `PrReceipt` in place of
+  its actions: "PR #57 opened" or "PR #55 was already open[ · updated]", the PR as a card, and "Next: …". Never a raw
+  URL, never a second dialog over the first. Use "PR" in labels, "pull request" only in sentences.
+- **Nothing waits in a dialog for a pipeline.** Promote to a Flight environment closes once the release run starts;
+  `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`) and becomes the
+  PR's receipt.
 - **Environment groups** are told apart by name and tier chip (Ground sky, Flight amber), never by an extra hue.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 
@@ -69,7 +99,7 @@ its own title, chip, table header and button styles with slightly different numb
 
 ## Kit
 
-`PageHeader`, `Panel`, `Section`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `Card`, `Tile`, `Callout`, `Stat`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
+`PageHeader`, `Panel`, `Section`, `MenuButton`, `PrRef`, `PrReceipt`, `SectionTitle`, `EmptyNote`, `Hint`, `Count`, `Fact`, `FactGrid`, `useTableKit`, `Card`, `Tile`, `Callout`, `Stat`, `SectionLabel`, `ColumnLabel`, `Button`, `IconButton`, `ActionSelect`, `Chip`, `TierChip`,
 `FilterBar`, `FilterChips`, `FilterChip`, `FilterGroup`, `FilterSelect`, `SearchField`, `TextLink`, `Subtabs`, `StatusDot`, `Field`, `PendingPanel` (`src/ui/PendingPanel.tsx`), `healthColor`, `HEALTH_LABEL` (`src/ui/index.tsx`); the class set is in
 `src/ui/styles.ts`.
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usePollTick } from './livePoll';
+import { pageHidden, usePollTick } from './livePoll';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import type {
   ArgoApplicationSummary,
@@ -8,6 +8,7 @@ import type {
   ProvenanceResponse,
   PromoteRequest,
   PromoteResult,
+  ReleaseRunStatus,
   RepoHead,
 } from './types';
 
@@ -633,6 +634,53 @@ export function useDeployHistory(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, discoveryApi, fetchApi, refreshNonce]);
+
+  return state;
+}
+
+const RELEASE_RUN_POLL_MS = 4000;
+// A release run that has not reached its PR in this long is left to the Pipelines tab.
+const RELEASE_RUN_GIVE_UP_MS = 15 * 60_000;
+
+/** Follows one release run to its PR (ReleaseRunTracker): polls until the PR exists, the run fails, or 15 minutes. */
+export function useReleaseRunStatus(appName: string | undefined, run: string | undefined) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState<{ data?: ReleaseRunStatus; error?: string; gaveUp?: boolean }>({});
+  const [startedAt] = useState(() => Date.now());
+  const settled = state.data?.state === 'pr' || state.data?.state === 'failed' || Boolean(state.gaveUp);
+  const tick = usePollTick(appName && run && !settled ? RELEASE_RUN_POLL_MS : null);
+
+  useEffect(() => {
+    if (!appName || !run || settled) return undefined;
+    if (Date.now() - startedAt > RELEASE_RUN_GIVE_UP_MS) {
+      setState(s => ({ ...s, gaveUp: true }));
+      return undefined;
+    }
+    if (tick > 0 && pageHidden()) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('glidepath');
+        const res = await fetchApi.fetch(
+          `${baseUrl}/release-run?appName=${encodeURIComponent(appName)}&run=${encodeURIComponent(run)}`,
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => undefined);
+          throw new Error(body?.error ?? `request failed with ${res.status}`);
+        }
+        const data = (await res.json()) as ReleaseRunStatus;
+        if (!cancelled) setState({ data });
+      } catch (e) {
+        // One failed read is not the end of the run: keep the last answer and try again next tick.
+        if (!cancelled) setState(s => ({ ...s, error: errorMessage(e) }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appName, run, tick]);
 
   return state;
 }

@@ -7,12 +7,13 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
 import Link from '@material-ui/core/Link';
-import { Progress } from '@backstage/core-components';
-import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
+import { fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { imageTag, type EnvironmentSummary } from './types';
 import type { usePromote } from './useReleaseData';
 import type { ReleaseNames } from './useReleaseNames';
 import { Button, TextLink } from './ui';
+import { useDialogSkin } from './ui/dialog';
+import { PrReceipt } from './ui/PrRef';
 
 // Ported from GlidepathPage.tsx's inline promote dialog - same tier-aware
 // copy (direct commit for a lower-env target vs a real PR for an upper-env
@@ -26,18 +27,6 @@ import { Button, TextLink } from './ui';
 // opens.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  paper: {
-    backgroundColor: ({ t }) => t.panel,
-    backgroundImage: 'none',
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderRadius: 6,
-  },
-  title: {
-    fontFamily: fontDisplay,
-    fontWeight: 700,
-    color: ({ t }) => t.textHi,
-    borderBottom: ({ t }) => `1px solid ${t.lineSoft}`,
-  },
   lead: { color: ({ t }) => t.textHi, marginBottom: 6 },
   text: { color: ({ t }) => t.textLo },
   error: { color: ({ t }) => t.bad, marginBottom: 6 },
@@ -70,6 +59,7 @@ export function PromoteDialog({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
+  const d = useDialogSkin();
   const [, setSearchParams] = useSearchParams();
   const source = target && 'env' in target.source ? target.source : undefined;
   const sourceImage = target && !source ? (target.source as { image: string }).image : undefined;
@@ -93,27 +83,18 @@ export function PromoteDialog({
     onClose();
   };
 
-  const goToRun = () => {
-    const run = promote.result?.pipelineRun;
-    if (!run) return;
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', 'pipelines');
-      next.set('run', run);
-      return next;
-    });
-    onClose();
-  };
+  let confirmLabel = targetIsLower ? 'Commit and deploy' : 'Start release';
+  if (promote.loading) confirmLabel = targetIsLower ? 'Deploying…' : 'Starting release…';
 
   return (
     <Dialog
       open={Boolean(target)}
       onClose={() => (promote.loading ? undefined : onClose())}
-      PaperProps={{ className: classes.paper }}
+      PaperProps={{ className: d.paper }}
     >
       {target && (
         <>
-          <DialogTitle className={classes.title}>
+          <DialogTitle className={d.title}>
             {source ? `Promote ${appName} to ${target.target.env}?` : `Deploy ${appName} to ${target.target.env}?`}
           </DialogTitle>
           <DialogContent>
@@ -129,14 +110,13 @@ export function PromoteDialog({
                 <DialogContentText className={classes.text}>
                   {targetIsLower
                     ? `${target.target.env} is a Ground environment, so there's no PR to review.`
-                    : `${target.target.env} changes only when you merge the PR. It takes about a minute to appear.`}
+                    : `${target.target.env} changes only when you merge the PR. This closes once the release run starts; the Releases tab follows it to the PR.`}
                   {!targetIsLower && !releaseName && names
                     ? ` Once it's healthy there, this build becomes the release ${names.next}.`
                     : ''}
                 </DialogContentText>
               </>
             )}
-            {promote.loading && <Progress />}
             {promote.error && (
               <>
                 <DialogContentText className={classes.error}>
@@ -148,26 +128,12 @@ export function PromoteDialog({
                 </details>
               </>
             )}
-            {promote.result?.mode === 'pr' && (
-              <DialogContentText className={classes.text}>
-                {promote.result.alreadyOpen
-                  ? 'A release PR for this promotion is already open:'
-                  : 'Release PR opened:'}{' '}
-                <Link className={classes.link} href={promote.result.prUrl} target="_blank" rel="noopener noreferrer">
-                  {promote.result.prUrl}
-                </Link>
-              </DialogContentText>
-            )}
-            {promote.result?.pipelineRun && (
-              <DialogContentText className={classes.text}>
-                {promote.result.mode === 'pipeline'
-                  ? 'The release pipeline is still running; its PR will appear in the Pull requests tab when it opens. '
-                  : ''}
-                Release run:{' '}
-                <Link className={classes.link} component="button" onMouseDown={e => e.preventDefault()} onClick={goToRun}>
-                  {promote.result.pipelineRun}
-                </Link>
-              </DialogContentText>
+            {promote.result?.mode === 'pr' && promote.result.prUrl && (
+              <PrReceipt
+                prUrl={promote.result.prUrl}
+                alreadyOpen={promote.result.alreadyOpen}
+                next="merge it to release; checks and any sign-off show on the PR."
+              />
             )}
             {promote.result?.mode === 'direct-commit' && (
               <DialogContentText className={classes.text}>
@@ -185,7 +151,7 @@ export function PromoteDialog({
                   Cancel
                 </Button>
                 <Button variant="primary" disabled={promote.loading} onClick={onConfirm}>
-                  {targetIsLower ? 'Commit and deploy' : 'Start release'}
+                  {confirmLabel}
                 </Button>
               </>
             ) : (

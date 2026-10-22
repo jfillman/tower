@@ -84,6 +84,10 @@ Nothing in this tab is a bare button:
 
 ## Argo CD controls
 
+The card shows **Refresh** and **Sync** as buttons and puts the rest (Hard refresh, Terminate sync, Force sync…)
+under **More**. Sync is the amber primary button only while the Application is OutOfSync, and then says how much
+("Sync 3 resources"); when everything is in sync it is an ordinary button, so the card's amber means "out of step".
+
 | Action | What it does | Ground | Flight |
 |---|---|---|---|
 | Refresh / Hard refresh | Re-compare live state with git (hard: also bypass Argo CD's manifest cache). Applies nothing. | owners | owners |

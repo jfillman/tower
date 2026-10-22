@@ -52,14 +52,18 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     '&:hover:not(:disabled)': { borderColor: ({ t }) => t.textFaint },
     '&:disabled': { opacity: 0.45, cursor: 'default' },
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
+  // A clean amber fill with an `amber` edge (the edge gives the button its 3:1 outline on a white panel in light);
+  // hover and press are colour steps, not a brightness filter; disabled goes grey, not translucent amber.
   buttonPrimary: {
-    backgroundColor: ({ t }) => t.amber,
+    backgroundColor: ({ t }) => t.amberFill,
     borderColor: ({ t }) => t.amber,
     color: ({ t }) => t.onAmber,
     fontWeight: 600,
-    '&:hover:not(:disabled)': { borderColor: ({ t }) => t.amber, filter: 'brightness(1.08)' },
+    '&:hover:not(:disabled)': { backgroundColor: ({ t }) => t.amberFillHover, borderColor: ({ t }) => t.amber },
+    '&:active:not(:disabled)': { backgroundColor: ({ t }) => t.amberFillPress },
+    '&:disabled': { opacity: 1, backgroundColor: ({ t }) => t.panelAlt, borderColor: ({ t }) => t.line, color: ({ t }) => t.textFaint },
   },
   buttonDanger: { backgroundColor: 'transparent', borderColor: ({ t }) => t.bad, color: ({ t }) => t.bad, '&:hover:not(:disabled)': { borderColor: ({ t }) => t.bad } },
   buttonSmall: { padding: '4px 9px', fontSize: 12 },
@@ -79,7 +83,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     '&:hover:not(:disabled)': { color: ({ t }) => t.textHi, borderColor: ({ t }) => t.textFaint },
     '&:disabled': { opacity: 0.35, cursor: 'default' },
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
   // ---- chips
   chip: {
@@ -97,7 +101,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     whiteSpace: 'nowrap',
   },
   chipGround: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine },
-  chipFlight: { color: ({ t }) => t.amber, borderColor: ({ t }) => t.amberLine },
+  chipFlight: { color: ({ t }) => t.amberText, borderColor: ({ t }) => t.amberLine },
   chipOk: { color: ({ t }) => t.good, borderColor: ({ t }) => t.good },
   chipBad: { color: ({ t }) => t.bad, borderColor: ({ t }) => t.bad },
   chipSky: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
@@ -114,7 +118,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: 'transparent',
     color: ({ t }) => t.textLo,
     cursor: 'pointer',
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: -2 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: -2 },
   },
   marker: { display: 'inline-block', width: 6, height: 6, borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle', backgroundColor: ({ t }) => t.amber },
   sideBySide: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: 18, alignItems: 'start' },
@@ -137,7 +141,7 @@ export const useUi = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontFamily: fontMono,
     fontSize: 13,
     '&::placeholder': { fontFamily: fontBody, fontStyle: 'italic', color: ({ t }) => t.textFaint, opacity: 0.85 },
-    '&:focus': { outline: 'none', borderColor: ({ t }) => t.amber },
+    '&:focus': { outline: 'none', borderColor: ({ t }) => t.sky },
   },
   formSection: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 14, marginTop: 14 },
   formSectionTitle: { margin: '0 0 10px', fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
@@ -171,7 +175,7 @@ export const useControls = makeStyles<Theme, { t: HangarTokens }>(() => ({
     whiteSpace: 'nowrap',
     '&:hover:not(:disabled)': { borderColor: ({ t }) => t.textFaint, color: ({ t }) => t.textHi },
     '&:disabled': { opacity: 0.45, cursor: 'default' },
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
   filterChipOn: {
     borderColor: ({ t }) => t.amberLine,
@@ -192,7 +196,7 @@ export const useControls = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panel,
     color: ({ t }) => t.textHi,
     cursor: 'pointer',
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
   search: { position: 'relative', display: 'flex', alignItems: 'center', flex: '1 1 240px', minWidth: 200 },
   searchIcon: { position: 'absolute', left: 10, fontSize: '16px !important', color: ({ t }) => t.textFaint, pointerEvents: 'none' },
@@ -207,7 +211,7 @@ export const useControls = makeStyles<Theme, { t: HangarTokens }>(() => ({
     backgroundColor: ({ t }) => t.panel,
     color: ({ t }) => t.textHi,
     '&::placeholder': { color: ({ t }) => t.textFaint },
-    '&:focus': { outline: 'none', borderColor: ({ t }) => t.amber },
+    '&:focus': { outline: 'none', borderColor: ({ t }) => t.sky },
   },
   // ---- links: go somewhere (another tab, another site) or show/hide a detail. Text, never a box.
   textLink: {
@@ -223,7 +227,7 @@ export const useControls = makeStyles<Theme, { t: HangarTokens }>(() => ({
     cursor: 'pointer',
     textDecoration: 'none',
     '&:hover': { textDecoration: 'underline' },
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 2 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 2 },
   },
 }));
 
@@ -246,7 +250,7 @@ export const useStatus = makeStyles<Theme, { t: HangarTokens }>(() => ({
   statusButton: {
     cursor: 'pointer',
     '&:hover': { filter: 'brightness(0.97)' },
-    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 1 },
+    '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
   statusDot: { width: 6, height: 6, borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 },
   ok: { color: ({ t }) => t.good, backgroundColor: ({ t }) => t.goodSoft, borderColor: ({ t }) => t.good },

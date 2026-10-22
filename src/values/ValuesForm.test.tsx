@@ -108,14 +108,14 @@ describe('values form pending changes', () => {
   it('starts empty with the submit button not offered', () => {
     renderForm();
     expect(panel().getByText(/Nothing staged/)).toBeTruthy();
-    expect(panel().queryByRole('button', { name: 'Open pull request' })).toBeNull();
+    expect(panel().queryByRole('button', { name: 'Open config PR' })).toBeNull();
   });
 
   it('lists a change as a readable line and submits the patch and those lines', () => {
     renderForm();
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
     expect(panel().getByText(/rollout: replicas\/resources\/probes\/steps/)).toBeTruthy();
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open config PR' }));
     expect(submit).toHaveBeenCalledTimes(1);
     const [patch, summary] = submit.mock.calls[0] as unknown as [{ rollout: { replicas: number } }, string[]];
     expect(patch.rollout.replicas).toBe(5);
@@ -156,20 +156,21 @@ describe('values form pending changes', () => {
     const textarea = screen.getAllByRole('textbox').find(t => t.tagName === 'TEXTAREA') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'a: [' } });
     expect(panel().getByText(/Pod template: fix the YAML syntax error/)).toBeTruthy();
-    expect((panel().getByRole('button', { name: 'Open pull request' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((panel().getByRole('button', { name: 'Open config PR' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('shows the file the pull request is for, and the pull request once opened', () => {
     renderForm(source({ result: { prUrl: 'https://github.com/o/app/pull/9', alreadyOpen: false } }));
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
     expect(panel().getByText(/glidepath\/envs\/test\.yaml\. This file has its own pull request/)).toBeTruthy();
-    expect(panel().getByRole('link', { name: 'https://github.com/o/app/pull/9', hidden: true })).toBeTruthy();
+    expect(panel().getByTestId('pr-receipt').textContent).toContain('PR #9 opened');
+    expect(panel().getByRole('link', { name: /PR #9/, hidden: true }).getAttribute('href')).toBe('https://github.com/o/app/pull/9');
   });
 
   it('disables the button while a submit is in flight', () => {
     renderForm(source({ submitting: true }));
     fireEvent.change(screen.getByLabelText('Replicas'), { target: { value: '5' } });
-    expect((panel().getByRole('button', { name: 'Opening…' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((panel().getByRole('button', { name: 'Opening PR…' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
@@ -210,7 +211,7 @@ describe('values form Deployment switch (rollout.enabled, 2026-10-10)', () => {
     const sw = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
     const before = sw.checked;
     fireEvent.click(sw);
-    fireEvent.click(panel().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(panel().getByRole('button', { name: 'Open config PR' }));
     const [patch, summary] = submit.mock.calls[0] as unknown as [{ rollout: Record<string, unknown> }, string[]];
     return { before, patch, summary };
   };

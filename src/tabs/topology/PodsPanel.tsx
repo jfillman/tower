@@ -70,7 +70,7 @@ function findPodResource(resources: K8sResourceRef[], name: string): K8sResource
 
 function podColor(t: HangarTokens, pod: PodSummary): string {
   if (pod.phase === 'Running' && pod.ready) return t.good;
-  if (pod.phase === 'Running' || pod.phase === 'Pending') return t.amber;
+  if (pod.phase === 'Running' || pod.phase === 'Pending') return t.sky;
   return t.bad;
 }
 

@@ -125,7 +125,7 @@ function stepLabelParts(s: CanaryStepDef): { icon: string; text: string; caption
 
 function phaseColor(t: HangarTokens, state: 'done' | 'current' | 'pending' | 'bad'): string {
   if (state === 'done') return t.good;
-  if (state === 'current') return t.amber;
+  if (state === 'current') return t.sky;
   if (state === 'bad') return t.bad;
   return t.textFaint;
 }
@@ -149,7 +149,7 @@ function stepState(
 function analysisTone(t: HangarTokens, phase: string | undefined): { color: string; soft: string } {
   if (phase === 'Successful') return { color: t.good, soft: t.goodSoft };
   if (phase === 'Failed' || phase === 'Error') return { color: t.bad, soft: t.badSoft };
-  return { color: t.amberInk, soft: t.amberSoft };
+  return { color: t.sky, soft: t.skySoft };
 }
 
 function AnalysisCard({ templateName, run, classes, t }: { templateName: string; run: AnalysisRunSummary; classes: ReturnType<typeof useStyles>; t: HangarTokens }) {
@@ -378,7 +378,7 @@ export function CanaryRampChart({
                 );
               })}
               {currentStepIndex !== undefined && currentStepIndex < steps.length && currentWeight !== undefined && (
-                <text x={stepCenterX(currentStepIndex)} y={yFor(series[currentStepIndex]) - 14} textAnchor="middle" fontFamily={fontMono} fontWeight={600} fontSize={11} fill={t.amberInk} className={currentWeight < 100 ? classes.nowLabelLive : undefined}>
+                <text x={stepCenterX(currentStepIndex)} y={yFor(series[currentStepIndex]) - 14} textAnchor="middle" fontFamily={fontMono} fontWeight={600} fontSize={11} fill={t.sky} className={currentWeight < 100 ? classes.nowLabelLive : undefined}>
                   {currentWeight}% now
                 </text>
               )}
@@ -451,7 +451,7 @@ export function CanaryRampChart({
       </div>
       <div className={classes.legend}>
         <span><i className={classes.legendDot} style={{ backgroundColor: t.good }} />completed</span>
-        <span><i className={classes.legendDot} style={{ backgroundColor: t.amber }} />current</span>
+        <span><i className={classes.legendDot} style={{ backgroundColor: t.sky }} />current</span>
         <span><i className={classes.legendDot} style={{ backgroundColor: t.bad }} />failed</span>
         <span><i className={classes.legendDot} style={{ backgroundColor: t.textFaint, opacity: 0.5 }} />pending</span>
       </div>

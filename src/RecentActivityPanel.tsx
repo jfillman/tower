@@ -148,7 +148,7 @@ function categoryColor(c: Category, t: HangarTokens, isDark: boolean): { fg: str
     case 'environments':
       return localAccent('environments', isDark);
     case 'config':
-      return { fg: t.amber, bg: t.amberSoft };
+      return { fg: t.amberText, bg: t.amberSoft };
     case 'slos':
       return localAccent('slo', isDark);
     default:

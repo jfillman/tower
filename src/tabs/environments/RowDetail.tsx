@@ -18,7 +18,8 @@ import { useWorkloadView, type LiveWorkload } from '../../values/workload';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle';
 import { EnvLifecycle } from './EnvLifecycle';
 import { useStyles as useValuesStyles } from '../../values/styles';
-import { Button, ColumnLabel, Field, Subtabs } from '../../ui';
+import { Button, Callout, ColumnLabel, Field, Subtabs } from '../../ui';
+import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
 import { BLOCK_FIELDS, type DisplayRow } from './shared';
 import { ENVS_ROOT } from '../../types';
@@ -321,19 +322,17 @@ function CreateInfraValues({ ctx, env, path }: { ctx: RowDetailContext; env: str
       sub-tab once it is merged. Argo CD deploys the environment from it.
       <div style={{ marginTop: 10 }}>
         {submit.result ? (
-          <span>
-            Pull request opened:{' '}
-            <a href={submit.result.prUrl} target="_blank" rel="noopener noreferrer">
-              {submit.result.prUrl}
-            </a>
-            . Merge it; this turns into the values form when the file appears.
-          </span>
+          <PrReceipt
+            prUrl={submit.result.prUrl}
+            alreadyOpen={submit.result.alreadyOpen}
+            next="merge it; this turns into the values form when the file appears."
+          />
         ) : (
           <Button variant="primary" disabled={submit.loading} onClick={create}>
-            {submit.loading ? 'Opening pull request…' : `Create ${path}`}
+            {submit.loading ? OPENING_PR : `Create ${path}`}
           </Button>
         )}
-        {submit.error && <div className={ui.problem}>Could not open the pull request: {submit.error}</div>}
+        {submit.error && <Callout tone="bad">Couldn&apos;t open the PR: {submit.error}</Callout>}
       </div>
     </div>
   );

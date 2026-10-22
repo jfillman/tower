@@ -9,7 +9,8 @@ import {
   type ReleaseMode,
   type ReleaseModeInfo,
 } from './releaseFlow';
-import { Button, StatusChip, TextLink, type StatusTone } from './ui';
+import { Button, Callout, StatusChip, TextLink, type StatusTone } from './ui';
+import { OPENING_PR, PrReceipt } from './ui/PrRef';
 
 // The app's release mode at the top of the Record tab (Release Record R2): Hand-flown needs a
 // sign-off before production, Assisted records it, Autoland (later) lands on its own. Admins
@@ -20,7 +21,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   caption: { color: ({ t }) => t.textLo },
   help: { color: ({ t }) => t.textLo, flex: '1 1 320px', minWidth: 0 },
   choices: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, width: '100%' },
-  error: { color: ({ t }) => t.bad },
+  full: { width: '100%' },
 }));
 
 const TONE: Record<ReleaseMode, StatusTone> = { 'hand-flown': 'warn', assisted: 'info', autoland: 'ok' };
@@ -30,6 +31,7 @@ export function ReleaseModeBar({
   submitting,
   error,
   prUrl,
+  alreadyOpen,
   waitingForMerge,
   onChange,
 }: {
@@ -37,6 +39,8 @@ export function ReleaseModeBar({
   submitting: boolean;
   error?: string;
   prUrl?: string;
+  /** The mode-change PR was already open (the route deduped the request). */
+  alreadyOpen?: boolean;
   /** The PR is open and the mode file doesn't say the new mode yet: Tower is re-reading it. */
   waitingForMerge?: boolean;
   onChange: (mode: ReleaseMode) => void;
@@ -44,7 +48,13 @@ export function ReleaseModeBar({
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [choosing, setChoosing] = useState(false);
+  // The mode whose button was pressed: it carries the busy label.
+  const [pressed, setPressed] = useState<ReleaseMode>();
   const where = `${info.file.repo}/${info.file.path}`;
+  const modeLabel = (m: ReleaseMode, available: boolean) => {
+    if (submitting && pressed === m) return OPENING_PR;
+    return available ? `Set ${RELEASE_MODE_LABEL[m]}` : `${RELEASE_MODE_LABEL[m]} (not available yet)`;
+  };
 
   return (
     <div className={classes.bar}>
@@ -72,9 +82,12 @@ export function ReleaseModeBar({
                 small
                 disabled={!available || submitting}
                 title={RELEASE_MODE_HELP[m]}
-                onClick={() => onChange(m)}
+                onClick={() => {
+                  setPressed(m);
+                  onChange(m);
+                }}
               >
-                {available ? `Set ${RELEASE_MODE_LABEL[m]}` : `${RELEASE_MODE_LABEL[m]} (not available yet)`}
+{modeLabel(m, available)}
               </Button>
             );
           })}
@@ -82,12 +95,18 @@ export function ReleaseModeBar({
         </div>
       )}
       {prUrl && (
-        <span className={classes.caption}>
-          Mode change PR opened · <TextLink href={prUrl}>review ↗</TextLink>
-          {waitingForMerge && ' · the mode updates here once it merges'}
-        </span>
+        <PrReceipt
+          className={classes.full}
+          prUrl={prUrl}
+          alreadyOpen={alreadyOpen}
+          next={waitingForMerge === false ? 'the mode has updated.' : 'merge it. The mode updates here once it lands.'}
+        />
       )}
-      {error && <span className={classes.error}>{error}</span>}
+      {error && (
+        <Callout tone="bad" className={classes.full}>
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }

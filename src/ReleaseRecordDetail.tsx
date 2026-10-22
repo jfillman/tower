@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
@@ -20,7 +19,8 @@ import { useReleaseRecordDoc, useSubmitHumanContext, type ReleaseRecordHumanCont
 import { countedSignoffs, useReleaseSignoff } from './releaseFlow';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
-import { ActionSelect, Button, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
+import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink } from './ui';
+import { OPENING_PR, PrReceipt, PrRef, prFromSummary } from './ui/PrRef';
 import { isSignedAndAttested } from './supplyChain';
 import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, hasCommitSignature } from './ReleaseRecordEvidence';
 
@@ -59,7 +59,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontSize: 11,
     letterSpacing: '0.14em',
     textTransform: 'uppercase',
-    color: ({ t }) => t.amber,
+    color: ({ t }) => t.amberText,
     marginBottom: 4,
   },
   h3: { fontSize: 24, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
@@ -229,7 +229,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     minHeight: 56,
   },
   humanActions: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 },
-  humanResultLink: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.sky },
   approvalList: { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 },
   approvalRow: {
     display: 'flex',
@@ -252,7 +251,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.amberInk,
     padding: '0 2px',
   },
-  humanError: { fontSize: 12, color: ({ t }) => t.bad },
   cert: {
     marginTop: 18,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -676,9 +674,11 @@ export function ReleaseRecordDetail({
                   <>
                     <GateGrid checks={record.guardrails.checks ?? []} classes={classes} t={t} />
                     {record.guardrailsPrUrl && (
-                      <Link className={classes.humanResultLink} href={record.guardrailsPrUrl} target="_blank" rel="noopener noreferrer">
-                        {`View ${record.guardrailsPrUrl.includes('/gitops-') ? 'gitops' : 'release pin'} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ''}`}
-                      </Link>
+                      <PrRef
+                        pr={{ url: record.guardrailsPrUrl, number: record.guardrailsPrNumber }}
+                        size="inline"
+                        label={record.guardrailsPrUrl.includes('/gitops-') ? 'gitops' : 'release pin'}
+                      />
                     )}
                   </>
                 ) : (
@@ -750,9 +750,7 @@ export function ReleaseRecordDetail({
             </Typography>
             {recordPr && (
               <Typography className={classes.humanNote}>
-                <Link className={classes.humanResultLink} href={recordPr.url} target="_blank" rel="noopener noreferrer">
-                  Release Record PR #{recordPr.number} ({recordPr.state}) ↗
-                </Link>
+                <PrRef pr={prFromSummary(recordPr)} size="inline" label="Release Record" />
               </Typography>
             )}
           </>
@@ -878,7 +876,7 @@ export function ReleaseRecordDetail({
                 </Button>
               ) : (
                 <Button small variant="primary" disabled={!dirty || submitContext.loading} onClick={onSubmitContext}>
-                  {submitContext.loading ? 'Opening PR…' : 'Open PR for these notes'}
+                  {submitContext.loading ? OPENING_PR : 'Open notes PR'}
                 </Button>
               )}
               {persisted.data.humanContext.authoredBy && (
@@ -888,14 +886,13 @@ export function ReleaseRecordDetail({
               )}
             </div>
             {submitContext.result && (
-              <Typography className={classes.humanNote}>
-                {submitContext.result.alreadyOpen ? 'A PR for this exact change is already open: ' : 'PR opened: '}
-                <Link className={classes.humanResultLink} href={submitContext.result.prUrl} target="_blank" rel="noopener noreferrer">
-                  {submitContext.result.prUrl}
-                </Link>
-              </Typography>
+              <PrReceipt
+                prUrl={submitContext.result.prUrl}
+                alreadyOpen={submitContext.result.alreadyOpen}
+                next="merge it; the notes show on this record once it lands."
+              />
             )}
-            {submitContext.error && <Typography className={classes.humanError}>Couldn't open PR: {submitContext.error}</Typography>}
+            {submitContext.error && <Callout tone="bad">Couldn't open the PR: {submitContext.error}</Callout>}
           </div>
         )}
       </div>

@@ -104,7 +104,7 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   panelMeta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   stale: { opacity: 0.55 },
-  staleNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amber },
+  staleNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberText },
   empty: { padding: '18px 14px', fontSize: 13, color: ({ t }) => t.textFaint },
   more: {
     padding: '8px 14px',
@@ -213,7 +213,7 @@ export const useOpsStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     '&:first-child': { textAlign: 'left', fontFamily: fontDisplay, fontWeight: 600, color: ({ t }) => t.textHi },
   },
   filterRow: { display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 14px' },
-  historyNote: { padding: '0 14px 6px', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amber },
+  historyNote: { padding: '0 14px 6px', fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberText },
   runStrip: { display: 'flex', gap: 2, padding: '6px 14px 12px', alignItems: 'stretch', height: 34 },
   runCell: {
     flex: '1 1 0',
@@ -256,7 +256,7 @@ export function bandColor(t: HangarTokens, b: DoraBand): string {
     case 'good':
       return t.good;
     case 'fair':
-      return t.amber;
+      return t.amberText;
     case 'poor':
       return t.bad;
     default:

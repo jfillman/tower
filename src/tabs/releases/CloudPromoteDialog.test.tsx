@@ -35,6 +35,14 @@ describe('CloudPromoteDialog', () => {
   it('shows the pull request once opened', () => {
     state = { result: { prUrl: 'https://github.com/o/fn/pull/9', alreadyOpen: false } };
     render(<CloudPromoteDialog owner="o" appName="fn" target={{ image: IMAGE, env: 'prod', flight: true }} onClose={jest.fn()} onDone={jest.fn()} />);
-    expect(screen.getByText('https://github.com/o/fn/pull/9')).toBeTruthy();
+    expect(screen.getByText('PR #9 opened')).toBeTruthy();
+    expect(screen.getByTestId('pr-receipt').querySelector('a')?.getAttribute('href')).toBe('https://github.com/o/fn/pull/9');
+    expect(screen.queryByText('https://github.com/o/fn/pull/9')).toBeNull();
+  });
+
+  it('says an already-open pin PR now pins this image', () => {
+    state = { result: { prUrl: 'https://github.com/o/fn/pull/9', alreadyOpen: true } };
+    render(<CloudPromoteDialog owner="o" appName="fn" target={{ image: IMAGE, env: 'prod', flight: true }} onClose={jest.fn()} onDone={jest.fn()} />);
+    expect(screen.getByText('PR #9 was already open · updated')).toBeTruthy();
   });
 });

@@ -213,9 +213,10 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   providerPrimary: {
     borderColor: ({ t }) => t.amber,
-    backgroundColor: ({ t }) => t.amber,
+    backgroundColor: ({ t }) => t.amberFill,
     color: ({ t }) => t.onAmber,
-    '&:hover:not(:disabled)': { borderColor: ({ t }) => t.amberInk },
+    '&:hover:not(:disabled)': { backgroundColor: ({ t }) => t.amberFillHover, borderColor: ({ t }) => t.amber },
+    '&:active:not(:disabled)': { backgroundColor: ({ t }) => t.amberFillPress },
   },
   providerMessage: { margin: '-4px 0 0', fontSize: 12, color: ({ t }) => t.textLo, textAlign: 'center' },
   divider: {

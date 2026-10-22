@@ -59,7 +59,7 @@ describe('Glidepath tab', () => {
     expect(pending().getByText('Update governance')).toBeTruthy();
     expect(screen.getByRole('tab', { name: /^Governance/ }).querySelector('[aria-label="has staged changes"]')).toBeTruthy();
     expect(screen.getByRole('tab', { name: /^Build/ }).querySelector('[aria-label="has staged changes"]')).toBeNull();
-    fireEvent.click(pending().getByRole('button', { name: 'Open pull request' }));
+    fireEvent.click(pending().getByRole('button', { name: 'Open cicd.yaml PR' }));
     expect(submit).toHaveBeenCalledTimes(1);
     expect(Object.keys(submit.mock.calls[0][0].patch)).toEqual(['governance']);
   });

@@ -49,7 +49,7 @@ GitHub PR integration:
 - Built artifacts and image tags
 - Direct links to runs in Tekton dashboard
 
-**Key exports:** `PRsTab`, `PrButton`
+**Key exports:** `PRsTab`, `PrButton` (a `PrRef` card; see `src/ui/PrRef.tsx` for `PrRef`/`PrReceipt`)
 
 ### Pipelines
 

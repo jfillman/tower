@@ -4,6 +4,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import type { ChangeLine, EnvDef } from '../../environments/stagedChanges';
 import { Chip } from '../../ui';
 import { PendingPanel } from '../../ui/PendingPanel';
+import { OPENING_PR } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -13,8 +14,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
 }));
 
 const TONE: Partial<Record<ChangeLine['kind'], 'add' | 'remove'>> = { add: 'add', remove: 'remove' };
-const IDLE: Record<'one' | 'several', string> = { one: 'Open pull request', several: 'Open pull requests' };
-const BUSY = { launching: 'Requesting environment…', submitting: 'Opening…' };
+const IDLE: Record<'one' | 'several', string> = { one: 'Open cicd.yaml PR', several: 'Open environment PRs' };
+const BUSY = { launching: 'Requesting environment…', submitting: OPENING_PR };
 
 export function PendingChanges({
   changes,

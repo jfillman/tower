@@ -7,7 +7,7 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { ImageTagPill } from './ImageTagPill';
 import type { ArgoResourceNode, EnvironmentSummary, K8sResourceRef } from '../../types';
 import { useArgoCapabilities, type useArgoActions } from '../../useReleaseData';
-import { Button, Callout, Card, EmptyNote, Fact, SectionTitle, StatusChip, TextLink, Tile, useTableKit } from '../../ui';
+import { Button, Callout, Card, EmptyNote, Fact, MenuButton, SectionTitle, StatusChip, TextLink, Tile, useTableKit } from '../../ui';
 import { argoTone } from '../../argoTone';
 
 // ArgoCD stamps the sync-wave a resource applied at as a live annotation on
@@ -225,6 +225,10 @@ export function ArgoCommandPanel({
       : "Only the app's owning team (or an admin) may do this.";
   const running = env.argoOperationPhase === 'Running';
   const replaced = forceSyncTargets(resources);
+  // Sync is the view's primary action only while there is something to sync; at rest it is an ordinary button, so
+  // amber on this card means "out of step", not "a button lives here".
+  const appOutOfSync = env.argoSyncStatus === 'OutOfSync';
+  const syncLabel = appOutOfSync && outOfSync > 0 ? `Sync ${outOfSync} resource${outOfSync === 1 ? '' : 's'}` : 'Sync';
 
   return (
     <Card>
@@ -255,41 +259,47 @@ export function ArgoCommandPanel({
           </Button>
           <Button
             small
-            title={SYNC_GUIDE[1].body}
-            disabled={!canAct || Boolean(argoActions.pending)}
-            onClick={() => act(argoActions.hardRefresh)}
-          >
-            {argoActions.pending === 'hardRefresh' ? 'Refreshing…' : 'Hard refresh'}
-          </Button>
-          <Button
-            small
-            variant="primary"
+            variant={appOutOfSync ? 'primary' : 'default'}
             title={may('sync') ? SYNC_GUIDE[2].body : notAllowed('sync')}
             disabled={!canAct || Boolean(argoActions.pending) || !may('sync')}
             onClick={() => act(argoActions.sync)}
           >
-            {argoActions.pending === 'sync' ? 'Syncing…' : 'Sync'}
+            {argoActions.pending === 'sync' ? 'Syncing…' : syncLabel}
           </Button>
-          <Button
-            small
-            variant="danger"
-            title={may('force') ? SYNC_GUIDE[3].body : notAllowed('force')}
-            disabled={!canAct || Boolean(argoActions.pending) || !may('force')}
-            onClick={() => setConfirmForce(true)}
-          >
-            {argoActions.pending === 'force' ? 'Forcing…' : 'Force sync'}
-          </Button>
-          {running && (
-            <Button
-              small
-              variant="danger"
-              title={may('terminate') ? SYNC_GUIDE[4].body : notAllowed('terminate')}
-              disabled={!canAct || Boolean(argoActions.pending) || !may('terminate')}
-              onClick={() => act(argoActions.terminate)}
-            >
-              {argoActions.pending === 'terminate' ? 'Terminating…' : 'Terminate sync'}
-            </Button>
-          )}
+          <MenuButton
+            actions={[
+              {
+                key: 'hardRefresh',
+                label: argoActions.pending === 'hardRefresh' ? 'Refreshing…' : 'Hard refresh',
+                hint: 're-reads the repo, skips cache',
+                title: SYNC_GUIDE[1].body,
+                disabled: !canAct || Boolean(argoActions.pending),
+                onSelect: () => act(argoActions.hardRefresh),
+              },
+              ...(running
+                ? [
+                    {
+                      key: 'terminate',
+                      label: argoActions.pending === 'terminate' ? 'Terminating…' : 'Terminate sync',
+                      hint: 'stops the running sync',
+                      title: may('terminate') ? SYNC_GUIDE[4].body : notAllowed('terminate'),
+                      disabled: !canAct || Boolean(argoActions.pending) || !may('terminate'),
+                      onSelect: () => act(argoActions.terminate),
+                    },
+                  ]
+                : []),
+              {
+                key: 'force',
+                label: argoActions.pending === 'force' ? 'Forcing…' : 'Force sync…',
+                hint: 'replaces resources · asks first',
+                danger: true,
+                group: true,
+                title: may('force') ? SYNC_GUIDE[3].body : notAllowed('force'),
+                disabled: !canAct || Boolean(argoActions.pending) || !may('force'),
+                onSelect: () => setConfirmForce(true),
+              },
+            ]}
+          />
           <TextLink expanded={guideOpen} onClick={() => setGuideOpen(v => !v)}>
             Which one?
           </TextLink>

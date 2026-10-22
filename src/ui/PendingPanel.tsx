@@ -4,6 +4,7 @@ import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { Button, Chip, Panel, SectionLabel } from './index';
 import { useUi } from './styles';
+import { OPENING_PR } from './PrRef';
 
 // The "Pending changes" panel every editing tab uses (Environments, the values form, App Configuration, Glidepath):
 // what is staged, what blocks it, then Discard and the one amber button that opens the pull request. Edits are
@@ -40,7 +41,7 @@ export function PendingPanel({
   busy,
   canSubmit,
   submitLabel,
-  busyLabel = 'Opening…',
+  busyLabel = OPENING_PR,
   onDiscard,
   onSubmit,
   children,

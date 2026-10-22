@@ -22,7 +22,14 @@ export interface HangarTokens {
   textHi: string;
   textLo: string;
   textFaint: string;
+  /** Strokes, dots, bars, underlines: anything amber that is not a fill behind text and not text. */
   amber: string;
+  /** Fill behind text: the primary button, a count badge. Text on it is `onAmber`; its edge is `amber`. */
+  amberFill: string;
+  amberFillHover: string;
+  amberFillPress: string;
+  /** Amber words on a panel (an eyebrow, a Flight chip, a slow time). `amber` itself fails AA as text in light. */
+  amberText: string;
   amberInk: string;
   /** Text on a solid `amber` fill (a primary button). `amberInk` is for text on `amberSoft`, not on amber. */
   onAmber: string;
@@ -48,6 +55,10 @@ const light: HangarTokens = {
   textLo: '#5B6570',
   textFaint: '#88919A',
   amber: '#B9791F',
+  amberFill: '#E2A03A',
+  amberFillHover: '#EAAB48',
+  amberFillPress: '#D4922C',
+  amberText: '#7A5115',
   amberInk: '#7A5115',
   onAmber: '#1A1204',
   amberSoft: '#F4E6C9',
@@ -72,6 +83,10 @@ const dark: HangarTokens = {
   textLo: '#96A2AC',
   textFaint: '#66717B',
   amber: '#E8A33D',
+  amberFill: '#E8A33D',
+  amberFillHover: '#F0B04A',
+  amberFillPress: '#D9922C',
+  amberText: '#E8A33D',
   amberInk: '#F4C67D',
   onAmber: '#1A1204',
   amberSoft: '#3A2C15',

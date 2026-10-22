@@ -4,7 +4,8 @@ import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { relativeTime } from '../../shared/format';
-import { Button, Hint } from '../../ui';
+import { Button, Callout, Hint } from '../../ui';
+import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
 
 // Roll back a Kubernetes Flight environment (glidepath ADR-0021 phase 4). A rollback is a release of an earlier image:
 // the backend (backstage glidepathRollback.ts) starts the app's release Pipeline for it, which opens a gitops PR like
@@ -38,7 +39,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     minWidth: 220,
   },
-  bad: { fontSize: 11.5, fontStyle: 'italic', color: ({ t }) => t.bad },
   ok: { fontSize: 11.5, color: ({ t }) => t.good },
 }));
 
@@ -90,8 +90,8 @@ export function RollbackControl({
     };
   }, [discoveryApi, fetchApi, appName, env, cluster, result]);
 
+  // The confirm row stays up while the request runs, so the busy label sits on the button that was pressed.
   const submit = async () => {
-    setConfirming(false);
     setBusy(true);
     setError(undefined);
     try {
@@ -104,6 +104,7 @@ export function RollbackControl({
       const body = await res.json().catch(() => undefined);
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
       setResult(body);
+      setConfirming(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -146,11 +147,11 @@ export function RollbackControl({
           <Button
             small
             variant="danger"
-            disabled={!allowed || busy || !target || !reason.trim()}
+            disabled={!allowed || busy || confirming || !target || !reason.trim()}
             title={allowed ? undefined : "Only the app's owning team (or an admin) can roll back."}
             onClick={() => setConfirming(true)}
           >
-            {busy ? 'Opening…' : 'Roll back'}
+            Roll back
           </Button>
         </div>
       )}
@@ -160,30 +161,21 @@ export function RollbackControl({
             Open a release PR putting <span className={c.mono}>{tagOf(chosen.image)}</span> back on {env}? It ran healthy here,
             so the content checks report without blocking; integrity checks and approvals apply as always.
           </Hint>
-          <Button small variant="danger" onClick={submit}>
-            Open rollback PR
+          <Button small variant="danger" disabled={busy} onClick={submit}>
+            {busy ? OPENING_PR : 'Open rollback PR'}
           </Button>
-          <Button small onClick={() => setConfirming(false)}>
+          <Button small disabled={busy} onClick={() => setConfirming(false)}>
             Cancel
           </Button>
         </div>
       )}
-      {error && <span className={c.bad}>{error}</span>}
-      {result && (
-        <span className={c.ok}>
-          {result.prUrl ? (
-            <>
-              {result.alreadyOpen ? 'A rollback PR is already open' : 'Rollback PR opened'}:{' '}
-              <a href={result.prUrl} target="_blank" rel="noreferrer">
-                {result.prUrl}
-              </a>
-              . Merge it to roll back.
-            </>
-          ) : (
-            <>Rollback run {result.pipelineRun} started; its PR will show in Pull requests.</>
-          )}
-        </span>
-      )}
+      {error && <Callout tone="bad">{error}</Callout>}
+      {result &&
+        (result.prUrl ? (
+          <PrReceipt prUrl={result.prUrl} alreadyOpen={result.alreadyOpen} next="merge it to roll back." />
+        ) : (
+          <span className={c.ok}>Rollback run {result.pipelineRun} started; its PR will show in Pull requests.</span>
+        ))}
     </div>
   );
 }

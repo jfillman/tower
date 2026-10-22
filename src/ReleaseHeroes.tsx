@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
-import { Button, Callout, EmptyNote, Stat, StatusChip, TextLink, Tile, type StatusTone } from './ui';
+import { Button, Callout, EmptyNote, Stat, StatusChip, Tile, type StatusTone } from './ui';
+import { PrRef, prFromSummary } from './ui/PrRef';
 import { outcomeChip } from './ReleaseOutcome';
 import { statusPill } from './ReleaseRecordList';
 import { bakeProgress, readinessCount, type PathStep } from './releaseCards';
@@ -213,7 +214,7 @@ export function ReleaseHeroes({
               Open {next.name ?? 'the draft'}
             </Button>
             {next.openPr?.pr && (
-              <TextLink href={next.openPr.pr.url}>Review PR #{next.openPr.pr.number}</TextLink>
+              <PrRef pr={prFromSummary(next.openPr.pr)} size="chip" />
             )}
           </div>
         </>

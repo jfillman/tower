@@ -178,8 +178,8 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     height: 6,
     borderRadius: '50%',
     marginLeft: 6,
-    backgroundColor: ({ t }) => t.amber,
-    boxShadow: ({ t }) => `0 0 0 3px ${t.amberSoft}`,
+    backgroundColor: ({ t }) => t.sky,
+    boxShadow: ({ t }) => `0 0 0 3px ${t.skySoft}`,
     animation: '$tabPulse 1.6s ease-in-out infinite',
   },
   '@keyframes tabPulse': {

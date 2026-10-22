@@ -178,7 +178,7 @@ function dotStyle(t: HangarTokens, status: CdStepStatus) {
     case 'good':
       return { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good };
     case 'current':
-      return { backgroundColor: t.amberSoft, borderColor: t.amber, color: t.amberInk };
+      return { backgroundColor: t.skySoft, borderColor: t.sky, color: t.sky };
     case 'bad':
       return { backgroundColor: t.badSoft, borderColor: t.bad, color: t.bad };
     case 'pending':
@@ -341,7 +341,7 @@ export function Rail({
           </div>
           {i < steps.length - 1 && (
             <div className={classes.connector}>
-              <span className={classes.connectorArrow} style={{ color: t.amber }}>
+              <span className={classes.connectorArrow} style={{ color: t.sky }}>
                 <TallArrow size={18} />
               </span>
             </div>

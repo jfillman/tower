@@ -16,6 +16,7 @@ import type { CdDelivery, CdStepKey } from '../../useCdDelivery';
 import { imageTag, type ArgoResourceNode, type CanaryProgress, type EnvironmentSummary } from '../../types';
 import type { PullRequestSummary } from '../../pullRequests/usePullRequests';
 import { Button, EmptyNote, SectionTitle, StatusChip, TextLink } from '../../ui';
+import { PrRef, prFromSummary } from '../../ui/PrRef';
 
 // Rollout controls (RolloutControls.tsx) sit in the "Rollout starts" and "Rollout completes" stage details, next
 // to the canary chart they act on (2026-09-16: "I want the canary panel to be part of the 'Rollout Starts'
@@ -97,10 +98,7 @@ function CreatedBody({
   if (delivery.pr) {
     return (
       <>
-        <TextLink href={delivery.pr.url}>
-          <GitPrIcon fontSize={15} />
-          PR #{delivery.pr.number}: {delivery.pr.title}
-        </TextLink>
+        <PrRef pr={prFromSummary(delivery.pr)} size="card" meta="" />
         <Typography className={classes.meta}>
           {delivery.pr.author && `opened by ${delivery.pr.author} · `}
           {timeText(step?.at)}
@@ -148,10 +146,7 @@ function MergedBody({
     const commitUrl = mergeCommitUrl(delivery.pr);
     return (
       <>
-        <TextLink href={delivery.pr.url}>
-          <GitPrIcon fontSize={15} />
-          PR #{delivery.pr.number} ↗
-        </TextLink>
+        <PrRef pr={prFromSummary(delivery.pr)} size="inline" />
         <Typography className={classes.meta}>
           {timeText(step?.at)}
           {delivery.pr.author && ` · opened by ${delivery.pr.author}`}
@@ -176,10 +171,7 @@ function MergedBody({
   if (delivery.pr) {
     return (
       <>
-        <TextLink href={delivery.pr.url}>
-          <GitPrIcon fontSize={15} />
-          PR #{delivery.pr.number}: {delivery.pr.title}
-        </TextLink>
+        <PrRef pr={prFromSummary(delivery.pr)} size="card" meta="" />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {gateCi && (
             <StatusChip tone={gateCi.state === 'success' ? 'ok' : 'warn'}>

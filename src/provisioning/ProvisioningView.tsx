@@ -121,7 +121,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   nameRun: { color: ({ t }) => t.sky },
   nameFail: { color: ({ t }) => t.bad },
   desc: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.4 },
-  detail: { fontSize: 12.5, color: ({ t }) => t.amber, marginTop: 2 },
+  detail: { fontSize: 12.5, color: ({ t }) => t.amberText, marginTop: 2 },
   links: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 },
   action: {
     marginTop: 6,
@@ -200,7 +200,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     fontVariantNumeric: 'tabular-nums',
   },
   timeSub: { fontSize: 11, color: ({ t }) => t.textFaint },
-  timeSlow: { color: ({ t }) => t.amber },
+  timeSlow: { color: ({ t }) => t.amberText },
   legend: {
     display: 'flex',
     gap: 16,

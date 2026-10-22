@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { currentStep, type EnvLifecycleStep } from '../../environments/lifecycle';
 import type { StepState } from '../../provisioning/deriveProvisioning';
 import { Button } from '../../ui';
+import { PrRef } from '../../ui/PrRef';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   wrap: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel, padding: '10px 14px' },
@@ -25,7 +25,7 @@ const LABEL: Record<StepState, string> = { done: 'done', run: 'in progress', pen
 
 function dotStyle(state: StepState, t: HangarTokens) {
   if (state === 'done') return { backgroundColor: t.good };
-  if (state === 'run') return { backgroundColor: t.amber };
+  if (state === 'run') return { backgroundColor: t.sky };
   if (state === 'fail') return { backgroundColor: t.bad };
   return { backgroundColor: 'transparent', borderColor: t.textFaint };
 }
@@ -80,10 +80,7 @@ export function EnvLifecycle({ steps, initiallyOpen = false }: { steps: EnvLifec
                 {s.links && s.links.length > 0 && (
                   <div className={c.links}>
                     {s.links.map(l => (
-                      <Link key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">
-                        {l.label}
-                        {l.state ? ` (${l.state})` : ''}
-                      </Link>
+                      <PrRef key={l.url} pr={{ url: l.url, state: l.state }} size="chip" />
                     ))}
                   </div>
                 )}

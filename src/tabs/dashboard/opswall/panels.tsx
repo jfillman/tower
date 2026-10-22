@@ -24,6 +24,7 @@ import type {
 import { CATEGORY_LABEL, PIPELINE_CATEGORIES, type PipelineCategory } from '../../../fleet/pipelineHistory';
 import { BAND_LABEL, bandColor, fmtAge, fmtSeconds, severityColor, useOpsStyles } from './styles';
 import { FilterChip, FilterGroup, StatusChip, type StatusTone } from '../../../ui';
+import { PrRef } from '../../../ui/PrRef';
 import type { CalendarEntry } from '../../../releaseFlow';
 
 function useKit() {
@@ -399,7 +400,7 @@ export function DeploymentsPanel({
               <div className={c.rowSide}>
                 {canary && (
                   <>
-                    <Bar value={canary.weight ?? 0} total={100} color={t.amber} />
+                    <Bar value={canary.weight ?? 0} total={100} color={t.sky} />
                     <span className={c.mono}>
                       {canary.weight}%
                       {canary.step !== undefined && canary.steps ? ` · ${canary.step + 1}/${canary.steps}` : ''}
@@ -433,12 +434,11 @@ export function DeploymentsPanel({
                 <div className={c.rowTop}>
                   <span className={c.app}>{a.app}</span>
                   <span className={c.envTag}>{a.env}</span>
-                  <span className={c.mono}>release PR open</span>
+                  {a.prUrl ? <PrRef pr={{ url: a.prUrl, title: `Release PR: ${a.app} to ${a.env}` }} size="chip" /> : <span className={c.mono}>release PR open</span>}
                 </div>
               </div>
               <div className={c.rowSide}>
                 <span className={c.age}>{fmtAge(now, a.since)}</span>
-                <Links links={a.prUrl ? [{ label: 'PR', href: a.prUrl, external: true }] : []} />
               </div>
             </div>
           ))}

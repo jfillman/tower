@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { commitProofOf, type CommitProof } from '../commitProof';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
@@ -18,6 +19,7 @@ import { ReleaseLog, buildLogEntries } from '../ReleaseLog';
 import { LeadTimePanel } from '../TimelinePanel';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel';
 import { PromoteDialog } from '../PromoteDialog';
+import { ReleaseRunTracker, type TrackedRelease } from '../ReleaseRunTracker';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass';
 import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPromoteDialog';
@@ -37,7 +39,7 @@ import {
 } from '../releaseFlow';
 import { ReleaseModeBar } from '../ReleaseModeBar';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor';
-import { isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
+import { imageTag, isPreviewEnvName, splitImageRef, type EnvironmentSummary } from '../types';
 
 // 2026-10-14 (mockup E, "the release record should be front and center"): the release cards lead the page (next
 // release, live in production, last outcome; ReleaseHeroes), the Command Deck's stats moved into the header and its
@@ -212,6 +214,33 @@ export function ReleasesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promote.result]);
 
+  // A Flight promotion returns as soon as its release run exists (2026-10-22): the dialog closes and the run is
+  // followed here until its PR opens (ReleaseRunTracker). Kept for this page view only; after a reload the PR is in
+  // Pull requests and the run in Pipelines.
+  const [tracked, setTracked] = useState<TrackedRelease[]>([]);
+  const [, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const result = promote.result;
+    if (result?.mode !== 'pipeline' || !result.pipelineRun || !promoteTarget) return;
+    const shortTag = imageTag(promoteTarget.source.image);
+    const run = result.pipelineRun;
+    setTracked(prev =>
+      prev.some(r => r.run === run)
+        ? prev
+        : [{ run, env: promoteTarget.target.env, label: releaseNames?.byTag.get(shortTag) ?? shortTag }, ...prev],
+    );
+    setPromoteTarget(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promote.result]);
+  const onTrackedPr = useCallback(() => refresh(), [refresh]);
+  const openRun = (run: string) =>
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'pipelines');
+      next.set('run', run);
+      return next;
+    });
+
   if (loading) return <Progress />;
   if (error) return <ResponseErrorPanel error={new Error(error)} />;
 
@@ -323,6 +352,18 @@ export function ReleasesTab() {
         onOpenRecord={showInPanel}
       />
 
+      {appName &&
+        tracked.map(r => (
+          <ReleaseRunTracker
+            key={r.run}
+            appName={appName}
+            release={r}
+            onPr={onTrackedPr}
+            onOpenRun={openRun}
+            onDismiss={() => setTracked(prev => prev.filter(x => x.run !== r.run))}
+          />
+        ))}
+
       <Subtabs
         label="Release views"
         tabs={[
@@ -398,6 +439,7 @@ export function ReleasesTab() {
                   submitting={submitMode.loading}
                   error={submitMode.error}
                   prUrl={submitMode.result?.prUrl}
+                  alreadyOpen={submitMode.result?.alreadyOpen}
                   waitingForMerge={modePending}
                   onChange={mode => {
                     setRequestedMode(mode);
