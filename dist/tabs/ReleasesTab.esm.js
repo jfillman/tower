@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { commitProofOf } from '../commitProof.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, StatusChip, Subtabs } from '../ui/index.esm.js';
@@ -31,6 +30,7 @@ import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseM
 import { ReleaseModeBar } from '../ReleaseModeBar.esm.js';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
 import { isPreviewEnvName, imageTag, splitImageRef } from '../types.esm.js';
+import { TabSkeleton, TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
 
 const useStyles = makeStyles(() => ({
   panelSpacer: { marginTop: 16, scrollMarginTop: 16 },
@@ -147,8 +147,8 @@ function ReleasesTab() {
     next.set("run", run);
     return next;
   });
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "releases", onRetry: refresh });
   const pipelineEnvironments = pipelineEnvironmentsForRecords;
   const previewEnvironments = environments.filter((env) => isPreviewEnvName(env.env));
   const targetIsLower = promoteTarget ? (pipelineOrder.lower ?? []).some((e) => e.toLowerCase() === promoteTarget.target.env.toLowerCase()) : false;
@@ -286,7 +286,7 @@ function ReleasesTab() {
           proofs: proofByTag
         }
       ),
-      activeTab === "log" && (deployHistory.loading ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsx(
+      activeTab === "log" && (deployHistory.loading ? /* @__PURE__ */ jsx(PanelSkeleton, {}) : /* @__PURE__ */ jsx(
         ReleaseLog,
         {
           entries: buildLogEntries(pipelineEnvironments, previewEnvironments, deployHistory.data ?? {}, gitopsPrs, sourcePrs, pipelineOrder, pipelineRuns),
@@ -295,7 +295,7 @@ function ReleasesTab() {
           provenanceByImage
         }
       )),
-      activeTab === "lead" && (deployHistory.loading ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsx(LeadTimePanel, { environments: pipelineEnvironments, history: deployHistory.data ?? {}, repoRef, gitopsPrs })),
+      activeTab === "lead" && (deployHistory.loading ? /* @__PURE__ */ jsx(PanelSkeleton, {}) : /* @__PURE__ */ jsx(LeadTimePanel, { environments: pipelineEnvironments, history: deployHistory.data ?? {}, repoRef, gitopsPrs })),
       activeTab === "preview" && /* @__PURE__ */ jsx(PreviewEnvironmentsPanel, { previewEnvironments, sourcePrs }),
       activeTab === "record" && /* @__PURE__ */ jsx(
         ReleaseRecordPanel,

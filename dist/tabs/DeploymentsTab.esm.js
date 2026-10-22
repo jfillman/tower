@@ -2,7 +2,6 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
 import { useArgoActions } from '../useReleaseData.esm.js';
@@ -19,6 +18,7 @@ import { useNamespaceEvents } from '../deployment/useNamespaceEvents.esm.js';
 import { StageDetail } from './deployments/StageDetail.esm.js';
 import { usePageVisible, useFastLivePoll, livePollMs, ARGO_WATCH_POLL_MS } from '../livePoll.esm.js';
 import { isPreviewEnvName, isRolloutActive, envTierOf, imageTag, health, envStageRank } from '../types.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 const TIER_ORDER = ["lower", "upper"];
 const STAGE_DWELL_MS = 4e3;
@@ -156,8 +156,8 @@ function DeploymentsTab() {
     }, STAGE_DWELL_MS);
     return () => clearTimeout(id);
   }, [selectedEnv, liveCurrentKey]);
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "deployments", onRetry: refresh });
   if (cdEnvs.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
       /* @__PURE__ */ jsx(

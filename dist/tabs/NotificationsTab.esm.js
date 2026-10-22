@@ -2,7 +2,6 @@ import { jsx, jsxs } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import { useSearchParams } from 'react-router-dom';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { relativeTime } from '../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
@@ -10,6 +9,7 @@ import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { PageHeader, Section, EmptyNote } from '../ui/index.esm.js';
 import { useAppNotifications, isRecentNotification } from '../useAppNotifications.esm.js';
 import { renderNotificationDescription } from '../notificationFormatting.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 const useStyles = makeStyles(() => ({
   stack: { display: "flex", flexDirection: "column", gap: 16 },
@@ -27,7 +27,7 @@ const useStyles = makeStyles(() => ({
   dot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0, marginTop: 6 },
   body: { flex: 1, minWidth: 0 },
   head: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
-  title: { fontFamily: fontDisplay, fontWeight: 400, fontSize: 13.5, color: ({ t }) => t.textLo },
+  title: { fontFamily: fontDisplay, fontWeight: 400, fontSize: 13, color: ({ t }) => t.textLo },
   titleNew: { fontWeight: 700, color: ({ t }) => t.textHi },
   time: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   // Inline within a description line (2026-09-12: "any image should take you
@@ -56,7 +56,7 @@ const useStyles = makeStyles(() => ({
   },
   topic: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     padding: "1px 6px",
@@ -99,8 +99,8 @@ function NotificationsTab() {
     next.set("imageTag", tag);
     return next;
   });
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "notifications" });
   if (notifications.length === 0) {
     return /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx(PageHeader, { title: "Notifications", subtitle: `Build, test, deploy and release results Glidepath posted for ${appName}.` }),

@@ -5,7 +5,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import { useSearchParams } from 'react-router-dom';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag, gitopsPrForEnv, lastDeployedAt } from '../useReleaseContext.esm.js';
@@ -21,6 +20,8 @@ import { isPreviewEnvName, imageTag, health, previewPrNumber } from '../types.es
 import { usePlatformConfig } from '../platformConfig.esm.js';
 import { AgentDefinitionPanel } from '../agentDefinition.esm.js';
 import { capabilitiesOf, CAP } from '../serviceClass.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 function computeReleaseTracks(list) {
   const runs = [];
@@ -164,7 +165,7 @@ const useStyles = makeStyles(() => ({
     display: "inline-block",
     marginLeft: 6,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: "1px 7px",
     borderRadius: 8,
     border: "1px solid"
@@ -235,7 +236,7 @@ const useStyles = makeStyles(() => ({
   pendingPrLabel: {
     display: "block",
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.amberInk,
@@ -248,7 +249,7 @@ const useStyles = makeStyles(() => ({
   previewPrLabel: {
     display: "block",
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.textFaint,
@@ -261,7 +262,7 @@ const useStyles = makeStyles(() => ({
   // the collapsed rail chip below (which is the new "own row" ask).
   previewBadge: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     color: ({ t }) => t.textFaint,
@@ -309,8 +310,8 @@ const useStyles = makeStyles(() => ({
   // Amber ("new/informational"), not the old bad/red - this is a count of
   // recent activity, not an alert or an error state.
   notifDot: { width: 8, height: 8, borderRadius: "50%", backgroundColor: ({ t }) => t.amber, flexShrink: 0 },
-  notifText: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textHi },
-  notifLink: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.sky }
+  notifText: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
+  notifLink: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky }
 }));
 function trackRows(envs, gridWidth) {
   if (gridWidth <= 0) return [envs];
@@ -392,8 +393,8 @@ function OverviewTab() {
     next.set("env", envName);
     return next;
   });
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "the overview", onRetry: refresh });
   const repos = appName ? appRepos(appName, appTypeOf(entity)) : void 0;
   const sourceRepo = repos?.sourceRepo ? repoRef ?? (owner ? { owner, repo: repos.sourceRepo } : void 0) : void 0;
   const sourceUrl = sourceRepo ? `https://github.com/${sourceRepo.owner}/${sourceRepo.repo}` : void 0;
@@ -542,12 +543,11 @@ function OverviewTab() {
       const n = run.envs.length;
       const nickname = nicknameForImageTag(imageTag(run.image), pipelineRuns);
       return /* @__PURE__ */ jsx("div", { className: classes.track, children: trackRows(run.envs, gridWidth).map((rowEnvs) => /* @__PURE__ */ jsxs("div", { className: classes.trackRow, children: [
-        /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx(Tooltip, { title: `View ${imageTag(run.image)} in the Images tab`, children: /* @__PURE__ */ jsxs(
           "button",
           {
             type: "button",
             className: classes.trackLabel,
-            title: `View ${imageTag(run.image)} in the Images tab`,
             onClick: () => goToImage(imageTag(run.image)),
             children: [
               imageTag(run.image),
@@ -570,7 +570,7 @@ function OverviewTab() {
               n === 1 ? "" : "s"
             ]
           }
-        ),
+        ) }),
         rowEnvs.map((env) => renderEnvCard(env, { skipImage: true }))
       ] }, rowEnvs[0].key)) }, run.envs[0].key);
     }) }),

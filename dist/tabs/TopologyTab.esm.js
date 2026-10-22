@@ -2,7 +2,6 @@ import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { PageHeader, EmptyNote } from '../ui/index.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
@@ -12,6 +11,7 @@ import { EnvironmentTopology } from '../EnvironmentTopology.esm.js';
 import { EnvPicker } from '../EnvPicker.esm.js';
 import { envStageRank, envTierOf, imageTag, health } from '../types.esm.js';
 import { breakglassDeepLink } from './topology/breakglassDeepLink.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 const TIER_DISPLAY_ORDER = ["lower", "upper", "preview"];
 const useStyles = makeStyles(() => ({
@@ -60,8 +60,8 @@ function TopologyTab() {
     }).filter((g) => g.items.length > 0),
     [withTier, selectedEnv, pipelineRuns.runs]
   );
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "the topology", onRetry: refresh });
   if (environments.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
       /* @__PURE__ */ jsx(

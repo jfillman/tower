@@ -64,7 +64,7 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.bg,
     overflow: "auto",
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1.6,
     padding: "6px 0"
   },

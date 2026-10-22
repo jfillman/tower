@@ -30,9 +30,9 @@ const useStyles = makeStyles(() => ({
     paddingLeft: 14
   },
   headLeft: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 17, textTransform: "lowercase", color: ({ t }) => t.textHi },
+  envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, textTransform: "lowercase", color: ({ t }) => t.textHi },
   tierDot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block", marginRight: 5 },
-  tierChip: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 8px", borderRadius: 3, display: "inline-flex", alignItems: "center" },
+  tierChip: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "2px 8px", borderRadius: 3, display: "inline-flex", alignItems: "center" },
   clusterNote: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   dagCard: { backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, display: "flex", flexDirection: "column" },
   dagInner: { padding: "10px 12px 4px" },

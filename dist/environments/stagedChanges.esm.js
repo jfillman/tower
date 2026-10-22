@@ -188,7 +188,7 @@ function validateRemovals(before, after, pipelines, target) {
       problems.push(`Flight environment "${e.name}" cannot be removed from here: removing it by hand is described in its row.`);
     }
     for (const p of pipelinesNamingEnv(pipelines, e.name)) {
-      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in the Glidepath tab first.`);
+      problems.push(`Pipeline "${p}" still has a step for "${e.name}". Remove that step in Configure \u203A Pipeline first.`);
     }
   }
   return problems;

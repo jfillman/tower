@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { fmtDuration, stateLabel } from './shared.esm.js';
 import { TextLink } from '../ui/index.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   strip: {
@@ -24,7 +25,7 @@ const useStyles = makeStyles(() => ({
   },
   label: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     color: ({ t }) => t.textFaint,
@@ -65,7 +66,7 @@ const useStyles = makeStyles(() => ({
     overflowWrap: "anywhere"
   },
   cur: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: ({ t }) => t.textLo,
     minWidth: 0,
     "@media (max-width: 700px)": { display: "none" }
@@ -79,7 +80,7 @@ const useStyles = makeStyles(() => ({
   },
   etaSub: {
     display: "block",
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: "0.08em",
     color: ({ t }) => t.textFaint
   },
@@ -111,7 +112,7 @@ function SegmentBar({
         let fill = t.sky;
         if (s.state === "done") fill = t.good;
         else if (s.state === "fail") fill = t.bad;
-        return /* @__PURE__ */ jsx("i", { className: classes.seg, title: `${s.title}: ${stateLabel[s.state]}`, children: /* @__PURE__ */ jsx(
+        return /* @__PURE__ */ jsx(Tooltip, { title: `${s.title}: ${stateLabel[s.state]}`, children: /* @__PURE__ */ jsx("i", { className: classes.seg, children: /* @__PURE__ */ jsx(
           "b",
           {
             style: {
@@ -121,7 +122,7 @@ function SegmentBar({
               backgroundColor: fill
             }
           }
-        ) }, s.id);
+        ) }) }, s.id);
       })
     }
   );

@@ -9,6 +9,7 @@ import { renderNotificationDescription } from './notificationFormatting.esm.js';
 import { SloIcon, ConfigIcon, EnvIcon, ReleaseIcon, ImageIcon, BreakglassIcon, SyncIcon, PipelineIcon, PreviewIcon } from './activityIcons.esm.js';
 import { CUSTOM_ROW_RENDERERS } from './activityRowRenderers.esm.js';
 import { SectionTitle, TextLink, FilterGroup, FilterChip, EmptyNote } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const CATEGORY_TOPICS = {
   // 'test' (the pipeline's test stage) and 'images' (Images -> Clean up old images) joined 2026-10-11.
@@ -178,7 +179,7 @@ const useStyles = makeStyles(() => ({
   // smaller badge (26->22), less vertical padding per row, tighter body gap.
   day: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.06em",
     color: ({ t }) => t.textFaint,
@@ -240,7 +241,7 @@ const useStyles = makeStyles(() => ({
   },
   time: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     whiteSpace: "nowrap"
   },
@@ -253,7 +254,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 5,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     padding: "3px 9px 3px 7px",
@@ -261,7 +262,7 @@ const useStyles = makeStyles(() => ({
   },
   description: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     color: ({ t }) => t.textLo,
     whiteSpace: "pre-wrap"
   },
@@ -280,7 +281,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 4,
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 9px 3px 7px",
     borderRadius: 100,
     border: "none",
@@ -296,7 +297,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 4,
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 9px 3px 7px",
     borderRadius: 100
   },
@@ -336,7 +337,7 @@ const useStyles = makeStyles(() => ({
   },
   subStepLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textLo
   },
   // 2026-09-15 feedback: this used to be marginLeft: 'auto', which shoved
@@ -346,7 +347,7 @@ const useStyles = makeStyles(() => ({
   // label, never pushed to an edge).
   subStepTime: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     whiteSpace: "nowrap"
   },
@@ -354,7 +355,7 @@ const useStyles = makeStyles(() => ({
   // <user>"), not the row's own primary structured metadata.
   authorLink: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     textDecoration: "none",
     "&:hover": { textDecoration: "underline", color: ({ t }) => t.sky }
@@ -525,14 +526,13 @@ function RecentActivityPanel({
           }) : /* @__PURE__ */ jsxs(Fragment, { children: [
             /* @__PURE__ */ jsxs("div", { className: classes.rowHead, children: [
               /* @__PURE__ */ jsx(Typography, { className: classes.rowTitle, children: n.payload.title }),
-              /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(String(n.created)), children: /* @__PURE__ */ jsx(
                 "span",
                 {
                   className: classes.time,
-                  title: formatDateTime(String(n.created)),
                   children: relativeTime(n.created)
                 }
-              )
+              ) })
             ] }),
             /* @__PURE__ */ jsx("div", { className: classes.chipRow, children: /* @__PURE__ */ jsxs(
               "span",

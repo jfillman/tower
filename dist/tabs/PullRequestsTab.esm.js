@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { appRepos, appTypeOf } from '../appRepos.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
-import { MissingAnnotationEmptyState, Progress, ResponseErrorPanel } from '@backstage/core-components';
+import { MissingAnnotationEmptyState } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { STALE_THRESHOLD_MS, relativeTime } from '../shared/format.esm.js';
 import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
@@ -12,6 +12,7 @@ import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, Section, Chip, Hint, TextLink, useTableKit, EmptyNote, StatusChip } from '../ui/index.esm.js';
 import { prWord, prFromSummary } from '../ui/PrRef.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
 const SOURCE_DISPLAY_CAP = 12;
@@ -157,8 +158,8 @@ function PullRequestsTab() {
   if (!projectSlug || !owner || !appName) {
     return /* @__PURE__ */ jsx(MissingAnnotationEmptyState, { annotation: "github.com/project-slug" });
   }
-  if (prs.loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (prs.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(prs.error) });
+  if (prs.loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (prs.error) return /* @__PURE__ */ jsx(TabError, { error: prs.error, what: "pull requests" });
   const all = prs.data ?? [];
   const openPrs = all.filter((pr) => pr.state === "open");
   const gitopsPrs = openPrs.filter((pr) => pr.repo === "gitops" || Boolean(pr.releasePin)).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());

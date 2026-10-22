@@ -8,6 +8,7 @@ import { statusPill } from './ReleaseRecordList.esm.js';
 import { readinessCount, bakeProgress } from './releaseCards.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
 import { commitProofOf, commitProofChip, commitProofLine } from './commitProof.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   cards: {
@@ -31,13 +32,13 @@ const useStyles = makeStyles(() => ({
   eyebrow: { fontFamily: fontMono, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" },
   push: { marginLeft: "auto" },
   nameRow: { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 26, letterSpacing: "0.04em", color: ({ t }) => t.textHi, lineHeight: 1.1 },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, letterSpacing: "0.04em", color: ({ t }) => t.textHi, lineHeight: 1.1 },
   nameSmall: { fontSize: 22 },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, overflowWrap: "anywhere" },
   path: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" },
   arrow: { color: ({ t }) => t.textFaint, fontSize: 12 },
   minis: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 },
-  line: { fontSize: 12.5, color: ({ t }) => t.textLo },
+  line: { fontSize: 12, color: ({ t }) => t.textLo },
   bad: { color: ({ t }) => t.bad },
   bake: { display: "grid", gap: 4 },
   bakeSeg: { height: 7, borderRadius: 3 },
@@ -55,11 +56,11 @@ function CommitLine({ proof, className }) {
   let who = "";
   if (proof.evidence?.mergedBy) who = ` by ${proof.evidence.mergedBy}`;
   else if (proof.evidence?.signer) who = `, ${proof.evidence.signer}`;
-  return /* @__PURE__ */ jsxs("span", { className, title: commitProofLine(proof), children: [
+  return /* @__PURE__ */ jsx(Tooltip, { title: commitProofLine(proof), children: /* @__PURE__ */ jsxs("span", { className, children: [
     "Commit: ",
     chip,
     who
-  ] });
+  ] }) });
 }
 function Mini({ label, value, caption, tone }) {
   return /* @__PURE__ */ jsx(Tile, { children: /* @__PURE__ */ jsx(Stat, { label, value, caption, tone }) });

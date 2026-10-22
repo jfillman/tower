@@ -101,14 +101,14 @@ const useStyles = makeStyles(() => ({
   wordmark: {
     fontFamily: fontDisplay,
     fontWeight: 700,
-    fontSize: 64,
+    fontSize: 32,
     lineHeight: 1,
     letterSpacing: "-0.01em",
-    [NARROW]: { fontSize: 44 }
+    [NARROW]: { fontSize: 32 }
   },
   tagline: {
     margin: 0,
-    fontSize: 17,
+    fontSize: 15,
     lineHeight: 1.55,
     color: ({ t }) => t.textLo,
     maxWidth: 520
@@ -125,7 +125,7 @@ const useStyles = makeStyles(() => ({
   },
   product: { display: "flex", alignItems: "center", gap: 12 },
   productName: { display: "block", fontFamily: fontDisplay, fontWeight: 600, fontSize: 15 },
-  productRole: { display: "block", fontSize: 12.5, color: ({ t }) => t.textLo },
+  productRole: { display: "block", fontSize: 12, color: ({ t }) => t.textLo },
   box: {
     position: "relative",
     width: "100%",
@@ -135,8 +135,8 @@ const useStyles = makeStyles(() => ({
     boxSizing: "border-box",
     [NARROW]: { padding: 24, maxWidth: "none" }
   },
-  boxHeading: { margin: "6px 0 6px", fontFamily: fontDisplay, fontWeight: 700, fontSize: 24 },
-  boxLead: { margin: "0 0 24px", fontSize: 13.5, color: ({ t }) => t.textLo },
+  boxHeading: { margin: "6px 0 6px", fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
+  boxLead: { margin: "0 0 24px", fontSize: 13, color: ({ t }) => t.textLo },
   actions: { display: "flex", flexDirection: "column", gap: 12 },
   provider: {
     display: "flex",
@@ -151,7 +151,7 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     fontFamily: fontBody,
     fontWeight: 600,
-    fontSize: 14,
+    fontSize: 13,
     cursor: "pointer",
     "&:hover:not(:disabled)": { borderColor: ({ t }) => t.textFaint },
     "&:focus-visible": { outline: ({ t }) => `2px solid ${t.textLo}`, outlineOffset: 2 },
@@ -179,7 +179,7 @@ const useStyles = makeStyles(() => ({
   },
   devTag: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "1px 6px",
     borderRadius: 4,
     color: ({ t }) => t.textLo,

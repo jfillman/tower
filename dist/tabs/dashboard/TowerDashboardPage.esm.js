@@ -32,7 +32,7 @@ const useStyles = makeStyles(() => ({
   headLeft: {},
   backLink: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: "0.04em",
     color: ({ t }) => t.textFaint,
     cursor: "pointer",
@@ -43,9 +43,9 @@ const useStyles = makeStyles(() => ({
     "&:hover": { color: ({ t }) => t.textHi }
   },
   titleRow: { display: "flex", alignItems: "center", gap: 10 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 24, color: ({ t }) => t.textHi },
+  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, color: ({ t }) => t.textHi },
   headRight: { display: "flex", alignItems: "center", gap: 14 },
-  clock: { fontFamily: fontMono, fontSize: 14, color: ({ t }) => t.textFaint },
+  clock: { fontFamily: fontMono, fontSize: 13, color: ({ t }) => t.textFaint },
   fsButton: { display: "inline-flex", alignItems: "center", gap: 6 },
   tabbar: {
     display: "flex",
@@ -57,7 +57,7 @@ const useStyles = makeStyles(() => ({
   },
   tab: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: "0.05em",
     textTransform: "uppercase",
     padding: "10px 16px",

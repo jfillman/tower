@@ -10,7 +10,6 @@ import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import { dump, load } from 'js-yaml';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
@@ -23,6 +22,7 @@ import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
 import { appTypeOf, appRepos } from '../appRepos.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
 const BUILD_AGENTS = [
@@ -161,7 +161,7 @@ function buildCandidateValues(form, originalValues) {
       sourceVolume: { size: form.buildSourceVolumeSize }
     },
     test: { enabled: form.testEnabled, ...form.testName.trim() ? { name: form.testName.trim() } : {} },
-    // The environment list (deploy.environments) is the Environments tab's; keep it and every other key this form
+    // The environment list (deploy.environments) is Configure › Environments's; keep it and every other key this form
     // has no field for (`target`, the per-target blocks, `chart`) and write only the strategy.
     deploy: { ...originalDeploy, strategy: form.strategy },
     ephemeralEnvironments: {
@@ -271,8 +271,8 @@ function GlidepathTab() {
   const dirtyTabs = new Set(Object.keys(patch).map((k) => TAB_OF_FIELD[k] ?? "advanced"));
   const lines = Object.keys(patch).map((k) => ({ title: `Update ${k}`, detail: `cicd.yaml \u203A ${k}` }));
   const problems = yamlBlocksValid ? [] : ["A YAML block (deploy environments or pipelines) is not valid YAML. Fix it before opening the pull request."];
-  if (contextLoading) return /* @__PURE__ */ jsx(Progress, {});
-  if (contextError) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(contextError) });
+  if (contextLoading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (contextError) return /* @__PURE__ */ jsx(TabError, { error: contextError, what: "cicd.yaml" });
   if (!owner || !appName) {
     return /* @__PURE__ */ jsx(
       TowerEmptyState,
@@ -282,13 +282,13 @@ function GlidepathTab() {
       }
     );
   }
-  if (cicd.loading || !form) return /* @__PURE__ */ jsx(Progress, {});
-  if (cicd.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(cicd.error) });
+  if (cicd.loading || !form) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (cicd.error) return /* @__PURE__ */ jsx(TabError, { error: cicd.error, what: "cicd.yaml" });
   const summary = [];
   for (const key of Object.keys(patch)) summary.push(`updated \`${key}\``);
   async function handleSubmit() {
     if (!owner || !appName || !yamlBlocksValid || !dirty) return;
-    await submitCicd.submit({ owner, appName, patch, summary, via: "Glidepath tab" });
+    await submitCicd.submit({ owner, appName, patch, summary, via: "Configure \u203A Pipeline" });
     setRefreshNonce((n) => n + 1);
   }
   function updateSecret(i, field, value) {
@@ -303,7 +303,7 @@ function GlidepathTab() {
     /* @__PURE__ */ jsx(
       PageHeader,
       {
-        title: "Glidepath",
+        title: "Pipeline",
         subtitle: `${appName}'s cicd.yaml: the settings of its CI/CD engine. Every change opens a pull request on the ${appName ? appRepos(appName, appType).configRepo : appName} repo; nothing is committed directly.`,
         actions: /* @__PURE__ */ jsx(RefreshButton, { onClick: () => setRefreshNonce((n) => n + 1), label: "Refresh" })
       }
@@ -421,7 +421,7 @@ function GlidepathTab() {
     ] }),
     tab === "deploy" && /* @__PURE__ */ jsxs("div", { className: classes.section, children: [
       /* @__PURE__ */ jsx(SectionTitle, { children: "Deploy" }),
-      /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "The environments are edited in the Environments tab (deploy.environments)." }),
+      /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "The environments are edited in Configure \u203A Environments (deploy.environments)." }),
       /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
         /* @__PURE__ */ jsx(Select, { value: form.strategy, disabled: true, children: /* @__PURE__ */ jsx(MenuItem, { value: "rollout", children: "rollout" }) }),
         /* @__PURE__ */ jsx(Typography, { className: classes.govCaption, children: "Argo Rollouts is the only supported deploy strategy." })

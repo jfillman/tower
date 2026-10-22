@@ -4,6 +4,7 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { Panel, SectionLabel, Chip, Button } from './index.esm.js';
 import { useUi } from './styles.esm.js';
 import { OPENING_PR } from './PrRef.esm.js';
+import { useReportStaged } from '../configure/stagedScope.esm.js';
 
 const useStyles = makeStyles(() => ({
   panel: { padding: 16, display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" },
@@ -13,7 +14,7 @@ const useStyles = makeStyles(() => ({
   lines: { display: "flex", flexDirection: "column", gap: 12 },
   line: { display: "flex", flexDirection: "column", gap: 2 },
   lineTitle: { fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
-  detail: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
+  detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
   plus: { color: ({ t }) => t.good, marginRight: 4 },
   minus: { color: ({ t }) => t.bad, marginRight: 4 },
   buttons: { display: "flex", gap: 8 }
@@ -39,6 +40,7 @@ function PendingPanel({
   const c = useStyles({ t });
   const ui = useUi({ t });
   const ok = canSubmit ?? (lines.length > 0 && problems.length === 0);
+  useReportStaged(lines.length);
   return /* @__PURE__ */ jsxs(Panel, { accent, className: `${c.panel} ${stick === "top" ? c.stickTop : ""} ${stick === "bottom" ? c.stickBottom : ""}`, role: "region", "aria-label": heading, ...rest, children: [
     /* @__PURE__ */ jsxs("div", { className: c.head, children: [
       /* @__PURE__ */ jsx(SectionLabel, { children: heading }),

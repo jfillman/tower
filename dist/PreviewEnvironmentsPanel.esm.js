@@ -23,8 +23,8 @@ const useStyles = makeStyles(() => ({
   top: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" },
   name: { fontFamily: fontMono, fontWeight: 700, fontSize: 13, color: ({ t }) => t.sky },
   nameStale: { color: ({ t }) => t.textFaint },
-  meta: { fontSize: 11.5, color: ({ t }) => t.textFaint },
-  facts: { marginTop: 8, fontSize: 11.5, color: ({ t }) => t.textLo },
+  meta: { fontSize: 11, color: ({ t }) => t.textFaint },
+  facts: { marginTop: 8, fontSize: 11, color: ({ t }) => t.textLo },
   pillPos: { marginLeft: "auto" }
 }));
 const STALE_MS = 5 * 24 * 60 * 60 * 1e3;

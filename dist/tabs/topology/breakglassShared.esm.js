@@ -7,6 +7,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { Button, Hint } from '../../ui/index.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 const shortUser = (ref) => ref.replace(/^user:[^/]+\//, "");
 const useBreakglassStyles = makeStyles(() => ({
@@ -16,7 +17,7 @@ const useBreakglassStyles = makeStyles(() => ({
   radios: { display: "flex", flexDirection: "column", gap: 6 },
   radio: { display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: ({ t }) => t.textHi, cursor: "pointer" },
   warn: { fontSize: 11, color: ({ t }) => t.amberInk, lineHeight: 1.45 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   // Shared with BreakglassEnvironmentView and BreakglassPanel, which use them inline inside labels and rows.
   hint: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.45 },
   link: { color: ({ t }) => t.sky, background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" },
@@ -32,7 +33,7 @@ const useBreakglassStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.bad}`,
     color: ({ t }) => t.bad,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: 700
   },
   bannerMeta: { fontWeight: 400, color: ({ t }) => t.textHi },
@@ -44,7 +45,7 @@ const useBreakglassStyles = makeStyles(() => ({
   rowMeta: { color: ({ t }) => t.textFaint },
   badge: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: 700,
     padding: "0 6px",
     borderRadius: 9,
@@ -225,13 +226,13 @@ function OpenSession({
         open.processAccess ? ", with process access" : "",
         open.volumeAccess ? ", with volume access" : ""
       ] }),
-      /* @__PURE__ */ jsxs("span", { className: `${classes.bannerMeta} ${classes.countdown}`, title: `Ends at ${new Date(open.expiresAt).toLocaleString()}`, children: [
+      /* @__PURE__ */ jsx(Tooltip, { title: `Ends at ${new Date(open.expiresAt).toLocaleString()}`, children: /* @__PURE__ */ jsxs("span", { className: `${classes.bannerMeta} ${classes.countdown}`, children: [
         remaining(open.expiresAt, now),
         " left",
         open.extendedAt ? " (extended)" : ""
-      ] }),
+      ] }) }),
       /* @__PURE__ */ jsx("span", { style: { flex: 1 } }),
-      !open.extendedAt && /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, title: "Your one free extension: 15 more minutes, no approval.", onClick: () => onExtend(open.id), children: "Extend +15 min" }),
+      !open.extendedAt && /* @__PURE__ */ jsx(Tooltip, { title: "Your one free extension: 15 more minutes, no approval.", children: /* @__PURE__ */ jsx(Button, { small: true, disabled: ending, onClick: () => onExtend(open.id), children: "Extend +15 min" }) }),
       /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: ending, onClick: () => onEnd(open.id), children: ending ? "Ending\u2026" : "End session" })
     ] }),
     open.mode === "live" && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This pod will be restarted when you end the session." }),

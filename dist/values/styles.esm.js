@@ -22,7 +22,7 @@ const useStyles = makeStyles(() => ({
   envBannerPath: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   select: {
     fontFamily: fontMono,
-    fontSize: 12.5,
+    fontSize: 12,
     padding: "5px 10px",
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -38,7 +38,7 @@ const useStyles = makeStyles(() => ({
   },
   sectionDirty: { borderColor: ({ t }) => t.amberLine },
   sectionTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14.5, color: ({ t }) => t.textHi },
+  sectionTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   dirtyDot: {
     display: "inline-block",
     width: 6,
@@ -50,10 +50,10 @@ const useStyles = makeStyles(() => ({
   },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 },
   field: { display: "flex", flexDirection: "column", gap: 4 },
-  fieldLabel: { fontSize: 11.5, color: ({ t }) => t.textLo },
+  fieldLabel: { fontSize: 11, color: ({ t }) => t.textLo },
   input: {
     fontFamily: fontMono,
-    fontSize: 12.5,
+    fontSize: 12,
     padding: "6px 9px",
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -65,7 +65,7 @@ const useStyles = makeStyles(() => ({
   },
   textarea: {
     fontFamily: fontMono,
-    fontSize: 12.5,
+    fontSize: 12,
     padding: "6px 9px",
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -77,10 +77,10 @@ const useStyles = makeStyles(() => ({
   },
   switchRow: { display: "flex", alignItems: "center", gap: 8 },
   switchLabel: { fontSize: 13, color: ({ t }) => t.textHi },
-  hint: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint, marginTop: 8 },
+  hint: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.textFaint, marginTop: 8 },
   advancedToggle: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: ({ t }) => t.sky,
@@ -116,7 +116,7 @@ const useStyles = makeStyles(() => ({
     gap: 8
   },
   rowCardHead: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  radioRow: { display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: ({ t }) => t.textHi },
+  radioRow: { display: "flex", gap: 14, alignItems: "center", fontSize: 12, color: ({ t }) => t.textHi },
   stepNumber: {
     fontFamily: fontMono,
     fontSize: 12,
@@ -128,7 +128,7 @@ const useStyles = makeStyles(() => ({
   stepOrderCol: { display: "flex", flexDirection: "column", gap: 2 },
   orderBtn: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 1,
     padding: "2px 5px",
     border: ({ t }) => `1px solid ${t.line}`,
@@ -150,7 +150,7 @@ const useStyles = makeStyles(() => ({
   addBtn: {
     alignSelf: "flex-start",
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     color: ({ t }) => t.sky,
     background: "none",
     border: ({ t }) => `1px dashed ${t.skyLine}`,
@@ -172,11 +172,11 @@ const useStyles = makeStyles(() => ({
   reviewBarProd: { borderColor: ({ t }) => t.bad, backgroundColor: ({ t }) => t.badSoft },
   reviewBarOther: { borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
   reviewHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 },
-  reviewTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14 },
+  reviewTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13 },
   reviewTitleProd: { color: ({ t }) => t.bad },
   reviewTitleOther: { color: ({ t }) => t.amberInk },
-  reviewList: { fontSize: 12.5, color: ({ t }) => t.textLo, margin: 0, paddingLeft: 18 },
-  errorList: { fontSize: 12.5, color: ({ t }) => t.bad, margin: 0, paddingLeft: 18 },
+  reviewList: { fontSize: 12, color: ({ t }) => t.textLo, margin: 0, paddingLeft: 18 },
+  errorList: { fontSize: 12, color: ({ t }) => t.bad, margin: 0, paddingLeft: 18 },
   btn: {
     fontFamily: fontMono,
     fontSize: 12,
@@ -201,7 +201,7 @@ const useStyles = makeStyles(() => ({
   },
   // Space above a PR receipt, its error, or the button that opens the PR.
   prReceipt: { marginTop: 12 },
-  note: { fontSize: 12.5, color: ({ t }) => t.textLo },
+  note: { fontSize: 12, color: ({ t }) => t.textLo },
   example: {
     margin: "6px 0 0",
     padding: "8px 10px",

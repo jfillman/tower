@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
@@ -15,6 +14,7 @@ import { buildSupplyChainStages, PipelineFlow } from '../PipelineFlow.esm.js';
 import { ImageTagPill } from './deployments/ImageTagPill.esm.js';
 import { ImageCleanup } from './images/ImageCleanup.esm.js';
 import { isPreviewEnvName, parseGhcrOwnerRepo, classifyGhcrVersion } from '../types.esm.js';
+import { TabSkeleton, TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 12 },
@@ -48,7 +48,7 @@ const useStyles = makeStyles(() => ({
   footer: {
     padding: "10px 20px",
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint
   }
 }));
@@ -64,8 +64,8 @@ function ImagesTab() {
   const { environments, loading, error, pipelineRuns, owner, appName } = useReleaseContext();
   const [searchParams] = useSearchParams();
   const highlightTag = searchParams.get("imageTag") ?? void 0;
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "images" });
   const image = environments.find((e) => e.image && !isPreviewEnvName(e.env))?.image ?? environments.find((e) => e.image)?.image;
   const ownerRepo = (image ? parseGhcrOwnerRepo(image) : void 0) ?? (owner && appName ? { owner, repo: appName } : void 0);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -164,7 +164,7 @@ function ImagesTable({
         }
       )
     ] }),
-    versions.loading && /* @__PURE__ */ jsx(Progress, {}),
+    versions.loading && /* @__PURE__ */ jsx(PanelSkeleton, {}),
     versions.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
       "Couldn't list image versions: ",
       versions.error
@@ -268,7 +268,7 @@ function ImagePanel({
           }
         ) }),
         expanded && /* @__PURE__ */ jsxs("div", { className: classes.detailBody, children: [
-          provenance?.loading && /* @__PURE__ */ jsx(Progress, {}),
+          provenance?.loading && /* @__PURE__ */ jsx(PanelSkeleton, {}),
           provenance?.error && /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
             "Couldn't reach the registry for attestations: ",
             provenance.error

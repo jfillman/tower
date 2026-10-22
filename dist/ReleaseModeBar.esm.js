@@ -5,9 +5,10 @@ import { useHangarTokens } from './brand/tokens.esm.js';
 import { RELEASE_MODE_LABEL, RELEASE_MODE_HELP, RELEASE_MODES } from './releaseFlow.esm.js';
 import { StatusChip, TextLink, Button, Callout } from './ui/index.esm.js';
 import { PrReceipt, OPENING_PR } from './ui/PrRef.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
-  bar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 12.5 },
+  bar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 12 },
   caption: { color: ({ t }) => t.textLo },
   help: { color: ({ t }) => t.textLo, flex: "1 1 320px", minWidth: 0 },
   choices: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, width: "100%" },
@@ -44,20 +45,18 @@ function ReleaseModeBar({
     choosing && /* @__PURE__ */ jsxs("div", { className: classes.choices, children: [
       RELEASE_MODES.filter((m) => m !== info.mode).map((m) => {
         const available = info.settable.includes(m);
-        return /* @__PURE__ */ jsx(
+        return /* @__PURE__ */ jsx(Tooltip, { title: RELEASE_MODE_HELP[m], children: /* @__PURE__ */ jsx(
           Button,
           {
             small: true,
             disabled: !available || submitting,
-            title: RELEASE_MODE_HELP[m],
             onClick: () => {
               setPressed(m);
               onChange(m);
             },
             children: modeLabel(m, available)
-          },
-          m
-        );
+          }
+        ) }, m);
       }),
       /* @__PURE__ */ jsxs("span", { className: classes.caption, children: [
         "Opens a PR to ",

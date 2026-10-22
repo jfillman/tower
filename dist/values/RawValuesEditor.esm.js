@@ -1,10 +1,9 @@
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import { ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
-import { Hint, Button } from '../ui/index.esm.js';
+import { Hint, Button, Callout } from '../ui/index.esm.js';
 import { OPENING_PR, PrReceipt } from '../ui/PrRef.esm.js';
 import { describeChart } from '../environments/ownChart.esm.js';
 
@@ -53,7 +52,10 @@ function RawValuesEditor({ source, chart }) {
         next: "merge it to apply these values."
       }
     ),
-    source.submitError && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(source.submitError) })
+    source.submitError && /* @__PURE__ */ jsxs(Callout, { tone: "bad", children: [
+      "Couldn't open the PR: ",
+      source.submitError
+    ] })
   ] });
 }
 

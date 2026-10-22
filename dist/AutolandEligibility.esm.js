@@ -48,7 +48,7 @@ function autolandEligibility(records, signoffEnv) {
   return items;
 }
 const useStyles = makeStyles(() => ({
-  wrap: { marginBottom: 12, fontSize: 12.5 },
+  wrap: { marginBottom: 12, fontSize: 12 },
   list: { display: "flex", flexDirection: "column", gap: 4, marginTop: 6 },
   item: { display: "flex", gap: 8, alignItems: "baseline" },
   mark: { fontFamily: fontMono, width: 14, textAlign: "center" },

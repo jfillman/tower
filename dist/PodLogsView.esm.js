@@ -5,6 +5,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { kubernetesProxyApiRef } from '@backstage/plugin-kubernetes-react';
 import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { SectionTitle, FilterSelect, FilterChip, Button, EmptyNote } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" },
@@ -13,7 +14,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 6,
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: ({ t }) => t.sky,
@@ -33,7 +34,7 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.bg,
     color: ({ t }) => t.textHi,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1.5,
     maxHeight: 420,
     overflow: "auto",
@@ -85,7 +86,7 @@ function PodLogsView({
         podName
       ] }),
       containers.length > 1 && /* @__PURE__ */ jsx(FilterSelect, { label: "Container", value: container, onChange: setContainer, options: containers.map((c) => ({ value: c, label: c })) }),
-      /* @__PURE__ */ jsx(FilterChip, { on: previous, title: "The container's previous run (before its last restart)", onClick: () => setPrevious((v) => !v), children: "Previous run" }),
+      /* @__PURE__ */ jsx(Tooltip, { title: "The container's previous run (before its last restart)", children: /* @__PURE__ */ jsx(FilterChip, { on: previous, onClick: () => setPrevious((v) => !v), children: "Previous run" }) }),
       live ? /* @__PURE__ */ jsxs("span", { className: classes.liveBadge, children: [
         /* @__PURE__ */ jsx("span", { className: classes.liveDot }),
         "live"

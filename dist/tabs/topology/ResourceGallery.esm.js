@@ -74,12 +74,12 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     flex: "0 1 220px"
   },
-  count: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  count: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   kindGroup: { marginBottom: 12 },
   kindHead: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, color: ({ t }) => t.textFaint },
   kindIcon: { display: "flex", fontSize: 14 },
-  kindLabel: { fontFamily: fontMono, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em" },
-  kindCount: { fontFamily: fontMono, fontSize: 10, opacity: 0.7 },
+  kindLabel: { fontFamily: fontMono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" },
+  kindCount: { fontFamily: fontMono, fontSize: 11, opacity: 0.7 },
   // auto-fit, not auto-fill - see StageDetail.tsx's serviceGrid comment for
   // why auto-fill leaves a lone item stranded in a narrow column instead of
   // stretching to fill the row.
@@ -104,7 +104,7 @@ const useStyles = makeStyles(() => ({
   detailModeRow: { display: "flex", gap: 6, marginBottom: 10 },
   detailModeBtn: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 9px",
     borderRadius: 3,
     border: ({ t }) => `1px solid ${t.line}`,

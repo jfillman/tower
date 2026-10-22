@@ -8,6 +8,7 @@ import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { SectionTitle, Button, StatusChip } from '../../ui/index.esm.js';
 import { RecordingPlayer } from './RecordingPlayer.esm.js';
 import { useBreakglassStyles, useBreakglassSessions, needsYou, useNow, toDecideOf, OpenSession, shortUser, remaining, mayReview, breakglassApi, mayEnd } from './breakglassShared.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 const useCardStyles = makeStyles(() => ({
   card: { display: "flex", flexDirection: "column", gap: 10, marginTop: 18 },
@@ -141,7 +142,7 @@ function BreakglassEnvironmentView({
         /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setConfirmEnd(void 0), children: "Keep it" })
       ] });
     }
-    return /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: ending === s.id, title: `End ${shortUser(s.requester)}'s session (${s.approver === info.user ? "you approved it" : "admin"})`, onClick: () => setConfirmEnd(s.id), children: label });
+    return /* @__PURE__ */ jsx(Tooltip, { title: `End ${shortUser(s.requester)}'s session (${s.approver === info.user ? "you approved it" : "admin"})`, children: /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: ending === s.id, onClick: () => setConfirmEnd(s.id), children: label }) });
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.root, "data-testid": "breakglass-environment-view", children: [
     open && /* @__PURE__ */ jsx(
@@ -183,12 +184,12 @@ function BreakglassEnvironmentView({
           r.reason
         ] }),
         r.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: r.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: r.ticketUrl }),
-        (r.podImage || r.podImageId) && /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, "data-testid": `breakglass-request-image-${r.id}`, title: r.podImageId ?? "", children: [
+        (r.podImage || r.podImageId) && /* @__PURE__ */ jsx(Tooltip, { title: r.podImageId ?? "", children: /* @__PURE__ */ jsxs("span", { className: classes.bannerMeta, "data-testid": `breakglass-request-image-${r.id}`, children: [
           "The pod runs ",
           r.podImage ?? "an unknown image",
           r.podImageId?.includes("@sha256:") ? ` (${r.podImageId.slice(r.podImageId.indexOf("@sha256:") + 8, r.podImageId.indexOf("@sha256:") + 20)}\u2026)` : "",
           r.podImage?.includes(":") ? `; release ${r.podImage.slice(r.podImage.lastIndexOf(":") + 1)} in the Releases tab` : ""
-        ] }),
+        ] }) }),
         r.mode === "copy" && /* @__PURE__ */ jsx("span", { className: r.holdApp ? classes.bannerMeta : classes.warn, children: r.holdApp ? "The copy holds the app: no work runs in it." : "The copy runs the app: it consumes queues, schedules work and takes leases like a real replica." }),
         r.sensitive && /* @__PURE__ */ jsx("span", { className: classes.warn, children: "This session can read Secrets (volume or process access); its recording will be restricted to admins, you, the reviewer and the requester." }),
         r.mode === "live" && r.tier === "flight" && /* @__PURE__ */ jsxs("label", { className: classes.radio, "data-testid": `breakglass-keep-pod-${r.id}`, children: [
@@ -265,11 +266,11 @@ function BreakglassEnvironmentView({
           s.volumeAccess ? " + volume access" : "",
           ")"
         ] }),
-        /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `Ends at ${formatDateTime(s.expiresAt)}`, children: [
+        /* @__PURE__ */ jsx(Tooltip, { title: `Ends at ${formatDateTime(s.expiresAt)}`, children: /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
           "ends ",
           relativeTime(s.expiresAt)
-        ] }),
-        s.glassBroken && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: "Opened by an admin with no second person", children: "glass broken" }),
+        ] }) }),
+        s.glassBroken && /* @__PURE__ */ jsx(Tooltip, { title: "Opened by an admin with no second person", children: /* @__PURE__ */ jsx(StatusChip, { tone: "bad", children: "glass broken" }) }),
         s.attached === false && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: "terminal closed" }),
         hostTerminal && s.requester === info.user && open?.id !== s.id && /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setOpen(s), children: "Reopen terminal" }),
         endControl(s)
@@ -292,55 +293,54 @@ function BreakglassEnvironmentView({
           "data-testid": `breakglass-session-${s.id}`,
           children: [
             /* @__PURE__ */ jsx(StatusChip, { tone: stateTone(s), children: s.state }),
-            /* @__PURE__ */ jsx("span", { title: formatDateTime(s.createdAt), children: relativeTime(s.createdAt) }),
+            /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(s.createdAt), children: /* @__PURE__ */ jsx("span", { children: relativeTime(s.createdAt) }) }),
             /* @__PURE__ */ jsxs("span", { children: [
               s.mode,
               s.processAccess ? " + process access" : "",
-              s.volumeAccess ? /* @__PURE__ */ jsx("span", { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: " + volume access" }) : "",
-              s.mode === "copy" && s.holdApp ? /* @__PURE__ */ jsx("span", { title: "The copy ran a sleep instead of the app", children: " \xB7 app held" }) : ""
+              s.volumeAccess ? /* @__PURE__ */ jsx(Tooltip, { title: (s.volumes ?? []).map((v) => v.path).join("\n") || "no volumes", children: /* @__PURE__ */ jsx("span", { children: " + volume access" }) }) : "",
+              s.mode === "copy" && s.holdApp ? /* @__PURE__ */ jsx(Tooltip, { title: "The copy ran a sleep instead of the app", children: /* @__PURE__ */ jsx("span", { children: " \xB7 app held" }) }) : ""
             ] }),
             /* @__PURE__ */ jsx("span", { children: s.pod }),
-            s.sensitive && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", title: "Could read Secrets: the recording is for admins, the approver, the reviewer and the requester", children: "sensitive" }),
-            s.recycleWaivedReason && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, title: s.recycleWaivedReason, children: "pod kept by the approver" }),
+            s.sensitive && /* @__PURE__ */ jsx(Tooltip, { title: "Could read Secrets: the recording is for admins, the approver, the reviewer and the requester", children: /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "sensitive" }) }),
+            s.recycleWaivedReason && /* @__PURE__ */ jsx(Tooltip, { title: s.recycleWaivedReason, children: /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: "pod kept by the approver" }) }),
             /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: shortUser(s.requester) }),
-            /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: s.reason, children: [
+            /* @__PURE__ */ jsx(Tooltip, { title: s.reason, children: /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
               "\u201C",
               s.reason.length > 60 ? `${s.reason.slice(0, 60)}\u2026` : s.reason,
               "\u201D"
-            ] }),
+            ] }) }),
             s.ticketUrl && /* @__PURE__ */ jsx("a", { className: classes.link, href: s.ticketUrl, target: "_blank", rel: "noopener noreferrer", children: "ticket" }),
             s.approver && !(s.endReason ?? "").startsWith("denied") && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
               "approved by ",
               shortUser(s.approver)
             ] }),
-            s.glassBroken && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: "Opened by an admin with no second person", children: "glass broken" }),
+            s.glassBroken && /* @__PURE__ */ jsx(Tooltip, { title: "Opened by an admin with no second person", children: /* @__PURE__ */ jsx(StatusChip, { tone: "bad", children: "glass broken" }) }),
             s.reviewState === "due" && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "review due" }),
-            s.reviewState === "due" && s.noReviewer && /* @__PURE__ */ jsx("span", { className: classes.bad, title: "Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)", children: "no one else can review this" }),
-            s.reviewState === "due" && s.reviewEscalatedAt && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `Escalated ${formatDateTime(s.reviewEscalatedAt)}`, children: "overdue" }),
-            s.reviewState === "done" && /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ""}`, children: [
+            s.reviewState === "due" && s.noReviewer && /* @__PURE__ */ jsx(Tooltip, { title: "Owners, admins and the fallback reviewers group hold nobody but the requester; name a reviewers group (glidepath.breakglass.reviewers)", children: /* @__PURE__ */ jsx("span", { className: classes.bad, children: "no one else can review this" }) }),
+            s.reviewState === "due" && s.reviewEscalatedAt && /* @__PURE__ */ jsx(Tooltip, { title: `Escalated ${formatDateTime(s.reviewEscalatedAt)}`, children: /* @__PURE__ */ jsx(StatusChip, { tone: "bad", children: "overdue" }) }),
+            s.reviewState === "done" && /* @__PURE__ */ jsx(Tooltip, { title: `${formatDateTime(s.reviewedAt)}: ${s.reviewNote ?? ""}`, children: /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
               "reviewed by ",
               shortUser(s.reviewedBy ?? "")
-            ] }),
-            s.endReason && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, title: s.endReason, children: s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}\u2026` : s.endReason }),
+            ] }) }),
+            s.endReason && /* @__PURE__ */ jsx(Tooltip, { title: s.endReason, children: /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.endReason.length > 80 ? `${s.endReason.slice(0, 80)}\u2026` : s.endReason }) }),
             s.mode === "live" && s.state === "ended" && /* @__PURE__ */ jsx("span", { className: classes.rowMeta, children: s.recycled ? "pod restarted" : "pod not restarted" }),
-            s.cleanupNotes && /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.cleanupNotes, children: "notes" }),
+            s.cleanupNotes && /* @__PURE__ */ jsx(Tooltip, { title: s.cleanupNotes, children: /* @__PURE__ */ jsx("span", { className: classes.warn, children: "notes" }) }),
             s.recordingKey && /* @__PURE__ */ jsxs(Fragment, { children: [
-              s.recordingRekorIndex !== void 0 ? /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, title: `Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ""}) holds this recording's SHA-256, signed by the platform`, children: [
+              s.recordingRekorIndex !== void 0 ? /* @__PURE__ */ jsx(Tooltip, { title: `Rekor log index ${s.recordingRekorIndex} (${s.recordingRekorUuid ?? ""}) holds this recording's SHA-256, signed by the platform`, children: /* @__PURE__ */ jsxs("span", { className: classes.rowMeta, children: [
                 "anchored #",
                 s.recordingRekorIndex
-              ] }) : /* @__PURE__ */ jsx("span", { className: classes.warn, title: s.anchorError ?? "Not yet anchored in the transparency log", children: "not anchored" }),
-              /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setPlaying(s), title: "Play the recording here", children: "play" }),
-              /* @__PURE__ */ jsx(
+              ] }) }) : /* @__PURE__ */ jsx(Tooltip, { title: s.anchorError ?? "Not yet anchored in the transparency log", children: /* @__PURE__ */ jsx("span", { className: classes.warn, children: "not anchored" }) }),
+              /* @__PURE__ */ jsx(Tooltip, { title: "Play the recording here", children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.link, onClick: () => setPlaying(s), children: "play" }) }),
+              /* @__PURE__ */ jsx(Tooltip, { title: `SHA-256 ${s.recordingSha256 ?? ""}${s.recordingExpiresAt ? `
+Kept until ${formatDateTime(s.recordingExpiresAt)}` : ""}`, children: /* @__PURE__ */ jsx(
                 "button",
                 {
                   type: "button",
                   className: classes.link,
                   onClick: () => download(s),
-                  title: `SHA-256 ${s.recordingSha256 ?? ""}${s.recordingExpiresAt ? `
-Kept until ${formatDateTime(s.recordingExpiresAt)}` : ""}`,
                   children: "download"
                 }
-              )
+              ) })
             ] }),
             mayReview(s, info) && /* @__PURE__ */ jsxs("div", { className: classes.actions, style: { flexBasis: "100%" }, "data-testid": `breakglass-review-${s.id}`, children: [
               /* @__PURE__ */ jsx(
@@ -375,7 +375,7 @@ function BreakglassEnvironmentCard({ env, tier, linkedSessionId }) {
       /* @__PURE__ */ jsx("span", { className: classes.headIcon, children: /* @__PURE__ */ jsx(LockOpenIcon, { fontSize: "small" }) }),
       /* @__PURE__ */ jsxs(SectionTitle, { level: 2, children: [
         "Break-glass",
-        count > 0 && /* @__PURE__ */ jsx("span", { className: shared.badge, "data-testid": "breakglass-needs-you", title: "Requests you can decide, your approved request, or reviews you can do", children: count })
+        count > 0 && /* @__PURE__ */ jsx(Tooltip, { title: "Requests you can decide, your approved request, or reviews you can do", children: /* @__PURE__ */ jsx("span", { className: shared.badge, "data-testid": "breakglass-needs-you", children: count }) })
       ] })
     ] }),
     /* @__PURE__ */ jsx(BreakglassEnvironmentView, { env, tier, data, linkedSessionId })

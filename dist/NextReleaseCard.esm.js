@@ -4,6 +4,7 @@ import { relativeTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { NicknameChip } from './tabs/deployments/ImageTagPill.esm.js';
 import { Button, Card, Tile, SectionTitle, TextLink, EmptyNote, Hint, StatusChip } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const SCOPE_SHOWN = 6;
 const INCOMING_SHOWN = 3;
@@ -17,7 +18,7 @@ const useStyles = makeStyles(() => ({
     marginBottom: 14
   },
   meta: { display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 19, letterSpacing: "0.06em", color: ({ t }) => t.textHi },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18, letterSpacing: "0.06em", color: ({ t }) => t.textHi },
   version: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.amberInk },
   after: { fontSize: 12, color: ({ t }) => t.textLo },
   grid: {
@@ -27,15 +28,15 @@ const useStyles = makeStyles(() => ({
     "@media (max-width: 980px)": { gridTemplateColumns: "1fr" }
   },
   column: { minWidth: 0, display: "flex", flexDirection: "column", gap: 4 },
-  item: { display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, padding: "2px 0", minWidth: 0 },
+  item: { display: "flex", gap: 8, alignItems: "baseline", fontSize: 12, padding: "2px 0", minWidth: 0 },
   prTitle: { color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   faint: { color: ({ t }) => t.textFaint, fontSize: 12 },
   planned: { borderBottom: ({ t }) => `1px solid ${t.lineSoft}`, paddingBottom: 8, marginBottom: 4, display: "flex", flexDirection: "column", gap: 4 },
   sub: { borderTop: ({ t }) => `1px solid ${t.lineSoft}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 },
   issues: { display: "flex", flexWrap: "wrap", gap: 8, fontFamily: fontMono, fontSize: 11, marginTop: 4 },
-  tag: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi },
+  tag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi },
   cand: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12 },
-  leadMark: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.amberInk, letterSpacing: "0.06em" },
+  leadMark: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk, letterSpacing: "0.06em" },
   meter: { height: 6, borderRadius: 3, backgroundColor: ({ t }) => t.panelAlt, overflow: "hidden", margin: "2px 0 6px" },
   meterFill: { display: "block", height: "100%", backgroundColor: ({ t }) => t.amber },
   check: { fontFamily: fontMono, width: 14, flex: "0 0 14px", textAlign: "center" },
@@ -76,11 +77,11 @@ function NextReleaseCard({
       title: name ? /* @__PURE__ */ jsx("span", { className: classes.name, children: name }) : "Next release",
       meta: /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
         /* @__PURE__ */ jsx(StatusChip, { tone: "warn", dot: true, children: name ? "next release \xB7 draft" : "draft" }),
-        next.suggestedVersion && /* @__PURE__ */ jsxs("span", { className: classes.version, title: `From the merged PRs${next.breaking ? ", including a breaking change" : ""}`, children: [
+        next.suggestedVersion && /* @__PURE__ */ jsx(Tooltip, { title: `From the merged PRs${next.breaking ? ", including a breaking change" : ""}`, children: /* @__PURE__ */ jsxs("span", { className: classes.version, children: [
           "v",
           next.suggestedVersion,
           " suggested"
-        ] }),
+        ] }) }),
         previousLabel && /* @__PURE__ */ jsxs("span", { className: classes.after, children: [
           "after ",
           previousLabel

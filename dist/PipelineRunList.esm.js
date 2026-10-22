@@ -5,6 +5,7 @@ import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 import { EmptyNote, FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const STATUS_FILTERS = [
   { key: "all", label: "All" },
@@ -66,7 +67,7 @@ const useStyles = makeStyles(() => ({
   when: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "right", width: 70, flexShrink: 0, whiteSpace: "nowrap" },
   slugChip: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: "1px 7px",
     borderRadius: 8,
     border: "1px solid",
@@ -75,7 +76,7 @@ const useStyles = makeStyles(() => ({
   },
   errorLine: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.bad,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -165,7 +166,7 @@ function MiniDag({ run, maxCols, maxRows }) {
 }
 function FlowSlugChip({ slug, classes }) {
   const hue = slugHue(slug);
-  return /* @__PURE__ */ jsxs(
+  return /* @__PURE__ */ jsx(Tooltip, { title: "Shared by every stage of this same flow execution, including the build that started it", children: /* @__PURE__ */ jsxs(
     "span",
     {
       className: classes.slugChip,
@@ -174,13 +175,12 @@ function FlowSlugChip({ slug, classes }) {
         borderColor: `hsl(${hue}, 65%, 60%)`,
         backgroundColor: `hsla(${hue}, 65%, 60%, 0.12)`
       },
-      title: "Shared by every stage of this same flow execution, including the build that started it",
       children: [
         "flow: ",
         slug
       ]
     }
-  );
+  ) });
 }
 function pipelineTitle(run) {
   if (run.pipelineName === "governance-check") {
@@ -375,7 +375,7 @@ function PipelineRunList({
                 ] }),
                 /* @__PURE__ */ jsx("div", { className: classes.chipSlot, children: /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, children: tone.label }) }),
                 /* @__PURE__ */ jsx("span", { className: classes.when, children: durationLabel }),
-                /* @__PURE__ */ jsx("span", { className: classes.when, title: run.startTime ? formatDateTime(run.startTime) : void 0, children: run.startTime ? relativeTime(run.startTime) : "\u2014" })
+                /* @__PURE__ */ jsx(Tooltip, { title: run.startTime ? formatDateTime(run.startTime) : void 0, children: /* @__PURE__ */ jsx("span", { className: classes.when, children: run.startTime ? relativeTime(run.startTime) : "\u2014" }) })
               ] })
             ]
           },

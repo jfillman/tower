@@ -6,6 +6,7 @@ import { imageTag, extractShortShaFromImageTag } from './types.esm.js';
 import { useRepoHead } from './useReleaseData.esm.js';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
 import { SectionTitle, EmptyNote } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const TIMELINE_TAG_PALETTE_LIGHT = [
   "#3366CC",
@@ -84,7 +85,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     paddingLeft: 6,
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     overflow: "hidden",
     whiteSpace: "nowrap",
     border: "1px solid transparent"
@@ -94,7 +95,7 @@ const useStyles = makeStyles(() => ({
   },
   emptyTrack: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     fontStyle: "italic",
     color: ({ t }) => t.textFaint,
     display: "flex",
@@ -113,7 +114,7 @@ const useStyles = makeStyles(() => ({
     borderRadius: 4,
     padding: "12px 14px"
   },
-  leadEnv: { fontFamily: fontMono, fontSize: 10.5, textTransform: "lowercase", letterSpacing: "0.04em", color: ({ t }) => t.textFaint, marginBottom: 6 },
+  leadEnv: { fontFamily: fontMono, fontSize: 11, textTransform: "lowercase", letterSpacing: "0.04em", color: ({ t }) => t.textFaint, marginBottom: 6 },
   leadValue: { fontFamily: fontMono, fontSize: 22, fontWeight: 600 },
   leadCaption: { fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 4 }
 }));
@@ -164,11 +165,10 @@ function ReleaseTimelinePanel({
           const isLast = i === entries.length - 1;
           const stale = isLast && now - new Date(entry.date).getTime() > STALE_THRESHOLD_MS;
           const color = colorForTag(entry.imageTag, isDark);
-          return /* @__PURE__ */ jsx(
+          return /* @__PURE__ */ jsx(Tooltip, { title: `${imageTag(entry.imageTag)} \xB7 deployed ${formatDateTime(entry.date)}${stale ? ` \xB7 running ${relativeTime(entry.date)}` : ""}`, children: /* @__PURE__ */ jsx(
             "div",
             {
               className: `${classes.seg} ${stale ? classes.segStale : ""}`,
-              title: `${imageTag(entry.imageTag)} \xB7 deployed ${formatDateTime(entry.date)}${stale ? ` \xB7 running ${relativeTime(entry.date)}` : ""}`,
               style: {
                 left: pct(startMs),
                 width: pct(endMs - startMs),
@@ -176,9 +176,8 @@ function ReleaseTimelinePanel({
                 borderColor: stale ? t.amber : "transparent"
               },
               children: imageTag(entry.imageTag)
-            },
-            entry.sha
-          );
+            }
+          ) }, entry.sha);
         }) })
       ] }, env.env);
     }),

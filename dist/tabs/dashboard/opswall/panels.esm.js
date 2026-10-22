@@ -6,6 +6,7 @@ import { PIPELINE_CATEGORIES, CATEGORY_LABEL } from '../../../fleet/pipelineHist
 import { fmtAge, fmtSeconds, bandColor, severityColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
 import { FilterGroup, FilterChip, StatusChip } from '../../../ui/index.esm.js';
 import { PrRef } from '../../../ui/PrRef.esm.js';
+import { Tooltip } from '../../../ui/Tooltip.esm.js';
 
 function useKit() {
   const t = useHangarTokens();
@@ -152,7 +153,7 @@ function PipelinesPanel({
             p.phase === "pending" && /* @__PURE__ */ jsx("span", { className: c.mono, children: "queued" }),
             p.slow && /* @__PURE__ */ jsx("span", { className: c.staleNote, children: "slow" })
           ] }),
-          /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: p.title, children: [p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`].filter(Boolean).join(" \xB7 ") })
+          /* @__PURE__ */ jsx(Tooltip, { title: p.title, children: /* @__PURE__ */ jsx("div", { className: c.rowDetail, children: [p.title, p.sha, p.author && `@${p.author}`, p.prNumber && `PR #${p.prNumber}`].filter(Boolean).join(" \xB7 ") }) })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
           p.progress && /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -163,10 +164,10 @@ function PipelinesPanel({
               p.progress.total
             ] })
           ] }),
-          /* @__PURE__ */ jsxs("span", { className: c.age, title: "elapsed / typical for this pipeline", children: [
+          /* @__PURE__ */ jsx(Tooltip, { title: "elapsed / typical for this pipeline", children: /* @__PURE__ */ jsxs("span", { className: c.age, children: [
             fmtSeconds(p.elapsedSec),
             p.typicalSec !== void 0 ? ` / ~${fmtSeconds(p.typicalSec)}` : ""
-          ] }),
+          ] }) }),
           /* @__PURE__ */ jsx(Links, { links: p.links })
         ] })
       ] }, p.key);
@@ -182,7 +183,7 @@ function PipelinesPanel({
       stats.p50Sec !== void 0 && ` \xB7 p50 ${fmtSeconds(stats.p50Sec)}`
     ] }),
     historyNote && /* @__PURE__ */ jsx("div", { className: c.historyNote, children: historyNote }),
-    strip.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No finished runs in this window." }) : /* @__PURE__ */ jsx("div", { className: c.runStrip, "aria-label": `Last ${strip.length} finished runs, oldest first`, children: strip.map((r) => /* @__PURE__ */ jsx(
+    strip.length === 0 ? /* @__PURE__ */ jsx(Empty, { children: "No finished runs in this window." }) : /* @__PURE__ */ jsx("div", { className: c.runStrip, "aria-label": `Last ${strip.length} finished runs, oldest first`, children: strip.map((r) => /* @__PURE__ */ jsx(Tooltip, { title: `${r.app} \xB7 ${r.pipeline} \xB7 ${r.status}${r.durationSec !== void 0 ? ` in ${fmtSeconds(r.durationSec)}` : ""} \xB7 ${fmtAge(now, r.endTime)} ago`, children: /* @__PURE__ */ jsx(
       "a",
       {
         className: c.runCell,
@@ -190,7 +191,6 @@ function PipelinesPanel({
         href: towerHref(r.app, "pipelines", { run: r.name }),
         target: "_blank",
         rel: "noopener noreferrer",
-        title: `${r.app} \xB7 ${r.pipeline} \xB7 ${r.status}${r.durationSec !== void 0 ? ` in ${fmtSeconds(r.durationSec)}` : ""} \xB7 ${fmtAge(now, r.endTime)} ago`,
         children: /* @__PURE__ */ jsxs("span", { className: c.srOnly, children: [
           r.app,
           " ",
@@ -198,9 +198,8 @@ function PipelinesPanel({
           " ",
           r.status
         ] })
-      },
-      r.key
-    )) }),
+      }
+    ) }, r.key)) }),
     failures.slice(0, RECENT_FAILURES).map((f) => {
       const run = towerHref(f.app, "pipelines", { run: f.name });
       return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: t.bad }, children: [
@@ -347,7 +346,7 @@ function Trend({ now, before, lowerIsBetter }) {
   if (now === void 0 || before === void 0 || before === now) return null;
   const up = now > before;
   const good = lowerIsBetter ? !up : up;
-  return /* @__PURE__ */ jsx("span", { className: c.mono, style: { color: good ? t.good : t.bad }, title: "vs the previous window", children: up ? "\u25B2" : "\u25BC" });
+  return /* @__PURE__ */ jsx(Tooltip, { title: "vs the previous window", children: /* @__PURE__ */ jsx("span", { className: c.mono, style: { color: good ? t.good : t.bad }, children: up ? "\u25B2" : "\u25BC" }) });
 }
 function DoraTile({
   label,
@@ -502,7 +501,7 @@ function ActivityPanel({
     return /* @__PURE__ */ jsxs("div", { className: c.row, style: { borderLeftColor: edge }, children: [
       /* @__PURE__ */ jsxs("div", { className: c.rowMain, children: [
         /* @__PURE__ */ jsx("div", { className: c.rowTitle, children: n.payload.title }),
-        n.payload.description && /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: n.payload.description, children: n.payload.description.split("\n")[0] })
+        n.payload.description && /* @__PURE__ */ jsx(Tooltip, { title: n.payload.description, children: /* @__PURE__ */ jsx("div", { className: c.rowDetail, children: n.payload.description.split("\n")[0] }) })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
         /* @__PURE__ */ jsx("span", { className: c.age, children: fmtAge(now, String(n.created)) }),
@@ -550,7 +549,7 @@ function ReleaseCalendarPanel({
         /* @__PURE__ */ jsx("div", { className: c.rowDetail, title: detail, children: detail })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
-        e.next.targetDate && /* @__PURE__ */ jsx("span", { className: c.age, title: e.next.targetDate, children: due }),
+        e.next.targetDate && /* @__PURE__ */ jsx(Tooltip, { title: e.next.targetDate, children: /* @__PURE__ */ jsx("span", { className: c.age, children: due }) }),
         href && /* @__PURE__ */ jsx(Links, { links: [{ label: "Open", href }] })
       ] })
     ] }, e.appName);

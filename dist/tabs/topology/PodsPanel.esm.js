@@ -12,6 +12,7 @@ import { PodRestartControl } from './PodRestartControl.esm.js';
 import { YamlView } from './YamlView.esm.js';
 import { BreakglassPanel } from './BreakglassPanel.esm.js';
 import { FactGrid, Fact, SectionTitle, StatusChip, FilterChip, Button } from '../../ui/index.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 function findPodResource(resources, name) {
   return resources.find((r) => r.kind === "Pod" && r.name === name);
@@ -46,9 +47,9 @@ const useStyles = makeStyles(() => ({
   cardSelected: { borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft },
   dot: { width: 9, height: 9, borderRadius: "50%", flexShrink: 0 },
   cardMeta: { display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 },
-  cardName: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  cardSub: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint },
-  restartBadge: { fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
+  cardName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  cardSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  restartBadge: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: ({ t }) => t.amberInk, flexShrink: 0 },
   detail: {
     marginTop: 12,
     padding: "14px 16px",
@@ -60,7 +61,7 @@ const useStyles = makeStyles(() => ({
     gap: 12
   },
   detailHead: { display: "flex", alignItems: "center", gap: 8 },
-  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
+  detailName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   titleGap: { marginBottom: 6 },
   containerRow: {
     display: "flex",
@@ -74,7 +75,7 @@ const useStyles = makeStyles(() => ({
     flexWrap: "wrap"
   },
   containerName: { color: ({ t }) => t.textHi, fontWeight: 600, minWidth: 90 },
-  containerRes: { color: ({ t }) => t.textFaint, fontSize: 10 },
+  containerRes: { color: ({ t }) => t.textFaint, fontSize: 11 },
   conditionRow: { display: "flex", gap: 8, fontSize: 11, alignItems: "baseline" },
   conditionType: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, minWidth: 90 },
   conditionOk: { color: ({ t }) => t.good },
@@ -84,7 +85,7 @@ const useStyles = makeStyles(() => ({
   // full-width row below the action buttons, one at a time - never squeezed
   // next to the summary grid or another pod's panel.
   panelBody: { marginTop: 2 },
-  none: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint }
+  none: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.textFaint }
 }));
 function PodSummaryCard({
   pod,
@@ -195,29 +196,27 @@ function PodDetail({
       tier === "upper" ? (
         // The cluster refuses exec into app namespaces on Flight (tower-breakglass-no-exec) for everyone but
         // platform operators, so Tower does not suggest it there: Debug is the way in (gap G3).
-        /* @__PURE__ */ jsx("span", { className: classes.cardSub, title: "On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.", children: "exec is refused on Flight; use Debug" })
-      ) : /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx(Tooltip, { title: "On Flight, kubectl exec into an app namespace is refused by the cluster. Use Debug: a recorded, approved session.", children: /* @__PURE__ */ jsx("span", { className: classes.cardSub, children: "exec is refused on Flight; use Debug" }) })
+      ) : /* @__PURE__ */ jsx(Tooltip, { title: "For operators with their own cluster access. Debug records the session; exec does not.", children: /* @__PURE__ */ jsxs(
         Button,
         {
           small: true,
-          title: "For operators with their own cluster access. Debug records the session; exec does not.",
           onClick: () => copy(`kubectl exec -it -n ${env.namespace} ${pod.name} --context ${env.cluster} -- sh`, "kubectl-exec"),
           children: [
             /* @__PURE__ */ jsx(FileCopyOutlinedIcon, { style: { fontSize: 12 } }),
             copied === "kubectl-exec" ? "copied" : "copy kubectl exec"
           ]
         }
-      ),
+      ) }),
       /* @__PURE__ */ jsx(PodRestartControl, { env, podName: pod.name, noteClass: classes.cardSub, badClass: classes.conditionBad }),
-      /* @__PURE__ */ jsx(
+      /* @__PURE__ */ jsx(Tooltip, { title: tier === "upper" ? "Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves." : "Open a recorded, time-boxed debug shell on this pod (break-glass).", children: /* @__PURE__ */ jsx(
         Button,
         {
           small: true,
-          title: tier === "upper" ? "Request a recorded, time-boxed debug shell on this pod (break-glass); a second person approves." : "Open a recorded, time-boxed debug shell on this pod (break-glass).",
           onClick: (e) => keepAnchored(e.currentTarget, () => setPanel((p) => p === "debug" ? null : "debug")),
           children: "Debug"
         }
-      )
+      ) })
     ] }),
     panel === "logs" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(PodLogsView, { cluster: env.cluster, namespace: env.namespace, podName: pod.name, containers: pod.containers, live: true }) }),
     panel === "metrics" && /* @__PURE__ */ jsx("div", { className: classes.panelBody, children: /* @__PURE__ */ jsx(MetricsPanel, { cluster: env.cluster, namespace: env.namespace, podNames: [pod.name], title: "Pod performance" }) }),

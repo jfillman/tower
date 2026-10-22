@@ -24,7 +24,7 @@ const useStyles = makeStyles(() => ({
   stack: { display: "flex", flexDirection: "column", gap: 12 },
   mono: { fontFamily: fontMono, fontSize: 12 },
   noteGap: { marginTop: 8 },
-  problem: { fontSize: 12.5, color: ({ t }) => t.bad, marginTop: 10 }
+  problem: { fontSize: 12, color: ({ t }) => t.bad, marginTop: 10 }
 }));
 function useDialogStyles() {
   const t = useHangarTokens();
@@ -112,7 +112,7 @@ function AddEnvironmentDialog({
             label: "Also add a deploy step for it to the pipeline"
           }
         ),
-        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a deploy step nothing in CI deploys to this environment: Argo CD creates its namespace and waits for an image that never comes. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a deploy step nothing in CI deploys to this environment: Argo CD creates its namespace and waits for an image that never comes. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in Configure \u203A Pipeline." })
       ] }),
       tier === "flight" && cloudBlock && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Hint, { className: c.noteGap, children: "Each release to it opens a pull request on this repo that changes its release pin (glidepath/releases/<name>.yaml). Merging the pull request deploys exactly that image." }),
@@ -145,7 +145,7 @@ function AddEnvironmentDialog({
             label: "Also add a release step for it to the pipeline"
           }
         ),
-        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in the Glidepath tab." })
+        /* @__PURE__ */ jsx(Hint, { className: c.noteGap, style: { marginTop: -6 }, children: "Without a release step nothing in CI releases to this environment. It goes right after the step for the environment before it. Untick to edit the pipeline yourself in Configure \u203A Pipeline." })
       ] }),
       cloudBlock && mainField && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Field, { id: "add-env-override", label: `${targetLabel} ${mainField} (optional)`, children: (p) => /* @__PURE__ */ jsx("input", { ...p, value: override, onChange: (e) => setOverride(e.target.value) }) }),
@@ -208,7 +208,7 @@ function RemoveEnvironmentDialog({
       blockedBy.length > 1 ? "have" : "has",
       " a step for ",
       name,
-      ". Remove the step in the Glidepath tab first, then come back."
+      ". Remove the step in Configure \u203A Pipeline first, then come back."
     ] }) : /* @__PURE__ */ jsxs("div", { className: c.stack, children: [
       /* @__PURE__ */ jsxs(DialogContentText, { component: "div", children: [
         "Staging this removes ",

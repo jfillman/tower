@@ -17,9 +17,9 @@ const ZOOM_STEP = 0.2;
 const useStyles = makeStyles(() => ({
   "@keyframes flow": { to: { strokeDashoffset: -24 } },
   edgeFlow: { strokeDasharray: "6 6", animationName: "$flow", animationTimingFunction: "linear", animationIterationCount: "infinite" },
-  edgeLabel: { fontFamily: fontMono, fontSize: 10, fontWeight: 700 },
-  tag: { fontFamily: fontMono, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 5px", borderRadius: 6, marginLeft: 4 },
-  traffic: { position: "absolute", display: "flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.sky, whiteSpace: "nowrap", transform: "translate(-50%, -100%)" },
+  edgeLabel: { fontFamily: fontMono, fontSize: 11, fontWeight: 700 },
+  tag: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 5px", borderRadius: 6, marginLeft: 4 },
+  traffic: { position: "absolute", display: "flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.sky, whiteSpace: "nowrap", transform: "translate(-50%, -100%)" },
   tabs: { display: "flex", gap: 6, marginBottom: 10 },
   tabBtn: { fontFamily: fontMono, fontSize: 11, padding: "3px 10px", borderRadius: 6, border: ({ t }) => `1px solid ${t.line}`, background: "none", color: ({ t }) => t.textLo, cursor: "pointer" },
   tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft }

@@ -6,6 +6,7 @@ import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { TierChip, Hint, Button, Chip } from '../../ui/index.esm.js';
 import { RollbackControl } from './RollbackControl.esm.js';
+import { Tooltip, ActionReason } from '../../ui/Tooltip.esm.js';
 
 const ACTION_COPY = {
   resume: {
@@ -47,7 +48,7 @@ const useStyles = makeStyles(() => ({
     borderBottom: ({ t }) => `1px solid ${t.lineSoft}`
   },
   row: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
-  label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
+  label: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
   confirm: {
     display: "flex",
     gap: 8,
@@ -59,8 +60,8 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.amberInk,
     fontSize: 12
   },
-  bad: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad },
-  ok: { fontSize: 11.5, color: ({ t }) => t.good }
+  bad: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.bad },
+  ok: { fontSize: 11, color: ({ t }) => t.good }
 }));
 function errorMessage(e) {
   return e instanceof Error ? e.message : String(e);
@@ -167,22 +168,20 @@ function RolloutControls({
       loadError
     ] }),
     !loadError && !data && /* @__PURE__ */ jsx(Hint, { children: "Reading the Rollout's actions\u2026" }),
-    data && /* @__PURE__ */ jsx("div", { className: c.row, children: actions.map((a) => /* @__PURE__ */ jsxs(
+    data && /* @__PURE__ */ jsx("div", { className: c.row, children: actions.map((a) => /* @__PURE__ */ jsx(Tooltip, { title: titleFor(a), children: /* @__PURE__ */ jsxs(
       Button,
       {
         small: true,
         variant: ACTION_COPY[a.name].danger ? "danger" : "default",
-        title: titleFor(a),
         disabled: a.disabled || !a.allowed || Boolean(pending),
         onClick: () => click(a),
         children: [
           pending === a.name ? `${ACTION_COPY[a.name].label}\u2026` : ACTION_COPY[a.name].label,
           a.bypass && !a.disabled ? " \u26A0" : ""
         ]
-      },
-      a.name
-    )) }),
-    noneAllowed && /* @__PURE__ */ jsx(Hint, { children: "Only the app's owning team (or an admin) can run these. Hover a button for what it does." }),
+      }
+    ) }, a.name)) }),
+    noneAllowed && /* @__PURE__ */ jsx(ActionReason, { children: "Only the app's owning team (or an admin) can run these. Hover or focus a button for what it does." }),
     confirming && /* @__PURE__ */ jsxs("div", { className: c.confirm, children: [
       /* @__PURE__ */ jsxs("span", { children: [
         ACTION_COPY[confirming.name].body,

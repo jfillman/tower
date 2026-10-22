@@ -8,8 +8,8 @@ import { useUi } from '../../ui/styles.esm.js';
 
 const useStyles = makeStyles(() => ({
   section: { borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12 },
-  detail: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
-  prList: { display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5, marginTop: 8 }
+  detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
+  prList: { display: "flex", flexDirection: "column", gap: 8, fontSize: 12, marginTop: 8 }
 }));
 const TONE = { add: "add", remove: "remove" };
 const IDLE = { one: "Open cicd.yaml PR", several: "Open environment PRs" };

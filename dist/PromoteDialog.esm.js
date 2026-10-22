@@ -18,8 +18,8 @@ const useStyles = makeStyles(() => ({
   text: { color: ({ t }) => t.textLo },
   error: { color: ({ t }) => t.bad, marginBottom: 6 },
   details: { color: ({ t }) => t.textFaint, fontSize: 12, "& summary": { cursor: "pointer" } },
-  detailsBody: { fontFamily: fontMono, fontSize: 11.5, marginTop: 6, maxHeight: 160, overflow: "auto", overflowWrap: "anywhere" },
-  link: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky }
+  detailsBody: { fontFamily: fontMono, fontSize: 11, marginTop: 6, maxHeight: 160, overflow: "auto", overflowWrap: "anywhere" },
+  link: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.sky }
 }));
 const mono = { fontFamily: fontMono };
 function PromoteDialog({

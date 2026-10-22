@@ -8,6 +8,8 @@ import { TallArrow } from './SignalRail.esm.js';
 import { preventFocusScroll } from './preventFocusScroll.esm.js';
 import { ImageTagPill } from './tabs/deployments/ImageTagPill.esm.js';
 import { ENV_TIER_LABEL } from './types.esm.js';
+import './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useEnvPickerStyles = makeStyles(() => ({
   envBarWrap: {
@@ -23,10 +25,10 @@ const useEnvPickerStyles = makeStyles(() => ({
   tierRow: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   tierConnector: { display: "flex", alignItems: "center", gap: 6, padding: "1px 0 1px 42px" },
   tierConnectorArrow: { color: ({ t }) => t.amber, display: "flex" },
-  tierConnectorLabel: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint, fontStyle: "italic" },
+  tierConnectorLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   tierLabel: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.06em",
@@ -60,9 +62,9 @@ const useEnvPickerStyles = makeStyles(() => ({
   tierIcon: { flexShrink: 0, display: "flex", color: ({ t }) => t.textFaint, opacity: 0.7, fontSize: 14 },
   envName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi, lineHeight: 1.3 },
   envMeta: { display: "flex", flexDirection: "column", gap: 1 },
-  envCluster: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint },
+  envCluster: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   envImageRow: { display: "flex", alignItems: "center", gap: 4, marginTop: 1 },
-  incomingTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.amberInk, fontWeight: 700 },
+  incomingTag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk, fontWeight: 700 },
   statusDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
   tierArrow: { color: ({ t }) => t.amber, flexShrink: 0, display: "flex" }
 }));
@@ -103,8 +105,8 @@ function EnvPicker({
               onMouseDown: preventFocusScroll,
               onClick: item.onClick,
               children: [
-                /* @__PURE__ */ jsx("span", { className: classes.statusDot, style: { backgroundColor: dotColor(t, item.health) }, title: item.health }),
-                /* @__PURE__ */ jsx("span", { className: classes.tierIcon, title: ENV_TIER_LABEL[g.tier], children: tierIconFor(g.tier) }),
+                /* @__PURE__ */ jsx(Tooltip, { title: item.health, children: /* @__PURE__ */ jsx("span", { className: classes.statusDot, style: { backgroundColor: dotColor(t, item.health) } }) }),
+                /* @__PURE__ */ jsx(Tooltip, { title: ENV_TIER_LABEL[g.tier], children: /* @__PURE__ */ jsx("span", { className: classes.tierIcon, children: tierIconFor(g.tier) }) }),
                 /* @__PURE__ */ jsxs("span", { className: classes.envMeta, children: [
                   /* @__PURE__ */ jsx("span", { className: classes.envName, children: item.envName }),
                   /* @__PURE__ */ jsx("span", { className: classes.envCluster, children: item.cluster }),

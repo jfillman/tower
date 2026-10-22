@@ -9,6 +9,7 @@ import { ReleaseRecordCompare } from './ReleaseRecordCompare.esm.js';
 import { NextReleaseCard } from './NextReleaseCard.esm.js';
 import { AutolandEligibility } from './AutolandEligibility.esm.js';
 import { withRecordedEvidence } from './useReleaseRecords.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   picker: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 14 },
@@ -60,11 +61,11 @@ function ReleaseRecordPanel({
       " \xB7 draft"
     ] }),
     recent.map((r) => /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", onClick: () => setOpenId(r.id), className: open?.id === r.id ? classes.chipOn : void 0, children: nameOf(r) }, r.id)),
-    records.length > PICKER_RECENT && /* @__PURE__ */ jsxs(TextLink, { onClick: () => setOpenId(null), title: "Every record is in the list below the draft", children: [
+    records.length > PICKER_RECENT && /* @__PURE__ */ jsx(Tooltip, { title: "Every record is in the list below the draft", children: /* @__PURE__ */ jsxs(TextLink, { onClick: () => setOpenId(null), children: [
       "+ ",
       records.length - PICKER_RECENT,
       " older"
-    ] })
+    ] }) })
   ] });
   if (open && compareTarget) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [

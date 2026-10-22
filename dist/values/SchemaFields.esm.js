@@ -4,6 +4,8 @@ import Typography from '@material-ui/core/Typography';
 import { useStyles } from './styles.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { requiredFields, visibleFields, currentMode, pruneForMode } from './componentCatalog.esm.js';
+import '../ui/index.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const cleanDescription = (d) => (d ?? "").replace(/^\([a-z]+\)\s*/, "").replace(/\s+/g, " ").trim();
 const isEmpty = (v) => v === void 0 || v === null || v === "" || Array.isArray(v) && v.length === 0;
@@ -99,18 +101,16 @@ function SchemaFields({
     } else if (node.type === "object" && node.properties && Object.values(node.properties).every((p) => p.type === "string")) {
       const sub = spec[f] && typeof spec[f] === "object" ? spec[f] : {};
       const subRequired = new Set(node.required ?? []);
-      control = /* @__PURE__ */ jsx("div", { className: classes.rowList, children: Object.entries(node.properties).map(([k, n]) => /* @__PURE__ */ jsx(
+      control = /* @__PURE__ */ jsx("div", { className: classes.rowList, children: Object.entries(node.properties).map(([k, n]) => /* @__PURE__ */ jsx(Tooltip, { title: cleanDescription(n.description), children: /* @__PURE__ */ jsx(
         "input",
         {
           className: classes.input,
           "aria-label": `${label} ${k}`,
           placeholder: `${k}${subRequired.has(k) ? " (required)" : ""}`,
           value: typeof sub[k] === "string" ? sub[k] : "",
-          onChange: (e) => change(f, setField(sub, k, e.target.value)),
-          title: cleanDescription(n.description)
-        },
-        k
-      )) });
+          onChange: (e) => change(f, setField(sub, k, e.target.value))
+        }
+      ) }, k)) });
     } else if (node.type === "string" || node.type === "integer" || node.type === "number") {
       control = /* @__PURE__ */ jsx(Scalar, { node, value: spec[f], label, classes, onChange: (v) => change(f, v) });
     } else {

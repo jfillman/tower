@@ -15,6 +15,7 @@ import { RolloutControls } from './RolloutControls.esm.js';
 import { imageTag } from '../../types.esm.js';
 import { SectionTitle, EmptyNote, StatusChip, TextLink, Button } from '../../ui/index.esm.js';
 import { PrRef, prFromSummary } from '../../ui/PrRef.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 function rolloutControlsFor(env) {
   if (env.workload?.kind !== "Rollout" || !env.argoAppName || !env.cluster || !env.namespace) return null;
@@ -25,12 +26,12 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 9 },
   headIcon: { display: "flex", color: ({ t }) => t.sky, flexShrink: 0 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
-  body: { fontSize: 12.5, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
+  body: { fontSize: 12, color: ({ t }) => t.textLo, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" },
   chipPos: { alignSelf: "flex-start" },
   "@keyframes livePulse": { "0%, 100%": { opacity: 1 }, "50%": { opacity: 0.5 } },
   // Amber + pulsing while the canary is live (2026-09-23 feedback).
   resourceList: { display: "flex", flexDirection: "column", gap: 5, marginTop: 2 },
-  resourceRow: { display: "flex", alignItems: "center", gap: 9, padding: "6px 10px", borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11.5 },
+  resourceRow: { display: "flex", alignItems: "center", gap: 9, padding: "6px 10px", borderRadius: 6, backgroundColor: ({ t }) => t.panelAlt, fontFamily: fontMono, fontSize: 11 },
   resourceRowPinned: { border: ({ t }) => `1px solid ${t.skyLine}` },
   resourceDot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 },
   resourceKind: { color: ({ t }) => t.sky, fontWeight: 600, minWidth: 80, flexShrink: 0 },
@@ -133,15 +134,14 @@ function MergedBody({
         ] }),
         reviewLabel(delivery.pr.review) && /* @__PURE__ */ jsx(StatusChip, { tone: delivery.pr.review?.state === "approved" ? "ok" : "warn", children: reviewLabel(delivery.pr.review) })
       ] }),
-      /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(
+      /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(Tooltip, { title: "Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now.", children: /* @__PURE__ */ jsx(
         Button,
         {
           small: true,
           disabled: true,
-          title: "Not yet available - merging a PR is a Tier 2 write action pending the authorization model in HANDOFF-tower-write-actions.md. Merge on GitHub directly for now.",
           children: "Merge PR"
         }
-      ) })
+      ) }) })
     ] });
   }
   return /* @__PURE__ */ jsx(EmptyNote, { children: "Not merged yet." });

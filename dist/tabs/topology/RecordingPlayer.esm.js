@@ -8,12 +8,13 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { formatDateTime } from '../../shared/format.esm.js';
 import { StatusChip, Button } from '../../ui/index.esm.js';
 import { sha256Hex, parseCast, parseSize, eventsUntil, clock } from './castPlayback.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   root: { display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 6, border: ({ t }) => `1px solid ${t.line}` },
   bar: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontFamily: fontMono, fontSize: 11 },
   meta: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11 },
-  bad: { fontSize: 11.5, color: ({ t }) => t.bad },
+  bad: { fontSize: 11, color: ({ t }) => t.bad },
   screen: { maxHeight: 420, overflow: "auto", borderRadius: 6, backgroundColor: "#0b0f14", padding: 6 },
   seek: { flex: 1, minWidth: 120 },
   clock: { fontVariantNumeric: "tabular-nums" }
@@ -133,14 +134,14 @@ function RecordingPlayer({ session, onClose }) {
     /* @__PURE__ */ jsxs("div", { className: classes.bar, children: [
       /* @__PURE__ */ jsx("b", { children: "Recording" }),
       /* @__PURE__ */ jsx("span", { className: classes.meta, children: session.id }),
-      integrity === "match" && /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `SHA-256 ${session.recordingSha256}`, children: "SHA-256 matches the session record" }),
-      integrity === "mismatch" && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", title: `The record says ${session.recordingSha256}`, children: "SHA-256 does not match the session record" }),
-      session.recordingRekorIndex !== void 0 && /* @__PURE__ */ jsxs(StatusChip, { tone: "ok", title: `rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ""})`, children: [
+      integrity === "match" && /* @__PURE__ */ jsx(Tooltip, { title: `SHA-256 ${session.recordingSha256}`, children: /* @__PURE__ */ jsx(StatusChip, { tone: "ok", children: "SHA-256 matches the session record" }) }),
+      integrity === "mismatch" && /* @__PURE__ */ jsx(Tooltip, { title: `The record says ${session.recordingSha256}`, children: /* @__PURE__ */ jsx(StatusChip, { tone: "bad", children: "SHA-256 does not match the session record" }) }),
+      session.recordingRekorIndex !== void 0 && /* @__PURE__ */ jsx(Tooltip, { title: `rekor-cli get --log-index ${session.recordingRekorIndex} returns this SHA-256 (entry ${session.recordingRekorUuid ?? ""})`, children: /* @__PURE__ */ jsxs(StatusChip, { tone: "ok", children: [
         "anchored in Rekor #",
         session.recordingRekorIndex
-      ] }),
-      session.recordingRekorIndex === void 0 && session.recordingSha256 && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", title: session.anchorError ?? "The backend retries for a day after the session ends", children: "not anchored in Rekor" }),
-      integrity === "unchecked" && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", title: "The browser can hash only on https or localhost, and only a session with a stored hash", children: "integrity not checked" }),
+      ] }) }),
+      session.recordingRekorIndex === void 0 && session.recordingSha256 && /* @__PURE__ */ jsx(Tooltip, { title: session.anchorError ?? "The backend retries for a day after the session ends", children: /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "not anchored in Rekor" }) }),
+      integrity === "unchecked" && /* @__PURE__ */ jsx(Tooltip, { title: "The browser can hash only on https or localhost, and only a session with a stored hash", children: /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "integrity not checked" }) }),
       /* @__PURE__ */ jsx("span", { style: { flex: 1 } }),
       /* @__PURE__ */ jsx(Button, { small: true, onClick: onClose, children: "Close" })
     ] }),

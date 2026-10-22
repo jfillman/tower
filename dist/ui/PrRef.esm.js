@@ -1,6 +1,7 @@
-import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontBody, fontMono, useHangarTokens } from '../brand/tokens.esm.js';
+import { Tooltip } from './Tooltip.esm.js';
 
 function prNumberFromUrl(url) {
   const m = url?.match(/\/pull\/(\d+)/);
@@ -11,6 +12,19 @@ function prFromSummary(pr) {
   if (pr.state === "merged") state = "merged";
   else if (pr.draft) state = "draft";
   return { number: pr.number, url: pr.url, title: pr.title, state, repo: pr.repo, ci: pr.ci, review: pr.review };
+}
+function prDetail(pr) {
+  const ci = pr.ci;
+  if (!ci) return pr.title;
+  const notPassing = (ci.checks ?? []).filter(
+    (run) => run.status !== "completed" || run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped"
+  );
+  const lines = [
+    pr.title,
+    `Checks: ${ci.passedChecks} of ${ci.totalChecks} passed`,
+    ...notPassing.map((run) => `  ${run.name}: ${run.status === "completed" ? run.conclusion : run.status.replace("_", " ")}`)
+  ].filter(Boolean);
+  return lines.join("\n");
 }
 const GLYPH = { open: "\u25CB", draft: "\u25CC", merged: "\u2713", closed: "\u2715" };
 function glyphColor(t, s) {
@@ -45,7 +59,7 @@ const useStyles = makeStyles(() => ({
     alignItems: "center",
     gap: 6,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1,
     padding: "4px 8px",
     borderRadius: 4,
@@ -72,7 +86,7 @@ const useStyles = makeStyles(() => ({
   },
   cardBody: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flexGrow: 1 },
   cardTop: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 },
-  num: { fontFamily: fontMono, fontSize: 12.5, flexShrink: 0 },
+  num: { fontFamily: fontMono, fontSize: 12, flexShrink: 0 },
   title: { fontFamily: fontBody, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   dot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 },
@@ -87,8 +101,8 @@ const useStyles = makeStyles(() => ({
     borderRadius: 6,
     border: "1px solid"
   },
-  receiptHead: { display: "flex", alignItems: "center", gap: 8, fontFamily: fontBody, fontSize: 13.5, fontWeight: 600, color: ({ t }) => t.textHi },
-  receiptNext: { fontFamily: fontBody, fontSize: 12.5, color: ({ t }) => t.textLo }
+  receiptHead: { display: "flex", alignItems: "center", gap: 8, fontFamily: fontBody, fontSize: 13, fontWeight: 600, color: ({ t }) => t.textHi },
+  receiptNext: { fontFamily: fontBody, fontSize: 12, color: ({ t }) => t.textLo }
 }));
 function wordStyle(t, w) {
   if (w.tone === "ok") return { color: t.good, backgroundColor: t.goodSoft, borderColor: t.good };
@@ -121,7 +135,7 @@ function PrRef({
     ] });
   }
   if (size === "chip") {
-    return /* @__PURE__ */ jsxs("a", { className: cx(c.chip, className), href: pr.url, target: "_blank", rel: "noopener noreferrer", title: pr.title, children: [
+    return /* @__PURE__ */ jsx(Tooltip, { title: prDetail(pr), children: /* @__PURE__ */ jsxs("a", { className: cx(c.chip, className), href: pr.url, target: "_blank", rel: "noopener noreferrer", children: [
       glyph,
       /* @__PURE__ */ jsxs("span", { style: { color: state === "open" ? t.sky : t.textLo, textDecoration: state === "closed" ? "line-through" : void 0 }, children: [
         "#",
@@ -129,10 +143,10 @@ function PrRef({
       ] }),
       !done && pr.ci && /* @__PURE__ */ jsx("span", { className: c.dot, style: { backgroundColor: ciColor(t, pr.ci) } }),
       word && /* @__PURE__ */ jsx("span", { style: { color: word.tone === "bad" ? t.bad : t.textLo }, children: word.text })
-    ] });
+    ] }) });
   }
   const metaLine = meta ?? [pr.repo, pr.ci ? `${pr.ci.passedChecks}/${pr.ci.totalChecks} checks` : void 0].filter(Boolean).join(" \xB7 ");
-  return /* @__PURE__ */ jsxs("a", { className: cx(c.card, className), href: pr.url, target: "_blank", rel: "noopener noreferrer", children: [
+  return /* @__PURE__ */ jsx(Tooltip, { title: pr.ci ? prDetail(pr) : void 0, children: /* @__PURE__ */ jsxs("a", { className: cx(c.card, className), href: pr.url, target: "_blank", rel: "noopener noreferrer", children: [
     glyph,
     /* @__PURE__ */ jsxs("span", { className: c.cardBody, children: [
       /* @__PURE__ */ jsxs("span", { className: c.cardTop, children: [
@@ -144,7 +158,7 @@ function PrRef({
     !done && pr.ci && !word && /* @__PURE__ */ jsx("span", { className: c.dot, style: { backgroundColor: ciColor(t, pr.ci) } }),
     word && /* @__PURE__ */ jsx("span", { className: c.word, style: wordStyle(t, word), children: word.text }),
     /* @__PURE__ */ jsx("span", { className: c.arrow, children: "\u2197" })
-  ] });
+  ] }) });
 }
 function PrReceipt({
   prUrl,

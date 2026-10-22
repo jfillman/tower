@@ -30,7 +30,7 @@ function toneColour(t, tone) {
   return t.textFaint;
 }
 const useStyles = makeStyles(() => ({
-  line: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 10, fontSize: 12.5 }
+  line: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 10, fontSize: 12 }
 }));
 function ReleaseOutcomePanel({
   outcome,

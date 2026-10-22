@@ -29,7 +29,7 @@ const useStyles = makeStyles(() => ({
   },
   off: { color: ({ t }) => t.textFaint, cursor: "not-allowed" },
   danger: { color: ({ t }) => t.bad },
-  hint: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textLo },
+  hint: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
   divider: { backgroundColor: ({ t }) => t.line, margin: "4px 0" }
 }));
 function MenuButton({ label = "More", actions, small = true }) {

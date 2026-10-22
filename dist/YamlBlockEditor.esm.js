@@ -20,7 +20,7 @@ const useStyles = makeStyles(() => ({
     width: "100%",
     boxSizing: "border-box",
     fontFamily: fontMono,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 1.5,
     padding: "10px 12px",
     borderRadius: 4,

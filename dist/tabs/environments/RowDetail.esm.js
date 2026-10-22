@@ -30,9 +30,9 @@ const useStyles = makeStyles(() => ({
   body: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 },
   grid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 22px", maxWidth: 760 },
   facts: { display: "grid", gridTemplateColumns: "120px 1fr", gap: "8px 16px", alignItems: "baseline" },
-  mono: { fontFamily: fontMono, fontSize: 12.5 },
+  mono: { fontFamily: fontMono, fontSize: 12 },
   steps: { margin: "6px 0 0", paddingLeft: 20, lineHeight: 1.7 },
-  foot: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12, color: ({ t }) => t.textLo, fontSize: 12.5 }
+  foot: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 12, color: ({ t }) => t.textLo, fontSize: 12 }
 }));
 function RowDetail(props) {
   const { row, ctx } = props;
@@ -137,7 +137,7 @@ function RowDetailBody({ row, ctx, source }) {
           def.tier === "ground" ? "deploys" : "releases",
           " to ",
           row.name,
-          ". Add one in the Glidepath tab."
+          ". Add one in Configure \u203A Pipeline."
         ] }) })
       ] }),
       tab === "danger" && /* @__PURE__ */ jsx(Danger, { row, ctx, removed })
@@ -259,7 +259,7 @@ function CreateInfraValues({ ctx, env, path }) {
     appName: ctx.appName,
     patch: { deploy: buildDeploy(ctx.deploy, ctx.siblings) },
     summary: [`Add ${path}, a starter values file for the ${env} environment (no component yet)`],
-    via: "Environments tab",
+    via: "Configure \u203A Environments",
     createFiles: [{ path, content: infraStarterValues(env) }]
   });
   return /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
@@ -384,7 +384,7 @@ function Danger({ row, ctx, removed }) {
         /* @__PURE__ */ jsxs("li", { children: [
           "Remove the pipeline step that releases to ",
           row.name,
-          " (Glidepath tab)."
+          " (Configure \u203A Pipeline)."
         ] }),
         /* @__PURE__ */ jsxs("li", { children: [
           "In the tenants repo, delete",

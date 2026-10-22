@@ -1,7 +1,6 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { appKindOf } from '../workloadType.esm.js';
@@ -19,6 +18,7 @@ import { appTypeOf, appRepos } from '../appRepos.esm.js';
 import { PageHeader, Panel, Subtabs } from '../ui/index.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 function configSections(appName, clusters, type = "app") {
   const several = clusters.length > 1;
@@ -95,14 +95,14 @@ function ConfigTab() {
   );
   const own = ownChartOf(deploy, "", platform.airframeChart);
   const [searchParams, setSearchParams] = useSearchParams();
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "shared values" });
   if (!owner || !appName) {
     return /* @__PURE__ */ jsx(
       TowerEmptyState,
       {
         title: "Can't resolve this app's source repo",
-        description: "App Configuration needs a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
+        description: "Shared values need a resolved GitHub owner/repo (from a promoted environment's provenance) to know which repo's environments folder to read."
       }
     );
   }
@@ -118,13 +118,13 @@ function ConfigTab() {
     setSearchParams(next);
   };
   return /* @__PURE__ */ jsxs("div", { children: [
-    /* @__PURE__ */ jsx(PageHeader, { title: "App Configuration", subtitle: `What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.` }),
+    /* @__PURE__ */ jsx(PageHeader, { title: "Shared values", subtitle: `What ${appName} shares across its environments. Every change opens a pull request (${where}); nothing is committed directly.` }),
     /* @__PURE__ */ jsx(Panel, { style: { padding: 12, marginBottom: 16 }, children: /* @__PURE__ */ jsxs("span", { className: ui.note, children: [
       legacyEnv ? `${legacyEnv}'s own values moved: ` : "An environment's own values are edited in its row on the ",
       /* @__PURE__ */ jsx("a", { href: "#environments", onClick: (e) => {
         e.preventDefault();
         toEnvironments();
-      }, children: "Environments tab" }),
+      }, children: "Configure \u203A Environments" }),
       "."
     ] }) }),
     /* @__PURE__ */ jsx(Subtabs, { label: "App configuration sections", value: active.id, onChange: setSection, tabs: sections.map((s) => ({ id: s.id, label: s.label })) }),

@@ -5,12 +5,13 @@ import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { PrReceipt } from './ui/PrRef.esm.js';
 import { useReleaseRunStatus } from './useReleaseData.esm.js';
 import { Callout, IconButton, TextLink } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   steps: { display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(0, 1fr)", gap: 6, marginTop: 10 },
   step: { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 },
   bar: { height: 4, borderRadius: 2 },
-  stepName: { fontFamily: fontMono, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  stepName: { fontFamily: fontMono, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   receiptRow: { display: "flex", alignItems: "flex-start", gap: 8 },
   receipt: { flex: 1, minWidth: 0 }
 }));
@@ -84,10 +85,10 @@ function ReleaseRunTracker({
           status.gaveUp ? "Still no PR after 15 minutes; the Pipelines tab has the run." : "You can leave this page: the PR also shows in Pull requests when it opens.",
           status.error && !data ? ` Couldn't read the run yet (${status.error}); trying again.` : ""
         ] }),
-        data && data.tasks.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.steps, "aria-label": "Release run progress", children: data.tasks.map((task) => /* @__PURE__ */ jsxs("div", { className: classes.step, title: `${task.name}: ${task.state}`, children: [
+        data && data.tasks.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.steps, "aria-label": "Release run progress", children: data.tasks.map((task) => /* @__PURE__ */ jsx(Tooltip, { title: `${task.name}: ${task.state}`, children: /* @__PURE__ */ jsxs("div", { className: classes.step, children: [
           /* @__PURE__ */ jsx("span", { className: classes.bar, style: { backgroundColor: barColour(t, task.state) } }),
           /* @__PURE__ */ jsx("span", { className: classes.stepName, style: { color: task.state === "pending" ? t.textFaint : t.textHi }, children: task.name })
-        ] }, task.name)) })
+        ] }) }, task.name)) })
       ]
     }
   );

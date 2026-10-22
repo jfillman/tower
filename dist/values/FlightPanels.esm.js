@@ -2,12 +2,12 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import { Progress } from '@backstage/core-components';
 import { deepEqual } from '../deepEqual.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PrReceipt, OPENING_PR } from '../ui/PrRef.esm.js';
 import { Callout, Button } from '../ui/index.esm.js';
 import { useEnvXr, useSubmitEnvXrChange, useConfigMapFiles, useSubmitConfigMapFiles } from '../useConfigData.esm.js';
+import { PanelSkeleton } from '../ui/LoadState.esm.js';
 
 function EnvXrPanel({ owner, appName, env, classes }) {
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -17,7 +17,7 @@ function EnvXrPanel({ owner, appName, env, classes }) {
   useEffect(() => {
     if (xr.data) setDraft(xr.data.configMapGenerator);
   }, [xr.data]);
-  if (xr.loading) return /* @__PURE__ */ jsx(Progress, {});
+  if (xr.loading) return /* @__PURE__ */ jsx(PanelSkeleton, {});
   if (xr.error) {
     return /* @__PURE__ */ jsx("div", { className: classes.section, style: { marginBottom: 16 }, children: /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
       "Couldn't load this env's ApplicationEnvironment resource: ",
@@ -83,7 +83,7 @@ function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }) {
       submitFiles.reset();
     }
   }, [filesData.data]);
-  if (filesData.loading || !rows || !originalRows) return /* @__PURE__ */ jsx(Progress, {});
+  if (filesData.loading || !rows || !originalRows) return /* @__PURE__ */ jsx(PanelSkeleton, {});
   if (filesData.error) {
     return /* @__PURE__ */ jsx("div", { className: classes.section, style: { marginBottom: 16 }, children: /* @__PURE__ */ jsxs(Typography, { className: classes.note, children: [
       "Couldn't load configmap files: ",

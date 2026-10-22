@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel, ErrorBoundary } from '@backstage/core-components';
+import { ErrorBoundary } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import { useHangarTokens, fontMono, fontDisplay } from './brand/tokens.esm.js';
@@ -13,7 +13,7 @@ import { CAP, hasCapabilities } from './serviceClass.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
-import { EnvironmentsTab } from './tabs/EnvironmentsTab.esm.js';
+import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab.esm.js';
 import { TopologyTab } from './tabs/TopologyTab.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
@@ -21,34 +21,37 @@ import { DeploymentsTab } from './tabs/DeploymentsTab.esm.js';
 import { CloudDeploymentsTab } from './tabs/CloudDeploymentsTab.esm.js';
 import { hasCloudDeployInFlight } from './cloudDeploy.esm.js';
 import { ImagesTab } from './tabs/ImagesTab.esm.js';
-import { ConfigTab } from './tabs/ConfigTab.esm.js';
-import { GlidepathTab } from './tabs/GlidepathTab.esm.js';
 import { SlosTab } from './tabs/SlosTab.esm.js';
 import { NotificationsTab } from './tabs/NotificationsTab.esm.js';
 import { useAppNotifications } from './useAppNotifications.esm.js';
 import { useTektonPipelineRuns } from './tekton/useTektonPipelineRuns.esm.js';
 import { TowerEnvironmentsProvider, useTowerEnvironments } from './useTowerEnvironments.esm.js';
 import { isRolloutActive } from './types.esm.js';
+import './ui/index.esm.js';
+import { TabSkeleton, TabError } from './ui/LoadState.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const TABS = [
   { id: "overview", label: "Overview", Component: OverviewTab },
-  { id: "pull-requests", label: "Pull Requests", Component: PullRequestsTab, requires: [CAP.source] },
+  { id: "pull-requests", label: "Pull requests", Component: PullRequestsTab, requires: [CAP.source] },
   { id: "pipelines", label: "Pipelines", Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: "deployments", label: "Deployments", Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
   // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
   // exactly one deploy target, so only one of the two ever passes the capability filter.
   { id: "deployments", label: "Deployments", Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: "releases", label: "Releases", Component: ReleasesTab, requires: [CAP.releases] },
-  // Every environment of the service, whatever it deploys to (read-only; editing comes later).
-  { id: "environments", label: "Environments", Component: EnvironmentsTab, requires: [CAP.ci] },
   { id: "topology", label: "Topology", Component: TopologyTab, requires: [CAP.k8sRuntime] },
   { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
   { id: "slos", label: "SLOs", Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
   { id: "notifications", label: "Notifications", Component: NotificationsTab, requires: [CAP.source, CAP.ci] },
-  { id: "config", label: "App Configuration", Component: ConfigTab, requires: [CAP.valuesConfig] },
-  { id: "glidepath", label: "Glidepath", Component: GlidepathTab, requires: [CAP.ci] }
+  // Environments, shared values and cicd.yaml: everything that lives in git (2026-10-22, was three tabs). Their old ids
+  // are now its sub-tabs; activeTabId() maps them here so old deep links still work.
+  { id: "configure", label: "Configure", Component: ConfigureTab, requires: [CAP.ci] }
 ];
+function activeTabId(tabParam) {
+  return isConfigureSubtab(tabParam) ? "configure" : tabParam;
+}
 const useStyles = makeStyles(() => ({
   // minHeight: 100vh, not 100% - a percentage height only resolves once
   // every ancestor up to <body> also has an explicit height, which
@@ -70,7 +73,7 @@ const useStyles = makeStyles(() => ({
   },
   backLink: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: "0.04em",
     color: ({ t }) => t.textFaint,
     cursor: "pointer",
@@ -81,7 +84,7 @@ const useStyles = makeStyles(() => ({
     "&:hover": { color: ({ t }) => t.textHi }
   },
   titleRow: { display: "flex", alignItems: "center", gap: 10 },
-  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 24, color: ({ t }) => t.textHi },
+  title: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22, color: ({ t }) => t.textHi },
   tabbar: {
     display: "flex",
     gap: 2,
@@ -91,7 +94,7 @@ const useStyles = makeStyles(() => ({
   },
   tab: {
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     letterSpacing: "0.05em",
     textTransform: "uppercase",
     padding: "10px 16px",
@@ -116,7 +119,7 @@ const useStyles = makeStyles(() => ({
     padding: "0 4px",
     marginLeft: 6,
     borderRadius: 100,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 700,
     backgroundColor: ({ t }) => t.bad,
     color: ({ t }) => t.bg
@@ -191,9 +194,9 @@ function TowerPage() {
   } else if (!entityRef) {
     body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenBreakglass: openBreakglass }) });
   } else if (loading) {
-    body = /* @__PURE__ */ jsx(Progress, {});
+    body = /* @__PURE__ */ jsx(TabSkeleton, {});
   } else if (error) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(TabError, { error, what: "this service" }) });
   } else if (!entity) {
     body = /* @__PURE__ */ jsx("div", { style: { padding: 24 }, children: /* @__PURE__ */ jsx(Typography, { children: "Service not found." }) });
   } else {
@@ -249,7 +252,7 @@ function TowerAppShellInner({
   const { environments } = useTowerEnvironments();
   const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
   const tabs = TABS.filter((tabDef) => hasCapabilities(entity, tabDef.requires));
-  const activeTab = tabs.find((tabDef) => tabDef.id === tabParam) ?? tabs[0];
+  const activeTab = tabs.find((tabDef) => tabDef.id === activeTabId(tabParam)) ?? tabs[0];
   const { Component } = activeTab;
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx("div", { className: classes.header, children: /* @__PURE__ */ jsxs("div", { children: [
@@ -268,8 +271,8 @@ function TowerAppShellInner({
         children: [
           tabDef.label,
           tabDef.id === "notifications" && recentCount > 0 && /* @__PURE__ */ jsx("span", { className: classes.tabBadge, children: recentCount > 9 ? "9+" : recentCount }),
-          tabDef.id === "pipelines" && ciActive && /* @__PURE__ */ jsx("span", { className: classes.tabActivityDot, title: "A pipeline is running" }),
-          tabDef.id === "deployments" && cdActive && /* @__PURE__ */ jsx("span", { className: classes.tabActivityDot, title: "A rollout is in progress" })
+          tabDef.id === "pipelines" && ciActive && /* @__PURE__ */ jsx(Tooltip, { title: "A pipeline is running", children: /* @__PURE__ */ jsx("span", { className: classes.tabActivityDot }) }),
+          tabDef.id === "deployments" && cdActive && /* @__PURE__ */ jsx(Tooltip, { title: "A rollout is in progress", children: /* @__PURE__ */ jsx("span", { className: classes.tabActivityDot }) })
         ]
       },
       tabDef.id
@@ -278,5 +281,5 @@ function TowerAppShellInner({
   ] });
 }
 
-export { TABS, TowerPage };
+export { TABS, TowerPage, activeTabId };
 //# sourceMappingURL=TowerPage.esm.js.map

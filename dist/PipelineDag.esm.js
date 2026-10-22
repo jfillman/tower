@@ -16,6 +16,7 @@ import { fontMono, useHangarTokens } from './brand/tokens.esm.js';
 import { stepDuration, TaskRunLogConsole } from './TaskRunLogConsole.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 import { SectionTitle, FactGrid, Fact, EmptyNote } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 import { YamlBlock } from './ui/YamlBlock.esm.js';
 
 const NODE_W = 150;
@@ -83,7 +84,7 @@ const usePipelineDagStyles = makeStyles(() => ({
     minWidth: 42,
     textAlign: "center",
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     borderLeft: ({ t }) => `1px solid ${t.line}`,
     borderRight: ({ t }) => `1px solid ${t.line}`,
@@ -121,7 +122,7 @@ const usePipelineDagStyles = makeStyles(() => ({
     position: "absolute",
     top: 0,
     fontFamily: fontMono,
-    fontSize: 9,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     textTransform: "uppercase",
     letterSpacing: "0.06em"
@@ -172,7 +173,7 @@ const usePipelineDagStyles = makeStyles(() => ({
   },
   hoverTitle: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.textFaint,
@@ -191,9 +192,9 @@ const usePipelineDagStyles = makeStyles(() => ({
   hoverDuration: { color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   dotRow: { display: "flex", alignItems: "center", gap: 5 },
   dot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 },
-  nodeLabel: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textHi, textAlign: "center", lineHeight: 1.2 },
-  nodeSub: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, letterSpacing: "0.03em" },
-  legend: { display: "flex", gap: 16, flexWrap: "wrap", padding: "10px 2px 0", fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  nodeLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, textAlign: "center", lineHeight: 1.2 },
+  nodeSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, letterSpacing: "0.03em" },
+  legend: { display: "flex", gap: 16, flexWrap: "wrap", padding: "10px 2px 0", fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   legendDot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block", marginRight: 6 },
   detail: { marginTop: 12, padding: "14px 16px", backgroundColor: ({ t }) => t.panel, border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6 },
   detailTitleGap: { marginBottom: 8 },
@@ -203,7 +204,7 @@ const usePipelineDagStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.line}`,
     borderRadius: 4,
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.textFaint
@@ -212,7 +213,7 @@ const usePipelineDagStyles = makeStyles(() => ({
   ioSection: { marginTop: 10, paddingTop: 10, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
   ioTitle: {
     fontFamily: fontMono,
-    fontSize: 9.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.textFaint,
@@ -328,7 +329,7 @@ function PipelineDag({ run, expandSignal }) {
         " \xB7",
         " ",
         /* @__PURE__ */ jsx("span", { className: classes.headTitleValue, children: run.name }),
-        run.archive && /* @__PURE__ */ jsx("span", { className: classes.archivedTag, title: "Finished more than an hour ago: read from Tekton Results, the 30-day run archive", children: "archived" })
+        run.archive && /* @__PURE__ */ jsx(Tooltip, { title: "Finished more than an hour ago: read from Tekton Results, the 30-day run archive", children: /* @__PURE__ */ jsx("span", { className: classes.archivedTag, children: "archived" }) })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.controls, children: [
         /* @__PURE__ */ jsx("button", { type: "button", className: classes.utilBtn, onClick: () => setYamlOpen(true), children: "YAML" }),
@@ -470,14 +471,14 @@ function PipelineDag({ run, expandSignal }) {
             /* @__PURE__ */ jsx("div", { className: classes.ioTitle, children: "Input parameters" }),
             run.params.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.ioRow, children: [
               /* @__PURE__ */ jsx("span", { className: classes.ioName, children: p.name }),
-              /* @__PURE__ */ jsx("span", { className: classes.ioValue, title: p.value, children: truncateIoValue(p.value) })
+              /* @__PURE__ */ jsx(Tooltip, { title: p.value, children: /* @__PURE__ */ jsx("span", { className: classes.ioValue, children: truncateIoValue(p.value) }) })
             ] }, p.name))
           ] }),
           run.results.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.ioSection, children: [
             /* @__PURE__ */ jsx("div", { className: classes.ioTitle, children: "Results" }),
             run.results.map((r) => /* @__PURE__ */ jsxs("div", { className: classes.ioRow, children: [
               /* @__PURE__ */ jsx("span", { className: classes.ioName, children: r.name }),
-              /* @__PURE__ */ jsx("span", { className: classes.ioValue, title: r.value, children: truncateIoValue(r.value) })
+              /* @__PURE__ */ jsx(Tooltip, { title: r.value, children: /* @__PURE__ */ jsx("span", { className: classes.ioValue, children: truncateIoValue(r.value) }) })
             ] }, r.name))
           ] })
         ] })
@@ -499,14 +500,14 @@ function PipelineDag({ run, expandSignal }) {
           /* @__PURE__ */ jsx("div", { className: classes.ioTitle, children: "Input parameters" }),
           openTaskRun.params.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.ioRow, children: [
             /* @__PURE__ */ jsx("span", { className: classes.ioName, children: p.name }),
-            /* @__PURE__ */ jsx("span", { className: classes.ioValue, title: p.value, children: truncateIoValue(p.value) })
+            /* @__PURE__ */ jsx(Tooltip, { title: p.value, children: /* @__PURE__ */ jsx("span", { className: classes.ioValue, children: truncateIoValue(p.value) }) })
           ] }, p.name))
         ] }),
         openTaskRun && openTaskRun.results.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.ioSection, children: [
           /* @__PURE__ */ jsx("div", { className: classes.ioTitle, children: "Results" }),
           openTaskRun.results.map((r) => /* @__PURE__ */ jsxs("div", { className: classes.ioRow, children: [
             /* @__PURE__ */ jsx("span", { className: classes.ioName, children: r.name }),
-            /* @__PURE__ */ jsx("span", { className: classes.ioValue, title: r.value, children: truncateIoValue(r.value) })
+            /* @__PURE__ */ jsx(Tooltip, { title: r.value, children: /* @__PURE__ */ jsx("span", { className: classes.ioValue, children: truncateIoValue(r.value) }) })
           ] }, r.name))
         ] }),
         openTaskRun?.podName && openTaskRun.steps.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.logsWrap, children: [

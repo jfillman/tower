@@ -5,6 +5,7 @@ import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { SectionTitle, Button, Hint, TextLink } from '../../ui/index.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 const POLL_MS = 1500;
 function planCounts(plan) {
@@ -33,9 +34,9 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
   pkg: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi },
   row: { display: "grid", gridTemplateColumns: "64px minmax(140px, 220px) 1fr", gap: 8, fontSize: 12, alignItems: "baseline" },
-  del: { fontFamily: fontMono, fontSize: 10.5, fontWeight: 700, color: ({ t }) => t.bad },
-  keep: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  mono: { fontFamily: fontMono, fontSize: 11.5 },
+  del: { fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: ({ t }) => t.bad },
+  keep: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  mono: { fontFamily: fontMono, fontSize: 11 },
   reasons: { color: ({ t }) => t.textLo },
   confirm: {
     display: "flex",
@@ -208,7 +209,7 @@ function ImageCleanup({ owner, appName }) {
       ] }, p.name)),
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(TextLink, { expanded: showKept, onClick: () => setShowKept((v) => !v), children: "Why each kept release is kept" }) }),
       /* @__PURE__ */ jsxs("div", { className: c.head, children: [
-        /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: !!busy || !!blocker, title: blocker, onClick: () => setConfirming(true), children: busy === "prune" ? "Deleting\u2026" : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}` }),
+        /* @__PURE__ */ jsx(Tooltip, { title: blocker, children: /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: !!busy || !!blocker, onClick: () => setConfirming(true), children: busy === "prune" ? "Deleting\u2026" : `Delete ${whatGoes(planCounts(plan).releases, planCounts(plan).cacheLayers)}` }) }),
         blocker && /* @__PURE__ */ jsx(Hint, { children: blocker })
       ] }),
       confirming && /* @__PURE__ */ jsxs("div", { className: c.confirm, "data-testid": "prune-confirm", children: [

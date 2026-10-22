@@ -8,11 +8,11 @@ function stepLabel(step) {
 }
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 6 },
-  name: { fontFamily: fontDisplay, fontSize: 12.5, fontWeight: 700, color: ({ t }) => t.textHi },
+  name: { fontFamily: fontDisplay, fontSize: 12, fontWeight: 700, color: ({ t }) => t.textHi },
   row: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" },
   trigger: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: "2px 8px",
     borderRadius: 10,
     border: ({ t }) => `1px solid ${t.lineSoft}`,
@@ -21,7 +21,7 @@ const useStyles = makeStyles(() => ({
   connector: { width: 12, height: 1, backgroundColor: ({ t }) => t.line },
   chip: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 9px",
     borderRadius: 10,
     backgroundColor: ({ t }) => t.panelAlt,

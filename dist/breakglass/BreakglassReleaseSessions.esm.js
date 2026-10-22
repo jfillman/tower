@@ -4,6 +4,7 @@ import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { EmptyNote, StatusChip, TextLink } from '../ui/index.esm.js';
 import { useBreakglassSessions, shortUser } from '../tabs/topology/breakglassShared.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 6 },
@@ -39,7 +40,7 @@ function EnvSessions({ appName, env, window, onOpen }) {
   ] });
   return /* @__PURE__ */ jsx("div", { className: classes.list, "data-testid": `breakglass-release-${env}`, children: inWindow.map((s) => /* @__PURE__ */ jsxs("div", { className: classes.row, children: [
     /* @__PURE__ */ jsx("span", { className: classes.meta, children: env }),
-    /* @__PURE__ */ jsx("span", { title: formatDateTime(s.startedAt), children: relativeTime(s.startedAt) }),
+    /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(s.startedAt), children: /* @__PURE__ */ jsx("span", { children: relativeTime(s.startedAt) }) }),
     /* @__PURE__ */ jsxs("span", { children: [
       /* @__PURE__ */ jsx("b", { children: shortUser(s.requester) }),
       " \xB7 ",
@@ -52,11 +53,11 @@ function EnvSessions({ appName, env, window, onOpen }) {
     s.glassBroken && /* @__PURE__ */ jsx(StatusChip, { tone: "bad", children: "glass broken" }),
     s.sensitive && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "sensitive" }),
     s.reviewState === "due" && /* @__PURE__ */ jsx(StatusChip, { tone: "warn", children: "review due" }),
-    /* @__PURE__ */ jsxs("span", { className: classes.meta, title: s.reason, children: [
+    /* @__PURE__ */ jsx(Tooltip, { title: s.reason, children: /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
       "\u201C",
       s.reason.length > 50 ? `${s.reason.slice(0, 50)}\u2026` : s.reason,
       "\u201D"
-    ] }),
+    ] }) }),
     onOpen && /* @__PURE__ */ jsx(TextLink, { onClick: () => onOpen(s), children: "open" })
   ] }, s.id)) });
 }

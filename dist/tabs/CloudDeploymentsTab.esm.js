@@ -2,7 +2,6 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useTektonPipelineRuns } from '../tekton/useTektonPipelineRuns.esm.js';
@@ -12,15 +11,17 @@ import { useCicdConfig } from '../useConfigData.esm.js';
 import { readEnvironments } from '../environments/stagedChanges.esm.js';
 import { FlightPins } from './cloud/FlightPins.esm.js';
 import { useTableKit, PageHeader, EmptyNote, Chip, TextLink, Card, Stat, StatusChip } from '../ui/index.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { paddingBottom: 40 },
-  resource: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.textLo },
+  resource: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginBottom: 22 },
   cardBad: { borderColor: ({ t }) => t.bad, background: ({ t }) => t.badSoft },
   cardRun: { borderColor: ({ t }) => t.amberLine, background: ({ t }) => t.amberSoft },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
-  mono: { fontFamily: fontMono, fontSize: 12.5 }
+  sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 4, lineHeight: 1.5 },
+  mono: { fontFamily: fontMono, fontSize: 12 }
 }));
 const PHASE_LABEL = {
   succeeded: "succeeded",
@@ -62,8 +63,8 @@ function CloudDeploymentsTab() {
     else if (d.phase === "running" || d.phase === "pending") tone = "warn";
     return /* @__PURE__ */ jsx(StatusChip, { tone, children: PHASE_LABEL[d.phase] ?? d.phase });
   };
-  if (loading && runs.length === 0) return /* @__PURE__ */ jsx(Progress, {});
-  if (error && runs.length === 0) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading && runs.length === 0) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error && runs.length === 0) return /* @__PURE__ */ jsx(TabError, { error, what: "deployments" });
   const { current, inFlight, latestFailure, deploys, resource } = summary;
   const targetLabel = deploys[0]?.targetLabel;
   if (deploys.length === 0) {
@@ -142,7 +143,7 @@ function CloudDeploymentsTab() {
           d.flowSlug ? ` (${d.flowSlug})` : ""
         ] }),
         /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono}`, children: d.env ?? "\u2014" }),
-        /* @__PURE__ */ jsx("td", { className: tc.td, title: formatDateTime(d.startTime), children: relativeTime(d.startTime) }),
+        /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(d.startTime), children: /* @__PURE__ */ jsx("td", { className: tc.td, children: relativeTime(d.startTime) }) }),
         /* @__PURE__ */ jsx("td", { className: tc.td, children: duration(d.durationSec) }),
         /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsx(TextLink, { onClick: () => openRun(d.runName), children: "open run" }) })
       ] }, d.runName)) })

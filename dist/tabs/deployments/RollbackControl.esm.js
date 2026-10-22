@@ -6,10 +6,11 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { Hint, Button, Callout } from '../../ui/index.esm.js';
 import { OPENING_PR, PrReceipt } from '../../ui/PrRef.esm.js';
+import { ActionReason } from '../../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 6, paddingTop: 8, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
-  label: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
+  label: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textTransform: "uppercase", letterSpacing: "0.05em" },
   row: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
   mono: { fontFamily: fontMono, fontSize: 11 },
   input: {
@@ -21,7 +22,7 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     minWidth: 220
   },
-  ok: { fontSize: 11.5, color: ({ t }) => t.good }
+  ok: { fontSize: 11, color: ({ t }) => t.good }
 }));
 const tagOf = (image) => image ? image.slice(image.lastIndexOf(":") + 1) : "?";
 function RollbackControl({
@@ -125,12 +126,13 @@ function RollbackControl({
           small: true,
           variant: "danger",
           disabled: !allowed || busy || confirming || !target || !reason.trim(),
-          title: allowed ? void 0 : "Only the app's owning team (or an admin) can roll back.",
+          "aria-describedby": allowed ? void 0 : "rollback-reason",
           onClick: () => setConfirming(true),
           children: "Roll back"
         }
       )
     ] }),
+    !allowed && /* @__PURE__ */ jsx(ActionReason, { id: "rollback-reason", children: "Only the app's owning team (or an admin) can roll back." }),
     confirming && chosen && /* @__PURE__ */ jsxs("div", { className: c.row, children: [
       /* @__PURE__ */ jsxs(Hint, { children: [
         "Open a release PR putting ",

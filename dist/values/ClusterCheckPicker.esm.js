@@ -6,6 +6,7 @@ import { Button, Chip } from '../ui/index.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { catalogCheck } from './analysisCatalog.esm.js';
 import { useStyles } from './styles.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const TONE = {
   found: "ok",
@@ -53,7 +54,7 @@ function CheckRow({
         known ? `${known.title} ` : "",
         /* @__PURE__ */ jsx("code", { children: name }),
         " ",
-        /* @__PURE__ */ jsx("span", { title: why[data], children: /* @__PURE__ */ jsx(Chip, { tone: TONE[data], children: LABEL[data] }) })
+        /* @__PURE__ */ jsx(Tooltip, { title: why[data], children: /* @__PURE__ */ jsx("span", { children: /* @__PURE__ */ jsx(Chip, { tone: TONE[data], children: LABEL[data] }) }) })
       ] }),
       data !== "found" && data !== "checking" && /* @__PURE__ */ jsx("div", { className: ui.note, children: why[data] })
     ] })

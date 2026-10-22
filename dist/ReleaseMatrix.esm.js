@@ -16,6 +16,7 @@ import { PipelineFlow, buildSupplyChainStages } from './PipelineFlow.esm.js';
 import { PrButton } from './PrButton.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { SectionTitle, StatusChip, TextLink, Button } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: {
@@ -45,7 +46,7 @@ const useStyles = makeStyles(() => ({
   rowHead: {
     textAlign: "left",
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: 600,
     color: ({ t }) => t.textHi,
     padding: "9px 10px 9px 0",
@@ -66,7 +67,7 @@ const useStyles = makeStyles(() => ({
     marginLeft: 8,
     fontFamily: fontMono,
     fontWeight: 400,
-    fontSize: 10,
+    fontSize: 11,
     padding: "1px 7px",
     borderRadius: 8,
     border: "1px solid",
@@ -114,21 +115,21 @@ const useStyles = makeStyles(() => ({
   close: {
     marginLeft: "auto",
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     cursor: "pointer",
     background: "none",
     border: "none"
   },
   prRow: { marginBottom: 10 },
-  fact: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 6 },
+  fact: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 6 },
   // How the build's commit was proven (provenance phase 3): green for every passing path, like the record.
   proofChip: {
     display: "inline-block",
     marginLeft: 8,
     fontFamily: fontMono,
     fontWeight: 400,
-    fontSize: 10,
+    fontSize: 11,
     padding: "1px 7px",
     borderRadius: 8,
     border: "1px solid",
@@ -202,20 +203,19 @@ function ReleaseMatrix({
       ] }) }),
       /* @__PURE__ */ jsx("tbody", { children: releases.map((row) => /* @__PURE__ */ jsxs("tr", { className: `${classes.row} ${row.current ? classes.rowCurrent : ""}`, children: [
         /* @__PURE__ */ jsxs("th", { className: `${classes.rowHead} ${row.current ? classes.rowCurrentHead : ""}`, children: [
-          /* @__PURE__ */ jsxs(
+          /* @__PURE__ */ jsx(Tooltip, { title: `View ${row.imageTag} in the Images tab`, children: /* @__PURE__ */ jsxs(
             "button",
             {
               type: "button",
               className: classes.rowHeadLink,
               onClick: () => goToImage(row.imageTag),
-              title: `View ${row.imageTag} in the Images tab`,
               children: [
                 names?.get(row.imageTag) && /* @__PURE__ */ jsx("span", { className: classes.releaseName, children: names.get(row.imageTag) }),
                 row.imageTag
               ]
             }
-          ),
-          row.nickname && /* @__PURE__ */ jsx(
+          ) }),
+          row.nickname && /* @__PURE__ */ jsx(Tooltip, { title: "This build's flow, from the CI/CD tab", children: /* @__PURE__ */ jsx(
             "span",
             {
               className: classes.nicknameChip,
@@ -224,14 +224,13 @@ function ReleaseMatrix({
                 borderColor: `hsl(${slugHue(row.nickname)}, 65%, 60%)`,
                 backgroundColor: `hsla(${slugHue(row.nickname)}, 65%, 60%, 0.12)`
               },
-              title: "This build's flow, from the CI/CD tab",
               children: row.nickname
             }
-          ),
+          ) }),
           (() => {
             const proof = proofs?.get(row.imageTag);
             const chip = proof && PROVEN.has(proof.state) ? commitProofChip(proof) : void 0;
-            return chip ? /* @__PURE__ */ jsx("span", { className: classes.proofChip, title: `Commit: ${commitProofLine(proof)}`, children: chip }) : null;
+            return chip ? /* @__PURE__ */ jsx(Tooltip, { title: `Commit: ${commitProofLine(proof)}`, children: /* @__PURE__ */ jsx("span", { className: classes.proofChip, children: chip }) }) : null;
           })()
         ] }),
         environments.map((env) => {

@@ -1,10 +1,9 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { buildEnvironmentRows } from '../environmentRows.esm.js';
 import { readEnvironments, applyStaged, purgedEnvs, leftoverGroundEnvs, describeChanges, addedFlightEnvs, validateEnvironments, validateAddedFlight, validateRemovals, planPipelineSteps, pipelineStepEnvs, envFilePaths, followUps, copiedEnvs, deleteFilesFor, pipelinesNamingEnv, stageSetBlock, uncopiedGroundAdds, infraStarterValues, buildDeploy, cloudFlightFilePaths } from '../environments/stagedChanges.esm.js';
@@ -28,6 +27,8 @@ import { RowDetail } from './environments/RowDetail.esm.js';
 import { SubmittedPanel } from './environments/SubmittedPanel.esm.js';
 import { TARGET_BLOCK, same } from './environments/shared.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
+import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const COLUMNS = "20px 120px 80px 110px 100px 90px minmax(0, 1fr) 36px";
 const useStyles = makeStyles(() => ({
@@ -65,7 +66,7 @@ const useStyles = makeStyles(() => ({
   name: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 15, color: ({ t }) => t.textHi },
   nameRemoved: { textDecoration: "line-through", color: ({ t }) => t.textLo },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
-  health: { display: "flex", gap: 6, alignItems: "center", fontSize: 12.5 },
+  health: { display: "flex", gap: 6, alignItems: "center", fontSize: 12 },
   empty: { padding: 24, color: ({ t }) => t.textLo, textAlign: "center", fontSize: 13 },
   unlisted: { marginBottom: 12 }
 }));
@@ -91,6 +92,10 @@ function EnvironmentsTab() {
   const [staged, setStaged] = useState([]);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState();
+  const rowParam = searchParams.get("row");
+  useEffect(() => {
+    if (rowParam) setOpen(rowParam);
+  }, [rowParam]);
   const [removing, setRemoving] = useState();
   const [filter, setFilter] = useState("all");
   const [menu, setMenu] = useState();
@@ -181,7 +186,7 @@ function EnvironmentsTab() {
         (name) => `After it merges Argo CD removes ${appName ? `${appName}-${name}` : `the ${name} Application`} and everything running in the ${appName ? envNamespace(appName, appType, name) : name} namespace.`
       ),
       ...copiedEnvs(staged, after).filter((x) => x.env.tier === "flight").map((x) => `${x.env.name} is a copy of ${x.from}: once its values file exists (Crossplane writes it after the request merges), use "Copy values from" in its Values tab.`),
-      ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in the Glidepath tab if they should change too."] : [],
+      ...flightOrderChanged ? ["This changes the declared promotion order only. The pipeline releases to Flight environments in the order of its own release steps: edit those in Configure \u203A Pipeline if they should change too."] : [],
       ...releasePlan.skipped.map((k) => `No ${k.stage} step added for ${k.env}: ${k.reason}.`)
     ],
     [before, after, targetId, appName, appType, releasePlan, flightOrderChanged, staged, purged]
@@ -236,8 +241,8 @@ function EnvironmentsTab() {
     for (const r of liveRows) if (!out.some((o) => o.name === r.name)) out.push({ ...r });
     return out;
   }, [canEdit, liveRows, before, after, targetLabel, pending]);
-  if (loading && rows.length === 0) return /* @__PURE__ */ jsx(Progress, {});
-  if (error && rows.length === 0) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(String(error)) });
+  if (loading && rows.length === 0) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error && rows.length === 0) return /* @__PURE__ */ jsx(TabError, { error: String(error), what: "environments" });
   const isCloudRow = (r) => r.target !== "Kubernetes" || Boolean(cloudBlock);
   const counts = {
     all: rows.length,
@@ -326,7 +331,7 @@ function EnvironmentsTab() {
       appName,
       patch: { deploy: buildDeploy(deploy, after), ...releasePlan.added.length > 0 ? { pipelines: releasePlan.pipelines } : {} },
       summary: changes.map((l) => l.title),
-      via: "Environments tab",
+      via: "Configure \u203A Environments",
       ...deleteFiles.length > 0 ? { deleteFiles } : {},
       ...createFiles.length > 0 ? { createFiles } : {}
     });
@@ -392,7 +397,7 @@ function EnvironmentsTab() {
         ] })
       }
     ),
-    !canEdit && /* @__PURE__ */ jsx(Hint, { style: { marginBottom: 12 }, children: "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in the Glidepath tab; Flight environment values are in App Configuration." }),
+    !canEdit && /* @__PURE__ */ jsx(Hint, { style: { marginBottom: 12 }, children: "Read-only: this service has no cicd.yaml Tower can edit. Change the list and its order in Configure \u203A Pipeline; Flight environment values are in Configure \u203A Shared values." }),
     /* @__PURE__ */ jsxs("div", { className: canEdit ? c.layout : void 0, children: [
       /* @__PURE__ */ jsxs("div", { className: c.main, children: [
         unlisted.map((p) => /* @__PURE__ */ jsxs(
@@ -510,7 +515,7 @@ function EnvironmentsTab() {
                       r.deployed ? r.image : "not deployed yet",
                       r.deployedAt && /* @__PURE__ */ jsxs(Fragment, { children: [
                         "  ",
-                        /* @__PURE__ */ jsx("span", { title: formatDateTime(r.deployedAt), children: relativeTime(r.deployedAt) })
+                        /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(r.deployedAt), children: /* @__PURE__ */ jsx("span", { children: relativeTime(r.deployedAt) }) })
                       ] })
                     ] }),
                     /* @__PURE__ */ jsx("span", { role: "cell", onClick: (e) => e.stopPropagation(), children: editable && r.state !== "pr-open" && /* @__PURE__ */ jsx(

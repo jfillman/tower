@@ -10,7 +10,7 @@ makeStyles(() => ({
   head: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10, flexWrap: "wrap" },
   kind: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     padding: "2px 8px",
@@ -19,17 +19,17 @@ makeStyles(() => ({
     backgroundColor: ({ t }) => t.skySoft,
     color: ({ t }) => t.sky
   },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 14, color: ({ t }) => t.textHi },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, color: ({ t }) => t.textHi },
   sectionLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     color: ({ t }) => t.textFaint,
     marginBottom: 6,
     marginTop: 14
   },
-  secretNote: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint, marginBottom: 10, marginTop: 0 },
+  secretNote: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.textFaint, marginBottom: 10, marginTop: 0 },
   // One row per label/annotation, key and value in the same line of text
   // (not stacked on separate lines - too much wasted vertical space for the
   // common case of a short value, 2026-09-09 feedback) - a short value sits
@@ -38,7 +38,7 @@ makeStyles(() => ({
   // onto following lines the way a paragraph would, still full-width rather
   // than squeezed into a grid column.
   kvList: { display: "flex", flexDirection: "column", gap: 5 },
-  kv: { minWidth: 0, fontSize: 11.5, lineHeight: 1.5, overflowWrap: "anywhere" },
+  kv: { minWidth: 0, fontSize: 11, lineHeight: 1.5, overflowWrap: "anywhere" },
   kvKey: { fontFamily: fontMono, color: ({ t }) => t.textFaint },
   kvVal: { fontFamily: fontMono, color: ({ t }) => t.textHi, whiteSpace: "pre-wrap" },
   none: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.textFaint },
@@ -48,7 +48,7 @@ makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.bg,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1.6,
     maxHeight: 460,
     overflow: "auto"
@@ -64,7 +64,7 @@ const useTreeStyles = makeStyles(() => ({
     border: "none",
     cursor: "pointer",
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     padding: "2px 0 0",
     textAlign: "left"
   },
@@ -142,7 +142,7 @@ const useDocStyles = makeStyles(() => ({
     border: ({ t }) => `1px solid ${t.lineSoft}`,
     backgroundColor: ({ t }) => t.bg,
     fontFamily: fontMono,
-    fontSize: 11.5,
+    fontSize: 11,
     lineHeight: 1.6,
     maxHeight: 420,
     overflow: "auto"
@@ -166,7 +166,7 @@ makeStyles(() => ({
   detailHead: { display: "flex", justifyContent: "flex-end", marginBottom: -4 },
   close: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     background: "none",
     border: "none",

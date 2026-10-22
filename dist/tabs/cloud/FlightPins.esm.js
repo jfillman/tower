@@ -14,7 +14,7 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
   name: { fontWeight: 600, fontSize: 15, color: ({ t }) => t.textHi },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo, overflowWrap: "anywhere" },
-  pinned: { fontFamily: fontMono, fontSize: 14, color: ({ t }) => t.textHi },
+  pinned: { fontFamily: fontMono, fontSize: 13, color: ({ t }) => t.textHi },
   actions: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   select: {
     fontFamily: fontMono,
@@ -26,7 +26,7 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     border: ({ t }) => `1px solid ${t.line}`
   },
-  bad: { fontSize: 12.5, color: ({ t }) => t.bad }
+  bad: { fontSize: 12, color: ({ t }) => t.bad }
 }));
 function FlightPins({ owner, appName, flight, deploys }) {
   const ui = useUi({ t: useHangarTokens() });

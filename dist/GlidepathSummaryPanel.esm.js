@@ -29,14 +29,14 @@ const useStyles = makeStyles(() => ({
   headRight: { display: "flex", gap: 18, alignItems: "center" },
   chain: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
   chainItem: { display: "inline-flex", alignItems: "center", gap: 6 },
-  chainName: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 14, color: ({ t }) => t.textHi },
+  chainName: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
   arrow: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 12 },
   grid: { display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" },
   col: { display: "flex", flexDirection: "column", gap: 6, minWidth: 200 },
-  value: { fontSize: 12.5, color: ({ t }) => t.textHi },
+  value: { fontSize: 12, color: ({ t }) => t.textHi },
   muted: { fontSize: 12, color: ({ t }) => t.textLo },
   envRows: { display: "flex", flexDirection: "column", gap: 6 },
-  envRow: { display: "grid", gridTemplateColumns: "90px 70px 1fr", gap: 10, alignItems: "center", fontSize: 12.5 },
+  envRow: { display: "grid", gridTemplateColumns: "90px 70px 1fr", gap: 10, alignItems: "center", fontSize: 12 },
   mono: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   pipelinesList: { display: "flex", flexDirection: "column", gap: 10 },
   strategyWarn: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.amberInk },
@@ -48,8 +48,8 @@ const useStyles = makeStyles(() => ({
   // back on the next successful fetch, but looked exactly like a
   // regression). fontStyle italic matches this platform's other "nothing to
   // show yet" captions (e.g. ArgoCommandPanel's `note`).
-  statusNote: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.textFaint },
-  statusNoteError: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad }
+  statusNote: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.textFaint },
+  statusNoteError: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.bad }
 }));
 function GlidepathSummaryPanel({ owner, appName }) {
   const t = useHangarTokens();

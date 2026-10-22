@@ -9,7 +9,7 @@ import { TextLink, SectionTitle, EmptyNote, Card, StatusChip } from './ui/index.
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 12, marginTop: 12 },
   head: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 10 },
-  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 16, letterSpacing: "0.06em", color: ({ t }) => t.textHi },
+  name: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", color: ({ t }) => t.textHi },
   version: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textLo },
   date: { fontSize: 12, color: ({ t }) => t.textFaint, marginLeft: "auto" },
   section: { fontSize: 13, color: ({ t }) => t.textHi },

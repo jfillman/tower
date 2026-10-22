@@ -1,9 +1,10 @@
-import { jsxs, jsx } from 'react/jsx-runtime';
+import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState, useRef, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import CheckIcon from '@material-ui/icons/Check';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import { Button } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const SPIN_MS = 900;
 const DONE_MS = 1500;
@@ -31,7 +32,7 @@ function RefreshButton({ onClick, label = "Refresh", busy }) {
   let text = label;
   if (label && spinning) text = "Refreshing\u2026";
   else if (label && phase === "done") text = "Refreshed";
-  return /* @__PURE__ */ jsxs(
+  return /* @__PURE__ */ jsx(Tooltip, { title: "Re-fetch PR, deploy-history, and image data", children: /* @__PURE__ */ jsxs(
     Button,
     {
       small: true,
@@ -41,13 +42,12 @@ function RefreshButton({ onClick, label = "Refresh", busy }) {
         setPhase("spinning");
         onClick();
       },
-      title: "Re-fetch PR, deploy-history, and image data",
       children: [
         phase === "done" && !spinning ? /* @__PURE__ */ jsx(CheckIcon, { style: { fontSize: 14 }, "aria-hidden": true }) : /* @__PURE__ */ jsx(RefreshIcon, { style: { fontSize: 14 }, className: spinning ? classes.spin : void 0, "aria-hidden": true }),
         text
       ]
     }
-  );
+  ) });
 }
 
 export { RefreshButton };

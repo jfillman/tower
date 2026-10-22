@@ -12,6 +12,8 @@ import { keepScrollPosition } from './preventFocusScroll.esm.js';
 import { parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import './ui/PrRef.esm.js';
 import { imageTag } from './types.esm.js';
+import './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useSignalRailStyles = makeStyles(() => ({
   "@keyframes pulse": {
@@ -83,13 +85,13 @@ const useSignalRailStyles = makeStyles(() => ({
   dotCurrent: { animation: "$pulse 1.6s ease-in-out infinite" },
   label: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     color: ({ t }) => t.textFaint,
     textAlign: "center"
   },
-  meta: { fontFamily: fontMono, fontSize: 9.5, color: ({ t }) => t.textFaint, textAlign: "center" },
+  meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textAlign: "center" },
   gatesTogglePulse: { animation: "$pulse 1.6s ease-in-out infinite" },
   // Real GitHub Check Runs on the release PR's head commit - this
   // platform's release guardrails (sast/image-scan/provenance/sbom/values/itsm/qa/
@@ -107,7 +109,7 @@ const useSignalRailStyles = makeStyles(() => ({
   ledgerHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   ledgerTitle: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: ({ t }) => t.textFaint
@@ -123,11 +125,11 @@ const useSignalRailStyles = makeStyles(() => ({
   gateRowLast: { borderBottom: "none" },
   gateRowTop: { display: "flex", alignItems: "center", gap: 10 },
   gateRowDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
-  gateName: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textHi, flex: 1 },
-  gateStatusText: { fontFamily: fontMono, fontSize: 10.5, whiteSpace: "nowrap" },
+  gateName: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textHi, flex: 1 },
+  gateStatusText: { fontFamily: fontMono, fontSize: 11, whiteSpace: "nowrap" },
   gateLink: {
     fontFamily: fontMono,
-    fontSize: 10,
+    fontSize: 11,
     color: ({ t }) => t.sky,
     textDecoration: "none",
     marginLeft: 8,
@@ -138,7 +140,7 @@ const useSignalRailStyles = makeStyles(() => ({
   // up with the name, not the dot itself.
   gateMessage: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textFaint,
     paddingLeft: 18,
     lineHeight: 1.5,
@@ -247,7 +249,7 @@ function Rail({
             }
           ),
           /* @__PURE__ */ jsx("span", { className: classes.label, children: step.key === labelOverride?.key ? labelOverride.text : step.label }),
-          /* @__PURE__ */ jsx("span", { className: classes.meta, title: step.at ? formatDateTime(step.at) : void 0, children: stepMetaText(step, metaOverride) }),
+          /* @__PURE__ */ jsx(Tooltip, { title: step.at ? formatDateTime(step.at) : void 0, children: /* @__PURE__ */ jsx("span", { className: classes.meta, children: stepMetaText(step, metaOverride) }) }),
           step.key === belowKey && below
         ]
       }

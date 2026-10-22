@@ -7,6 +7,7 @@ import { Chip } from '../ui/index.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { SLO_PRESETS_NOTE, SLO_PRESETS, presetOn, togglePreset } from './sloCatalog.esm.js';
 import { useStyles } from './styles.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 const TONE = { found: "ok", checking: "neutral", none: "bad", unreachable: "bad" };
 function PresetRow({
@@ -51,7 +52,7 @@ function PresetRow({
       /* @__PURE__ */ jsxs(Typography, { className: classes.switchLabel, children: [
         preset.title,
         " ",
-        /* @__PURE__ */ jsx("span", { title: why[data], children: /* @__PURE__ */ jsx(Chip, { tone: TONE[data], children: { checking: "checking", found: "data found", none: "no data yet", unreachable: "cannot check" }[data] }) })
+        /* @__PURE__ */ jsx(Tooltip, { title: why[data], children: /* @__PURE__ */ jsx("span", { children: /* @__PURE__ */ jsx(Chip, { tone: TONE[data], children: { checking: "checking", found: "data found", none: "no data yet", unreachable: "cannot check" }[data] }) }) })
       ] }),
       /* @__PURE__ */ jsx("div", { className: ui.note, children: preset.description }),
       data !== "found" && data !== "checking" && !on && /* @__PURE__ */ jsx("div", { className: ui.note, children: why[data] }),

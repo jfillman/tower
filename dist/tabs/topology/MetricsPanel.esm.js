@@ -38,7 +38,7 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" },
   liveToggle: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 9px",
     borderRadius: 12,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -64,11 +64,11 @@ const useStyles = makeStyles(() => ({
   },
   tileHead: { display: "flex", alignItems: "center", gap: 6, color: ({ t }) => t.textFaint },
   tileIcon: { display: "flex", fontSize: 15 },
-  tileLabel: { fontFamily: fontMono, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" },
+  tileLabel: { fontFamily: fontMono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" },
   tileValue: { fontFamily: fontMono, fontWeight: 700, fontSize: 18, color: ({ t }) => t.textHi },
-  tileNote: { fontSize: 10.5, fontStyle: "italic", color: ({ t }) => t.textFaint }
+  tileNote: { fontSize: 11, fontStyle: "italic", color: ({ t }) => t.textFaint }
 }));
-function Sparkline({ points, color, t }) {
+function Sparkline({ points, color }) {
   const width = 130;
   const height = 30;
   if (points.length < 2) return /* @__PURE__ */ jsx("svg", { width, height });
@@ -86,8 +86,7 @@ function Sparkline({ points, color, t }) {
   return /* @__PURE__ */ jsxs("svg", { width, height, viewBox: `0 0 ${width} ${height}`, style: { display: "block" }, children: [
     /* @__PURE__ */ jsx("path", { d: areaPath, fill: color, opacity: 0.14, stroke: "none" }),
     /* @__PURE__ */ jsx("path", { d: path, fill: "none", stroke: color, strokeWidth: 1.5 }),
-    /* @__PURE__ */ jsx("circle", { cx: width, cy: height - (values[values.length - 1] - min) / span * height, r: 2.2, fill: color }),
-    /* @__PURE__ */ jsx("text", { x: 0, y: height + 9, fontFamily: fontMono, fontSize: 8, fill: t.textFaint, children: "15m" })
+    /* @__PURE__ */ jsx("circle", { cx: width, cy: height - (values[values.length - 1] - min) / span * height, r: 2.2, fill: color })
   ] });
 }
 function MetricTile({
@@ -98,8 +97,7 @@ function MetricTile({
   format,
   color,
   refreshNonce,
-  classes,
-  t
+  classes
 }) {
   const { loading, error, series } = usePrometheusRangeQuery(
     cluster,
@@ -120,7 +118,7 @@ function MetricTile({
   } else {
     body = /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsx("span", { className: classes.tileValue, children: current !== void 0 ? format(current) : "\u2014" }),
-      /* @__PURE__ */ jsx(Sparkline, { points, color, t })
+      /* @__PURE__ */ jsx(Sparkline, { points, color })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.tile, children: [
@@ -185,12 +183,12 @@ function MetricsPanel({
       )
     ] }),
     /* @__PURE__ */ jsxs("div", { className: classes.grid, children: [
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(SpeedIcon, { fontSize: "inherit" }), label: "CPU", query: cpuQuery, cluster, format: formatCores, color: t.sky, refreshNonce: nonce, classes, t }),
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(MemoryIcon, { fontSize: "inherit" }), label: "Memory", query: memQuery, cluster, format: (v) => formatBytesPerSec(v).replace("/s", ""), color: t.amber, refreshNonce: nonce, classes, t }),
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(ArrowDownwardIcon, { fontSize: "inherit" }), label: "Network in", query: rxQuery, cluster, format: formatBytesPerSec, color: t.good, refreshNonce: nonce, classes, t }),
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(ArrowUpwardIcon, { fontSize: "inherit" }), label: "Network out", query: txQuery, cluster, format: formatBytesPerSec, color: t.good, refreshNonce: nonce, classes, t }),
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(StorageIcon, { fontSize: "inherit" }), label: "Disk read", query: readQuery, cluster, format: formatBytesPerSec, color: t.textLo, refreshNonce: nonce, classes, t }),
-      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(StorageIcon, { fontSize: "inherit" }), label: "Disk write", query: writeQuery, cluster, format: formatBytesPerSec, color: t.textLo, refreshNonce: nonce, classes, t })
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(SpeedIcon, { fontSize: "inherit" }), label: "CPU", query: cpuQuery, cluster, format: formatCores, color: t.sky, refreshNonce: nonce, classes }),
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(MemoryIcon, { fontSize: "inherit" }), label: "Memory", query: memQuery, cluster, format: (v) => formatBytesPerSec(v).replace("/s", ""), color: t.amber, refreshNonce: nonce, classes }),
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(ArrowDownwardIcon, { fontSize: "inherit" }), label: "Network in", query: rxQuery, cluster, format: formatBytesPerSec, color: t.good, refreshNonce: nonce, classes }),
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(ArrowUpwardIcon, { fontSize: "inherit" }), label: "Network out", query: txQuery, cluster, format: formatBytesPerSec, color: t.good, refreshNonce: nonce, classes }),
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(StorageIcon, { fontSize: "inherit" }), label: "Disk read", query: readQuery, cluster, format: formatBytesPerSec, color: t.textLo, refreshNonce: nonce, classes }),
+      /* @__PURE__ */ jsx(MetricTile, { icon: /* @__PURE__ */ jsx(StorageIcon, { fontSize: "inherit" }), label: "Disk write", query: writeQuery, cluster, format: formatBytesPerSec, color: t.textLo, refreshNonce: nonce, classes })
     ] })
   ] });
 }

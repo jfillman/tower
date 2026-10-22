@@ -35,7 +35,7 @@ function useNamespaceEvents(cluster, namespace) {
   return state;
 }
 const useStyles = makeStyles(() => ({
-  mono: { fontFamily: fontMono, fontSize: 11.5 },
+  mono: { fontFamily: fontMono, fontSize: 11 },
   dot: { width: 7, height: 7, borderRadius: "50%", display: "inline-block", marginRight: 6 },
   faint: { color: ({ t }) => t.textFaint },
   titleGap: { marginBottom: 8 }

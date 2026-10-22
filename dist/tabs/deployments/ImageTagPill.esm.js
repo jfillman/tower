@@ -9,7 +9,7 @@ const useStyles = makeStyles(() => ({
   slug: {
     display: "inline-block",
     flexShrink: 0,
-    fontSize: 10,
+    fontSize: 11,
     padding: "1px 7px",
     borderRadius: 8,
     border: "1px solid"

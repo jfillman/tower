@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
 import { dump } from 'js-yaml';
-import { ResponseErrorPanel, Progress } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { Subtabs, Button, Callout } from '../ui/index.esm.js';
@@ -27,7 +26,9 @@ import { useAppEnvReads } from './useAppEnvReads.esm.js';
 import { METADATA_FIELDS, metadataProblems } from './metadata.esm.js';
 import { workloadOn, workloadStatus } from './workload.esm.js';
 import { withGatewayNamespace, parsePeers, isSimpleGatewaySelector, gatewayNamespaceOf, parseParentRefs, validatePeers, buildParentRefs, buildPeers, gatewaySelectorPatch, blankPeer } from './networkPolicy.esm.js';
+import { TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
 import { YamlBlock } from '../ui/YamlBlock.esm.js';
+import { Tooltip } from '../ui/Tooltip.esm.js';
 
 function asRecord(v) {
   return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -304,8 +305,8 @@ function StepsBuilder({
           "."
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.stepOrderCol, children: [
-          /* @__PURE__ */ jsx("button", { type: "button", className: classes.orderBtn, disabled: i === 0, onClick: () => move(i, -1), title: "Move up", children: "\u25B2" }),
-          /* @__PURE__ */ jsx("button", { type: "button", className: classes.orderBtn, disabled: i === steps.length - 1, onClick: () => move(i, 1), title: "Move down", children: "\u25BC" })
+          /* @__PURE__ */ jsx(Tooltip, { title: "Move up", children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.orderBtn, disabled: i === 0, onClick: () => move(i, -1), children: "\u25B2" }) }),
+          /* @__PURE__ */ jsx(Tooltip, { title: "Move down", children: /* @__PURE__ */ jsx("button", { type: "button", className: classes.orderBtn, disabled: i === steps.length - 1, onClick: () => move(i, 1), children: "\u25BC" }) })
         ] }),
         /* @__PURE__ */ jsxs(
           "select",
@@ -957,9 +958,9 @@ function ConfigEditor({
       setCopyNote({ text: `Could not load the values of ${label}: ${String(e)}`, bad: true });
     }
   };
-  if (cfg.error && !cfg.data) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(cfg.error) });
-  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return /* @__PURE__ */ jsx(Progress, {});
-  if (cfg.error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(cfg.error) });
+  if (cfg.error && !cfg.data) return /* @__PURE__ */ jsx(TabError, { error: cfg.error, what: "the values file" });
+  if (cfg.loading || !form || !originalForm || !advanced || !originalAdvanced) return /* @__PURE__ */ jsx(PanelSkeleton, {});
+  if (cfg.error) return /* @__PURE__ */ jsx(TabError, { error: cfg.error, what: "the values file" });
   if (!cfg.data) return null;
   const setF = (key, value, ..._fields) => {
     setForm((prev) => prev ? { ...prev, [key]: value } : prev);
@@ -1806,12 +1807,11 @@ function ConfigEditor({
                   }
                 ),
                 /* @__PURE__ */ jsx("input", { className: classes.input, placeholder: "key", "aria-label": `Variable ${i + 1} key`, value: v.refKey, onChange: (e) => setRow({ refKey: e.target.value }) }),
-                matchOf(v) && /* @__PURE__ */ jsxs(
+                matchOf(v) && /* @__PURE__ */ jsx(Tooltip, { title: "airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently", children: /* @__PURE__ */ jsxs(
                   "button",
                   {
                     type: "button",
                     className: classes.linkBtn,
-                    title: "airframe-validate warns about this (AF-COMP-003): a component's own output should be referenced as a component, so a rename cannot break it silently",
                     onClick: () => {
                       const m = matchOf(v);
                       if (m) setRow({ kind: "component", component: m.name, output: m.output, refName: "", refKey: "" });
@@ -1824,21 +1824,20 @@ function ConfigEditor({
                       " instead"
                     ]
                   }
-                )
+                ) })
               ] })
             ] }),
-            unreadByCode(v) && /* @__PURE__ */ jsxs(
+            unreadByCode(v) && /* @__PURE__ */ jsx(Tooltip, { title: `Scanned ${envReads?.repo ?? "the source repo"} at ${(envReads?.sha ?? "").slice(0, 7)} (${envReads?.scanned ?? 0} files)`, children: /* @__PURE__ */ jsxs(
               "span",
               {
                 className: classes.hint,
                 role: "note",
-                title: `Scanned ${envReads?.repo ?? "the source repo"} at ${(envReads?.sha ?? "").slice(0, 7)} (${envReads?.scanned ?? 0} files)`,
                 children: [
                   "The app's code never reads ",
                   v.name.trim()
                 ]
               }
-            ),
+            ) }),
             /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => setF("envVars", form.envVars.filter((_, j) => j !== i), "env"), children: "Remove" })
           ] }, i);
         }),

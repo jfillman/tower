@@ -6,6 +6,8 @@ import { imageTag, ENV_TIER_LABEL, envTierOf } from './types.esm.js';
 import { slugHue } from './PipelineRunList.esm.js';
 import { nicknameForImageTag } from './useReleaseContext.esm.js';
 import { CommitIcon, ImageIcon, EnvIcon, PreviewIcon, PipelineIcon, ConfigIcon } from './activityIcons.esm.js';
+import './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 function extractLine(description, label) {
   if (!description) return void 0;
@@ -23,14 +25,13 @@ function PillChain({
   ctx
 }) {
   return /* @__PURE__ */ jsxs("div", { className: ctx.classes.pillChain, children: [
-    /* @__PURE__ */ jsx(
+    /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(String(n.created)), children: /* @__PURE__ */ jsx(
       "span",
       {
         className: ctx.classes.time,
-        title: formatDateTime(String(n.created)),
         children: relativeTime(n.created)
       }
-    ),
+    ) }),
     items.map((item, i) => {
       const plain = item.variant === "plain";
       const interactive = Boolean(item.href || item.onClick);
@@ -44,7 +45,7 @@ function PillChain({
       ] });
       let node;
       if (item.href) {
-        node = /* @__PURE__ */ jsx(
+        node = /* @__PURE__ */ jsx(Tooltip, { title: item.title, children: /* @__PURE__ */ jsx(
           "a",
           {
             className,
@@ -52,24 +53,22 @@ function PillChain({
             href: item.href,
             target: "_blank",
             rel: "noopener noreferrer",
-            title: item.title,
             children: inner
           }
-        );
+        ) });
       } else if (item.onClick) {
-        node = /* @__PURE__ */ jsx(
+        node = /* @__PURE__ */ jsx(Tooltip, { title: item.title, children: /* @__PURE__ */ jsx(
           "button",
           {
             type: "button",
             className,
             style,
             onClick: item.onClick,
-            title: item.title,
             children: inner
           }
-        );
+        ) });
       } else {
-        node = /* @__PURE__ */ jsx("span", { className, style, title: item.title, children: inner });
+        node = /* @__PURE__ */ jsx(Tooltip, { title: item.title, children: /* @__PURE__ */ jsx("span", { className, style, children: inner }) });
       }
       return /* @__PURE__ */ jsxs(Fragment$1, { children: [
         i > 0 && /* @__PURE__ */ jsx("span", { className: ctx.classes.chainArrow, children: "\u2192" }),
@@ -428,14 +427,13 @@ function renderReleaseOutcomeRow(n, ctx) {
       /* @__PURE__ */ jsx("span", { className: ctx.classes.subStepDot }),
       i < siblings.length - 1 && /* @__PURE__ */ jsx("span", { className: ctx.classes.subStepLine }),
       /* @__PURE__ */ jsx("span", { className: ctx.classes.subStepLabel, children: sib.payload.title }),
-      /* @__PURE__ */ jsx(
+      /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(String(sib.created)), children: /* @__PURE__ */ jsx(
         "span",
         {
           className: ctx.classes.subStepTime,
-          title: formatDateTime(String(sib.created)),
           children: relativeTime(sib.created)
         }
-      )
+      ) })
     ] }, sib.id)) })
   ] });
 }

@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Tooltip from '@material-ui/core/Tooltip';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, Section, TierChip, Count, Card, SectionTitle, StatusChip, Chip, EmptyNote, Stat, ColumnLabel, TextLink } from '../ui/index.esm.js';
@@ -12,6 +11,7 @@ import { useSlos } from '../useSlos.esm.js';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery.esm.js';
 import { envTierOf } from '../types.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
+import { TabSkeleton, TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
 
 const useStyles = makeStyles(() => ({
   envGroup: { marginBottom: 26 },
@@ -19,7 +19,7 @@ const useStyles = makeStyles(() => ({
   head: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   sub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
   explainer: { fontSize: 13, lineHeight: 1.5, color: ({ t }) => t.textLo, margin: "2px 0 14px" },
-  windowsCaption: { fontSize: 11.5, lineHeight: 1.4, color: ({ t }) => t.textFaint, margin: "2px 0 6px" },
+  windowsCaption: { fontSize: 11, lineHeight: 1.4, color: ({ t }) => t.textFaint, margin: "2px 0 6px" },
   headRight: { display: "flex", alignItems: "center", gap: 8 },
   statsRow: { display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 12 },
   budget: { flex: "1 1 220px", display: "flex", flexDirection: "column" },
@@ -37,8 +37,8 @@ const useStyles = makeStyles(() => ({
   windows: { display: "flex", gap: 6, height: 60, marginTop: 4, marginBottom: 4 },
   windowBar: { display: "flex", flexDirection: "column", alignItems: "center", flex: "1 1 0", gap: 4 },
   windowBarFill: { width: "100%", maxWidth: 22, borderRadius: "2px 2px 0 0" },
-  windowLabel: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
-  query: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: "6px 8px", borderRadius: 4, marginTop: 8, overflowX: "auto", whiteSpace: "pre" }
+  windowLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
+  query: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, backgroundColor: ({ t }) => t.panelAlt, padding: "6px 8px", borderRadius: 4, marginTop: 8, overflowX: "auto", whiteSpace: "pre" }
 }));
 const WINDOWS = ["5m", "30m", "1h", "2h", "6h", "1d", "3d", "30d"];
 const UNKNOWN_ENV_KEY = "(no environment)";
@@ -155,7 +155,7 @@ function SloCard({
         /* @__PURE__ */ jsx(Chip, { tone: "sky", children: slo.indicator.type })
       ] })
     ] }),
-    loading && meta.samples.length === 0 && /* @__PURE__ */ jsx(Progress, {}),
+    loading && meta.samples.length === 0 && /* @__PURE__ */ jsx(PanelSkeleton, {}),
     anyError && /* @__PURE__ */ jsxs(EmptyNote, { children: [
       "Couldn't query Prometheus: ",
       anyError
@@ -248,8 +248,8 @@ function SlosTab() {
   const { pipelineOrder } = useReleaseContext();
   const { slos, loading, refreshing, error } = useSlos();
   const [refreshNonce, setRefreshNonce] = useState(0);
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "SLOs" });
   if (slos.length === 0) {
     return /* @__PURE__ */ jsxs("div", { children: [
       /* @__PURE__ */ jsx(PageHeader, { title: "SLOs", subtitle: "Burn-rate views for the service level objectives each environment declares." }),
@@ -257,7 +257,7 @@ function SlosTab() {
         TowerEmptyState,
         {
           title: "No SLOs declared",
-          description: "Turn on a common SLO in an environment's Values form (Environments tab, Release sub-tab), or add an `slos:` entry to that environment's values file (airframe's slos.catalog.hangar.io XRD), to get burn-rate views here."
+          description: "Turn on a common SLO in an environment's Values form (Configure \u203A Environments, Release sub-tab), or add an `slos:` entry to that environment's values file (airframe's slos.catalog.hangar.io XRD), to get burn-rate views here."
         }
       )
     ] });

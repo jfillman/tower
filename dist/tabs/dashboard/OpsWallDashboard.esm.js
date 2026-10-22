@@ -5,7 +5,6 @@ import { useApi } from '@backstage/core-plugin-api';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import { notificationsApiRef } from '@backstage/plugin-notifications';
-import { Progress } from '@backstage/core-components';
 import Tooltip from '@material-ui/core/Tooltip';
 import { useHangarTokens } from '../../brand/tokens.esm.js';
 import { DEFAULT_DORA_WINDOW, DORA_WINDOWS, isDoraWindow } from '../../fleet/dora.esm.js';
@@ -28,6 +27,7 @@ import { ActivityPanel, ReleaseCalendarPanel, DoraPanel, DeploymentsPanel, Pipel
 import { useOpsStyles } from './opswall/styles.esm.js';
 import { FilterSelect, FilterChips } from '../../ui/index.esm.js';
 import { usePlatformConfig } from '../../platformConfig.esm.js';
+import { TabSkeleton } from '../../ui/LoadState.esm.js';
 
 const WINDOWS = { "24h": 24 * 36e5, "7d": 7 * 24 * 36e5 };
 const isOpsWindow = (v) => v !== null && v in WINDOWS;
@@ -192,7 +192,7 @@ function OpsWallDashboard({ fit = false }) {
     const names = [...appFilter];
     return list.filter((n2) => names.some((a) => `${n2.payload.title} ${n2.payload.description ?? ""}`.includes(a)));
   }, [activity.data, appFilter]);
-  if (roster.loading) return /* @__PURE__ */ jsx(Progress, {});
+  if (roster.loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
   const k = model.kpis;
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const sloPct = sloSummary.total ? Math.round(sloSummary.meetingObjective / sloSummary.total * 100) : void 0;

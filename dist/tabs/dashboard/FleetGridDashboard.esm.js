@@ -2,14 +2,16 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useMemo } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { useFleetRoster } from '../../useFleetRoster.esm.js';
 import { useFleetEnvironments, fleetEnvColumns } from '../../useFleetEnvironments.esm.js';
 import { useFleetSlos } from '../../useFleetSlos.esm.js';
 import { health, isRolloutActive, imageTag } from '../../types.esm.js';
-import { tileStatus, worstStatus, latestEnv, healthLabel, healthColor } from './dashboardStyles.esm.js';
+import { tileStatus, worstStatus, latestEnv, healthColor, healthLabel } from './dashboardStyles.esm.js';
+import '../../ui/index.esm.js';
+import { PanelSkeleton } from '../../ui/LoadState.esm.js';
+import { Tooltip } from '../../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   kpis: {
@@ -26,14 +28,14 @@ const useStyles = makeStyles(() => ({
   },
   kpiLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     color: ({ t }) => t.textFaint,
     marginBottom: 6
   },
   kpiValue: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 32, color: ({ t }) => t.textHi, lineHeight: 1 },
-  kpiSub: { fontSize: 11.5, color: ({ t }) => t.textLo, marginTop: 4 },
+  kpiSub: { fontSize: 11, color: ({ t }) => t.textLo, marginTop: 4 },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
@@ -52,17 +54,17 @@ const useStyles = makeStyles(() => ({
   appName: {
     fontFamily: fontDisplay,
     fontWeight: 700,
-    fontSize: 16,
+    fontSize: 15,
     color: ({ t }) => t.textHi,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap"
   },
-  owner: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint, flexShrink: 0 },
+  owner: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, flexShrink: 0 },
   stage: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 },
   dot: { width: 12, height: 12, borderRadius: "50%" },
-  stageLabel: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, textTransform: "uppercase" },
-  statusLine: { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: ({ t }) => t.textLo },
+  stageLabel: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, textTransform: "uppercase" },
+  statusLine: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ({ t }) => t.textLo },
   statusDot: { width: 7, height: 7, borderRadius: "50%", flexShrink: 0 },
   foot: {
     display: "flex",
@@ -71,7 +73,7 @@ const useStyles = makeStyles(() => ({
     paddingTop: 10,
     borderTop: ({ t }) => `1px solid ${t.lineSoft}`
   },
-  tag: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textLo },
+  tag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo },
   empty: { padding: 48, textAlign: "center", color: ({ t }) => t.textLo, fontSize: 13 }
 }));
 function FleetGridDashboard() {
@@ -90,7 +92,7 @@ function FleetGridDashboard() {
   return /* @__PURE__ */ jsxs("div", { children: [
     probes,
     sloProbes,
-    loading && /* @__PURE__ */ jsx(Progress, {}),
+    loading && /* @__PURE__ */ jsx(PanelSkeleton, {}),
     !loading && apps.length === 0 && /* @__PURE__ */ jsx("div", { className: classes.empty, children: "No NodeJSApplication / SpringBootApplication / PythonApplication / GoApplication services found in the catalog." }),
     !loading && apps.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { className: classes.kpis, children: [
@@ -137,14 +139,13 @@ function FleetGridDashboard() {
           /* @__PURE__ */ jsx("div", { style: { display: "grid", gridTemplateColumns: `repeat(${columns.length || 1}, 1fr)`, gap: 4 }, children: columns.map((col) => {
             const status = tileStatus(app, col);
             return /* @__PURE__ */ jsxs("div", { className: classes.stage, children: [
-              /* @__PURE__ */ jsx(
+              /* @__PURE__ */ jsx(Tooltip, { title: `${col}: ${healthLabel(status)}`, children: /* @__PURE__ */ jsx(
                 "span",
                 {
                   className: classes.dot,
-                  style: { backgroundColor: healthColor(t, status) },
-                  title: `${col}: ${healthLabel(status)}`
+                  style: { backgroundColor: healthColor(t, status) }
                 }
-              ),
+              ) }),
               /* @__PURE__ */ jsx("span", { className: classes.stageLabel, children: col })
             ] }, col);
           }) }),

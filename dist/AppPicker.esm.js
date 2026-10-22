@@ -4,7 +4,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import Typography from '@material-ui/core/Typography';
-import { ResponseErrorPanel, Progress } from '@backstage/core-components';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { isKubernetesAvailable } from '@backstage/plugin-kubernetes';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
@@ -21,6 +20,8 @@ import { useProvisioningHistory, typicalFor } from './provisioning/provisioningH
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
 import { useTableKit, TextLink, FilterBar, FilterChips, SearchField, EmptyNote } from './ui/index.esm.js';
+import { TabError, PanelSkeleton } from './ui/LoadState.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const STORAGE_KEY = "tower.starredApps";
 function loadStarred() {
@@ -89,7 +90,7 @@ const useStyles = makeStyles(() => ({
     gap: 12,
     flexWrap: "wrap"
   },
-  sub: { fontSize: 14, color: ({ t }) => t.textLo, marginBottom: 24 },
+  sub: { fontSize: 13, color: ({ t }) => t.textLo, marginBottom: 24 },
   search: { marginBottom: 20 },
   list: {
     border: ({ t }) => `1px solid ${t.line}`,
@@ -113,11 +114,11 @@ const useStyles = makeStyles(() => ({
     fontSize: 15,
     color: ({ t }) => t.textHi
   },
-  meta: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint },
+  meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   // The owner can be long: it shrinks and ellipsises inside the card instead of spilling out of it.
   // The owner can be long and so can the type chip ("Function · AWS Lambda"): the footer wraps, the owner moves to its
   // own line, right-aligned, and only then ellipsises (2026-10-12: a Lambda card cut the team name off).
-  owner: { fontFamily: fontMono, fontSize: 11.5, color: ({ t }) => t.textFaint, minWidth: 0, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  owner: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, minWidth: 0, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   rowMain: { display: "flex", alignItems: "center", gap: 12, minWidth: 0 },
   // Always rendered above the search box's own (filterable) list - starred
   // apps stay one click away regardless of what's typed into search
@@ -126,7 +127,7 @@ const useStyles = makeStyles(() => ({
   starredSection: { marginBottom: 20 },
   starredLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     color: ({ t }) => t.textFaint,
@@ -162,7 +163,7 @@ const useStyles = makeStyles(() => ({
     cursor: "pointer",
     fontFamily: fontDisplay,
     fontWeight: 600,
-    fontSize: 14,
+    fontSize: 13,
     color: ({ t }) => t.textLo,
     "&:hover": { color: ({ t }) => t.textHi }
   },
@@ -187,7 +188,7 @@ const useStyles = makeStyles(() => ({
   },
   sectionLabel: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     color: ({ t }) => t.textFaint
@@ -216,7 +217,7 @@ const useStyles = makeStyles(() => ({
     gap: 8
   },
   cardDesc: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: ({ t }) => t.textLo,
     display: "-webkit-box",
     WebkitLineClamp: 2,
@@ -360,7 +361,7 @@ function AppPicker({
     [entities, starred, matchesFilters]
   );
   const filteredMinusStarred = filtered.filter((e) => !starred.has(stringifyEntityRef(e)));
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "the service list" });
   const activate = (ref) => ({
     role: "button",
     tabIndex: 0,
@@ -374,12 +375,11 @@ function AppPicker({
   });
   const renderStar = (ref) => {
     const isStarred = starred.has(ref);
-    return /* @__PURE__ */ jsx(
+    return /* @__PURE__ */ jsx(Tooltip, { title: isStarred ? "Unstar" : "Star", children: /* @__PURE__ */ jsx(
       "button",
       {
         type: "button",
         className: `${classes.starBtn} ${isStarred ? classes.starBtnActive : ""}`,
-        title: isStarred ? "Unstar" : "Star",
         "aria-pressed": isStarred,
         "aria-label": `${isStarred ? "Unstar" : "Star"} ${ref}`,
         onClick: (ev) => {
@@ -388,7 +388,7 @@ function AppPicker({
         },
         children: isStarred ? /* @__PURE__ */ jsx(StarIcon, { fontSize: "small" }) : /* @__PURE__ */ jsx(StarBorderIcon, { fontSize: "small" })
       }
-    );
+    ) });
   };
   const renderTypeChip = (e) => {
     const cls = serviceClassOf(e);
@@ -408,7 +408,7 @@ function AppPicker({
       /* @__PURE__ */ jsx("div", { className: classes.cardDesc, children: e.metadata.description }),
       /* @__PURE__ */ jsxs("div", { className: classes.cardFoot, children: [
         renderTypeChip(e),
-        /* @__PURE__ */ jsx("span", { className: classes.owner, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) })
+        /* @__PURE__ */ jsx(Tooltip, { title: e.spec?.owner, children: /* @__PURE__ */ jsx("span", { className: classes.owner, children: ownerLabel(e.spec?.owner) }) })
       ] })
     ] }, ref);
   };
@@ -426,7 +426,7 @@ function AppPicker({
         /* @__PURE__ */ jsx("td", { className: tc.td, children: renderStar(ref) }),
         /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
         /* @__PURE__ */ jsx("td", { className: tc.td, children: renderTypeChip(e) }),
-        /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.meta}`, title: e.spec?.owner, children: ownerLabel(e.spec?.owner) }),
+        /* @__PURE__ */ jsx(Tooltip, { title: e.spec?.owner, children: /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.meta}`, children: ownerLabel(e.spec?.owner) }) }),
         /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.tdDesc}`, children: e.metadata.description })
       ] }, ref);
     }) })
@@ -519,7 +519,7 @@ function AppPicker({
         ),
         /* @__PURE__ */ jsx(SearchField, { label: "Search services", placeholder: "Search services\u2026", value: query, onChange: setQuery })
       ] }),
-      !entities ? /* @__PURE__ */ jsx(Progress, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
+      !entities ? /* @__PURE__ */ jsx(PanelSkeleton, {}) : /* @__PURE__ */ jsxs(Fragment, { children: [
         starredEntities.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.starredSection, children: [
           /* @__PURE__ */ jsx("div", { className: classes.starredLabel, children: "Starred" }),
           renderCollection(starredEntities)

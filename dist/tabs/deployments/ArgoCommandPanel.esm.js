@@ -8,6 +8,7 @@ import { ImageTagPill } from './ImageTagPill.esm.js';
 import { useArgoCapabilities } from '../../useReleaseData.esm.js';
 import { useTableKit, Card, EmptyNote, SectionTitle, StatusChip, Button, TextLink, Callout, Tile, Fact } from '../../ui/index.esm.js';
 import { argoTone } from '../../argoTone.esm.js';
+import { Tooltip, ActionReason } from '../../ui/Tooltip.esm.js';
 import { MenuButton } from '../../ui/MenuButton.esm.js';
 
 function syncWaveFor(node, k8sResources) {
@@ -16,7 +17,7 @@ function syncWaveFor(node, k8sResources) {
 const useStyles = makeStyles(() => ({
   headRow: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
   statusChips: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" },
-  revision: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint },
+  revision: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", alignItems: "center" },
   // Real Application-level facts ArgoCD's own UI shows as standing banners
   // (2026-09-16: "the argocd info panel is missing vital info - there was
@@ -25,7 +26,7 @@ const useStyles = makeStyles(() => ({
   // Always visible, not gated behind "show details" - these are exactly
   // the kind of thing that banner exists to hide by default (routine
   // sync/revision facts), not this.
-  opBannerMeta: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, marginTop: 2 },
+  opBannerMeta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginTop: 2 },
   // The per-action explainer table (2026-09-16: "easy to understand
   // explainers on which sync option to enable depending on the argocd
   // state and what its possible errors are") - a short, always-the-same
@@ -42,10 +43,10 @@ const useStyles = makeStyles(() => ({
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.lineSoft}`
   },
-  guideRow: { display: "flex", gap: 10, fontSize: 11.5 },
+  guideRow: { display: "flex", gap: 10, fontSize: 11 },
   guideName: { fontFamily: fontMono, fontWeight: 700, color: ({ t }) => t.textHi, flex: "0 0 132px" },
   guideBody: { color: ({ t }) => t.textLo, lineHeight: 1.5 },
-  guideRoadmapTag: { fontFamily: fontMono, fontSize: 9, color: ({ t }) => t.textFaint, fontStyle: "italic" },
+  guideRoadmapTag: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, fontStyle: "italic" },
   detail: { display: "flex", flexDirection: "column", gap: 12, paddingTop: 4, borderTop: ({ t }) => `1px solid ${t.lineSoft}` },
   kvGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" },
   kvFull: { gridColumn: "1 / -1" },
@@ -66,7 +67,7 @@ const useStyles = makeStyles(() => ({
   cellMessage: { padding: "6px 8px", color: ({ t }) => t.textFaint, verticalAlign: "top", wordBreak: "break-word", maxWidth: 260 },
   hookBadge: {
     display: "inline-block",
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: 700,
     padding: "2px 7px",
     borderRadius: 10,
@@ -150,16 +151,17 @@ function ArgoCommandPanel({
   const running = env.argoOperationPhase === "Running";
   const replaced = forceSyncTargets(resources);
   const appOutOfSync = env.argoSyncStatus === "OutOfSync";
+  const syncReasonId = `argo-sync-reason-${env.argoAppName}`;
   const syncLabel = appOutOfSync && outOfSync > 0 ? `Sync ${outOfSync} resource${outOfSync === 1 ? "" : "s"}` : "Sync";
   return /* @__PURE__ */ jsxs(Card, { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: env.argoAppName }) }),
       currentImage?.tag && /* @__PURE__ */ jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
-        incomingImage?.tag && /* @__PURE__ */ jsx("span", { style: { fontSize: 10, color: t.textFaint, fontFamily: fontMono }, children: "LIVE" }),
+        incomingImage?.tag && /* @__PURE__ */ jsx("span", { style: { fontSize: 11, color: t.textFaint, fontFamily: fontMono }, children: "LIVE" }),
         /* @__PURE__ */ jsx(ImageTagPill, { tag: currentImage.tag, nickname: currentImage.nickname, size: "small" })
       ] }),
       incomingImage?.tag && /* @__PURE__ */ jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
-        /* @__PURE__ */ jsx("span", { style: { fontSize: 10, color: t.amberInk, fontFamily: fontMono, fontWeight: 700 }, children: "\u21E2 DEPLOYING" }),
+        /* @__PURE__ */ jsx("span", { style: { fontSize: 11, color: t.amberInk, fontFamily: fontMono, fontWeight: 700 }, children: "\u21E2 DEPLOYING" }),
         /* @__PURE__ */ jsx(ImageTagPill, { tag: incomingImage.tag, nickname: incomingImage.nickname, size: "small" })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.statusChips, children: [
@@ -171,18 +173,18 @@ function ArgoCommandPanel({
         ] })
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
-        /* @__PURE__ */ jsx(Button, { small: true, title: SYNC_GUIDE[0].body, disabled: !canAct || Boolean(argoActions.pending), onClick: () => act(argoActions.refresh), children: argoActions.pending === "refresh" ? "Refreshing\u2026" : "Refresh" }),
-        /* @__PURE__ */ jsx(
+        /* @__PURE__ */ jsx(Tooltip, { title: SYNC_GUIDE[0].body, children: /* @__PURE__ */ jsx(Button, { small: true, disabled: !canAct || Boolean(argoActions.pending), onClick: () => act(argoActions.refresh), children: argoActions.pending === "refresh" ? "Refreshing\u2026" : "Refresh" }) }),
+        /* @__PURE__ */ jsx(Tooltip, { title: may("sync") ? SYNC_GUIDE[2].body : void 0, children: /* @__PURE__ */ jsx(
           Button,
           {
             small: true,
             variant: appOutOfSync ? "primary" : "default",
-            title: may("sync") ? SYNC_GUIDE[2].body : notAllowed("sync"),
+            "aria-describedby": may("sync") ? void 0 : syncReasonId,
             disabled: !canAct || Boolean(argoActions.pending) || !may("sync"),
             onClick: () => act(argoActions.sync),
             children: argoActions.pending === "sync" ? "Syncing\u2026" : syncLabel
           }
-        ),
+        ) }),
         /* @__PURE__ */ jsx(
           MenuButton,
           {
@@ -221,12 +223,17 @@ function ArgoCommandPanel({
         /* @__PURE__ */ jsx(TextLink, { expanded: guideOpen, onClick: () => setGuideOpen((v) => !v), children: "Which one?" })
       ] })
     ] }),
+    !may("sync") && /* @__PURE__ */ jsxs(ActionReason, { id: syncReasonId, children: [
+      notAllowed("sync"),
+      " ",
+      caps.data?.tier === "flight" ? "You can still Refresh, and Terminate a running sync." : ""
+    ] }),
     (env.argoOperationMessage || env.argoOperationPhase) && /* @__PURE__ */ jsxs(Callout, { tone: "info", title: `Last operation: ${env.argoOperationPhase ?? "unknown"}`, children: [
       env.argoOperationMessage,
-      env.argoReconciledAt && /* @__PURE__ */ jsxs("div", { className: classes.opBannerMeta, title: formatDateTime(env.argoReconciledAt), children: [
+      env.argoReconciledAt && /* @__PURE__ */ jsx(Tooltip, { title: formatDateTime(env.argoReconciledAt), children: /* @__PURE__ */ jsxs("div", { className: classes.opBannerMeta, children: [
         "Last reconcile: ",
         relativeTime(env.argoReconciledAt)
-      ] })
+      ] }) })
     ] }),
     (env.argoConditions ?? []).map((c, i) => /* @__PURE__ */ jsx(Callout, { tone: "bad", title: c.type, children: c.message }, `${c.type}-${i}`)),
     confirmForce && /* @__PURE__ */ jsx("div", { "data-testid": "force-sync-confirm", children: /* @__PURE__ */ jsxs(Callout, { tone: "bad", title: "Force sync", children: [

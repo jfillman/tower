@@ -10,6 +10,7 @@ import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { changeRequestTone } from './ReleaseRecordEvidence.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
 import { SectionTitle, TextLink, Count, StatusChip, IconButton } from './ui/index.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   list: { display: "flex", flexDirection: "column", gap: 10 },
@@ -42,7 +43,7 @@ const useStyles = makeStyles(() => ({
     padding: "6px 12px"
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 18 },
-  scoreLbl: { fontSize: 10, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
+  scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.2 },
   ver: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, color: ({ t }) => t.textHi },
   relName: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 15, letterSpacing: "0.06em", color: ({ t }) => t.textHi, marginRight: 10 },
   chips: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 },
@@ -51,10 +52,10 @@ const useStyles = makeStyles(() => ({
   rungLive: { color: ({ t }) => t.good, fontWeight: 600 },
   rungTodo: { color: ({ t }) => t.textFaint },
   tagMono: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, marginLeft: 6 },
-  sub: { fontSize: 12.5, color: ({ t }) => t.textLo, marginTop: 2 },
+  sub: { fontSize: 12, color: ({ t }) => t.textLo, marginTop: 2 },
   date: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, whiteSpace: "nowrap" },
   actions: { display: "flex", alignItems: "center", gap: 6 },
-  chevron: { color: ({ t }) => t.textFaint, fontSize: 16, lineHeight: 1 },
+  chevron: { color: ({ t }) => t.textFaint, fontSize: 15, lineHeight: 1 },
   head: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, flexWrap: "wrap", gap: 8 }
 }));
 function confidenceColor(t, confidence) {
@@ -152,11 +153,11 @@ function ReleaseRecordList({
             /* @__PURE__ */ jsxs("span", { className: classes.chips, children: [
               /* @__PURE__ */ jsx(StatusChip, { tone: pill.tone, dot: true, children: pill.label }),
               outcome && pill.label !== outcome.label && /* @__PURE__ */ jsx(StatusChip, { tone: outcome.tone, dot: true, children: outcome.label }),
-              record.changeRequest && /* @__PURE__ */ jsx(StatusChip, { tone: changeRequestTone(record.changeRequest.state), title: `Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? "created"}`, children: record.changeRequest.number ?? "change" }),
+              record.changeRequest && /* @__PURE__ */ jsx(Tooltip, { title: `Change request ${record.changeRequest.number ?? record.changeRequest.id}: ${record.changeRequest.state ?? "created"}`, children: /* @__PURE__ */ jsx(StatusChip, { tone: changeRequestTone(record.changeRequest.state), children: record.changeRequest.number ?? "change" }) }),
               (() => {
                 const proof = commitProofOf(record);
                 const chip = commitProofChip(proof);
-                return chip && commitProofTone(proof) === "ok" ? /* @__PURE__ */ jsx(StatusChip, { tone: "ok", title: `Commit: ${commitProofLine(proof)}`, children: chip }) : null;
+                return chip && commitProofTone(proof) === "ok" ? /* @__PURE__ */ jsx(Tooltip, { title: `Commit: ${commitProofLine(proof)}`, children: /* @__PURE__ */ jsx(StatusChip, { tone: "ok", children: chip }) }) : null;
               })()
             ] }),
             /* @__PURE__ */ jsx("span", { className: classes.date, children: formatDateTime(record.createdAt) }),

@@ -3,7 +3,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { useTektonPipelineRuns, linkFlowSlugsByChainId } from '../tekton/useTektonPipelineRuns.esm.js';
@@ -20,10 +19,11 @@ import { TestRunsPanel } from './pipelines/TestRunsPanel.esm.js';
 import { useTestRuns } from '../useTestRuns.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
+import { TabSkeleton, TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
 
 const useStyles = makeStyles(() => ({
   dagGap: { marginTop: 12 },
-  warnNote: { fontSize: 11.5, fontFamily: fontMono, padding: "10px 20px 0", color: ({ t }) => t.amberInk },
+  warnNote: { fontSize: 11, fontFamily: fontMono, padding: "10px 20px 0", color: ({ t }) => t.amberInk },
   dotLive: {
     width: 7,
     height: 7,
@@ -62,8 +62,8 @@ const useStyles = makeStyles(() => ({
     textAlign: "left",
     "&:hover": { backgroundColor: ({ t }) => t.panelAlt }
   },
-  activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12.5, color: ({ t }) => t.textHi },
-  activityChipSub: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint }
+  activityChipLabel: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 12, color: ({ t }) => t.textHi },
+  activityChipSub: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint }
 }));
 const HISTORY_RANGES = [
   { key: "live", label: "Live", hours: 0 },
@@ -146,16 +146,16 @@ function PipelinesTab() {
     next.set("tab", "deployments");
     return next;
   });
-  if (loading) return /* @__PURE__ */ jsx(Progress, {});
-  if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
+  if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
+  if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "pipelines", onRetry: refresh });
   const activeRunItems = pipelineRuns.runs.filter((r) => r.phase === "running");
   const hasActivity = activeRunItems.length > 0 || pendingDeployCount > 0;
   let ciBody;
   const listLoading = pipelineRuns.loading || historyRange !== "live" && archivedPipelineRuns.loading;
   if (pipelineRuns.error && !pipelineRuns.loading && listRuns.length === 0) {
-    ciBody = /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(pipelineRuns.error) });
+    ciBody = /* @__PURE__ */ jsx(TabError, { error: pipelineRuns.error, what: "pipeline runs", onRetry: refreshAll });
   } else if (listLoading && listRuns.length === 0) {
-    ciBody = /* @__PURE__ */ jsx(Progress, {});
+    ciBody = /* @__PURE__ */ jsx(PanelSkeleton, {});
   } else {
     ciBody = /* @__PURE__ */ jsxs(Fragment, { children: [
       historyRange !== "live" && archivedPipelineRuns.error && /* @__PURE__ */ jsxs(Typography, { className: classes.warnNote, children: [

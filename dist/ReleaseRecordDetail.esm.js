@@ -21,6 +21,7 @@ import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, Colu
 import { PrRef, prFromSummary, OPENING_PR, PrReceipt } from './ui/PrRef.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
 import { hasCommitSignature, ChangeRequestFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
+import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   head: {
@@ -45,8 +46,8 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.amberText,
     marginBottom: 4
   },
-  h3: { fontSize: 24, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
-  facts: { display: "flex", gap: 22, flexWrap: "wrap", marginTop: 10, fontSize: 12.5, color: ({ t }) => t.textLo },
+  h3: { fontSize: 22, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
+  facts: { display: "flex", gap: 22, flexWrap: "wrap", marginTop: 10, fontSize: 12, color: ({ t }) => t.textLo },
   factsB: { color: ({ t }) => t.textHi, fontWeight: 600 },
   imageRef: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.textHi, wordBreak: "break-all" },
   scoreBox: {
@@ -60,7 +61,7 @@ const useStyles = makeStyles(() => ({
   },
   scoreNum: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 22 },
   scoreLbl: { fontSize: 11, color: ({ t }) => t.textFaint, lineHeight: 1.3 },
-  explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 4, padding: "12px 16px", marginBottom: 20, fontSize: 12.5, color: ({ t }) => t.textLo },
+  explainer: { border: ({ t }) => `1px solid ${t.line}`, backgroundColor: ({ t }) => t.panelAlt, borderRadius: 4, padding: "12px 16px", marginBottom: 20, fontSize: 12, color: ({ t }) => t.textLo },
   explainRow: { display: "grid", gridTemplateColumns: "150px 60px 1fr", gap: 12, padding: "5px 0", borderBottom: ({ t }) => `1px dashed ${t.lineSoft}`, alignItems: "baseline" },
   explainPts: { fontFamily: fontMono, color: ({ t }) => t.textHi },
   actionsBar: { display: "flex", gap: 8, flexWrap: "wrap" },
@@ -128,14 +129,14 @@ const useStyles = makeStyles(() => ({
   colBreakglass: { marginTop: 18 },
   colTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: ({ t }) => t.textHi },
   colBody: { padding: "14px 15px", display: "flex", flexDirection: "column", gap: 14 },
-  prItem: { display: "flex", gap: 8, fontSize: 12.5, alignItems: "baseline" },
+  prItem: { display: "flex", gap: 8, fontSize: 12, alignItems: "baseline" },
   prNum: { color: ({ t }) => t.sky, fontFamily: fontMono, fontSize: 11, flex: "none" },
   prTitle: { color: ({ t }) => t.textHi, flex: 1 },
   prWho: { color: ({ t }) => t.textFaint, fontSize: 11, flex: "none" },
   chipRow: { display: "flex", flexWrap: "wrap", gap: 6 },
   chip: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "4px 8px",
     borderRadius: 5,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -147,7 +148,7 @@ const useStyles = makeStyles(() => ({
   promo: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   promoEnv: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     padding: "3px 7px",
     borderRadius: 4,
     backgroundColor: ({ t }) => t.panelAlt,
@@ -159,16 +160,16 @@ const useStyles = makeStyles(() => ({
   runList: { display: "flex", flexDirection: "column", gap: 6 },
   runRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   runName: { color: ({ t }) => t.textHi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  runStage: { fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.textFaint, flex: "none" },
+  runStage: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, flex: "none" },
   testRow: { display: "flex", gap: 8, fontSize: 12, alignItems: "baseline" },
-  testTask: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 10.5, flex: "none" },
+  testTask: { color: ({ t }) => t.textFaint, fontFamily: fontMono, fontSize: 11, flex: "none" },
   testResult: { color: ({ t }) => t.textHi, flex: 1, overflowWrap: "anywhere" },
   scanBlock: { display: "flex", flexDirection: "column", gap: 4 },
   scanHead: { display: "flex", alignItems: "center", gap: 8, fontSize: 12 },
   scanName: { color: ({ t }) => t.textHi, fontWeight: 600, textTransform: "capitalize" },
   scanFindings: {
     fontFamily: fontMono,
-    fontSize: 10.5,
+    fontSize: 11,
     color: ({ t }) => t.textLo,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
@@ -186,14 +187,14 @@ const useStyles = makeStyles(() => ({
   },
   humanHead: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 },
   humanTitle: { fontFamily: fontDisplay, fontWeight: 700, fontSize: 13, letterSpacing: "0.07em", textTransform: "uppercase", color: ({ t }) => t.amberInk },
-  humanNote: { fontSize: 12.5, color: ({ t }) => t.amberInk, lineHeight: 1.55 },
+  humanNote: { fontSize: 12, color: ({ t }) => t.amberInk, lineHeight: 1.55 },
   humanForm: { display: "flex", flexDirection: "column", gap: 10, marginTop: 8 },
   humanRow: { display: "flex", gap: 12, flexWrap: "wrap" },
   humanField: { display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 },
-  humanLabel: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 10.5, letterSpacing: "0.05em", textTransform: "uppercase", color: ({ t }) => t.amberInk },
+  humanLabel: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", color: ({ t }) => t.amberInk },
   humanInput: {
     fontFamily: "inherit",
-    fontSize: 12.5,
+    fontSize: 12,
     padding: "7px 10px",
     borderRadius: 6,
     border: ({ t }) => `1px solid ${t.amberLine}`,
@@ -202,7 +203,7 @@ const useStyles = makeStyles(() => ({
   },
   humanTextarea: {
     fontFamily: "inherit",
-    fontSize: 12.5,
+    fontSize: 12,
     padding: "8px 10px",
     borderRadius: 6,
     border: ({ t }) => `1px solid ${t.amberLine}`,
@@ -224,12 +225,12 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.bg
   },
   approvalWho: { color: ({ t }) => t.amberInk, fontWeight: 600, flex: 1 },
-  approvalWhen: { fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.amberInk, opacity: 0.75 },
+  approvalWhen: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.amberInk, opacity: 0.75 },
   approvalRemove: {
     background: "none",
     border: "none",
     cursor: "pointer",
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 1,
     color: ({ t }) => t.amberInk,
     padding: "0 2px"
@@ -245,9 +246,9 @@ const useStyles = makeStyles(() => ({
     gap: 22,
     flexWrap: "wrap"
   },
-  certItem: { display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: ({ t }) => t.textLo },
+  certItem: { display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: ({ t }) => t.textLo },
   certB: { color: ({ t }) => t.textHi, fontWeight: 600 },
-  certStamp: { marginLeft: "auto", fontFamily: fontMono, fontSize: 10.5, color: ({ t }) => t.textFaint }
+  certStamp: { marginLeft: "auto", fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint }
 }));
 function ReleaseRecordDetail({
   record: liveRecord,
@@ -371,10 +372,10 @@ function ReleaseRecordDetail({
               " ",
               /* @__PURE__ */ jsx("span", { className: classes.imageRef, children: record.image ?? (persisted.data?.imageRepo ? `${persisted.data.imageRepo}:${record.imageTag}` : record.imageTag) })
             ] }),
-            record.imageDigest && /* @__PURE__ */ jsxs("span", { title: record.imageDigest, children: [
+            record.imageDigest && /* @__PURE__ */ jsx(Tooltip, { title: record.imageDigest, children: /* @__PURE__ */ jsxs("span", { children: [
               "Digest ",
               /* @__PURE__ */ jsx("span", { className: classes.imageRef, children: `${record.imageDigest.slice(0, 19)}\u2026` })
-            ] })
+            ] }) })
           ] })
         ] })
       ] }),
@@ -491,12 +492,12 @@ function ReleaseRecordDetail({
       ] }),
       /* @__PURE__ */ jsxs("div", { className: classes.builtBody, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.builtSummary, children: [
-          record.imageDigest && /* @__PURE__ */ jsxs("span", { className: classes.summaryItem, title: record.imageDigest, children: [
+          record.imageDigest && /* @__PURE__ */ jsx(Tooltip, { title: record.imageDigest, children: /* @__PURE__ */ jsxs("span", { className: classes.summaryItem, children: [
             /* @__PURE__ */ jsx(ColumnLabel, { children: "digest" }),
             " ",
             record.imageDigest.replace(/^sha256:/, "").slice(0, 12),
             "\u2026"
-          ] }),
+          ] }) }),
           record.hasSbom && /* @__PURE__ */ jsx("span", { className: classes.chip, children: "SBOM attached" }),
           /* @__PURE__ */ jsx(SupplyChainChips, { provenance: record.provenance })
         ] }),
@@ -692,7 +693,7 @@ function ReleaseRecordDetail({
           )
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanField, children: [
-          /* @__PURE__ */ jsx("span", { className: classes.humanLabel, title: "Added after release. They don't change the score: sign-off happens on the release PR before it merges.", children: "Acknowledgements" }),
+          /* @__PURE__ */ jsx(Tooltip, { title: "Added after release. They don't change the score: sign-off happens on the release PR before it merges.", children: /* @__PURE__ */ jsx("span", { className: classes.humanLabel, children: "Acknowledgements" }) }),
           form.approvals.length === 0 && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "No acknowledgements yet." }),
           form.approvals.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.approvalList, children: form.approvals.map((a, i) => /* @__PURE__ */ jsxs("div", { className: classes.approvalRow, children: [
             /* @__PURE__ */ jsxs("span", { className: classes.approvalWho, children: [
@@ -772,11 +773,11 @@ function GateGrid({ checks, classes, t }) {
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx("div", { className: classes.gateGrid, children: checks.map((check) => {
       const tone = gateCheckTone(t, check);
-      return /* @__PURE__ */ jsxs("div", { className: classes.gateTile, title: `${formatGateName(check.name)}: ${tone.label}`, children: [
+      return /* @__PURE__ */ jsx(Tooltip, { title: `${formatGateName(check.name)}: ${tone.label}`, children: /* @__PURE__ */ jsxs("div", { className: classes.gateTile, children: [
         /* @__PURE__ */ jsx("span", { className: classes.gateDot, style: { backgroundColor: tone.color } }),
         /* @__PURE__ */ jsx("span", { className: classes.gateTileName, children: formatGateName(check.name) }),
         tone.label !== "passed" && /* @__PURE__ */ jsx("span", { style: { color: tone.color }, children: tone.label })
-      ] }, check.name);
+      ] }) }, check.name);
     }) }),
     notes.map(({ check, tone }) => /* @__PURE__ */ jsxs("div", { className: classes.gateNote, children: [
       /* @__PURE__ */ jsxs("span", { style: { color: tone.color }, children: [
