@@ -18,7 +18,7 @@ function findPodResource(resources, name) {
 }
 function podColor(t, pod) {
   if (pod.phase === "Running" && pod.ready) return t.good;
-  if (pod.phase === "Running" || pod.phase === "Pending") return t.amber;
+  if (pod.phase === "Running" || pod.phase === "Pending") return t.sky;
   return t.bad;
 }
 function containerStateLabel(cs) {

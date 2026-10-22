@@ -10,12 +10,13 @@ import Checkbox from '@material-ui/core/Checkbox';
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { useRegisteredClusters, flightClusterOptions, flightClusterProblem } from '../../environments/registeredClusters.esm.js';
 import { applyStaged, validateEnvironments, validateAddedFlight } from '../../environments/stagedChanges.esm.js';
-import { Field, Hint, Button } from '../../ui/index.esm.js';
+import { Field, Hint, Button, Callout } from '../../ui/index.esm.js';
+import { PrRef, PrReceipt } from '../../ui/PrRef.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
+import { useDialogSkin } from '../../ui/dialog.esm.js';
 import { MAIN_FIELD } from './shared.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -251,7 +252,6 @@ function RemoveEnvironmentDialog({
     ] })
   ] });
 }
-const EXISTING_NOTE = { merged: " (already in the tenants repo, nothing new opened)", open: " (already open)" };
 function ChangeResultDialog({
   requests,
   cicdPrUrl,
@@ -259,26 +259,39 @@ function ChangeResultDialog({
   onClose
 }) {
   const { c } = useDialogStyles();
+  const d = useDialogSkin();
+  const ordered = requests.some((r) => r.existing !== "merged") && Boolean(cicdPrUrl);
   return /* @__PURE__ */ jsxs(Dialog, { open: true, onClose, PaperProps: { className: c.paper }, children: [
-    /* @__PURE__ */ jsx(DialogTitle, { children: error ? "Something needs attention" : "Pull requests opened" }),
-    /* @__PURE__ */ jsxs(DialogContent, { children: [
-      error && /* @__PURE__ */ jsx(DialogContentText, { className: c.problem, style: { marginTop: 0 }, children: error }),
-      requests.length > 0 && /* @__PURE__ */ jsx(DialogContentText, { component: "div", children: requests.map((r, i) => /* @__PURE__ */ jsxs("div", { children: [
-        i + 1,
-        ". ApplicationEnvironment request for ",
-        r.env,
-        r.existing ? EXISTING_NOTE[r.existing] : "",
-        ":",
-        " ",
-        /* @__PURE__ */ jsx(Link, { href: r.url, target: "_blank", rel: "noopener noreferrer", children: r.url })
-      ] }, r.env)) }),
-      cicdPrUrl && /* @__PURE__ */ jsxs(DialogContentText, { component: "div", children: [
-        requests.length > 0 ? `${requests.length + 1}. ` : "",
-        "cicd.yaml change:",
-        " ",
-        /* @__PURE__ */ jsx(Link, { href: cicdPrUrl, target: "_blank", rel: "noopener noreferrer", children: cicdPrUrl })
-      ] }),
-      requests.some((r) => r.existing !== "merged") && cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "Merge the ApplicationEnvironment request first, then the cicd.yaml change." }),
+    /* @__PURE__ */ jsx(DialogTitle, { className: d.title, children: error ? "Something needs attention" : "PRs opened" }),
+    /* @__PURE__ */ jsxs(DialogContent, { className: c.stack, children: [
+      error && /* @__PURE__ */ jsx(Callout, { tone: "bad", children: error }),
+      requests.map(
+        (r, i) => r.existing === "merged" ? /* @__PURE__ */ jsxs(DialogContentText, { component: "div", children: [
+          i + 1,
+          ". The ApplicationEnvironment request for ",
+          r.env,
+          " is already in the tenants repo, nothing new opened:",
+          " ",
+          /* @__PURE__ */ jsx(PrRef, { pr: { url: r.url, state: "merged" }, size: "inline" })
+        ] }, r.env) : /* @__PURE__ */ jsx(
+          PrReceipt,
+          {
+            prUrl: r.url,
+            title: `${i + 1}. ApplicationEnvironment request for ${r.env}`,
+            alreadyOpen: r.existing === "open",
+            next: cicdPrUrl ? "merge this first, so the environment exists when cicd.yaml names it." : "merge it to create the environment."
+          },
+          r.env
+        )
+      ),
+      cicdPrUrl && /* @__PURE__ */ jsx(
+        PrReceipt,
+        {
+          prUrl: cicdPrUrl,
+          title: `${requests.length > 0 ? `${requests.length + 1}. ` : ""}cicd.yaml change`,
+          next: ordered ? "merge it after the ApplicationEnvironment request." : "merge it to apply the change."
+        }
+      ),
       error && requests.length > 0 && !cicdPrUrl && /* @__PURE__ */ jsx(DialogContentText, { children: "The request(s) above are already open and will not be opened again if you try again." })
     ] }),
     /* @__PURE__ */ jsx(DialogActions, { children: /* @__PURE__ */ jsx(Button, { onClick: onClose, children: "Close" }) })

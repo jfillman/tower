@@ -60,7 +60,7 @@ function categoryColor(c, t, isDark) {
     case "environments":
       return localAccent("environments", isDark);
     case "config":
-      return { fg: t.amber, bg: t.amberSoft };
+      return { fg: t.amberText, bg: t.amberSoft };
     case "slos":
       return localAccent("slo", isDark);
     default:

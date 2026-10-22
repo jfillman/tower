@@ -1,10 +1,10 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
-import Link from '@material-ui/core/Link';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { currentStep } from '../../environments/lifecycle.esm.js';
 import { Button } from '../../ui/index.esm.js';
+import { PrRef } from '../../ui/PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { border: ({ t }) => `1px solid ${t.line}`, borderRadius: 6, backgroundColor: ({ t }) => t.panel, padding: "10px 14px" },
@@ -22,7 +22,7 @@ const useStyles = makeStyles(() => ({
 const LABEL = { done: "done", run: "in progress", pend: "waiting", fail: "failed" };
 function dotStyle(state, t) {
   if (state === "done") return { backgroundColor: t.good };
-  if (state === "run") return { backgroundColor: t.amber };
+  if (state === "run") return { backgroundColor: t.sky };
   if (state === "fail") return { backgroundColor: t.bad };
   return { backgroundColor: "transparent", borderColor: t.textFaint };
 }
@@ -55,10 +55,7 @@ function EnvLifecycle({ steps, initiallyOpen = false }) {
         /* @__PURE__ */ jsx("div", { className: c.stepTitle, children: s.title }),
         /* @__PURE__ */ jsx("div", { className: c.desc, children: s.desc }),
         s.detail && /* @__PURE__ */ jsx("div", { className: c.detail, children: s.detail }),
-        s.links && s.links.length > 0 && /* @__PURE__ */ jsx("div", { className: c.links, children: s.links.map((l) => /* @__PURE__ */ jsxs(Link, { href: l.url, target: "_blank", rel: "noopener noreferrer", children: [
-          l.label,
-          l.state ? ` (${l.state})` : ""
-        ] }, l.url)) })
+        s.links && s.links.length > 0 && /* @__PURE__ */ jsx("div", { className: c.links, children: s.links.map((l) => /* @__PURE__ */ jsx(PrRef, { pr: { url: l.url, state: l.state }, size: "chip" }, l.url)) })
       ] })
     ] }, s.id)) })
   ] });

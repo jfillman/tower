@@ -8,6 +8,7 @@ import { ImageTagPill } from './ImageTagPill.esm.js';
 import { useArgoCapabilities } from '../../useReleaseData.esm.js';
 import { useTableKit, Card, EmptyNote, SectionTitle, StatusChip, Button, TextLink, Callout, Tile, Fact } from '../../ui/index.esm.js';
 import { argoTone } from '../../argoTone.esm.js';
+import { MenuButton } from '../../ui/MenuButton.esm.js';
 
 function syncWaveFor(node, k8sResources) {
   return k8sResources.find((r) => r.kind === node.kind && r.name === node.name)?.annotations?.["argocd.argoproj.io/sync-wave"];
@@ -148,6 +149,8 @@ function ArgoCommandPanel({
   const notAllowed = (a) => caps.data?.tier === "flight" && (a === "sync" || a === "force") ? "On a Flight environment only an admin may do this." : "Only the app's owning team (or an admin) may do this.";
   const running = env.argoOperationPhase === "Running";
   const replaced = forceSyncTargets(resources);
+  const appOutOfSync = env.argoSyncStatus === "OutOfSync";
+  const syncLabel = appOutOfSync && outOfSync > 0 ? `Sync ${outOfSync} resource${outOfSync === 1 ? "" : "s"}` : "Sync";
   return /* @__PURE__ */ jsxs(Card, { children: [
     /* @__PURE__ */ jsxs("div", { className: classes.headRow, children: [
       /* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsx(SectionTitle, { level: 2, children: env.argoAppName }) }),
@@ -173,43 +176,46 @@ function ArgoCommandPanel({
           Button,
           {
             small: true,
-            title: SYNC_GUIDE[1].body,
-            disabled: !canAct || Boolean(argoActions.pending),
-            onClick: () => act(argoActions.hardRefresh),
-            children: argoActions.pending === "hardRefresh" ? "Refreshing\u2026" : "Hard refresh"
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          Button,
-          {
-            small: true,
-            variant: "primary",
+            variant: appOutOfSync ? "primary" : "default",
             title: may("sync") ? SYNC_GUIDE[2].body : notAllowed("sync"),
             disabled: !canAct || Boolean(argoActions.pending) || !may("sync"),
             onClick: () => act(argoActions.sync),
-            children: argoActions.pending === "sync" ? "Syncing\u2026" : "Sync"
+            children: argoActions.pending === "sync" ? "Syncing\u2026" : syncLabel
           }
         ),
         /* @__PURE__ */ jsx(
-          Button,
+          MenuButton,
           {
-            small: true,
-            variant: "danger",
-            title: may("force") ? SYNC_GUIDE[3].body : notAllowed("force"),
-            disabled: !canAct || Boolean(argoActions.pending) || !may("force"),
-            onClick: () => setConfirmForce(true),
-            children: argoActions.pending === "force" ? "Forcing\u2026" : "Force sync"
-          }
-        ),
-        running && /* @__PURE__ */ jsx(
-          Button,
-          {
-            small: true,
-            variant: "danger",
-            title: may("terminate") ? SYNC_GUIDE[4].body : notAllowed("terminate"),
-            disabled: !canAct || Boolean(argoActions.pending) || !may("terminate"),
-            onClick: () => act(argoActions.terminate),
-            children: argoActions.pending === "terminate" ? "Terminating\u2026" : "Terminate sync"
+            actions: [
+              {
+                key: "hardRefresh",
+                label: argoActions.pending === "hardRefresh" ? "Refreshing\u2026" : "Hard refresh",
+                hint: "re-reads the repo, skips cache",
+                title: SYNC_GUIDE[1].body,
+                disabled: !canAct || Boolean(argoActions.pending),
+                onSelect: () => act(argoActions.hardRefresh)
+              },
+              ...running ? [
+                {
+                  key: "terminate",
+                  label: argoActions.pending === "terminate" ? "Terminating\u2026" : "Terminate sync",
+                  hint: "stops the running sync",
+                  title: may("terminate") ? SYNC_GUIDE[4].body : notAllowed("terminate"),
+                  disabled: !canAct || Boolean(argoActions.pending) || !may("terminate"),
+                  onSelect: () => act(argoActions.terminate)
+                }
+              ] : [],
+              {
+                key: "force",
+                label: argoActions.pending === "force" ? "Forcing\u2026" : "Force sync\u2026",
+                hint: "replaces resources \xB7 asks first",
+                danger: true,
+                group: true,
+                title: may("force") ? SYNC_GUIDE[3].body : notAllowed("force"),
+                disabled: !canAct || Boolean(argoActions.pending) || !may("force"),
+                onSelect: () => setConfirmForce(true)
+              }
+            ]
           }
         ),
         /* @__PURE__ */ jsx(TextLink, { expanded: guideOpen, onClick: () => setGuideOpen((v) => !v), children: "Which one?" })

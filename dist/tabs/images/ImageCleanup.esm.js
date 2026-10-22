@@ -50,7 +50,7 @@ const useStyles = makeStyles(() => ({
   },
   bad: { fontSize: 12, fontStyle: "italic", color: ({ t }) => t.bad },
   bar: { height: 6, borderRadius: 3, backgroundColor: ({ t }) => t.lineSoft, overflow: "hidden", maxWidth: 360 },
-  barFill: { height: "100%", backgroundColor: ({ t }) => t.amber, transition: "width 0.4s" },
+  barFill: { height: "100%", backgroundColor: ({ t }) => t.sky, transition: "width 0.4s" },
   ok: { fontSize: 12, color: ({ t }) => t.good }
 }));
 function pruneBlocker(plan) {

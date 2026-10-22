@@ -5,12 +5,13 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
-import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { imageTag } from '../../types.esm.js';
 import { useSubmitPin } from '../../environments/releasePins.esm.js';
 import { Button } from '../../ui/index.esm.js';
+import { useDialogSkin } from '../../ui/dialog.esm.js';
+import { PrReceipt, OPENING_PR } from '../../ui/PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   text: { color: ({ t }) => t.textLo, lineHeight: 1.6 },
@@ -26,6 +27,7 @@ function CloudPromoteDialog({
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
+  const d = useDialogSkin();
   const submit = useSubmitPin();
   const close = () => {
     if (submit.loading) return;
@@ -33,8 +35,8 @@ function CloudPromoteDialog({
     onClose();
   };
   const path = target ? `glidepath/releases/${target.env}.yaml` : "";
-  return /* @__PURE__ */ jsx(Dialog, { open: target !== null, onClose: close, maxWidth: "sm", fullWidth: true, children: target && /* @__PURE__ */ jsxs(Fragment, { children: [
-    /* @__PURE__ */ jsx(DialogTitle, { children: target.flight ? `Promote ${appName} to ${target.env}?` : `${target.env} deploys on push` }),
+  return /* @__PURE__ */ jsx(Dialog, { open: target !== null, onClose: close, maxWidth: "sm", fullWidth: true, PaperProps: { className: d.paper }, children: target && /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx(DialogTitle, { className: d.title, children: target.flight ? `Promote ${appName} to ${target.env}?` : `${target.env} deploys on push` }),
     /* @__PURE__ */ jsxs(DialogContent, { children: [
       !target.flight && /* @__PURE__ */ jsxs(DialogContentText, { className: c.text, children: [
         target.env,
@@ -60,15 +62,21 @@ function CloudPromoteDialog({
         ". Merging it is the approval; Glidepath then deploys exactly that image's digest."
       ] }),
       submit.loading && /* @__PURE__ */ jsx(Progress, {}),
-      submit.result && /* @__PURE__ */ jsx(DialogContentText, { className: c.text, children: submit.result.unchanged ? /* @__PURE__ */ jsxs(Fragment, { children: [
+      submit.result?.unchanged && /* @__PURE__ */ jsxs(DialogContentText, { className: c.text, children: [
         target.env,
         " is already pinned to ",
         /* @__PURE__ */ jsx("span", { className: c.mono, children: imageTag(target.image) }),
         ": nothing to do."
-      ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-        submit.result.alreadyOpen ? "The pin PR was already open; it now pins this image: " : "Pull request opened: ",
-        /* @__PURE__ */ jsx(Link, { href: submit.result.prUrl, target: "_blank", rel: "noopener noreferrer", className: c.mono, children: submit.result.prUrl })
-      ] }) }),
+      ] }),
+      submit.result && !submit.result.unchanged && submit.result.prUrl && /* @__PURE__ */ jsx(
+        PrReceipt,
+        {
+          prUrl: submit.result.prUrl,
+          alreadyOpen: submit.result.alreadyOpen,
+          updated: submit.result.alreadyOpen,
+          next: "merge it to deploy."
+        }
+      ),
       submit.error && /* @__PURE__ */ jsxs(DialogContentText, { className: c.bad, children: [
         "Couldn't promote: ",
         submit.error
@@ -85,7 +93,7 @@ function CloudPromoteDialog({
             const r = await submit.submit({ owner, appName, env: target.env, image: target.image, promotedFrom: target.from });
             if (r) onDone();
           },
-          children: "Open pin PR"
+          children: submit.loading ? OPENING_PR : "Open pin PR"
         }
       )
     ] })

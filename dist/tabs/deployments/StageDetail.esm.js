@@ -14,6 +14,7 @@ import { RolloutTopologyDag } from '../../RolloutTopologyDag.esm.js';
 import { RolloutControls } from './RolloutControls.esm.js';
 import { imageTag } from '../../types.esm.js';
 import { SectionTitle, EmptyNote, StatusChip, TextLink, Button } from '../../ui/index.esm.js';
+import { PrRef, prFromSummary } from '../../ui/PrRef.esm.js';
 
 function rolloutControlsFor(env) {
   if (env.workload?.kind !== "Rollout" || !env.argoAppName || !env.cluster || !env.namespace) return null;
@@ -64,13 +65,7 @@ function CreatedBody({
 }) {
   if (delivery.pr) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
-        /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
-        "PR #",
-        delivery.pr.number,
-        ": ",
-        delivery.pr.title
-      ] }),
+      /* @__PURE__ */ jsx(PrRef, { pr: prFromSummary(delivery.pr), size: "card", meta: "" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.meta, children: [
         delivery.pr.author && `opened by ${delivery.pr.author} \xB7 `,
         timeText(step?.at)
@@ -102,12 +97,7 @@ function MergedBody({
   if (delivery.pr?.state === "merged") {
     const commitUrl = mergeCommitUrl(delivery.pr);
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
-        /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
-        "PR #",
-        delivery.pr.number,
-        " \u2197"
-      ] }),
+      /* @__PURE__ */ jsx(PrRef, { pr: prFromSummary(delivery.pr), size: "inline" }),
       /* @__PURE__ */ jsxs(Typography, { className: classes.meta, children: [
         timeText(step?.at),
         delivery.pr.author && ` \xB7 opened by ${delivery.pr.author}`
@@ -133,13 +123,7 @@ function MergedBody({
   }
   if (delivery.pr) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs(TextLink, { href: delivery.pr.url, children: [
-        /* @__PURE__ */ jsx(GitPrIcon, { fontSize: 15 }),
-        "PR #",
-        delivery.pr.number,
-        ": ",
-        delivery.pr.title
-      ] }),
+      /* @__PURE__ */ jsx(PrRef, { pr: prFromSummary(delivery.pr), size: "card", meta: "" }),
       /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" }, children: [
         gateCi && /* @__PURE__ */ jsxs(StatusChip, { tone: gateCi.state === "success" ? "ok" : "warn", children: [
           gateCi.passedChecks,

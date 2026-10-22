@@ -4,7 +4,8 @@ import { formatDateTime } from './shared/format.esm.js';
 import { useHangarTokens } from './brand/tokens.esm.js';
 import { RecordColumn } from './RecordColumn.esm.js';
 import { NOTE_CATEGORIES, NOTE_LABEL, SIGNOFF_LABEL, RELEASE_MODE_LABEL } from './releaseFlow.esm.js';
-import { Tile, SectionTitle, EmptyNote, FactGrid, Fact, StatusChip, TextLink, Hint } from './ui/index.esm.js';
+import { Tile, SectionTitle, EmptyNote, FactGrid, Fact, StatusChip, Hint } from './ui/index.esm.js';
+import { PrRef } from './ui/PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   grid: {
@@ -86,7 +87,7 @@ function ReleaseSignoffPanel({
           signoff && /* @__PURE__ */ jsxs(Fragment, { children: [
             /* @__PURE__ */ jsxs("div", { className: classes.line, children: [
               /* @__PURE__ */ jsx(StatusChip, { tone: missing && !requiresSignoff ? "neutral" : SIGNOFF_TONE[signoff.status], dot: true, children: SIGNOFF_LABEL[signoff.status] }),
-              /* @__PURE__ */ jsx(TextLink, { href: signoff.prUrl, children: `PR #${signoff.prNumber} \u2197` }),
+              /* @__PURE__ */ jsx(PrRef, { pr: { url: signoff.prUrl, number: signoff.prNumber, state: signoff.mergedBy ? "merged" : "open" }, size: "inline" }),
               signoff.mergedBy && /* @__PURE__ */ jsxs("span", { className: classes.faint, children: [
                 "merged by ",
                 signoff.mergedBy,

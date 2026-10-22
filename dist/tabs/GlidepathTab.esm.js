@@ -6,19 +6,19 @@ import Switch from '@material-ui/core/Switch';
 import TextField from '@material-ui/core/TextField';
 import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
-import Link from '@material-ui/core/Link';
 import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import { dump, load } from 'js-yaml';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
-import { fontMono, fontDisplay, useHangarTokens } from '../brand/tokens.esm.js';
+import { useHangarTokens } from '../brand/tokens.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
 import { useReleaseContext } from '../useReleaseContext.esm.js';
 import { useCicdConfig, useSubmitCicdConfigChange } from '../useConfigData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
-import { PageHeader, Subtabs, SectionTitle } from '../ui/index.esm.js';
+import { PageHeader, Subtabs, SectionTitle, Callout } from '../ui/index.esm.js';
+import { PrReceipt } from '../ui/PrRef.esm.js';
 import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
 import { CICD_TOP_LEVEL_FIELDS } from '../types.esm.js';
@@ -217,20 +217,7 @@ const useStyles = makeStyles(() => ({
   switchLabel: { fontSize: 13, color: ({ t }) => t.textHi },
   govCaption: { fontSize: 11, color: ({ t }) => t.textLo, fontStyle: "italic" },
   secretRow: { display: "flex", alignItems: "center", gap: 8 },
-  submitBar: { display: "flex", alignItems: "center", gap: 12 },
-  submitBtn: {
-    fontFamily: fontDisplay,
-    fontSize: 13,
-    fontWeight: 600,
-    padding: "8px 18px",
-    borderRadius: 4,
-    border: "none",
-    cursor: "pointer",
-    backgroundColor: ({ t }) => t.amber,
-    color: "#1a1200",
-    "&:disabled": { opacity: 0.5, cursor: "default" }
-  },
-  resultLink: { fontFamily: fontMono, fontSize: 12 }
+  submitBar: { display: "flex", alignItems: "center", gap: 12 }
 }));
 const GLIDEPATH_TABS = [
   { id: "build", label: "Build" },
@@ -626,17 +613,23 @@ function GlidepathTab() {
         problems,
         emptyText: "Nothing staged. Edit a field above and it is listed here.",
         busy: submitCicd.loading,
-        busyLabel: "Opening pull request\u2026",
-        submitLabel: "Open pull request",
+        submitLabel: "Open cicd.yaml PR",
         onDiscard: () => cicd.data && setForm(buildFormFromValues(cicd.data.values)),
         onSubmit: handleSubmit,
         notes: ["cicd.yaml is one file per app, so these changes go in one pull request."],
         children: [
-          submitCicd.result && /* @__PURE__ */ jsxs(Typography, { children: [
-            submitCicd.result.alreadyOpen ? "A pull request for this exact change is already open: " : "Pull request opened: ",
-            /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitCicd.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitCicd.result.prUrl })
-          ] }),
-          submitCicd.error && /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(submitCicd.error) })
+          submitCicd.result && /* @__PURE__ */ jsx(
+            PrReceipt,
+            {
+              prUrl: submitCicd.result.prUrl,
+              alreadyOpen: submitCicd.result.alreadyOpen,
+              next: "merge it to apply these changes."
+            }
+          ),
+          submitCicd.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", children: [
+            "Couldn't open the PR: ",
+            submitCicd.error
+          ] })
         ]
       }
     )

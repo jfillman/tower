@@ -2,7 +2,6 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
-import Link from '@material-ui/core/Link';
 import { formatDateTime, relativeTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
@@ -18,7 +17,8 @@ import { useReleaseRecordDoc, useSubmitHumanContext } from './useReleaseRecordPe
 import { useReleaseSignoff, countedSignoffs } from './releaseFlow.esm.js';
 import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
-import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel } from './ui/index.esm.js';
+import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel, Callout } from './ui/index.esm.js';
+import { PrRef, prFromSummary, OPENING_PR, PrReceipt } from './ui/PrRef.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
 import { hasCommitSignature, ChangeRequestFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
 
@@ -42,7 +42,7 @@ const useStyles = makeStyles(() => ({
     fontSize: 11,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
-    color: ({ t }) => t.amber,
+    color: ({ t }) => t.amberText,
     marginBottom: 4
   },
   h3: { fontSize: 24, fontWeight: 700, fontFamily: fontDisplay, color: ({ t }) => t.textHi },
@@ -212,7 +212,6 @@ const useStyles = makeStyles(() => ({
     minHeight: 56
   },
   humanActions: { display: "flex", alignItems: "center", gap: 10, marginTop: 2 },
-  humanResultLink: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.sky },
   approvalList: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 },
   approvalRow: {
     display: "flex",
@@ -235,7 +234,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.amberInk,
     padding: "0 2px"
   },
-  humanError: { fontSize: 12, color: ({ t }) => t.bad },
   cert: {
     marginTop: 18,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -557,7 +555,14 @@ function ReleaseRecordDetail({
             ] }),
             record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
               /* @__PURE__ */ jsx(GateGrid, { checks: record.guardrails.checks ?? [], classes, t }),
-              record.guardrailsPrUrl && /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: record.guardrailsPrUrl, target: "_blank", rel: "noopener noreferrer", children: `View ${record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"} PR${record.guardrailsPrNumber ? ` #${record.guardrailsPrNumber}` : ""}` })
+              record.guardrailsPrUrl && /* @__PURE__ */ jsx(
+                PrRef,
+                {
+                  pr: { url: record.guardrailsPrUrl, number: record.guardrailsPrNumber },
+                  size: "inline",
+                  label: record.guardrailsPrUrl.includes("/gitops-") ? "gitops" : "release pin"
+                }
+              )
             ] }) : /* @__PURE__ */ jsx(EmptyNote, { children: "No release-guardrail check data found for this release's release PR." })
           ] })
         ] })
@@ -605,13 +610,7 @@ function ReleaseRecordDetail({
       persistTarget && persisted.loading && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: "Checking for a committed Release Record\u2026" }),
       persistTarget && persisted.notFound && /* @__PURE__ */ jsxs(Fragment, { children: [
         /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: recordNote }),
-        recordPr && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: /* @__PURE__ */ jsxs(Link, { className: classes.humanResultLink, href: recordPr.url, target: "_blank", rel: "noopener noreferrer", children: [
-          "Release Record PR #",
-          recordPr.number,
-          " (",
-          recordPr.state,
-          ") \u2197"
-        ] }) })
+        recordPr && /* @__PURE__ */ jsx(Typography, { className: classes.humanNote, children: /* @__PURE__ */ jsx(PrRef, { pr: prFromSummary(recordPr), size: "inline", label: "Release Record" }) })
       ] }),
       persistTarget && persisted.error && /* @__PURE__ */ jsxs(Typography, { className: classes.humanNote, children: [
         "Couldn't check for a committed record: ",
@@ -718,18 +717,22 @@ function ReleaseRecordDetail({
           ] })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.humanActions, children: [
-          submitContext.result ? /* @__PURE__ */ jsx(Button, { small: true, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { small: true, variant: "primary", disabled: !dirty || submitContext.loading, onClick: onSubmitContext, children: submitContext.loading ? "Opening PR\u2026" : "Open PR for these notes" }),
+          submitContext.result ? /* @__PURE__ */ jsx(Button, { small: true, onClick: () => submitContext.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { small: true, variant: "primary", disabled: !dirty || submitContext.loading, onClick: onSubmitContext, children: submitContext.loading ? OPENING_PR : "Open notes PR" }),
           persisted.data.humanContext.authoredBy && /* @__PURE__ */ jsxs(Typography, { className: classes.humanNote, style: { marginBottom: 0 }, children: [
             "last authored by ",
             persisted.data.humanContext.authoredBy
           ] })
         ] }),
-        submitContext.result && /* @__PURE__ */ jsxs(Typography, { className: classes.humanNote, children: [
-          submitContext.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
-          /* @__PURE__ */ jsx(Link, { className: classes.humanResultLink, href: submitContext.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitContext.result.prUrl })
-        ] }),
-        submitContext.error && /* @__PURE__ */ jsxs(Typography, { className: classes.humanError, children: [
-          "Couldn't open PR: ",
+        submitContext.result && /* @__PURE__ */ jsx(
+          PrReceipt,
+          {
+            prUrl: submitContext.result.prUrl,
+            alreadyOpen: submitContext.result.alreadyOpen,
+            next: "merge it; the notes show on this record once it lands."
+          }
+        ),
+        submitContext.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", children: [
+          "Couldn't open the PR: ",
           submitContext.error
         ] })
       ] })

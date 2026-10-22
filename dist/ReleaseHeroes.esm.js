@@ -1,7 +1,8 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
-import { StatusChip, Callout, Button, TextLink, EmptyNote, Tile, Stat } from './ui/index.esm.js';
+import { StatusChip, Callout, Button, EmptyNote, Tile, Stat } from './ui/index.esm.js';
+import { PrRef, prFromSummary } from './ui/PrRef.esm.js';
 import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { statusPill } from './ReleaseRecordList.esm.js';
 import { readinessCount, bakeProgress } from './releaseCards.esm.js';
@@ -151,10 +152,7 @@ function ReleaseHeroes({
           "Open ",
           next.name ?? "the draft"
         ] }),
-        next.openPr?.pr && /* @__PURE__ */ jsxs(TextLink, { href: next.openPr.pr.url, children: [
-          "Review PR #",
-          next.openPr.pr.number
-        ] })
+        next.openPr?.pr && /* @__PURE__ */ jsx(PrRef, { pr: prFromSummary(next.openPr.pr), size: "chip" })
       ] })
     ] }) : /* @__PURE__ */ jsx(EmptyNote, { children: "Nothing to release yet." })
   ] });

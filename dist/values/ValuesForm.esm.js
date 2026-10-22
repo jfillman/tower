@@ -2,16 +2,15 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import Link from '@material-ui/core/Link';
 import { dump } from 'js-yaml';
 import { ResponseErrorPanel, Progress } from '@backstage/core-components';
 import { useValuesSchema } from '../useConfigData.esm.js';
 import { useHangarTokens } from '../brand/tokens.esm.js';
-import { Subtabs, Button } from '../ui/index.esm.js';
+import { Subtabs, Button, Callout } from '../ui/index.esm.js';
 import { PendingPanel } from '../ui/PendingPanel.esm.js';
 import { useUi } from '../ui/styles.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PrResultDialog } from '../PrResultDialog.esm.js';
+import { PrReceipt } from '../ui/PrRef.esm.js';
 import { validateYamlBlock, YamlBlockEditor } from '../YamlBlockEditor.esm.js';
 import { validateAgainstSchema } from '../schemaValidate.esm.js';
 import { deepEqual } from '../deepEqual.esm.js';
@@ -1912,7 +1911,7 @@ function ConfigEditor({
         stick: layout === "side" ? "top" : "bottom",
         busy: submitCfg.loading,
         canSubmit,
-        submitLabel: "Open pull request",
+        submitLabel: "Open config PR",
         onDiscard: discard,
         onSubmit,
         children: [
@@ -1922,18 +1921,14 @@ function ConfigEditor({
             cfg.data.path,
             ". This file has its own pull request."
           ] }),
-          submitCfg.result && /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
-            submitCfg.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
-            /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitCfg.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitCfg.result.prUrl })
-          ] }),
-          submitCfg.error && /* @__PURE__ */ jsxs("div", { className: ui.problem, children: [
-            "Couldn't open PR: ",
+          submitCfg.result && /* @__PURE__ */ jsx(PrReceipt, { prUrl: submitCfg.result.prUrl, alreadyOpen: submitCfg.result.alreadyOpen, next: "merge it to apply these values." }),
+          submitCfg.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", children: [
+            "Couldn't open the PR: ",
             submitCfg.error
           ] })
         ]
       }
-    ),
-    /* @__PURE__ */ jsx(PrResultDialog, { result: submitCfg.result, error: submitCfg.error, onClose: () => submitCfg.reset() })
+    )
   ] });
 }
 function Section({ title, dirty, children }) {

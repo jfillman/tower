@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { Chip } from '../../ui/index.esm.js';
 import { PendingPanel } from '../../ui/PendingPanel.esm.js';
+import { OPENING_PR } from '../../ui/PrRef.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -11,8 +12,8 @@ const useStyles = makeStyles(() => ({
   prList: { display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5, marginTop: 8 }
 }));
 const TONE = { add: "add", remove: "remove" };
-const IDLE = { one: "Open pull request", several: "Open pull requests" };
-const BUSY = { launching: "Requesting environment\u2026", submitting: "Opening\u2026" };
+const IDLE = { one: "Open cicd.yaml PR", several: "Open environment PRs" };
+const BUSY = { launching: "Requesting environment\u2026", submitting: OPENING_PR };
 function PendingChanges({
   changes,
   problems,

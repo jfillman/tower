@@ -222,7 +222,7 @@ function renderPreviewEnvRow(n, ctx) {
     items.push({
       key: "pr",
       icon: PreviewIcon,
-      label: prNumber ? `PR #${prNumber}` : "Pull request",
+      label: prNumber ? `PR #${prNumber}` : "PR",
       href: prUrl
     });
   }
@@ -293,7 +293,7 @@ function renderConfigRow(n, ctx) {
   if (prUrl)
     items.push({
       key: "pr",
-      label: prNumber ? `PR #${prNumber}` : "Pull request",
+      label: prNumber ? `PR #${prNumber}` : "PR",
       href: prUrl
     });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -338,7 +338,7 @@ function renderReleaseRow(n, ctx) {
     items.push({
       key: "pr",
       icon: PreviewIcon,
-      label: prNumber ? `PR #${prNumber}` : "Pull request",
+      label: prNumber ? `PR #${prNumber}` : "PR",
       href: prUrl
     });
   }

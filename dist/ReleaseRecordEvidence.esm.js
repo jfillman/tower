@@ -2,6 +2,7 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import Link from '@material-ui/core/Link';
 import { formatDateTime } from './shared/format.esm.js';
 import { ColumnLabel, StatusChip, Hint } from './ui/index.esm.js';
+import { PrRef } from './ui/PrRef.esm.js';
 import { verdictOf, isSharedCheckRide, explain } from './supplyChain.esm.js';
 import { commitProofOf, commitProofChip, commitProofPrUrl, commitProofTone, commitProofLine, isMergePath, MERGE_HINT, COMMIT_SIGNING_DOC } from './commitProof.esm.js';
 
@@ -114,10 +115,7 @@ function CommitSignatureBlock({ record, classes }) {
       commitProofLine(proof),
       prUrl && /* @__PURE__ */ jsxs(Fragment, { children: [
         " \xB7 ",
-        /* @__PURE__ */ jsxs(Link, { href: prUrl, target: "_blank", rel: "noopener noreferrer", children: [
-          "PR #",
-          proof.evidence?.pr
-        ] })
+        /* @__PURE__ */ jsx(PrRef, { pr: { url: prUrl, number: proof.evidence?.pr }, size: "inline" })
       ] })
     ] }),
     isMergePath(proof) && /* @__PURE__ */ jsxs(Hint, { children: [

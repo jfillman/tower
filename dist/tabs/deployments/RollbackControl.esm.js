@@ -1,10 +1,11 @@
-import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
+import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
-import { Hint, Button } from '../../ui/index.esm.js';
+import { Hint, Button, Callout } from '../../ui/index.esm.js';
+import { OPENING_PR, PrReceipt } from '../../ui/PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   wrap: { display: "flex", flexDirection: "column", gap: 6, paddingTop: 8, borderTop: ({ t }) => `1px dashed ${t.lineSoft}` },
@@ -20,7 +21,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     minWidth: 220
   },
-  bad: { fontSize: 11.5, fontStyle: "italic", color: ({ t }) => t.bad },
   ok: { fontSize: 11.5, color: ({ t }) => t.good }
 }));
 const tagOf = (image) => image ? image.slice(image.lastIndexOf(":") + 1) : "?";
@@ -63,7 +63,6 @@ function RollbackControl({
     };
   }, [discoveryApi, fetchApi, appName, env, cluster, result]);
   const submit = async () => {
-    setConfirming(false);
     setBusy(true);
     setError(void 0);
     try {
@@ -76,6 +75,7 @@ function RollbackControl({
       const body = await res.json().catch(() => void 0);
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
       setResult(body);
+      setConfirming(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -124,10 +124,10 @@ function RollbackControl({
         {
           small: true,
           variant: "danger",
-          disabled: !allowed || busy || !target || !reason.trim(),
+          disabled: !allowed || busy || confirming || !target || !reason.trim(),
           title: allowed ? void 0 : "Only the app's owning team (or an admin) can roll back.",
           onClick: () => setConfirming(true),
-          children: busy ? "Opening\u2026" : "Roll back"
+          children: "Roll back"
         }
       )
     ] }),
@@ -139,21 +139,15 @@ function RollbackControl({
         env,
         "? It ran healthy here, so the content checks report without blocking; integrity checks and approvals apply as always."
       ] }),
-      /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", onClick: submit, children: "Open rollback PR" }),
-      /* @__PURE__ */ jsx(Button, { small: true, onClick: () => setConfirming(false), children: "Cancel" })
+      /* @__PURE__ */ jsx(Button, { small: true, variant: "danger", disabled: busy, onClick: submit, children: busy ? OPENING_PR : "Open rollback PR" }),
+      /* @__PURE__ */ jsx(Button, { small: true, disabled: busy, onClick: () => setConfirming(false), children: "Cancel" })
     ] }),
-    error && /* @__PURE__ */ jsx("span", { className: c.bad, children: error }),
-    result && /* @__PURE__ */ jsx("span", { className: c.ok, children: result.prUrl ? /* @__PURE__ */ jsxs(Fragment, { children: [
-      result.alreadyOpen ? "A rollback PR is already open" : "Rollback PR opened",
-      ":",
-      " ",
-      /* @__PURE__ */ jsx("a", { href: result.prUrl, target: "_blank", rel: "noreferrer", children: result.prUrl }),
-      ". Merge it to roll back."
-    ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+    error && /* @__PURE__ */ jsx(Callout, { tone: "bad", children: error }),
+    result && (result.prUrl ? /* @__PURE__ */ jsx(PrReceipt, { prUrl: result.prUrl, alreadyOpen: result.alreadyOpen, next: "merge it to roll back." }) : /* @__PURE__ */ jsxs("span", { className: c.ok, children: [
       "Rollback run ",
       result.pipelineRun,
       " started; its PR will show in Pull requests."
-    ] }) })
+    ] }))
   ] });
 }
 

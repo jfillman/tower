@@ -2,12 +2,11 @@ import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { useState, useEffect } from 'react';
 import Typography from '@material-ui/core/Typography';
 import Switch from '@material-ui/core/Switch';
-import Link from '@material-ui/core/Link';
 import { Progress } from '@backstage/core-components';
 import { deepEqual } from '../deepEqual.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
-import { PrResultDialog } from '../PrResultDialog.esm.js';
-import { preventFocusScroll } from '../preventFocusScroll.esm.js';
+import { PrReceipt, OPENING_PR } from '../ui/PrRef.esm.js';
+import { Callout, Button } from '../ui/index.esm.js';
 import { useEnvXr, useSubmitEnvXrChange, useConfigMapFiles, useSubmitConfigMapFiles } from '../useConfigData.esm.js';
 
 function EnvXrPanel({ owner, appName, env, classes }) {
@@ -41,25 +40,27 @@ function EnvXrPanel({ owner, appName, env, classes }) {
       /* @__PURE__ */ jsx(Typography, { className: classes.switchLabel, children: "configMapGenerator" })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.hint, children: "The only editable field on this XR - appName/cluster/env are this resource's own identity, not a setting." }),
-    /* @__PURE__ */ jsx(PrResultDialog, { result: submitXr.result, error: submitXr.error, onClose: () => submitXr.reset() }),
-    submitXr.result && /* @__PURE__ */ jsxs(Typography, { className: classes.note, style: { marginTop: 10 }, children: [
-      submitXr.result.alreadyOpen ? "A PR for this change is already open: " : "PR opened: ",
-      /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitXr.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitXr.result.prUrl })
-    ] }),
-    submitXr.error && /* @__PURE__ */ jsxs(Typography, { className: classes.errorList, style: { marginTop: 10, listStyle: "none", paddingLeft: 0 }, children: [
-      "Couldn't open PR: ",
+    submitXr.result && /* @__PURE__ */ jsx(
+      PrReceipt,
+      {
+        prUrl: submitXr.result.prUrl,
+        alreadyOpen: submitXr.result.alreadyOpen,
+        next: "merge it to change this environment's resource.",
+        className: classes.prReceipt
+      }
+    ),
+    submitXr.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", className: classes.prReceipt, children: [
+      "Couldn't open the PR: ",
       submitXr.error
     ] }),
     dirty && !submitXr.result && /* @__PURE__ */ jsx(
-      "button",
+      Button,
       {
-        type: "button",
-        className: classes.btn,
-        style: { marginTop: 12 },
+        variant: "primary",
+        className: classes.prReceipt,
         disabled: submitXr.loading,
-        onMouseDown: preventFocusScroll,
         onClick: () => submitXr.submit({ owner, appName, env, configMapGenerator: draft }),
-        children: submitXr.loading ? "Opening PR\u2026" : "Open PR for this change"
+        children: submitXr.loading ? OPENING_PR : "Open env PR"
       }
     )
   ] });
@@ -134,26 +135,30 @@ function ConfigMapFilesPanel({ owner, appName, cluster, env, classes }) {
       rows.map((row, i) => /* @__PURE__ */ jsxs("div", { className: classes.rowCard, children: [
         /* @__PURE__ */ jsxs("div", { className: classes.rowCardHead, children: [
           /* @__PURE__ */ jsx("input", { className: classes.input, style: { flex: 1 }, placeholder: "app-settings.yaml", value: row.name, onChange: (e) => update(i, { name: e.target.value }) }),
-          /* @__PURE__ */ jsx("button", { type: "button", className: classes.removeBtn, onClick: () => remove(i), children: "Remove" })
+          /* @__PURE__ */ jsx(Button, { small: true, onClick: () => remove(i), children: "Remove" })
         ] }),
         /* @__PURE__ */ jsx("textarea", { className: classes.textarea, rows: 6, value: row.content, onChange: (e) => update(i, { content: e.target.value }), placeholder: "file contents" })
       ] }, i)),
-      /* @__PURE__ */ jsx("button", { type: "button", className: classes.addBtn, onClick: add, children: "+ Add file" })
+      /* @__PURE__ */ jsx(Button, { small: true, onClick: add, children: "+ Add file" })
     ] }),
     dirty && /* @__PURE__ */ jsxs(Fragment, { children: [
       errors.length > 0 && /* @__PURE__ */ jsx("ul", { className: classes.errorList, style: { marginTop: 10 }, children: errors.map((e) => /* @__PURE__ */ jsx("li", { children: e }, e)) }),
       /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: 10, marginTop: 12 }, children: [
-        submitFiles.result ? /* @__PURE__ */ jsx("button", { type: "button", className: classes.discardBtn, onClick: () => submitFiles.reset(), children: "Close" }) : /* @__PURE__ */ jsx("button", { type: "button", className: classes.discardBtn, onClick: discard, disabled: submitFiles.loading, children: "Discard" }),
-        /* @__PURE__ */ jsx("button", { type: "button", className: classes.btn, disabled: errors.length > 0 || submitFiles.loading, onMouseDown: preventFocusScroll, onClick: onSubmit, children: submitFiles.loading ? "Opening PR\u2026" : "Open PR for these files" })
+        submitFiles.result ? /* @__PURE__ */ jsx(Button, { onClick: () => submitFiles.reset(), children: "Close" }) : /* @__PURE__ */ jsx(Button, { onClick: discard, disabled: submitFiles.loading, children: "Discard" }),
+        /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: errors.length > 0 || submitFiles.loading, onClick: onSubmit, children: submitFiles.loading ? OPENING_PR : "Open configmap PR" })
       ] })
     ] }),
-    /* @__PURE__ */ jsx(PrResultDialog, { result: submitFiles.result, error: submitFiles.error, onClose: () => submitFiles.reset() }),
-    submitFiles.result && /* @__PURE__ */ jsxs(Typography, { className: classes.note, style: { marginTop: 10 }, children: [
-      submitFiles.result.alreadyOpen ? "A PR for this exact change is already open: " : "PR opened: ",
-      /* @__PURE__ */ jsx(Link, { className: classes.resultLink, href: submitFiles.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submitFiles.result.prUrl })
-    ] }),
-    submitFiles.error && /* @__PURE__ */ jsxs(Typography, { className: classes.errorList, style: { marginTop: 10, listStyle: "none", paddingLeft: 0 }, children: [
-      "Couldn't open PR: ",
+    submitFiles.result && /* @__PURE__ */ jsx(
+      PrReceipt,
+      {
+        prUrl: submitFiles.result.prUrl,
+        alreadyOpen: submitFiles.result.alreadyOpen,
+        next: "merge it to update the generated ConfigMap.",
+        className: classes.prReceipt
+      }
+    ),
+    submitFiles.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", className: classes.prReceipt, children: [
+      "Couldn't open the PR: ",
       submitFiles.error
     ] })
   ] });

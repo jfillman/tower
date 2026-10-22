@@ -10,6 +10,7 @@ import { usePullRequests } from '../pullRequests/usePullRequests.esm.js';
 import { parseGitopsPrTitle } from '../useReleaseContext.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, Section, Chip, Hint, TextLink, useTableKit, EmptyNote, StatusChip } from '../ui/index.esm.js';
+import { prWord, prFromSummary } from '../ui/PrRef.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 
 const MERGED_DISPLAY_CAP = 10;
@@ -89,7 +90,7 @@ function PrTable({
             ] }),
             /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
               variant === "gitops" ? /* @__PURE__ */ jsx(GitopsTitle, { pr, classes }) : pr.title,
-              pr.draft && /* @__PURE__ */ jsx(StatusChip, { tone: "neutral", children: "draft" }),
+              /* @__PURE__ */ jsx(PrWordChip, { pr }),
               showPreviewChip && hasPreviewLabel(pr) && /* @__PURE__ */ jsx(Chip, { className: classes.chipGapLeft, children: "preview" })
             ] }),
             /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.mono}`, children: pr.author ?? "\u2014" }),
@@ -103,6 +104,10 @@ function PrTable({
       );
     }) })
   ] });
+}
+function PrWordChip({ pr }) {
+  const word = prWord(prFromSummary(pr));
+  return word ? /* @__PURE__ */ jsx(StatusChip, { tone: word.tone, children: word.text }) : null;
 }
 function MergedPrTable({ prs, classes }) {
   const tc = useTableKit();

@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useHangarTokens } from './brand/tokens.esm.js';
 import { RELEASE_MODE_LABEL, RELEASE_MODE_HELP, RELEASE_MODES } from './releaseFlow.esm.js';
-import { StatusChip, TextLink, Button } from './ui/index.esm.js';
+import { StatusChip, TextLink, Button, Callout } from './ui/index.esm.js';
+import { PrReceipt, OPENING_PR } from './ui/PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   bar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 12.5 },
   caption: { color: ({ t }) => t.textLo },
   help: { color: ({ t }) => t.textLo, flex: "1 1 320px", minWidth: 0 },
   choices: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, width: "100%" },
-  error: { color: ({ t }) => t.bad }
+  full: { width: "100%" }
 }));
 const TONE = { "hand-flown": "warn", assisted: "info", autoland: "ok" };
 function ReleaseModeBar({
@@ -18,13 +19,19 @@ function ReleaseModeBar({
   submitting,
   error,
   prUrl,
+  alreadyOpen,
   waitingForMerge,
   onChange
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const [choosing, setChoosing] = useState(false);
+  const [pressed, setPressed] = useState();
   const where = `${info.file.repo}/${info.file.path}`;
+  const modeLabel = (m, available) => {
+    if (submitting && pressed === m) return OPENING_PR;
+    return available ? `Set ${RELEASE_MODE_LABEL[m]}` : `${RELEASE_MODE_LABEL[m]} (not available yet)`;
+  };
   return /* @__PURE__ */ jsxs("div", { className: classes.bar, children: [
     /* @__PURE__ */ jsx("span", { className: classes.caption, children: "Release mode" }),
     /* @__PURE__ */ jsx(StatusChip, { tone: TONE[info.mode], dot: true, children: RELEASE_MODE_LABEL[info.mode] }),
@@ -43,8 +50,11 @@ function ReleaseModeBar({
             small: true,
             disabled: !available || submitting,
             title: RELEASE_MODE_HELP[m],
-            onClick: () => onChange(m),
-            children: available ? `Set ${RELEASE_MODE_LABEL[m]}` : `${RELEASE_MODE_LABEL[m]} (not available yet)`
+            onClick: () => {
+              setPressed(m);
+              onChange(m);
+            },
+            children: modeLabel(m, available)
           },
           m
         );
@@ -55,12 +65,16 @@ function ReleaseModeBar({
         "; it takes effect when it merges."
       ] })
     ] }),
-    prUrl && /* @__PURE__ */ jsxs("span", { className: classes.caption, children: [
-      "Mode change PR opened \xB7 ",
-      /* @__PURE__ */ jsx(TextLink, { href: prUrl, children: "review \u2197" }),
-      waitingForMerge && " \xB7 the mode updates here once it merges"
-    ] }),
-    error && /* @__PURE__ */ jsx("span", { className: classes.error, children: error })
+    prUrl && /* @__PURE__ */ jsx(
+      PrReceipt,
+      {
+        className: classes.full,
+        prUrl,
+        alreadyOpen,
+        next: waitingForMerge === false ? "the mode has updated." : "merge it. The mode updates here once it lands."
+      }
+    ),
+    error && /* @__PURE__ */ jsx(Callout, { tone: "bad", className: classes.full, children: error })
   ] });
 }
 

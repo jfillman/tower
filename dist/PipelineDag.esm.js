@@ -248,7 +248,7 @@ function phaseColor(t, phase) {
     case "failed":
       return { bg: t.badSoft, border: t.bad, fg: t.bad };
     case "running":
-      return { bg: t.amberSoft, border: t.amber, fg: t.amberInk };
+      return { bg: t.skySoft, border: t.sky, fg: t.sky };
     case "skipped":
       return { bg: t.panelAlt, border: t.line, fg: t.textFaint };
     case "pending":
@@ -445,7 +445,7 @@ function PipelineDag({ run, expandSignal }) {
           "succeeded"
         ] }),
         /* @__PURE__ */ jsxs("span", { children: [
-          /* @__PURE__ */ jsx("span", { className: classes.legendDot, style: { backgroundColor: t.amber } }),
+          /* @__PURE__ */ jsx("span", { className: classes.legendDot, style: { backgroundColor: t.sky } }),
           "running"
         ] }),
         /* @__PURE__ */ jsxs("span", { children: [

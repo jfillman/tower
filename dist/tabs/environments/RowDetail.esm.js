@@ -18,7 +18,8 @@ import { useWorkloadView } from '../../values/workload.esm.js';
 import { useEnvLifecycle } from '../../environments/useEnvLifecycle.esm.js';
 import { EnvLifecycle } from './EnvLifecycle.esm.js';
 import { useStyles as useStyles$1 } from '../../values/styles.esm.js';
-import { Subtabs, Field, ColumnLabel, Button } from '../../ui/index.esm.js';
+import { Subtabs, Field, ColumnLabel, Button, Callout } from '../../ui/index.esm.js';
+import { PrReceipt, OPENING_PR } from '../../ui/PrRef.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 import { BLOCK_FIELDS } from './shared.esm.js';
 import { ENVS_ROOT } from '../../types.esm.js';
@@ -265,14 +266,16 @@ function CreateInfraValues({ ctx, env, path }) {
     /* @__PURE__ */ jsx("span", { className: c.mono, children: path }),
     " does not exist yet, and nothing creates it for an InfraService: there is no build and no onboarding pull request. Create a starter file (no workload, no component) and add the service's component on the Components sub-tab once it is merged. Argo CD deploys the environment from it.",
     /* @__PURE__ */ jsxs("div", { style: { marginTop: 10 }, children: [
-      submit.result ? /* @__PURE__ */ jsxs("span", { children: [
-        "Pull request opened:",
-        " ",
-        /* @__PURE__ */ jsx("a", { href: submit.result.prUrl, target: "_blank", rel: "noopener noreferrer", children: submit.result.prUrl }),
-        ". Merge it; this turns into the values form when the file appears."
-      ] }) : /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: submit.loading, onClick: create, children: submit.loading ? "Opening pull request\u2026" : `Create ${path}` }),
-      submit.error && /* @__PURE__ */ jsxs("div", { className: ui.problem, children: [
-        "Could not open the pull request: ",
+      submit.result ? /* @__PURE__ */ jsx(
+        PrReceipt,
+        {
+          prUrl: submit.result.prUrl,
+          alreadyOpen: submit.result.alreadyOpen,
+          next: "merge it; this turns into the values form when the file appears."
+        }
+      ) : /* @__PURE__ */ jsx(Button, { variant: "primary", disabled: submit.loading, onClick: create, children: submit.loading ? OPENING_PR : `Create ${path}` }),
+      submit.error && /* @__PURE__ */ jsxs(Callout, { tone: "bad", children: [
+        "Couldn't open the PR: ",
         submit.error
       ] })
     ] })

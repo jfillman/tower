@@ -110,7 +110,7 @@ function stepLabelParts(s) {
 }
 function phaseColor(t, state) {
   if (state === "done") return t.good;
-  if (state === "current") return t.amber;
+  if (state === "current") return t.sky;
   if (state === "bad") return t.bad;
   return t.textFaint;
 }
@@ -124,7 +124,7 @@ function stepState(index, currentStepIndex, run) {
 function analysisTone(t, phase) {
   if (phase === "Successful") return { color: t.good, soft: t.goodSoft };
   if (phase === "Failed" || phase === "Error") return { color: t.bad, soft: t.badSoft };
-  return { color: t.amberInk, soft: t.amberSoft };
+  return { color: t.sky, soft: t.skySoft };
 }
 function AnalysisCard({ templateName, run, classes, t }) {
   const { color: toneColor, soft: toneSoft } = analysisTone(t, run.phase);
@@ -284,7 +284,7 @@ function CanaryRampChart({
               )
             ] }, i);
           }),
-          currentStepIndex !== void 0 && currentStepIndex < steps.length && currentWeight !== void 0 && /* @__PURE__ */ jsxs("text", { x: stepCenterX(currentStepIndex), y: yFor(series[currentStepIndex]) - 14, textAnchor: "middle", fontFamily: fontMono, fontWeight: 600, fontSize: 11, fill: t.amberInk, className: currentWeight < 100 ? classes.nowLabelLive : void 0, children: [
+          currentStepIndex !== void 0 && currentStepIndex < steps.length && currentWeight !== void 0 && /* @__PURE__ */ jsxs("text", { x: stepCenterX(currentStepIndex), y: yFor(series[currentStepIndex]) - 14, textAnchor: "middle", fontFamily: fontMono, fontWeight: 600, fontSize: 11, fill: t.sky, className: currentWeight < 100 ? classes.nowLabelLive : void 0, children: [
             currentWeight,
             "% now"
           ] })
@@ -354,7 +354,7 @@ function CanaryRampChart({
         "completed"
       ] }),
       /* @__PURE__ */ jsxs("span", { children: [
-        /* @__PURE__ */ jsx("i", { className: classes.legendDot, style: { backgroundColor: t.amber } }),
+        /* @__PURE__ */ jsx("i", { className: classes.legendDot, style: { backgroundColor: t.sky } }),
         "current"
       ] }),
       /* @__PURE__ */ jsxs("span", { children: [

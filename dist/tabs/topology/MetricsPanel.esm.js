@@ -50,8 +50,7 @@ const useStyles = makeStyles(() => ({
     gap: 5
   },
   liveToggleActive: { color: ({ t }) => t.amberInk, borderColor: ({ t }) => t.amberLine, backgroundColor: ({ t }) => t.amberSoft },
-  liveDot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: ({ t }) => t.amber, animation: "$pulse 1.6s ease-in-out infinite" },
-  "@keyframes pulse": { "0%,100%": { opacity: 1 }, "50%": { opacity: 0.4 } },
+  liveDot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: ({ t }) => t.sky },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 },
   tile: {
     padding: "10px 12px",

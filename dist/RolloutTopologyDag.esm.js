@@ -19,7 +19,7 @@ const useStyles = makeStyles(() => ({
   edgeFlow: { strokeDasharray: "6 6", animationName: "$flow", animationTimingFunction: "linear", animationIterationCount: "infinite" },
   edgeLabel: { fontFamily: fontMono, fontSize: 10, fontWeight: 700 },
   tag: { fontFamily: fontMono, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 5px", borderRadius: 6, marginLeft: 4 },
-  traffic: { position: "absolute", display: "flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.amberInk, whiteSpace: "nowrap", transform: "translate(-50%, -100%)" },
+  traffic: { position: "absolute", display: "flex", alignItems: "center", gap: 5, fontFamily: fontMono, fontSize: 10, color: ({ t }) => t.sky, whiteSpace: "nowrap", transform: "translate(-50%, -100%)" },
   tabs: { display: "flex", gap: 6, marginBottom: 10 },
   tabBtn: { fontFamily: fontMono, fontSize: 11, padding: "3px 10px", borderRadius: 6, border: ({ t }) => `1px solid ${t.line}`, background: "none", color: ({ t }) => t.textLo, cursor: "pointer" },
   tabBtnOn: { color: ({ t }) => t.sky, borderColor: ({ t }) => t.skyLine, backgroundColor: ({ t }) => t.skySoft }
@@ -43,12 +43,12 @@ function podTone(p) {
   if (p.phase === "Failed") return { tone: "bad" };
   if (p.phase === "Succeeded") return { tone: "good" };
   if (p.ready) return { tone: "good" };
-  return { tone: "amber", pulse: true };
+  return { tone: "sky", pulse: true };
 }
 function arTone(phase) {
   if (phase === "Successful") return { tone: "good" };
   if (phase === "Failed" || phase === "Error") return { tone: "bad" };
-  if (phase === "Running" || phase === "Pending") return { tone: "amber", pulse: true };
+  if (phase === "Running" || phase === "Pending") return { tone: "sky", pulse: true };
   return { tone: "faint" };
 }
 function roleWeight(role, canaryWeight) {
@@ -57,14 +57,14 @@ function roleWeight(role, canaryWeight) {
   return 0;
 }
 function roleTone(role) {
-  if (role === "canary") return "amber";
+  if (role === "canary") return "sky";
   if (role === "stable") return "good";
   return "faint";
 }
 function rolloutTone(phase) {
   if (phase === "Healthy") return "good";
   if (phase === "Degraded") return "bad";
-  return "amber";
+  return phase === "Paused" ? "amber" : "sky";
 }
 function podSub(p) {
   if (p.terminating) return "terminating";
@@ -269,7 +269,7 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
             const active = weighted && e.weight > 0;
             const canaryEdge = e.to.startsWith("rs:") || e.from.startsWith("rs:");
             const isCanary = canaryEdge && graph.nodes.find((n) => n.id === (e.to.startsWith("rs:") ? e.to : e.from))?.tag === "canary";
-            const activeStroke = isCanary ? t.amber : t.good;
+            const activeStroke = isCanary ? t.sky : t.good;
             const stroke = active ? activeStroke : t.line;
             const dur = active ? 0.5 + (1 - e.weight / 100) * 2.5 : 0;
             return /* @__PURE__ */ jsxs("g", { children: [
@@ -295,7 +295,7 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
             ] }, `${e.from}-${e.to}`);
           }) }),
           geom.pos.get("svc") && /* @__PURE__ */ jsxs("span", { className: classes.traffic, style: { left: geom.pos.get("svc").x, top: geom.pos.get("svc").y - NODE_H / 2 - 4 }, children: [
-            /* @__PURE__ */ jsx("span", { className: dag.dot, style: { backgroundColor: t.amber, animation: "none" } }),
+            /* @__PURE__ */ jsx("span", { className: dag.dot, style: { backgroundColor: t.sky, animation: "none" } }),
             "~",
             rps,
             " req/s in (simulated)"
@@ -333,7 +333,7 @@ function RolloutTopologyDag({ cluster, namespace, rolloutName, stepWeight }) {
             "stable / healthy"
           ] }),
           /* @__PURE__ */ jsxs("span", { children: [
-            /* @__PURE__ */ jsx("span", { className: dag.legendDot, style: { backgroundColor: t.amber } }),
+            /* @__PURE__ */ jsx("span", { className: dag.legendDot, style: { backgroundColor: t.sky } }),
             "canary / starting"
           ] }),
           /* @__PURE__ */ jsxs("span", { children: [

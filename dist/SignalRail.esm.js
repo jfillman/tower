@@ -9,8 +9,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import { formatDateTime, relativeTime } from './shared/format.esm.js';
 import { fontMono } from './brand/tokens.esm.js';
 import { keepScrollPosition } from './preventFocusScroll.esm.js';
-import './PrButton.esm.js';
 import { parseGitopsPrTitle } from './useReleaseContext.esm.js';
+import './ui/PrRef.esm.js';
 import { imageTag } from './types.esm.js';
 
 const useSignalRailStyles = makeStyles(() => ({
@@ -161,7 +161,7 @@ function dotStyle(t, status) {
     case "good":
       return { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good };
     case "current":
-      return { backgroundColor: t.amberSoft, borderColor: t.amber, color: t.amberInk };
+      return { backgroundColor: t.skySoft, borderColor: t.sky, color: t.sky };
     case "bad":
       return { backgroundColor: t.badSoft, borderColor: t.bad, color: t.bad };
     case "pending":
@@ -252,7 +252,7 @@ function Rail({
         ]
       }
     ),
-    i < steps.length - 1 && /* @__PURE__ */ jsx("div", { className: classes.connector, children: /* @__PURE__ */ jsx("span", { className: classes.connectorArrow, style: { color: t.amber }, children: /* @__PURE__ */ jsx(TallArrow, { size: 18 }) }) })
+    i < steps.length - 1 && /* @__PURE__ */ jsx("div", { className: classes.connector, children: /* @__PURE__ */ jsx("span", { className: classes.connectorArrow, style: { color: t.sky }, children: /* @__PURE__ */ jsx(TallArrow, { size: 18 }) }) })
   ] }, step.key)) });
 }
 function deliveryTag(delivery) {

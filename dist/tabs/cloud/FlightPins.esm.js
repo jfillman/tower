@@ -5,7 +5,8 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { usePinState, useSubmitPin, promoteCandidates, rollbackCandidate } from '../../environments/releasePins.esm.js';
 import { useImageVersions } from '../../useReleaseData.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
-import { SectionLabel, Panel, TierChip, Chip, Button } from '../../ui/index.esm.js';
+import { SectionLabel, Panel, TierChip, Button, Callout } from '../../ui/index.esm.js';
+import { PrRef, OPENING_PR, PrReceipt } from '../../ui/PrRef.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -25,7 +26,6 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textHi,
     border: ({ t }) => `1px solid ${t.line}`
   },
-  ok: { fontSize: 12.5, color: ({ t }) => t.good },
   bad: { fontSize: 12.5, color: ({ t }) => t.bad }
 }));
 function FlightPins({ owner, appName, flight, deploys }) {
@@ -69,6 +69,7 @@ function FlightPinRow({
   );
   const [image, setImage] = useState("");
   const [confirmRollback, setConfirmRollback] = useState(false);
+  const [pressed, setPressed] = useState();
   useEffect(() => {
     if (!image && candidates[0]) setImage(candidates[0].image);
   }, [candidates, image]);
@@ -77,8 +78,9 @@ function FlightPinRow({
   const back = rollbackCandidate(state);
   const busy = submit.loading;
   const run = async (body) => {
-    setConfirmRollback(false);
+    setPressed(body.rollbackTo ? "rollback" : "promote");
     const r = await submit.submit({ owner, appName, env, ...body });
+    setConfirmRollback(false);
     if (r) setNonce((n) => n + 1);
   };
   return /* @__PURE__ */ jsxs(Panel, { className: c.row, children: [
@@ -86,7 +88,7 @@ function FlightPinRow({
       /* @__PURE__ */ jsx("span", { className: c.name, children: env }),
       /* @__PURE__ */ jsx(TierChip, { tier: "flight" }),
       /* @__PURE__ */ jsx("span", { className: c.mono, children: state?.path ?? `glidepath/releases/${env}.yaml` }),
-      state?.openPr && /* @__PURE__ */ jsx("a", { href: state.openPr.url, target: "_blank", rel: "noreferrer", children: /* @__PURE__ */ jsx(Chip, { tone: "flight", children: "pin PR open \u2197" }) })
+      state?.openPr && /* @__PURE__ */ jsx(PrRef, { pr: { url: state.openPr.url, title: `The open pin PR for ${env}` }, size: "chip" })
     ] }),
     pin.error && /* @__PURE__ */ jsxs("div", { className: c.bad, children: [
       "Could not read the pin: ",
@@ -118,16 +120,13 @@ function FlightPinRow({
             children: candidates.map((o) => /* @__PURE__ */ jsx("option", { value: o.image, children: o.label }, o.image))
           }
         ),
-        /* @__PURE__ */ jsxs(
+        /* @__PURE__ */ jsx(
           Button,
           {
             variant: "primary",
             disabled: busy || !image,
             onClick: () => run({ image, promotedFrom: deploys.find((d) => d.imageRef === image)?.env ?? previous }),
-            children: [
-              "Promote to ",
-              env
-            ]
+            children: busy && pressed === "promote" ? OPENING_PR : `Promote to ${env}`
           }
         )
       ] }) : /* @__PURE__ */ jsx("span", { className: ui.note, children: "No built image to promote yet." }),
@@ -139,28 +138,28 @@ function FlightPinRow({
           back.pin.tag,
           "?"
         ] }),
-        /* @__PURE__ */ jsx(Button, { variant: "danger", disabled: busy, onClick: () => run({ rollbackTo: back.sha }), children: "Open rollback PR" }),
+        /* @__PURE__ */ jsx(Button, { variant: "danger", disabled: busy, onClick: () => run({ rollbackTo: back.sha }), children: busy && pressed === "rollback" ? OPENING_PR : "Open rollback PR" }),
         /* @__PURE__ */ jsx(Button, { onClick: () => setConfirmRollback(false), children: "Cancel" })
       ] }) : /* @__PURE__ */ jsxs(Button, { variant: "danger", disabled: busy, onClick: () => setConfirmRollback(true), children: [
         "Roll back to ",
         back.pin.tag
       ] }))
     ] }),
-    submit.error && /* @__PURE__ */ jsx("div", { className: c.bad, children: submit.error }),
+    submit.error && /* @__PURE__ */ jsx(Callout, { tone: "bad", children: submit.error }),
     submit.result && (submit.result.unchanged ? /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
       env,
       " is already pinned to ",
       submit.result.pin.tag,
       "; no pull request needed."
-    ] }) : /* @__PURE__ */ jsxs("div", { className: c.ok, children: [
-      submit.result.alreadyOpen ? "Updated the open pin PR" : "Opened a pin PR",
-      " for ",
-      submit.result.pin.tag,
-      ":",
-      " ",
-      /* @__PURE__ */ jsx("a", { href: submit.result.prUrl, target: "_blank", rel: "noreferrer", children: submit.result.prUrl }),
-      ". Merge it to deploy."
-    ] }))
+    ] }) : submit.result.prUrl && /* @__PURE__ */ jsx(
+      PrReceipt,
+      {
+        prUrl: submit.result.prUrl,
+        alreadyOpen: submit.result.alreadyOpen,
+        updated: submit.result.alreadyOpen,
+        next: pressed === "rollback" ? "merge it to roll back." : "merge it to deploy."
+      }
+    ))
   ] });
 }
 

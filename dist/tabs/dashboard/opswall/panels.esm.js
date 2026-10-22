@@ -5,6 +5,7 @@ import { deployFrequencyBand, leadTimeBand, changeFailureBand, restoreBand } fro
 import { PIPELINE_CATEGORIES, CATEGORY_LABEL } from '../../../fleet/pipelineHistory.esm.js';
 import { fmtAge, fmtSeconds, bandColor, severityColor, useOpsStyles, BAND_LABEL } from './styles.esm.js';
 import { FilterGroup, FilterChip, StatusChip } from '../../../ui/index.esm.js';
+import { PrRef } from '../../../ui/PrRef.esm.js';
 
 function useKit() {
   const t = useHangarTokens();
@@ -269,7 +270,7 @@ function DeploymentsPanel({
         ] }),
         /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
           canary && /* @__PURE__ */ jsxs(Fragment, { children: [
-            /* @__PURE__ */ jsx(Bar, { value: canary.weight ?? 0, total: 100, color: t.amber }),
+            /* @__PURE__ */ jsx(Bar, { value: canary.weight ?? 0, total: 100, color: t.sky }),
             /* @__PURE__ */ jsxs("span", { className: c.mono, children: [
               canary.weight,
               "%",
@@ -301,12 +302,9 @@ function DeploymentsPanel({
         /* @__PURE__ */ jsx("div", { className: c.rowMain, children: /* @__PURE__ */ jsxs("div", { className: c.rowTop, children: [
           /* @__PURE__ */ jsx("span", { className: c.app, children: a.app }),
           /* @__PURE__ */ jsx("span", { className: c.envTag, children: a.env }),
-          /* @__PURE__ */ jsx("span", { className: c.mono, children: "release PR open" })
+          a.prUrl ? /* @__PURE__ */ jsx(PrRef, { pr: { url: a.prUrl, title: `Release PR: ${a.app} to ${a.env}` }, size: "chip" }) : /* @__PURE__ */ jsx("span", { className: c.mono, children: "release PR open" })
         ] }) }),
-        /* @__PURE__ */ jsxs("div", { className: c.rowSide, children: [
-          /* @__PURE__ */ jsx("span", { className: c.age, children: fmtAge(now, a.since) }),
-          /* @__PURE__ */ jsx(Links, { links: a.prUrl ? [{ label: "PR", href: a.prUrl, external: true }] : [] })
-        ] })
+        /* @__PURE__ */ jsx("div", { className: c.rowSide, children: /* @__PURE__ */ jsx("span", { className: c.age, children: fmtAge(now, a.since) }) })
       ] }, a.key)),
       /* @__PURE__ */ jsx(More, { total: approvals.length, shown: Math.min(3, approvals.length) })
     ] }),

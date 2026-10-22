@@ -199,7 +199,8 @@ const useStyles = makeStyles(() => ({
     backgroundColor: "transparent",
     color: ({ t }) => t.textLo
   },
-  resultLink: { fontFamily: fontMono, fontSize: 12.5, color: ({ t }) => t.sky },
+  // Space above a PR receipt, its error, or the button that opens the PR.
+  prReceipt: { marginTop: 12 },
   note: { fontSize: 12.5, color: ({ t }) => t.textLo },
   example: {
     margin: "6px 0 0",

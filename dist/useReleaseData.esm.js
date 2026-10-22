@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { usePollTick } from './livePoll.esm.js';
+import { usePollTick, pageHidden } from './livePoll.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 function errorMessage(e) {
@@ -385,6 +385,45 @@ function useDeployHistory(repoRef, environments, refreshNonce = 0) {
   }, [key, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
+const RELEASE_RUN_POLL_MS = 4e3;
+const RELEASE_RUN_GIVE_UP_MS = 15 * 6e4;
+function useReleaseRunStatus(appName, run) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [state, setState] = useState({});
+  const [startedAt] = useState(() => Date.now());
+  const settled = state.data?.state === "pr" || state.data?.state === "failed" || Boolean(state.gaveUp);
+  const tick = usePollTick(appName && run && !settled ? RELEASE_RUN_POLL_MS : null);
+  useEffect(() => {
+    if (!appName || !run || settled) return void 0;
+    if (Date.now() - startedAt > RELEASE_RUN_GIVE_UP_MS) {
+      setState((s) => ({ ...s, gaveUp: true }));
+      return void 0;
+    }
+    if (tick > 0 && pageHidden()) return void 0;
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl("glidepath");
+        const res = await fetchApi.fetch(
+          `${baseUrl}/release-run?appName=${encodeURIComponent(appName)}&run=${encodeURIComponent(run)}`
+        );
+        if (!res.ok) {
+          const body = await res.json().catch(() => void 0);
+          throw new Error(body?.error ?? `request failed with ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) setState({ data });
+      } catch (e) {
+        if (!cancelled) setState((s) => ({ ...s, error: errorMessage(e) }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appName, run, tick]);
+  return state;
+}
 
-export { useArgoActions, useArgoCapabilities, useArgoStatusMap, useDeployHistory, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useRepoHead };
+export { useArgoActions, useArgoCapabilities, useArgoStatusMap, useDeployHistory, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useReleaseRunStatus, useRepoHead };
 //# sourceMappingURL=useReleaseData.esm.js.map

@@ -1,5 +1,6 @@
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { commitProofOf } from '../commitProof.esm.js';
 import { makeStyles } from '@material-ui/core/styles';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
@@ -18,6 +19,7 @@ import { ReleaseLog, buildLogEntries } from '../ReleaseLog.esm.js';
 import { LeadTimePanel } from '../TimelinePanel.esm.js';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel.esm.js';
 import { PromoteDialog } from '../PromoteDialog.esm.js';
+import { ReleaseRunTracker } from '../ReleaseRunTracker.esm.js';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass.esm.js';
 import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
@@ -28,7 +30,7 @@ import { useReleaseNames, draftStillBelongsTo } from '../useReleaseNames.esm.js'
 import { useReleaseMode, useReleaseDraft, useSaveReleaseDraft, useSubmitReleaseMode, useReleasePlanned, RELEASE_MODE_LABEL, suggestNotes } from '../releaseFlow.esm.js';
 import { ReleaseModeBar } from '../ReleaseModeBar.esm.js';
 import { ReleaseDraftEditor } from '../ReleaseDraftEditor.esm.js';
-import { isPreviewEnvName, splitImageRef } from '../types.esm.js';
+import { isPreviewEnvName, imageTag, splitImageRef } from '../types.esm.js';
 
 const useStyles = makeStyles(() => ({
   panelSpacer: { marginTop: 16, scrollMarginTop: 16 },
@@ -126,6 +128,25 @@ function ReleasesTab() {
   useEffect(() => {
     if (promote.result && !promote.result.alreadyOpen) refresh();
   }, [promote.result]);
+  const [tracked, setTracked] = useState([]);
+  const [, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const result = promote.result;
+    if (result?.mode !== "pipeline" || !result.pipelineRun || !promoteTarget) return;
+    const shortTag = imageTag(promoteTarget.source.image);
+    const run = result.pipelineRun;
+    setTracked(
+      (prev) => prev.some((r) => r.run === run) ? prev : [{ run, env: promoteTarget.target.env, label: releaseNames?.byTag.get(shortTag) ?? shortTag }, ...prev]
+    );
+    setPromoteTarget(null);
+  }, [promote.result]);
+  const onTrackedPr = useCallback(() => refresh(), [refresh]);
+  const openRun = (run) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.set("tab", "pipelines");
+    next.set("run", run);
+    return next;
+  });
   if (loading) return /* @__PURE__ */ jsx(Progress, {});
   if (error) return /* @__PURE__ */ jsx(ResponseErrorPanel, { error: new Error(error) });
   const pipelineEnvironments = pipelineEnvironmentsForRecords;
@@ -224,6 +245,17 @@ function ReleasesTab() {
         onOpenRecord: showInPanel
       }
     ),
+    appName && tracked.map((r) => /* @__PURE__ */ jsx(
+      ReleaseRunTracker,
+      {
+        appName,
+        release: r,
+        onPr: onTrackedPr,
+        onOpenRun: openRun,
+        onDismiss: () => setTracked((prev) => prev.filter((x) => x.run !== r.run))
+      },
+      r.run
+    )),
     /* @__PURE__ */ jsx(
       Subtabs,
       {
@@ -289,6 +321,7 @@ function ReleasesTab() {
               submitting: submitMode.loading,
               error: submitMode.error,
               prUrl: submitMode.result?.prUrl,
+              alreadyOpen: submitMode.result?.alreadyOpen,
               waitingForMerge: modePending,
               onChange: (mode) => {
                 setRequestedMode(mode);

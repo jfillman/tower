@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { Panel, SectionLabel, Chip, Button } from './index.esm.js';
 import { useUi } from './styles.esm.js';
+import { OPENING_PR } from './PrRef.esm.js';
 
 const useStyles = makeStyles(() => ({
   panel: { padding: 16, display: "flex", flexDirection: "column", gap: 12, alignSelf: "start" },
@@ -28,7 +29,7 @@ function PendingPanel({
   busy,
   canSubmit,
   submitLabel,
-  busyLabel = "Opening\u2026",
+  busyLabel = OPENING_PR,
   onDiscard,
   onSubmit,
   children,

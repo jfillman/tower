@@ -68,7 +68,8 @@ const useEnvPickerStyles = makeStyles(() => ({
 }));
 function dotColor(t, h) {
   if (h === "healthy") return t.good;
-  if (h === "progressing" || h === "paused") return t.amber;
+  if (h === "progressing") return t.sky;
+  if (h === "paused") return t.amber;
   return t.bad;
 }
 function tierIconFor(tier) {

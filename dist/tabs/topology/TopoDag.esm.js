@@ -54,7 +54,7 @@ function dotStyle(t, status) {
     case "good":
       return { backgroundColor: t.goodSoft, borderColor: t.good, color: t.good };
     case "current":
-      return { backgroundColor: t.amberSoft, borderColor: t.amber, color: t.amberInk };
+      return { backgroundColor: t.skySoft, borderColor: t.sky, color: t.sky };
     case "bad":
       return { backgroundColor: t.badSoft, borderColor: t.bad, color: t.bad };
     default:
@@ -94,7 +94,7 @@ function TopoDag({
         ]
       }
     ),
-    i < stages.length - 1 && /* @__PURE__ */ jsx("div", { className: classes.connector, children: /* @__PURE__ */ jsx("span", { className: classes.connectorArrow, style: { color: t.amber }, children: /* @__PURE__ */ jsx(TallArrow, { size: 18 }) }) })
+    i < stages.length - 1 && /* @__PURE__ */ jsx("div", { className: classes.connector, children: /* @__PURE__ */ jsx("span", { className: classes.connectorArrow, style: { color: t.sky }, children: /* @__PURE__ */ jsx(TallArrow, { size: 18 }) }) })
   ] }, stage.key)) });
 }
 

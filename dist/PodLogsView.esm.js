@@ -16,19 +16,14 @@ const useStyles = makeStyles(() => ({
     fontSize: 10.5,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
-    color: ({ t }) => t.amberInk,
+    color: ({ t }) => t.sky,
     marginLeft: "auto"
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: "50%",
-    backgroundColor: ({ t }) => t.amber,
-    animation: "$pulse 1.6s ease-in-out infinite"
-  },
-  "@keyframes pulse": {
-    "0%, 100%": { opacity: 1 },
-    "50%": { opacity: 0.4 }
+    backgroundColor: ({ t }) => t.sky
   },
   log: {
     margin: 0,
