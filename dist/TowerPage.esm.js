@@ -15,6 +15,8 @@ import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
 import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab.esm.js';
 import { TopologyTab } from './tabs/TopologyTab.esm.js';
+import { AirspaceTab } from './tabs/AirspaceTab.esm.js';
+import { AirspacePage } from './airspace/AirspacePage.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
 import { DeploymentsTab } from './tabs/DeploymentsTab.esm.js';
@@ -41,6 +43,7 @@ const TABS = [
   { id: "deployments", label: "Deployments", Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: "releases", label: "Releases", Component: ReleasesTab, requires: [CAP.releases] },
   { id: "topology", label: "Topology", Component: TopologyTab, requires: [CAP.k8sRuntime] },
+  { id: "airspace", label: "Airspace", Component: AirspaceTab, requires: [CAP.k8sRuntime] },
   { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
   { id: "slos", label: "SLOs", Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
@@ -156,6 +159,7 @@ function TowerPage() {
   const entityRef = searchParams.get("entity");
   const tabParam = searchParams.get("tab") ?? "overview";
   const isDashboardView = searchParams.get("view") === "dashboard";
+  const isAirspaceView = searchParams.get("view") === "airspace";
   const [entity, setEntity] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [loading, setLoading] = useState(false);
@@ -187,12 +191,15 @@ function TowerPage() {
   const clearApp = () => setSearchParams({});
   const selectTab = (id) => setSearchParams({ entity: entityRef ?? "", tab: id });
   const openDashboard = () => setSearchParams({ view: "dashboard" });
+  const openAirspace = () => setSearchParams({ view: "airspace" });
   const openBreakglass = (_row, link) => setSearchParams(new URLSearchParams(link));
   let body;
   if (isDashboardView) {
     body = /* @__PURE__ */ jsx(TowerDashboardPage, { onBack: clearApp });
+  } else if (isAirspaceView) {
+    body = /* @__PURE__ */ jsx(AirspacePage, { onBack: clearApp });
   } else if (!entityRef) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenBreakglass: openBreakglass }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenAirspace: openAirspace, onOpenBreakglass: openBreakglass }) });
   } else if (loading) {
     body = /* @__PURE__ */ jsx(TabSkeleton, {});
   } else if (error) {

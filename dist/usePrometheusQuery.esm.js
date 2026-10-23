@@ -17,7 +17,9 @@ function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs) {
   const [state, setState] = useState({ loading: Boolean(cluster && query), samples: [] });
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    return void 0;
+    if (!pollMs) return void 0;
+    const id = setInterval(() => setTick((n) => n + 1), pollMs);
+    return () => clearInterval(id);
   }, [pollMs]);
   useEffect(() => {
     if (!cluster || !query) {

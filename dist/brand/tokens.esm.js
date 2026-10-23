@@ -61,6 +61,7 @@ function useHangarTokens() {
 const fontDisplay = '"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif';
 const fontBody = '"IBM Plex Sans", -apple-system, "Segoe UI", sans-serif';
 const fontMono = '"IBM Plex Mono", "SFMono-Regular", Consolas, monospace';
+const fontScale = { xs: 11, sm: 12, md: 13};
 
-export { fontBody, fontDisplay, fontMono, useHangarTokens };
+export { fontBody, fontDisplay, fontMono, fontScale, useHangarTokens };
 //# sourceMappingURL=tokens.esm.js.map
