@@ -39,8 +39,8 @@ Part of the [Hangar](https://github.com/jfillman/hangar) Internal Developer Plat
 ## Features
 
 Tabs, in the order of a change's lifecycle: **Overview**, **Pull requests**, **Pipelines**, **Deployments**,
-**Releases**, **Topology**, **Images**, **SLOs**, **Notifications**, **Configure** (sub-tabs Environments, Shared
-values, Pipeline). Plus a fleet-wide dashboard.
+**Releases**, **Topology**, **Airspace**, **Images**, **SLOs**, **Notifications**, **Configure** (sub-tabs Environments,
+Shared values, Pipeline). Plus a fleet-wide dashboard and the fleet **Airspace** page (Map, Contracts, Drift).
 
 - **Release Records**: structured release history, persisted as git commits, with compare and export; every release gets a tree name (ASPEN, BIRCH...), and a live **Next release** draft shows scope, open PRs, linked issues, candidate images and readiness before anything reaches Flight, with release notes the team writes; release modes (Hand-flown, Assisted) with a sign-off on the production release PR; each record's outcome (clean, rolled back) written back, a changelog, opt-in GitHub Releases, scheduled releases with milestones and Jira links, and a fleet release calendar
 - **Release matrix**: which release is live in which environment, along the app's real promotion order
@@ -48,11 +48,13 @@ values, Pipeline). Plus a fleet-wide dashboard.
 - **Pull requests and checks**: the PRs in flight and their gates
 - **Configure** (Environments, Shared values, Pipeline): edit an app's environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images**: burn rate, live objects, artifact catalog
+- **Airspace**: who an app talks to, from traces (Tempo's service graph), its values file (declared peers) and its components, with drift between them; a fleet map, the catalog's API contracts and fleet drift. See [Airspace](airspace.md)
 - **Fleet dashboards**: Fleet Grid and Ops Wall
 - **Hangar sign-in page**: the branded first screen (mark, product family, one sign-in box), light and dark, installed with one line; see [Installation](installation.md#sign-in-page)
 
 ## Quick Links
 
+- [Airspace](airspace.md) — dependencies, API contracts and drift: what is read, from where, and what is phase 2
 - [Deployments](deployments.md) — the troubleshooting banner, the delivery path, and every control explained
 - [Security model](security.md) — who may do what, and the guardrails behind each action
 - [Cluster credentials](credentials/index.md) — how Tower reaches clusters with no stored token: identities, trust, policies, operations

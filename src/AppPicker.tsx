@@ -111,6 +111,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     marginBottom: 6,
   },
+  fleetLinks: { display: 'flex', gap: 16, flexWrap: 'wrap' },
   titleRow: {
     display: 'flex',
     alignItems: 'baseline',
@@ -295,10 +296,13 @@ export function ownerLabel(owner: unknown): string {
 export function AppPicker({
   onSelect,
   onOpenDashboard,
+  onOpenAirspace,
   onOpenBreakglass,
 }: {
   onSelect: (entityRef: string) => void;
   onOpenDashboard: () => void;
+  /** The fleet Airspace page: Map, Contracts, Drift. */
+  onOpenAirspace?: () => void;
   /** A break-glass queue row was chosen: open its session (the link is Tower's own query string). */
   onOpenBreakglass?: (row: BreakglassQueueRow, link: string) => void;
 }) {
@@ -565,7 +569,10 @@ export function AppPicker({
       </Typography>
       <div className={classes.titleRow}>
         <Typography className={classes.title}>Services</Typography>
-        <TextLink onClick={onOpenDashboard}>Fleet Dashboard →</TextLink>
+        <span className={classes.fleetLinks}>
+          <TextLink onClick={onOpenDashboard}>Fleet Dashboard →</TextLink>
+          {onOpenAirspace && <TextLink onClick={onOpenAirspace}>Airspace →</TextLink>}
+        </span>
       </div>
       <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>
       <div className={classes.tabs} role="tablist" aria-label="Services sections">
