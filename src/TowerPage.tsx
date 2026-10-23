@@ -16,6 +16,8 @@ import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
 import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab';
 import { TopologyTab } from './tabs/TopologyTab';
+import { AirspaceTab } from './tabs/AirspaceTab';
+import { AirspacePage } from './airspace/AirspacePage';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
 import { DeploymentsTab } from './tabs/DeploymentsTab';
@@ -57,6 +59,9 @@ import { TabError, TabSkeleton, Tooltip } from './ui';
 // "App Configuration" the same day, once "Config" became ambiguous between
 // the two.
 //
+// 2026-10-23: Airspace (who the app talks to, observed / declared / owned) sits right after Topology: Topology is
+// what runs inside one environment, Airspace is what that environment connects to (docs/airspace.md).
+//
 // 2026-10-03: a tab shows only when the service has every capability it
 // `requires` (serviceClass.ts). A tab with no `requires` always shows, so any
 // service Tower lists gets at least Overview. Tabs the cloud targets cannot use
@@ -79,6 +84,7 @@ export const TABS: readonly TabDef[] = [
   { id: 'deployments', label: 'Deployments', Component: CloudDeploymentsTab, requires: [CAP.cloudRuntime] },
   { id: 'releases', label: 'Releases', Component: ReleasesTab, requires: [CAP.releases] },
   { id: 'topology', label: 'Topology', Component: TopologyTab, requires: [CAP.k8sRuntime] },
+  { id: 'airspace', label: 'Airspace', Component: AirspaceTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
   { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
@@ -200,6 +206,7 @@ export function TowerPage() {
   const entityRef = searchParams.get('entity');
   const tabParam = (searchParams.get('tab') as TabId | null) ?? 'overview';
   const isDashboardView = searchParams.get('view') === 'dashboard';
+  const isAirspaceView = searchParams.get('view') === 'airspace';
 
   const [entity, setEntity] = useState<Entity | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -238,16 +245,19 @@ export function TowerPage() {
   const clearApp = () => setSearchParams({});
   const selectTab = (id: TabId) => setSearchParams({ entity: entityRef ?? '', tab: id });
   const openDashboard = () => setSearchParams({ view: 'dashboard' });
+  const openAirspace = () => setSearchParams({ view: 'airspace' });
   // A break-glass queue row: the session's deep link (entity, topology, env, breakglass=<id>), see breakglassDeepLink.ts.
   const openBreakglass = (_row: unknown, link: string) => setSearchParams(new URLSearchParams(link));
 
   let body: JSX.Element;
   if (isDashboardView) {
     body = <TowerDashboardPage onBack={clearApp} />;
+  } else if (isAirspaceView) {
+    body = <AirspacePage onBack={clearApp} />;
   } else if (!entityRef) {
     body = (
       <div style={{ padding: '48px 24px' }}>
-        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenBreakglass={openBreakglass} />
+        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenAirspace={openAirspace} onOpenBreakglass={openBreakglass} />
       </div>
     );
   } else if (loading) {

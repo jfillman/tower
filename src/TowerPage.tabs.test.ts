@@ -23,6 +23,7 @@ describe('which tabs a service gets', () => {
       'deployments',
       'releases',
       'topology',
+      'airspace',
       'images',
       'slos',
       'notifications',
@@ -43,6 +44,7 @@ describe('which tabs a service gets', () => {
   it('a cloud service gets no cluster or Helm tabs, and keeps the pipeline and release ones', () => {
     const e = entity({ 'hangar.io/service-class': 'function', 'hangar.io/deploy-target': 'aws-lambda' });
     expect(ids(e)).not.toEqual(expect.arrayContaining(['topology']));
+    expect(ids(e)).not.toContain('airspace');
     expect(ids(e)).not.toContain('config');
     expect(ids(e)).not.toContain('slos');
     expect(ids(e)).toEqual(expect.arrayContaining(['overview', 'pipelines', 'deployments', 'releases', 'configure']));
@@ -54,6 +56,7 @@ describe('which tabs a service gets', () => {
       'pull-requests',
       'deployments',
       'topology',
+      'airspace',
       'slos',
       'notifications',
       'configure',
