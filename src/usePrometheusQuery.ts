@@ -96,6 +96,8 @@ export function usePrometheusInstantQuery(
   // without the GitHub-rate-limit concerns that keep every other Tower data
   // hook manual-refresh-only.
   pollMs?: number,
+  // Another Prometheus-API service on `cluster` (Thanos Query on the hub, for Airspace); the cluster's own by default.
+  endpoint?: PrometheusEndpoint,
 ): UsePrometheusQueryResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -118,7 +120,7 @@ export function usePrometheusInstantQuery(
 
     (async () => {
       try {
-        const path = proxyPath(`/api/v1/query?query=${encodeURIComponent(query)}`);
+        const path = prometheusProxyPath(`/api/v1/query?query=${encodeURIComponent(query)}`, endpoint);
         const res = await k8sProxyGet<RawPrometheusVector>(discoveryApi, fetchApi, cluster, path);
         if (cancelled) return;
         if (res.status === 'error' || !res.data) {
@@ -139,7 +141,9 @@ export function usePrometheusInstantQuery(
     return () => {
       cancelled = true;
     };
-  }, [cluster, query, refreshNonce, tick, discoveryApi, fetchApi]);
+    // `endpoint` is identified by its fields; a new object with the same service must not refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cluster, query, refreshNonce, tick, discoveryApi, fetchApi, endpoint?.namespace, endpoint?.service, endpoint?.port]);
 
   return state;
 }

@@ -11,7 +11,7 @@ import {
   formatSeconds,
   type ServiceGraph,
 } from './model';
-import { toServiceGraph, serviceGraphQueries } from './queries';
+import { airspaceClusters, clusterMatcher, observedOperationsQuery, toServiceGraph, serviceGraphQueries } from './queries';
 import { byKindThenTitle, contractOf, openApiOperations, refName, titleOf } from './contracts';
 import { componentKind } from './model';
 
@@ -248,5 +248,31 @@ paths:
     expect(componentKind('rabbitmq')).toBe('messaging');
     expect(componentKind('postgresql')).toBe('database');
     expect(componentKind('dex')).toBe('peer');
+  });
+});
+
+describe('Airspace clusters and the hub query layer', () => {
+  it('offers the registry names, never a role key like controlPlane', () => {
+    expect(airspaceClusters(['hangar-prod', 'hangar-dev'], 'hangar-dev', ['controlPlane'])).toEqual(['hangar-dev', 'hangar-prod']);
+  });
+  it('falls back to the control plane and real cluster keys when the registry does not answer', () => {
+    expect(airspaceClusters(undefined, 'hangar-dev', ['controlPlane'])).toEqual(['hangar-dev']);
+    expect(airspaceClusters([], 'hangar-dev', ['controlPlane', 'edge-1'])).toEqual(['edge-1', 'hangar-dev']);
+  });
+  it('scopes every query to one cluster when reading the shared Thanos', () => {
+    const m = clusterMatcher('hangar-prod');
+    expect(m).toBe('cluster="hangar-prod"');
+    const q = serviceGraphQueries('1h', m);
+    expect(q.rate).toBe('sum by (client, server, connection_type) (rate(traces_service_graph_request_total{cluster="hangar-prod"}[1h]))');
+    expect(q.p95).toContain('traces_service_graph_request_server_seconds_bucket{cluster="hangar-prod"}[1h]');
+    expect(q.errors).toContain('traces_service_graph_request_failed_total{cluster="hangar-prod"}[1h]');
+    expect(observedOperationsQuery('flight-api-prod', '24h', m)).toBe(
+      'sum by (span_name) (rate(traces_span_metrics_calls_total{service_name="flight-api-prod", span_kind="SPAN_KIND_SERVER", cluster="hangar-prod"}[24h]))',
+    );
+  });
+  it('leaves queries to a cluster\'s own Prometheus unscoped, and strips quotes from names and labels', () => {
+    expect(serviceGraphQueries('15m').rate).toBe('sum by (client, server, connection_type) (rate(traces_service_graph_request_total[15m]))');
+    expect(clusterMatcher(undefined)).toBe('');
+    expect(clusterMatcher('a"b', 'clu-ster')).toBe('cluster="ab"');
   });
 });
