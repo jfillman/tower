@@ -32,6 +32,17 @@ export const STATE_HINT: Record<EdgeState, string> = {
   broker: 'Producer to consumer through the message broker the app attaches to; no NetworkPolicy declaration applies.',
 };
 
+/** What, if anything, to do about an edge in each state: the second line of the legend's explainer. */
+export const STATE_TODO: Record<EdgeState, string> = {
+  ok: 'Nothing to do.',
+  undeclared:
+    'Declare the caller in the callee\'s networkPolicy.allowIngressFrom (and the caller\'s allowEgressTo if it restricts egress), or remove the call. A NetworkPolicy built from the declarations would block it.',
+  silent: 'Check that the caller still exists before removing the declaration; a quiet environment can be idle, not broken.',
+  composed: 'Nothing to declare: Crossplane creates it with the app, so the connection is known.',
+  ingress: 'Nothing to do. A caller you expected to see here is not instrumented, or calls through the gateway.',
+  broker: 'Nothing to declare: both sides only talk to the broker, which the app already attaches to.',
+};
+
 export const KIND_LABEL: Record<EdgeKind, string> = {
   rpc: 'HTTP / RPC',
   messaging: 'Messaging',
