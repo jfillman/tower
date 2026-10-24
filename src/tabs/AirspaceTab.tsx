@@ -12,7 +12,14 @@ import { AirspaceStrips } from '../airspace/AirspaceStrips';
 import { AirspaceRadar } from '../airspace/AirspaceRadar';
 import { buildAppAirspace, serviceNameOf } from '../airspace/model';
 import { WINDOWS, type AirspaceWindow } from '../airspace/queries';
-import { loadAirspaceView, saveAirspaceView, useAirspaceValues, useServiceGraph, type AirspaceView } from '../airspace/useAirspace';
+import {
+  loadAirspaceView,
+  saveAirspaceView,
+  useAirspaceSource,
+  useAirspaceValues,
+  useServiceGraph,
+  type AirspaceView,
+} from '../airspace/useAirspace';
 
 // Airspace for one app (docs/airspace.md): who it talks to in one environment, observed in traces, declared in its
 // values file, and owned as components. Flight Strips is the default view; Radar Scope is the same data as a graph.
@@ -52,6 +59,7 @@ export function AirspaceTab() {
       ? { owner, appName, env: selected.env, tier: tier === 'upper' ? ('flight' as const) : ('ground' as const), cluster: selected.cluster }
       : undefined;
   const graphState = useServiceGraph(selected?.cluster, win, nonce);
+  const graphSource = useAirspaceSource(selected?.cluster);
   const valuesState = useAirspaceValues(valuesTarget, nonce);
   const airspace = useMemo(
     () =>
@@ -138,7 +146,14 @@ export function AirspaceTab() {
       </FilterBar>
 
       {graphState.error && (
-        <Callout tone="warn" title={`Couldn't read the service graph from ${selected.cluster}'s Prometheus`}>
+        <Callout
+          tone="warn"
+          title={
+            graphSource.via === 'hub'
+              ? `Couldn't read ${selected.cluster}'s service graph from the hub's Thanos`
+              : `Couldn't read the service graph from ${selected.cluster}'s Prometheus`
+          }
+        >
           {graphState.error}. Declared and owned connections still show.
         </Callout>
       )}

@@ -42,7 +42,7 @@ one fleet page (**Airspace →** on Tower's home: Map, Contracts, Drift).
   it reads it without trusting it.
 - **The release check is authoritative.** The diff in Contracts is Tower's own reading; the api-compat check's oasdiff
   report on the release PR decides, and is what the Release Record shows.
-- **Few GitHub calls.** The service graph comes from each cluster's own Prometheus and refreshes every minute.
+- **Few GitHub calls.** The service graph comes from Prometheus (the hub's Thanos, or each cluster's own) and refreshes every minute.
   - The per-app tab reads one values file per environment you select, through the Glidepath backend.
   - Fleet Drift reads one values file per app that has traffic, when you open it.
   - Contracts reads the attestations of each environment's image (provenance route, registry-backed), once per image
@@ -61,6 +61,27 @@ one fleet page (**Airspace →** on Tower's home: Map, Contracts, Drift).
 | Operations seen | Span names a service served | `traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER"}` from the collector's span-metrics connector |
 | Deployed spec | The spec an environment runs | The image's in-toto attestation, predicate type `https://hangar.io/attestations/api-spec/v1` (`apiType`, `path`, `sha256`, `specVersion`, `title`, `version`, `spec`), signed by Glidepath's build (`attest-api-spec`, cicd.yaml `api.spec`), read through the backend's `/provenance?image=` for the image the environment's Rollout runs |
 | api-compat verdict | A release PR's compatibility report | The `<!-- glidepath:api-compat {JSON} -->` line in the api-compat gate's PR comment (contract version 1), passed through as the gate's message |
+
+**Reading every cluster from the hub.** With `tower.airspace.metrics` set, Tower reads all observed data from one
+Prometheus-API query layer instead of each cluster's own Prometheus: the hub's Thanos Query, which receives every
+cluster's `traces_*` series (Apron `observability.receive` / `observability.remoteWrite`). Each query is scoped with
+`cluster="<name>"`, the external label Apron sets on every cluster's Prometheus. Tower then needs no access to the
+other clusters' Prometheus, and the 24h window works on a cluster whose own Prometheus keeps less.
+
+```yaml
+tower:
+  airspace:
+    metrics:
+      cluster: hangar-dev            # whose Kubernetes proxy reaches the query layer
+      namespace: observability       # default
+      service: thanos-query-frontend # default
+      port: 9090                     # default
+      clusterLabel: cluster          # default
+```
+
+The fleet page's cluster list comes from the cluster registry. Without it, Tower falls back to
+`tower.controlPlaneCluster` and any `tower.clusters` key that is a cluster name; role keys such as `controlPlane`
+(the backend's shape) are never offered as clusters.
 
 The service names in the graph are `<app>-<env>`: Hangar's Instrumentation takes `service.name` from the pod's
 `app.kubernetes.io/instance` label. A client of `user` is a request with no traced caller (the gateway, a probe).

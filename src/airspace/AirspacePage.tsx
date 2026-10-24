@@ -7,8 +7,9 @@ import { HangarMark } from '../brand/HangarMark';
 import { Callout, FilterBar, FilterChips, FilterSelect, PageHeader, Subtabs, TextLink } from '../ui';
 import { RefreshButton } from '../RefreshButton';
 import { usePlatformConfig } from '../platformConfig';
-import { WINDOWS, type AirspaceWindow } from './queries';
-import { useServiceGraph } from './useAirspace';
+import { useRegisteredClusters } from '../environments/registeredClusters';
+import { WINDOWS, airspaceClusters, type AirspaceWindow } from './queries';
+import { useAirspaceSource, useServiceGraph } from './useAirspace';
 import { useHangarApps } from './useHangarApps';
 import { MapView } from './MapView';
 import { ContractsView } from './ContractsView';
@@ -36,12 +37,18 @@ export function AirspacePage({ onBack }: { onBack: () => void }) {
   const sub = (SUBS.find(s => s.id === searchParams.get('sub'))?.id ?? 'map') as Sub;
   const appFilter = searchParams.get('app') ?? undefined;
   const platform = usePlatformConfig();
-  const clusters = useMemo(() => {
-    const names = new Set(Object.keys(platform.clusters));
-    if (platform.controlPlaneCluster) names.add(platform.controlPlaneCluster);
-    return [...names].sort();
-  }, [platform]);
+  const registry = useRegisteredClusters();
+  const clusters = useMemo(
+    () =>
+      airspaceClusters(
+        registry.status === 'ready' ? registry.clusters.map(r => r.name) : undefined,
+        platform.controlPlaneCluster,
+        Object.keys(platform.clusters),
+      ),
+    [platform, registry],
+  );
   const [cluster, setCluster] = useState<string>(() => searchParams.get('cluster') ?? platform.controlPlaneCluster ?? '');
+  const source = useAirspaceSource(cluster);
   useEffect(() => {
     if (!cluster && clusters[0]) setCluster(clusters[0]);
   }, [cluster, clusters]);
@@ -99,7 +106,10 @@ export function AirspacePage({ onBack }: { onBack: () => void }) {
         <FilterChips label="Window" options={WINDOWS.map(w => ({ id: w, label: w }))} value={win} onChange={setWin} />
       </FilterBar>
       {graph.error && (
-        <Callout tone="warn" title={`Couldn't read the service graph from ${cluster}'s Prometheus`}>
+        <Callout
+          tone="warn"
+          title={source.via === 'hub' ? `Couldn't read ${cluster}'s service graph from the hub's Thanos` : `Couldn't read the service graph from ${cluster}'s Prometheus`}
+        >
           {graph.error}
         </Callout>
       )}

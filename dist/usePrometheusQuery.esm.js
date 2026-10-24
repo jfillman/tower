@@ -11,7 +11,7 @@ function prometheusProxyPath(subpath, endpoint = CLUSTER_PROMETHEUS) {
   return `/api/v1/namespaces/${endpoint.namespace}/services/${endpoint.service}:${endpoint.port}/proxy${subpath}`;
 }
 const proxyPath = (subpath) => prometheusProxyPath(subpath);
-function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs) {
+function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs, endpoint) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [state, setState] = useState({ loading: Boolean(cluster && query), samples: [] });
@@ -30,7 +30,7 @@ function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs) {
     setState((prev) => ({ loading: true, samples: prev.samples }));
     (async () => {
       try {
-        const path = proxyPath(`/api/v1/query?query=${encodeURIComponent(query)}`);
+        const path = prometheusProxyPath(`/api/v1/query?query=${encodeURIComponent(query)}`, endpoint);
         const res = await k8sProxyGet(discoveryApi, fetchApi, cluster, path);
         if (cancelled) return;
         if (res.status === "error" || !res.data) {
@@ -50,7 +50,7 @@ function usePrometheusInstantQuery(cluster, query, refreshNonce = 0, pollMs) {
     return () => {
       cancelled = true;
     };
-  }, [cluster, query, refreshNonce, tick, discoveryApi, fetchApi]);
+  }, [cluster, query, refreshNonce, tick, discoveryApi, fetchApi, endpoint?.namespace, endpoint?.service, endpoint?.port]);
   return state;
 }
 function usePrometheusRangeQuery(cluster, query, rangeSeconds, stepSeconds, refreshNonce = 0) {

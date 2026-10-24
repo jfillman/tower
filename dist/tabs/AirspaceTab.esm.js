@@ -12,7 +12,7 @@ import { AirspaceStrips } from '../airspace/AirspaceStrips.esm.js';
 import { AirspaceRadar } from '../airspace/AirspaceRadar.esm.js';
 import { buildAppAirspace, serviceNameOf } from '../airspace/model.esm.js';
 import { WINDOWS } from '../airspace/queries.esm.js';
-import { loadAirspaceView, useServiceGraph, useAirspaceValues, saveAirspaceView } from '../airspace/useAirspace.esm.js';
+import { loadAirspaceView, useServiceGraph, useAirspaceSource, useAirspaceValues, saveAirspaceView } from '../airspace/useAirspace.esm.js';
 import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
 
 const TIER_DISPLAY_ORDER = ["lower", "upper", "preview"];
@@ -43,6 +43,7 @@ function AirspaceTab() {
   const tier = selected ? envTierOf(selected.env, order) : void 0;
   const valuesTarget = selected && owner && appName && tier !== "preview" ? { owner, appName, env: selected.env, tier: tier === "upper" ? "flight" : "ground", cluster: selected.cluster } : void 0;
   const graphState = useServiceGraph(selected?.cluster, win, nonce);
+  const graphSource = useAirspaceSource(selected?.cluster);
   const valuesState = useAirspaceValues(valuesTarget, nonce);
   const airspace = useMemo(
     () => selected && appName ? buildAppAirspace({ app: appName, env: selected.env, graph: graphState.graph, values: valuesState.values }) : void 0,
@@ -119,10 +120,17 @@ function AirspaceTab() {
         ]
       }
     ),
-    graphState.error && /* @__PURE__ */ jsxs(Callout, { tone: "warn", title: `Couldn't read the service graph from ${selected.cluster}'s Prometheus`, children: [
-      graphState.error,
-      ". Declared and owned connections still show."
-    ] }),
+    graphState.error && /* @__PURE__ */ jsxs(
+      Callout,
+      {
+        tone: "warn",
+        title: graphSource.via === "hub" ? `Couldn't read ${selected.cluster}'s service graph from the hub's Thanos` : `Couldn't read the service graph from ${selected.cluster}'s Prometheus`,
+        children: [
+          graphState.error,
+          ". Declared and owned connections still show."
+        ]
+      }
+    ),
     noTraces && /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: "No traces from this cluster yet", children: "The service graph comes from Tempo, fed by OpenTelemetry auto-instrumentation. A cluster without its tracing stack, or apps not yet rolled with the agent, shows declared and owned connections only." }),
     !noTraces && !graphState.loading && !selfSeen && !graphState.error && /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: `No traffic for ${self} in the last ${win}`, children: "The app sent and received no traced requests in this window. Try a longer window." }),
     valuesState.error && /* @__PURE__ */ jsxs(Callout, { tone: "neutral", title: "Couldn't read this environment's values file", children: [

@@ -1,13 +1,48 @@
 import { useEffect, useMemo, useState } from 'react';
-import { usePrometheusInstantQuery } from '../usePrometheusQuery';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
+import { usePrometheusInstantQuery, type PrometheusEndpoint } from '../usePrometheusQuery';
 import { useEnvValuesLoader, type EnvValuesTarget } from '../values/sources';
 import { airspaceValuesOf, type AirspaceValues, type ServiceGraph } from './model';
-import { observedOperationsQuery, serviceGraphQueries, toServiceGraph, type AirspaceWindow } from './queries';
+import { clusterMatcher, observedOperationsQuery, serviceGraphQueries, toServiceGraph, type AirspaceWindow } from './queries';
 
 // Live data for Airspace. The service graph comes from the cluster's own Prometheus (no GitHub, so it may poll); the
 // values files come through the Glidepath backend from GitHub, so they load once per selection and on Refresh only.
 
 const POLL_MS = 60_000;
+
+/**
+ * Where one cluster's trace metrics are read. With `tower.airspace.metrics` set (the hub's Thanos Query, which
+ * receives every cluster's trace metrics with a `cluster` label), every cluster is read there, with a matcher, and
+ * with the hub's longer history; Tower then needs no access to the other cluster's Prometheus. Without it, the
+ * cluster's own Prometheus.
+ */
+export interface AirspaceSource {
+  /** The cluster whose Kubernetes proxy the query goes through. */
+  queryCluster?: string;
+  endpoint?: PrometheusEndpoint;
+  matcher: string;
+  /** 'hub' when read from the shared query layer. */
+  via: 'hub' | 'cluster';
+}
+
+export function useAirspaceSource(cluster: string | undefined): AirspaceSource {
+  const config = useApi(configApiRef);
+  return useMemo(() => {
+    const m = config.getOptionalConfig('tower.airspace.metrics');
+    const hub = m?.getOptionalString('cluster');
+    if (!m || !hub) return { queryCluster: cluster, matcher: '', via: 'cluster' as const };
+    return {
+      queryCluster: hub,
+      endpoint: {
+        namespace: m.getOptionalString('namespace') ?? 'observability',
+        service: m.getOptionalString('service') ?? 'thanos-query-frontend',
+        port: m.getOptionalNumber('port') ?? 9090,
+      },
+      matcher: clusterMatcher(cluster, m.getOptionalString('clusterLabel') ?? 'cluster'),
+      via: 'hub' as const,
+    };
+  }, [config, cluster]);
+}
 
 export interface ServiceGraphState {
   loading: boolean;
@@ -16,17 +51,27 @@ export interface ServiceGraphState {
 }
 
 export function useServiceGraph(cluster: string | undefined, window: AirspaceWindow, nonce = 0): ServiceGraphState {
-  const q = serviceGraphQueries(window);
-  const rate = usePrometheusInstantQuery(cluster, q.rate, nonce, POLL_MS);
-  const p95 = usePrometheusInstantQuery(cluster, q.p95, nonce, POLL_MS);
-  const errors = usePrometheusInstantQuery(cluster, q.errors, nonce, POLL_MS);
+  const src = useAirspaceSource(cluster);
+  // No cluster chosen yet: nothing to ask, even when the hub is configured.
+  const target = cluster ? src.queryCluster : undefined;
+  const q = serviceGraphQueries(window, src.matcher);
+  const rate = usePrometheusInstantQuery(target, q.rate, nonce, POLL_MS, src.endpoint);
+  const p95 = usePrometheusInstantQuery(target, q.p95, nonce, POLL_MS, src.endpoint);
+  const errors = usePrometheusInstantQuery(target, q.errors, nonce, POLL_MS, src.endpoint);
   const graph = useMemo(() => toServiceGraph(rate.samples, p95.samples, errors.samples), [rate.samples, p95.samples, errors.samples]);
   // Only the rate query decides loading/error: the other two are optional detail.
   return { loading: rate.loading && rate.samples.length === 0, error: rate.error, graph };
 }
 
 export function useObservedOperations(cluster: string | undefined, service: string | undefined, window: AirspaceWindow) {
-  const r = usePrometheusInstantQuery(cluster, service ? observedOperationsQuery(service, window) : undefined);
+  const src = useAirspaceSource(cluster);
+  const r = usePrometheusInstantQuery(
+    cluster ? src.queryCluster : undefined,
+    service ? observedOperationsQuery(service, window, src.matcher) : undefined,
+    0,
+    undefined,
+    src.endpoint,
+  );
   return useMemo(
     () => ({
       loading: r.loading,

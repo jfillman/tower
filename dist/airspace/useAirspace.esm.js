@@ -1,20 +1,48 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import { usePrometheusInstantQuery } from '../usePrometheusQuery.esm.js';
 import { useEnvValuesLoader } from '../values/sources.esm.js';
 import { airspaceValuesOf } from './model.esm.js';
-import { toServiceGraph, serviceGraphQueries, observedOperationsQuery } from './queries.esm.js';
+import { clusterMatcher, serviceGraphQueries, toServiceGraph, observedOperationsQuery } from './queries.esm.js';
 
 const POLL_MS = 6e4;
+function useAirspaceSource(cluster) {
+  const config = useApi(configApiRef);
+  return useMemo(() => {
+    const m = config.getOptionalConfig("tower.airspace.metrics");
+    const hub = m?.getOptionalString("cluster");
+    if (!m || !hub) return { queryCluster: cluster, matcher: "", via: "cluster" };
+    return {
+      queryCluster: hub,
+      endpoint: {
+        namespace: m.getOptionalString("namespace") ?? "observability",
+        service: m.getOptionalString("service") ?? "thanos-query-frontend",
+        port: m.getOptionalNumber("port") ?? 9090
+      },
+      matcher: clusterMatcher(cluster, m.getOptionalString("clusterLabel") ?? "cluster"),
+      via: "hub"
+    };
+  }, [config, cluster]);
+}
 function useServiceGraph(cluster, window2, nonce = 0) {
-  const q = serviceGraphQueries(window2);
-  const rate = usePrometheusInstantQuery(cluster, q.rate, nonce, POLL_MS);
-  const p95 = usePrometheusInstantQuery(cluster, q.p95, nonce, POLL_MS);
-  const errors = usePrometheusInstantQuery(cluster, q.errors, nonce, POLL_MS);
+  const src = useAirspaceSource(cluster);
+  const target = cluster ? src.queryCluster : void 0;
+  const q = serviceGraphQueries(window2, src.matcher);
+  const rate = usePrometheusInstantQuery(target, q.rate, nonce, POLL_MS, src.endpoint);
+  const p95 = usePrometheusInstantQuery(target, q.p95, nonce, POLL_MS, src.endpoint);
+  const errors = usePrometheusInstantQuery(target, q.errors, nonce, POLL_MS, src.endpoint);
   const graph = useMemo(() => toServiceGraph(rate.samples, p95.samples, errors.samples), [rate.samples, p95.samples, errors.samples]);
   return { loading: rate.loading && rate.samples.length === 0, error: rate.error, graph };
 }
 function useObservedOperations(cluster, service, window2) {
-  const r = usePrometheusInstantQuery(cluster, service ? observedOperationsQuery(service, window2) : void 0);
+  const src = useAirspaceSource(cluster);
+  const r = usePrometheusInstantQuery(
+    cluster ? src.queryCluster : void 0,
+    service ? observedOperationsQuery(service, window2, src.matcher) : void 0,
+    0,
+    void 0,
+    src.endpoint
+  );
   return useMemo(
     () => ({
       loading: r.loading,
@@ -104,5 +132,5 @@ function saveAirspaceView(view) {
   }
 }
 
-export { loadAirspaceView, saveAirspaceView, useAirspaceValues, useFleetValues, useObservedOperations, useServiceGraph };
+export { loadAirspaceView, saveAirspaceView, useAirspaceSource, useAirspaceValues, useFleetValues, useObservedOperations, useServiceGraph };
 //# sourceMappingURL=useAirspace.esm.js.map

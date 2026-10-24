@@ -33,6 +33,26 @@ export interface Config {
       /** Defaults to charts/airframe-application. @visibility frontend */
       path?: string;
     };
+    airspace?: {
+      /**
+       * Where Airspace reads every cluster's trace metrics: a Prometheus-API query layer on `cluster` (the hub's Thanos
+       * Query) that holds all clusters' traces_* series, told apart by the `clusterLabel` external label (default
+       * `cluster`). Unset: each cluster's own Prometheus, through its own Kubernetes proxy.
+       * @visibility frontend
+       */
+      metrics?: {
+        /** Cluster name as registered in kubernetes.clusterLocatorMethods. @visibility frontend */
+        cluster?: string;
+        /** @visibility frontend */
+        namespace?: string;
+        /** @visibility frontend */
+        service?: string;
+        /** @visibility frontend */
+        port?: number;
+        /** @visibility frontend */
+        clusterLabel?: string;
+      };
+    };
     dora?: {
       /**
        * The Prometheus-API query service holding dora-exporter's series, reached through the

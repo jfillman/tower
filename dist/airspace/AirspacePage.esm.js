@@ -7,8 +7,9 @@ import { HangarMark } from '../brand/HangarMark.esm.js';
 import { TextLink, PageHeader, Subtabs, FilterBar, FilterChips, FilterSelect, Callout } from '../ui/index.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
-import { WINDOWS } from './queries.esm.js';
-import { useServiceGraph } from './useAirspace.esm.js';
+import { useRegisteredClusters } from '../environments/registeredClusters.esm.js';
+import { airspaceClusters, WINDOWS } from './queries.esm.js';
+import { useAirspaceSource, useServiceGraph } from './useAirspace.esm.js';
 import { useHangarApps } from './useHangarApps.esm.js';
 import { MapView } from './MapView.esm.js';
 import { ContractsView } from './ContractsView.esm.js';
@@ -30,12 +31,17 @@ function AirspacePage({ onBack }) {
   const sub = SUBS.find((s) => s.id === searchParams.get("sub"))?.id ?? "map";
   const appFilter = searchParams.get("app") ?? void 0;
   const platform = usePlatformConfig();
-  const clusters = useMemo(() => {
-    const names = new Set(Object.keys(platform.clusters));
-    if (platform.controlPlaneCluster) names.add(platform.controlPlaneCluster);
-    return [...names].sort();
-  }, [platform]);
+  const registry = useRegisteredClusters();
+  const clusters = useMemo(
+    () => airspaceClusters(
+      registry.status === "ready" ? registry.clusters.map((r) => r.name) : void 0,
+      platform.controlPlaneCluster,
+      Object.keys(platform.clusters)
+    ),
+    [platform, registry]
+  );
   const [cluster, setCluster] = useState(() => searchParams.get("cluster") ?? platform.controlPlaneCluster ?? "");
+  const source = useAirspaceSource(cluster);
   useEffect(() => {
     if (!cluster && clusters[0]) setCluster(clusters[0]);
   }, [cluster, clusters]);
@@ -86,7 +92,14 @@ function AirspacePage({ onBack }) {
       envs.length > 0 && /* @__PURE__ */ jsx(FilterSelect, { label: "Environment", value: env, options: envs.map((e) => ({ value: e, label: e })), onChange: setEnvChoice }),
       /* @__PURE__ */ jsx(FilterChips, { label: "Window", options: WINDOWS.map((w) => ({ id: w, label: w })), value: win, onChange: setWin })
     ] }),
-    graph.error && /* @__PURE__ */ jsx(Callout, { tone: "warn", title: `Couldn't read the service graph from ${cluster}'s Prometheus`, children: graph.error }),
+    graph.error && /* @__PURE__ */ jsx(
+      Callout,
+      {
+        tone: "warn",
+        title: source.via === "hub" ? `Couldn't read ${cluster}'s service graph from the hub's Thanos` : `Couldn't read the service graph from ${cluster}'s Prometheus`,
+        children: graph.error
+      }
+    ),
     apps.error && /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "Couldn't read the catalog's services", children: apps.error }),
     sub === "map" && /* @__PURE__ */ jsx(MapView, { graph: graph.graph, env, knownApps: appNames, onOpenApp: openApp }),
     sub === "contracts" && /* @__PURE__ */ jsx(
