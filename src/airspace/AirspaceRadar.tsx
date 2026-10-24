@@ -6,6 +6,7 @@ import { Card, Fact, FactGrid, Hint, StatusChip, TextLink } from '../ui';
 import { formatRate, formatSeconds, type AppAirspace, type Counterpart } from './model';
 import { GraphCanvas, NODE_H, NODE_W, type CanvasEdge, type CanvasNode } from './GraphCanvas';
 import { KIND_LABEL, STATE_HINT, STATE_LABEL, STATE_TONE, edgeStroke } from './presentation';
+import { EdgeLegend } from './EdgeLegend';
 
 // Radar Scope (mockup A): the app in the middle, callers to the left, what it calls to the right, what it owns below.
 // Click a node for its detail in the inspector.
@@ -18,8 +19,17 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   layout: { display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' },
   canvasCard: { flex: '999 1 560px', minWidth: 0 },
   inspector: { flex: '1 1 300px', minWidth: 0 },
-  legend: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 },
 }));
+
+/**
+ * The edge states drawn in this graph, in a fixed order: the legend shows only what is on the canvas, each with the
+ * same stroke and dash the edge uses (edgeStroke), so a line on the graph can be matched to its meaning.
+ */
+const LEGEND_ORDER = ['ok', 'undeclared', 'silent', 'broker', 'ingress', 'composed'] as const;
+export function legendStates(airspace: AppAirspace): (typeof LEGEND_ORDER)[number][] {
+  const present = new Set([...airspace.inbound, ...airspace.outbound, ...airspace.owned].map(r => r.state));
+  return LEGEND_ORDER.filter(s => present.has(s));
+}
 
 export function radarLayout(airspace: AppAirspace, t: HangarTokens) {
   const cols = { inbound: airspace.inbound, outbound: airspace.outbound };
@@ -103,13 +113,7 @@ export function AirspaceRadar({
           selected={selectedId}
           onSelect={id => setSelectedId(id === 'self' ? undefined : id)}
         />
-        <div className={c.legend}>
-          {(['ok', 'undeclared', 'silent', 'broker', 'composed'] as const).map(s => (
-            <StatusChip key={s} tone={STATE_TONE[s]}>
-              {STATE_LABEL[s]}
-            </StatusChip>
-          ))}
-        </div>
+        <EdgeLegend states={legendStates(airspace)} />
       </Card>
       <Card className={c.inspector} title={selected ? selected.name : airspace.app} meta={selected ? <StatusChip tone={STATE_TONE[selected.state]}>{STATE_LABEL[selected.state]}</StatusChip> : undefined}>
         {selected ? (

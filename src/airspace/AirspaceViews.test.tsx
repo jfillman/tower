@@ -47,6 +47,27 @@ describe('Airspace views', () => {
     expect(screen.getByText('inbound')).toBeTruthy();
   });
 
+  it('Radar: the legend lists only the edge states on the graph, each drawn with the edge\'s own line', () => {
+    render(<AirspaceRadar airspace={AIRSPACE} valuesKnown />);
+    const legend = screen.getByRole('list', { name: 'Edge legend' });
+    const items = Array.from(legend.querySelectorAll('li')).map(li => ({
+      label: li.textContent,
+      dash: li.querySelector('line')?.getAttribute('stroke-dasharray') ?? null,
+    }));
+    // checkin-api undeclared, boarding-api declared but silent inbound, the broker hop, ingress, owned postgresql/rabbitmq.
+    expect(items.map(i => i.label)).toEqual(['Seen, not declared', 'Declared · no traffic', 'Via broker', 'Ingress', 'Owned']);
+    expect(items.find(i => i.label === 'Seen, not declared')?.dash).toBe('6 5');
+    expect(items.find(i => i.label === 'Declared · no traffic')?.dash).toBe('2 5');
+    expect(items.find(i => i.label === 'Owned')?.dash).toBeNull();
+    // The explainer opens to say what each one means and what to do.
+    expect(screen.queryByRole('definition')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /What the lines mean/ }));
+    const defs = screen.getAllByRole('definition').map(d => d.textContent ?? '');
+    expect(defs).toHaveLength(5);
+    expect(defs[0]).toContain('Seen in traffic but not declared');
+    expect(defs[0]).toContain('allowIngressFrom');
+  });
+
   it('Map: draws the env and lists a node’s edges', () => {
     render(<MapView graph={GRAPH} env="dev" knownApps={['flight-api', 'boarding-api', 'checkin-api']} onOpenApp={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /^flight-api/ }));
