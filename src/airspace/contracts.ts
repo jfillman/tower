@@ -1,9 +1,11 @@
 import yaml from 'js-yaml';
 import type { Entity } from '@backstage/catalog-model';
+import type { EnvSpec } from './useDeployedSpecs';
 
 // Contracts: the catalog's `kind: API` entities (Backstage's API model: spec.type openapi | asyncapi | graphql | grpc,
-// spec.definition the document itself). Phase 1 reads what the catalog has; the per-environment deployed spec and its
-// diff need Glidepath to extract the spec from each signed image (phase 2, docs/airspace.md).
+// spec.definition the document itself), plus each app's signed, deployed spec (phase 2: the spec Glidepath attests onto
+// every image, per environment; apiSpec.ts). An app with both shows as one API: the catalog entry carries the deployed
+// specs. An app with only a deployed spec gets an entry of its own.
 
 export interface Operation {
   method: string;
@@ -29,6 +31,10 @@ export interface ApiContract {
   /** Set when the definition could not be read as OpenAPI; the operations list is then empty. */
   parseError?: string;
   definition: string;
+  /** Where the definition came from: a catalog entity, or only the app's signed, deployed spec. */
+  source: 'catalog' | 'deployed';
+  /** The spec each environment of the providing app runs (phase 2), when any environment's image carries one. */
+  deployed?: { app: string; envs: EnvSpec[] };
 }
 
 const METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
@@ -105,7 +111,57 @@ export function contractOf(entity: Entity): ApiContract {
     operations,
     parseError,
     definition,
+    source: 'catalog',
   };
+}
+
+/**
+ * The catalog's contracts with each app's deployed specs folded in. `byApp` is every app's environments; an app counts
+ * once at least one environment's image carries a spec. Its catalog API (the openapi/asyncapi one it provides) gets the
+ * specs; without one, the app gets an entry built from its newest-deployed spec.
+ */
+export function withDeployedSpecs(contracts: ApiContract[], byApp: Map<string, EnvSpec[]>): ApiContract[] {
+  const out = contracts.map(c => ({ ...c }));
+  for (const [app, envs] of byApp) {
+    const withSpec = envs.filter(e => e.spec);
+    if (withSpec.length === 0) continue;
+    const deployed = { app, envs };
+    const host = out.find(
+      c => c.source === 'catalog' && (c.type === 'openapi' || c.type === 'asyncapi') && c.providers.some(p => refName(p) === app),
+    );
+    if (host) {
+      host.deployed = deployed;
+      continue;
+    }
+    // The highest environment's spec names the entry (what production runs), the lowest is still listed per env.
+    const top = withSpec[withSpec.length - 1].spec!.predicate;
+    let operations: Operation[] = [];
+    let parseError: string | undefined;
+    const definition = yaml.dump(top.spec, { lineWidth: 120, noRefs: true });
+    if (top.apiType === 'openapi') {
+      try {
+        operations = openApiOperations(definition);
+      } catch (e) {
+        parseError = e instanceof Error ? e.message : String(e);
+      }
+    }
+    out.push({
+      ref: `deployed:${app}`,
+      name: app,
+      title: top.title || app,
+      subtitle: `signed spec · ${top.path}`,
+      type: top.apiType,
+      description: undefined,
+      providers: [`component:default/${app}`],
+      consumers: [],
+      operations,
+      parseError,
+      definition,
+      source: 'deployed',
+      deployed,
+    });
+  }
+  return out.sort(byKindThenTitle);
 }
 
 export const API_TYPES = ['openapi', 'asyncapi', 'graphql', 'grpc'] as const;

@@ -18,19 +18,24 @@ export function hangarAppOf(e: Entity): HangarApp {
   return { app: repo ?? e.metadata.name, owner, ref: stringifyEntityRef(e) };
 }
 
-/** Tower's services, as the fleet views need them: name, GitHub owner, catalog ref. */
-export function useHangarApps(): { loading: boolean; error?: string; apps: HangarApp[] } {
+/** Tower's services, as the fleet views need them: name, GitHub owner, catalog ref (and the entities themselves). */
+export function useHangarApps(): { loading: boolean; error?: string; apps: HangarApp[]; entities: Entity[] } {
   const catalogApi = useApi(catalogApiRef);
-  const [state, setState] = useState<{ loading: boolean; error?: string; apps: HangarApp[] }>({ loading: true, apps: [] });
+  const [state, setState] = useState<{ loading: boolean; error?: string; apps: HangarApp[]; entities: Entity[] }>({
+    loading: true,
+    apps: [],
+    entities: [],
+  });
   useEffect(() => {
     let cancelled = false;
     catalogApi
       .getEntities({ filter: { kind: 'Component' } })
       .then(res => {
-        if (!cancelled) setState({ loading: false, apps: res.items.filter(isTowerService).map(hangarAppOf) });
+        const entities = res.items.filter(isTowerService);
+        if (!cancelled) setState({ loading: false, apps: entities.map(hangarAppOf), entities });
       })
       .catch(e => {
-        if (!cancelled) setState({ loading: false, error: String(e), apps: [] });
+        if (!cancelled) setState({ loading: false, error: String(e), apps: [], entities: [] });
       });
     return () => {
       cancelled = true;

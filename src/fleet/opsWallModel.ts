@@ -10,6 +10,8 @@ import {
   type PipelineCategory,
 } from './pipelineHistory';
 import { DEPLOYING_STATES, FAILED_STATES, type ReleaseEvent, type ReleaseRecord } from './releaseRecords';
+import { needsAttention } from '../airspace/apiCompat';
+import type { ApiCompatPending } from '../airspace/apiCompatPending';
 
 // Everything the Ops Wall shows, derived from the polled sources in one pure function so every
 // rule is a plain unit test. The page only renders what this returns.
@@ -195,6 +197,8 @@ export interface OpsWallInputs {
   events: ReleaseEvent[];
   slos: FleetSloRow[];
   provisioning: ProvisioningSignal[];
+  /** Open release PRs whose api-compat check reported (src/airspace/apiCompatPending.ts). Optional: GitHub-backed. */
+  apiCompat?: ApiCompatPending[];
   towerHref: TowerHref;
   /** Limits everything to these apps (the owner filter). Undefined = the whole fleet. */
   appFilter?: Set<string>;
@@ -554,6 +558,22 @@ export function buildOpsWallModel(input: OpsWallInputs): OpsWallModel {
       detail: a.cluster ? `on ${a.cluster}` : undefined,
       since: a.since,
       links: [...ext('PR', a.prUrl), ...tower(href, a.app, 'deployments', 'Deployment', { env: a.env })],
+    });
+  });
+
+  // ---- breaking API changes waiting in a release PR (the api-compat check's verdict; it warns before it ever blocks)
+  (input.apiCompat ?? []).filter(p => keep(p.app)).forEach(p => {
+    if (!p.report || !needsAttention(p.report.verdict)) return;
+    const inUse = p.report.breaking.filter(b => b.inUse).length;
+    add({
+      id: `api-compat:${p.prUrl}`,
+      rule: 'api-breaking-pending',
+      severity: p.report.verdict === 'block' ? 'high' : 'warn',
+      app: p.app,
+      env: p.env,
+      title: `Breaking API change in the release PR to ${p.env}`,
+      detail: `${p.report.breaking.length} breaking${inUse ? ` · ${inUse} in use` : ''}${p.report.verdict === 'block' ? ' · blocked' : ''}`,
+      links: [...ext('PR', p.prUrl), ...tower(href, p.app, 'airspace', 'Airspace', { env: p.env })],
     });
   });
 

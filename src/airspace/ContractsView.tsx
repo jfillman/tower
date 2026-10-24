@@ -21,15 +21,19 @@ import {
   YamlBlock,
   useTableKit,
 } from '../ui';
-import { refName, type ApiContract } from './contracts';
+import type { Entity } from '@backstage/catalog-model';
+import { useFleetEnvironments } from '../useFleetEnvironments';
+import { refName, withDeployedSpecs, type ApiContract } from './contracts';
 import { appOfService, formatRate, serviceNameOf, type ServiceGraph } from './model';
 import { useApiContracts } from './useHangarApps';
 import { useObservedOperations } from './useAirspace';
+import { useDeployedSpecs } from './useDeployedSpecs';
+import { DeployedSpecsPanel, NoDeployedSpec } from './DeployedSpecsPanel';
 import type { AirspaceWindow } from './queries';
 
-// Contracts: the fleet's APIs, from the catalog's API entities. What phase 1 can say honestly: the registered
-// definition, who provides and consumes it (catalog relations) and who calls the provider (traces). The spec each
-// environment actually runs, its diff and the breaking-change gate are phase 2 (docs/airspace.md).
+// Contracts: the fleet's APIs. The catalog's API entities (the registered definition, who provides and consumes it)
+// and, phase 2, the spec each environment actually runs: Glidepath signs it onto every image, and Tower reads it from the
+// image each environment's Rollout runs (useDeployedSpecs). Who calls the provider comes from traces.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   layout: { display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' },
@@ -71,23 +75,49 @@ export function ContractsView({
   env,
   win,
   appFilter,
+  compareTo,
+  roster,
+  nonce,
   onOpenApp,
 }: {
   graph: ServiceGraph;
   cluster: string;
   env: string;
   win: AirspaceWindow;
-  /** ?app=: show this app's APIs (a deep link from its Airspace tab). */
+  /** ?app=: show this app's APIs (a deep link from its Airspace tab or a Release Record). */
   appFilter?: string;
+  /** ?compare=<env>: open the deployed-spec diff with this environment as the newer side. */
+  compareTo?: string;
+  /** Tower's services, whose environments' images are read for signed specs. */
+  roster: Entity[];
+  nonce: number;
   onOpenApp: (app: string) => void;
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const tk = useTableKit();
-  const { loading, error, contracts } = useApiContracts();
+  const catalog = useApiContracts(nonce);
+  const scoped = useMemo(
+    () =>
+      appFilter
+        ? roster.filter(e => (e.metadata.annotations?.['github.com/project-slug']?.split('/')[1] ?? e.metadata.name) === appFilter)
+        : roster,
+    [roster, appFilter],
+  );
+  const fleet = useFleetEnvironments(scoped);
+  const deployed = useDeployedSpecs(fleet.apps, nonce);
+  const contracts = useMemo(() => withDeployedSpecs(catalog.contracts, deployed.byApp), [catalog.contracts, deployed.byApp]);
+  const { loading, error } = catalog;
   const [type, setType] = useState('all');
   const [query, setQuery] = useState('');
   const [selectedRef, setSelectedRef] = useState<string | undefined>(undefined);
+  // Until someone picks an API, follow the top of the list: deployed specs arrive after the catalog, and the app's own
+  // API should then be what opens, not the platform XRD that happened to be first a moment earlier.
+  const [picked, setPicked] = useState(false);
+  const pick = (ref: string) => {
+    setPicked(true);
+    setSelectedRef(ref);
+  };
 
   const types = useMemo(() => [...new Set(contracts.map(x => x.type))].sort(), [contracts]);
   const shown = useMemo(
@@ -101,16 +131,19 @@ export function ContractsView({
     [contracts, type, appFilter, query],
   );
   useEffect(() => {
-    if (!shown.some(x => x.ref === selectedRef)) setSelectedRef(shown[0]?.ref);
-  }, [shown, selectedRef]);
+    if (!picked || !shown.some(x => x.ref === selectedRef)) setSelectedRef(shown[0]?.ref);
+  }, [shown, selectedRef, picked]);
   const selected = shown.find(x => x.ref === selectedRef);
 
-  if (loading) return <PanelSkeleton label="Loading APIs" />;
-  if (error) return <Callout tone="bad" title="Couldn't read the catalog's APIs">{error}</Callout>;
+  // The probes run each service's environment hooks (they render nothing); every branch below mounts them.
+  if (loading) return <>{fleet.probes}<PanelSkeleton label="Loading APIs" /></>;
+  if (error) return <>{fleet.probes}<Callout tone="bad" title="Couldn't read the catalog's APIs">{error}</Callout></>;
 
   if (contracts.length === 0) {
     return (
       <div className={c.detailCol}>
+        {fleet.probes}
+        {deployed.loading && <Hint>Reading each environment's image for a signed spec…</Hint>}
         <Callout tone="neutral" title="No APIs registered in the catalog yet">
           Contracts lists the catalog's API entities. None exist yet: an app registers its API next to its Component, with the
           definition kept in the app's repo. Once one does, its operations, providers and consumers show here.
@@ -123,6 +156,7 @@ export function ContractsView({
 
   return (
     <div className={c.layout}>
+      {fleet.probes}
       <div className={c.listCol}>
         <Section title="APIs" count={shown.length} framed>
           <div className={c.filterPad}>
@@ -147,10 +181,10 @@ export function ContractsView({
                     tabIndex={0}
                     aria-selected={x.ref === selected?.ref}
                     onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') setSelectedRef(x.ref);
+                      if (e.key === 'Enter' || e.key === ' ') pick(x.ref);
                     }}
                     className={`${tk.rowLink} ${x.ref === selected?.ref ? tk.rowSelected : ''}`}
-                    onClick={() => setSelectedRef(x.ref)}
+                    onClick={() => pick(x.ref)}
                   >
                     <td className={tk.td}>
                       <span className={c.apiName}>{x.title}</span>
@@ -158,6 +192,14 @@ export function ContractsView({
                     </td>
                     <td className={tk.td}>
                       <Chip>{x.type}</Chip>
+                      {x.deployed && (
+                        <>
+                          {' '}
+                          <StatusChip tone="info" title="Each environment's image carries a signed spec">
+                            signed
+                          </StatusChip>
+                        </>
+                      )}
                     </td>
                     <td className={tk.td}>
                       <Count>{x.operations.length || '—'}</Count>
@@ -181,7 +223,9 @@ export function ContractsView({
         {selected && appFilter && !selected.providers.some(p => refName(p) === appFilter) && (
           <ObservedOperations cluster={cluster} service={serviceNameOf(appFilter, env)} win={win} />
         )}
-        {selected && <ContractDetail contract={selected} graph={graph} cluster={cluster} env={env} win={win} onOpenApp={onOpenApp} />}
+        {selected && (
+          <ContractDetail contract={selected} graph={graph} cluster={cluster} env={env} win={win} compareTo={compareTo} onOpenApp={onOpenApp} />
+        )}
       </div>
     </div>
   );
@@ -193,6 +237,7 @@ function ContractDetail({
   cluster,
   env,
   win,
+  compareTo,
   onOpenApp,
 }: {
   contract: ApiContract;
@@ -200,6 +245,7 @@ function ContractDetail({
   cluster: string;
   env: string;
   win: AirspaceWindow;
+  compareTo?: string;
   onOpenApp: (app: string) => void;
 }) {
   const t = useHangarTokens();
@@ -250,11 +296,18 @@ function ContractDetail({
         </FactGrid>
       </Card>
 
-      <Callout tone="neutral" label="Phase 2">
-        The spec each environment runs, the diff between them and the breaking-change gate on promotion are not available yet:
-        they need Glidepath to extract the spec from each signed image. This shows the definition registered in the catalog.
-      </Callout>
+      {contract.source === 'deployed' && (
+        <Hint>Read from the spec signed onto the app's images; there is no API entity for it in the catalog.</Hint>
+      )}
+      {contract.deployed ? (
+        <DeployedSpecsPanel app={contract.deployed.app} envs={contract.deployed.envs} win={win} compareTo={compareTo} />
+      ) : (
+        providers[0] && (contract.type === 'openapi' || contract.type === 'asyncapi') && <NoDeployedSpec app={providers[0]} />
+      )}
 
+      {/* A deployed-only API's operations are its environments' specs, listed above per environment. */}
+      {contract.source === 'catalog' && (
+        <>
       <Section title="Operations" count={contract.operations.length} framed>
         {contract.parseError && <Hint inset>Couldn't read the definition as OpenAPI: {contract.parseError}</Hint>}
         {!contract.parseError && contract.type !== 'openapi' && (
@@ -291,6 +344,8 @@ function ContractDetail({
           </div>
         )}
       </Section>
+        </>
+      )}
 
       {providers[0] && <ObservedOperations cluster={cluster} service={serviceNameOf(providers[0], env)} win={win} />}
 

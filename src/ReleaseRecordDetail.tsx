@@ -23,6 +23,7 @@ import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, Stat
 import { OPENING_PR, PrReceipt, PrRef, prFromSummary } from './ui/PrRef';
 import { isSignedAndAttested } from './supplyChain';
 import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, hasCommitSignature } from './ReleaseRecordEvidence';
+import { ApiCompatSection } from './airspace/ApiCompatSection';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -677,6 +678,7 @@ export function ReleaseRecordDetail({
                 {record.guardrails ? (
                   <>
                     <GateGrid checks={record.guardrails.checks ?? []} classes={classes} t={t} />
+                    <ApiCompatSection checks={record.guardrails.checks} appName={appName} />
                     {record.guardrailsPrUrl && (
                       <PrRef
                         pr={{ url: record.guardrailsPrUrl, number: record.guardrailsPrNumber }}
