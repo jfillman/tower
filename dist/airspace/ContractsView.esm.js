@@ -1,12 +1,15 @@
-import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
-import { useState, useMemo, useEffect } from 'react';
+import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
+import { useMemo, useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { fontScale, fontMono, useHangarTokens } from '../brand/tokens.esm.js';
-import { useTableKit, Callout, Section, FilterBar, FilterChips, SearchField, Hint, TextLink, EmptyNote, Chip, Count, Card, FactGrid, Fact, StatusChip } from '../ui/index.esm.js';
-import { refName } from './contracts.esm.js';
+import { useTableKit, Callout, Hint, Section, FilterBar, FilterChips, SearchField, TextLink, EmptyNote, Chip, StatusChip, Count, Card, FactGrid, Fact } from '../ui/index.esm.js';
+import { useFleetEnvironments } from '../useFleetEnvironments.esm.js';
+import { withDeployedSpecs, refName } from './contracts.esm.js';
 import { serviceNameOf, formatRate, appOfService } from './model.esm.js';
 import { useApiContracts } from './useHangarApps.esm.js';
 import { useObservedOperations } from './useAirspace.esm.js';
+import { useDeployedSpecs } from './useDeployedSpecs.esm.js';
+import { DeployedSpecsPanel, NoDeployedSpec } from './DeployedSpecsPanel.esm.js';
 import { PanelSkeleton } from '../ui/LoadState.esm.js';
 import { YamlBlock } from '../ui/YamlBlock.esm.js';
 
@@ -48,15 +51,31 @@ function ContractsView({
   env,
   win,
   appFilter,
+  compareTo,
+  roster,
+  nonce,
   onOpenApp
 }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const tk = useTableKit();
-  const { loading, error, contracts } = useApiContracts();
+  const catalog = useApiContracts(nonce);
+  const scoped = useMemo(
+    () => appFilter ? roster.filter((e) => (e.metadata.annotations?.["github.com/project-slug"]?.split("/")[1] ?? e.metadata.name) === appFilter) : roster,
+    [roster, appFilter]
+  );
+  const fleet = useFleetEnvironments(scoped);
+  const deployed = useDeployedSpecs(fleet.apps, nonce);
+  const contracts = useMemo(() => withDeployedSpecs(catalog.contracts, deployed.byApp), [catalog.contracts, deployed.byApp]);
+  const { loading, error } = catalog;
   const [type, setType] = useState("all");
   const [query, setQuery] = useState("");
   const [selectedRef, setSelectedRef] = useState(void 0);
+  const [picked, setPicked] = useState(false);
+  const pick = (ref) => {
+    setPicked(true);
+    setSelectedRef(ref);
+  };
   const types = useMemo(() => [...new Set(contracts.map((x) => x.type))].sort(), [contracts]);
   const shown = useMemo(
     () => contracts.filter(
@@ -65,19 +84,28 @@ function ContractsView({
     [contracts, type, appFilter, query]
   );
   useEffect(() => {
-    if (!shown.some((x) => x.ref === selectedRef)) setSelectedRef(shown[0]?.ref);
-  }, [shown, selectedRef]);
+    if (!picked || !shown.some((x) => x.ref === selectedRef)) setSelectedRef(shown[0]?.ref);
+  }, [shown, selectedRef, picked]);
   const selected = shown.find((x) => x.ref === selectedRef);
-  if (loading) return /* @__PURE__ */ jsx(PanelSkeleton, { label: "Loading APIs" });
-  if (error) return /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "Couldn't read the catalog's APIs", children: error });
+  if (loading) return /* @__PURE__ */ jsxs(Fragment, { children: [
+    fleet.probes,
+    /* @__PURE__ */ jsx(PanelSkeleton, { label: "Loading APIs" })
+  ] });
+  if (error) return /* @__PURE__ */ jsxs(Fragment, { children: [
+    fleet.probes,
+    /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "Couldn't read the catalog's APIs", children: error })
+  ] });
   if (contracts.length === 0) {
     return /* @__PURE__ */ jsxs("div", { className: c.detailCol, children: [
+      fleet.probes,
+      deployed.loading && /* @__PURE__ */ jsx(Hint, { children: "Reading each environment's image for a signed spec\u2026" }),
       /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: "No APIs registered in the catalog yet", children: "Contracts lists the catalog's API entities. None exist yet: an app registers its API next to its Component, with the definition kept in the app's repo. Once one does, its operations, providers and consumers show here." }),
       /* @__PURE__ */ jsx(YamlBlock, { title: "Registering an API", text: EXAMPLE, lineNumbers: false }),
       appFilter && /* @__PURE__ */ jsx(ObservedOperations, { cluster, service: serviceNameOf(appFilter, env), win })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: c.layout, children: [
+    fleet.probes,
     /* @__PURE__ */ jsx("div", { className: c.listCol, children: /* @__PURE__ */ jsxs(Section, { title: "APIs", count: shown.length, framed: true, children: [
       /* @__PURE__ */ jsx("div", { className: c.filterPad, children: /* @__PURE__ */ jsxs(FilterBar, { children: [
         /* @__PURE__ */ jsx(FilterChips, { label: "Type", options: [{ id: "all", label: "All" }, ...types.map((x) => ({ id: x, label: x }))], value: type, onChange: setType }),
@@ -98,16 +126,22 @@ function ContractsView({
           tabIndex: 0,
           "aria-selected": x.ref === selected?.ref,
           onKeyDown: (e) => {
-            if (e.key === "Enter" || e.key === " ") setSelectedRef(x.ref);
+            if (e.key === "Enter" || e.key === " ") pick(x.ref);
           },
           className: `${tk.rowLink} ${x.ref === selected?.ref ? tk.rowSelected : ""}`,
-          onClick: () => setSelectedRef(x.ref),
+          onClick: () => pick(x.ref),
           children: [
             /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
               /* @__PURE__ */ jsx("span", { className: c.apiName, children: x.title }),
               x.subtitle && /* @__PURE__ */ jsx("span", { className: c.apiSub, children: x.subtitle })
             ] }),
-            /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Chip, { children: x.type }) }),
+            /* @__PURE__ */ jsxs("td", { className: tk.td, children: [
+              /* @__PURE__ */ jsx(Chip, { children: x.type }),
+              x.deployed && /* @__PURE__ */ jsxs(Fragment, { children: [
+                " ",
+                /* @__PURE__ */ jsx(StatusChip, { tone: "info", title: "Each environment's image carries a signed spec", children: "signed" })
+              ] })
+            ] }),
             /* @__PURE__ */ jsx("td", { className: tk.td, children: /* @__PURE__ */ jsx(Count, { children: x.operations.length || "\u2014" }) })
           ]
         },
@@ -124,7 +158,7 @@ function ContractsView({
         /* @__PURE__ */ jsx(ObservedOperations, { cluster, service: serviceNameOf(appFilter, env), win })
       ] }),
       selected && appFilter && !selected.providers.some((p) => refName(p) === appFilter) && /* @__PURE__ */ jsx(ObservedOperations, { cluster, service: serviceNameOf(appFilter, env), win }),
-      selected && /* @__PURE__ */ jsx(ContractDetail, { contract: selected, graph, cluster, env, win, onOpenApp })
+      selected && /* @__PURE__ */ jsx(ContractDetail, { contract: selected, graph, cluster, env, win, compareTo, onOpenApp })
     ] })
   ] });
 }
@@ -134,6 +168,7 @@ function ContractDetail({
   cluster,
   env,
   win,
+  compareTo,
   onOpenApp
 }) {
   const t = useHangarTokens();
@@ -171,8 +206,9 @@ function ContractDetail({
         ] }, who)) : "none in this window" }) })
       ] })
     ] }),
-    /* @__PURE__ */ jsx(Callout, { tone: "neutral", label: "Phase 2", children: "The spec each environment runs, the diff between them and the breaking-change gate on promotion are not available yet: they need Glidepath to extract the spec from each signed image. This shows the definition registered in the catalog." }),
-    /* @__PURE__ */ jsxs(Section, { title: "Operations", count: contract.operations.length, framed: true, children: [
+    contract.source === "deployed" && /* @__PURE__ */ jsx(Hint, { children: "Read from the spec signed onto the app's images; there is no API entity for it in the catalog." }),
+    contract.deployed ? /* @__PURE__ */ jsx(DeployedSpecsPanel, { app: contract.deployed.app, envs: contract.deployed.envs, win, compareTo }) : providers[0] && (contract.type === "openapi" || contract.type === "asyncapi") && /* @__PURE__ */ jsx(NoDeployedSpec, { app: providers[0] }),
+    contract.source === "catalog" && /* @__PURE__ */ jsx(Fragment, { children: /* @__PURE__ */ jsxs(Section, { title: "Operations", count: contract.operations.length, framed: true, children: [
       contract.parseError && /* @__PURE__ */ jsxs(Hint, { inset: true, children: [
         "Couldn't read the definition as OpenAPI: ",
         contract.parseError
@@ -190,7 +226,7 @@ function ContractDetail({
           /* @__PURE__ */ jsx("td", { className: tk.td, children: o.summary || "\u2014" })
         ] }, `${o.method} ${o.path}`)) })
       ] }) })
-    ] }),
+    ] }) }),
     providers[0] && /* @__PURE__ */ jsx(ObservedOperations, { cluster, service: serviceNameOf(providers[0], env), win }),
     /* @__PURE__ */ jsx(TextLink, { expanded: showDef, onClick: () => setShowDef((v) => !v), children: "Definition" }),
     showDef && /* @__PURE__ */ jsx(YamlBlock, { title: `${contract.name} definition`, text: contract.definition || "# empty", filter: true })
