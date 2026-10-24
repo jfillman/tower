@@ -89,7 +89,20 @@ function AirspacePage({ onBack }) {
     graph.error && /* @__PURE__ */ jsx(Callout, { tone: "warn", title: `Couldn't read the service graph from ${cluster}'s Prometheus`, children: graph.error }),
     apps.error && /* @__PURE__ */ jsx(Callout, { tone: "bad", title: "Couldn't read the catalog's services", children: apps.error }),
     sub === "map" && /* @__PURE__ */ jsx(MapView, { graph: graph.graph, env, knownApps: appNames, onOpenApp: openApp }),
-    sub === "contracts" && /* @__PURE__ */ jsx(ContractsView, { graph: graph.graph, cluster, env, win, appFilter, onOpenApp: openApp }),
+    sub === "contracts" && /* @__PURE__ */ jsx(
+      ContractsView,
+      {
+        graph: graph.graph,
+        cluster,
+        env,
+        win,
+        appFilter,
+        compareTo: searchParams.get("compare") ?? void 0,
+        roster: apps.entities,
+        nonce,
+        onOpenApp: openApp
+      }
+    ),
     sub === "drift" && /* @__PURE__ */ jsx(DriftView, { graph: graph.graph, env, cluster, apps: apps.apps, nonce, onOpenApp: openApp })
   ] });
 }

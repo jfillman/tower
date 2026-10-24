@@ -2,6 +2,7 @@ import { health, isRolloutActive, isPreviewEnvName } from '../types.esm.js';
 import { runAppName } from './fleetRuns.esm.js';
 import { PIPELINE_CATEGORIES, pipelineCategory } from './pipelineHistory.esm.js';
 import { DEPLOYING_STATES, FAILED_STATES } from './releaseRecords.esm.js';
+import { needsAttention } from '../airspace/apiCompat.esm.js';
 
 const MIN = 6e4;
 const HOUR = 60 * MIN;
@@ -321,6 +322,20 @@ function buildOpsWallModel(input) {
       detail: a.cluster ? `on ${a.cluster}` : void 0,
       since: a.since,
       links: [...ext("PR", a.prUrl), ...tower(href, a.app, "deployments", "Deployment", { env: a.env })]
+    });
+  });
+  (input.apiCompat ?? []).filter((p) => keep(p.app)).forEach((p) => {
+    if (!p.report || !needsAttention(p.report.verdict)) return;
+    const inUse = p.report.breaking.filter((b) => b.inUse).length;
+    add({
+      id: `api-compat:${p.prUrl}`,
+      rule: "api-breaking-pending",
+      severity: p.report.verdict === "block" ? "high" : "warn",
+      app: p.app,
+      env: p.env,
+      title: `Breaking API change in the release PR to ${p.env}`,
+      detail: `${p.report.breaking.length} breaking${inUse ? ` \xB7 ${inUse} in use` : ""}${p.report.verdict === "block" ? " \xB7 blocked" : ""}`,
+      links: [...ext("PR", p.prUrl), ...tower(href, p.app, "airspace", "Airspace", { env: p.env })]
     });
   });
   const newerHealthy = (r) => records.some(

@@ -61,9 +61,52 @@ function contractOf(entity) {
     consumers: relations.filter((r) => r.type === "apiConsumedBy").map((r) => r.targetRef),
     operations,
     parseError,
-    definition
+    definition,
+    source: "catalog"
   };
 }
+function withDeployedSpecs(contracts, byApp) {
+  const out = contracts.map((c) => ({ ...c }));
+  for (const [app, envs] of byApp) {
+    const withSpec = envs.filter((e) => e.spec);
+    if (withSpec.length === 0) continue;
+    const deployed = { app, envs };
+    const host = out.find(
+      (c) => c.source === "catalog" && (c.type === "openapi" || c.type === "asyncapi") && c.providers.some((p) => refName(p) === app)
+    );
+    if (host) {
+      host.deployed = deployed;
+      continue;
+    }
+    const top = withSpec[withSpec.length - 1].spec.predicate;
+    let operations = [];
+    let parseError;
+    const definition = yaml.dump(top.spec, { lineWidth: 120, noRefs: true });
+    if (top.apiType === "openapi") {
+      try {
+        operations = openApiOperations(definition);
+      } catch (e) {
+        parseError = e instanceof Error ? e.message : String(e);
+      }
+    }
+    out.push({
+      ref: `deployed:${app}`,
+      name: app,
+      title: top.title || app,
+      subtitle: `signed spec \xB7 ${top.path}`,
+      type: top.apiType,
+      description: void 0,
+      providers: [`component:default/${app}`],
+      consumers: [],
+      operations,
+      parseError,
+      definition,
+      source: "deployed",
+      deployed
+    });
+  }
+  return out.sort(byKindThenTitle);
+}
 
-export { byKindThenTitle, contractOf, openApiOperations, refName, titleOf };
+export { byKindThenTitle, contractOf, openApiOperations, refName, titleOf, withDeployedSpecs };
 //# sourceMappingURL=contracts.esm.js.map

@@ -12,13 +12,18 @@ function hangarAppOf(e) {
 }
 function useHangarApps() {
   const catalogApi = useApi(catalogApiRef);
-  const [state, setState] = useState({ loading: true, apps: [] });
+  const [state, setState] = useState({
+    loading: true,
+    apps: [],
+    entities: []
+  });
   useEffect(() => {
     let cancelled = false;
     catalogApi.getEntities({ filter: { kind: "Component" } }).then((res) => {
-      if (!cancelled) setState({ loading: false, apps: res.items.filter(isTowerService).map(hangarAppOf) });
+      const entities = res.items.filter(isTowerService);
+      if (!cancelled) setState({ loading: false, apps: entities.map(hangarAppOf), entities });
     }).catch((e) => {
-      if (!cancelled) setState({ loading: false, error: String(e), apps: [] });
+      if (!cancelled) setState({ loading: false, error: String(e), apps: [], entities: [] });
     });
     return () => {
       cancelled = true;

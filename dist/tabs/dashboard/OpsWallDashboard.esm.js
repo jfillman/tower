@@ -14,6 +14,7 @@ import { useFleetPipelineRuns } from '../../fleet/useFleetPipelineRuns.esm.js';
 import { useFleetPipelineHistory } from '../../fleet/useFleetPipelineHistory.esm.js';
 import { parseCategories, formatCategories } from '../../fleet/pipelineHistory.esm.js';
 import { useFleetReleaseRecords, useFleetReleaseEvents } from '../../fleet/useFleetReleases.esm.js';
+import { useApiCompatPending } from '../../airspace/apiCompatPending.esm.js';
 import { useReleaseCalendar } from '../../releaseFlow.esm.js';
 import { usePolled, isStale } from '../../fleet/usePolled.esm.js';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip.esm.js';
@@ -156,6 +157,7 @@ function OpsWallDashboard({ fit = false }) {
     () => provItems.filter((i) => !i.derived.stalled && (!appFilter || appFilter.has(i.inputs.xr.name))),
     [provItems, appFilter]
   );
+  const apiCompat = useApiCompatPending(records.data);
   const model = useMemo(
     () => buildOpsWallModel({
       now,
@@ -168,6 +170,7 @@ function OpsWallDashboard({ fit = false }) {
       events: events.data ?? [],
       slos,
       provisioning: provSignals,
+      apiCompat: apiCompat.data,
       towerHref,
       appFilter
     }),
@@ -182,6 +185,7 @@ function OpsWallDashboard({ fit = false }) {
       events.data,
       slos,
       provSignals,
+      apiCompat.data,
       towerHref,
       appFilter
     ]

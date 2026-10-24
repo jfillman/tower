@@ -21,6 +21,7 @@ import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, Colu
 import { PrRef, prFromSummary, OPENING_PR, PrReceipt } from './ui/PrRef.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
 import { hasCommitSignature, ChangeRequestFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
+import { ApiCompatSection } from './airspace/ApiCompatSection.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -556,6 +557,7 @@ function ReleaseRecordDetail({
             ] }),
             record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
               /* @__PURE__ */ jsx(GateGrid, { checks: record.guardrails.checks ?? [], classes, t }),
+              /* @__PURE__ */ jsx(ApiCompatSection, { checks: record.guardrails.checks, appName }),
               record.guardrailsPrUrl && /* @__PURE__ */ jsx(
                 PrRef,
                 {
