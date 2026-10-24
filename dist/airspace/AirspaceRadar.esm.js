@@ -2,10 +2,11 @@ import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
 import { useMemo, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useHangarTokens } from '../brand/tokens.esm.js';
-import { Card, StatusChip, Hint, FactGrid, Fact, TextLink } from '../ui/index.esm.js';
+import { Card, Hint, FactGrid, Fact, TextLink, StatusChip } from '../ui/index.esm.js';
 import { formatRate, formatSeconds } from './model.esm.js';
 import { GraphCanvas, NODE_H, NODE_W } from './GraphCanvas.esm.js';
-import { STATE_LABEL, STATE_TONE, KIND_LABEL, STATE_HINT, edgeStroke } from './presentation.esm.js';
+import { KIND_LABEL, STATE_HINT, STATE_LABEL, STATE_TONE, edgeStroke } from './presentation.esm.js';
+import { EdgeLegend } from './EdgeLegend.esm.js';
 
 const COL_GAP = 120;
 const ROW_GAP = 22;
@@ -13,9 +14,13 @@ const PAD = 24;
 const useStyles = makeStyles(() => ({
   layout: { display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" },
   canvasCard: { flex: "999 1 560px", minWidth: 0 },
-  inspector: { flex: "1 1 300px", minWidth: 0 },
-  legend: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }
+  inspector: { flex: "1 1 300px", minWidth: 0 }
 }));
+const LEGEND_ORDER = ["ok", "undeclared", "silent", "broker", "ingress", "composed"];
+function legendStates(airspace) {
+  const present = new Set([...airspace.inbound, ...airspace.outbound, ...airspace.owned].map((r) => r.state));
+  return LEGEND_ORDER.filter((s) => present.has(s));
+}
 function radarLayout(airspace, t) {
   const cols = { inbound: airspace.inbound, outbound: airspace.outbound };
   const rowsTall = Math.max(cols.inbound.length, cols.outbound.length, 1);
@@ -93,7 +98,7 @@ function AirspaceRadar({
           onSelect: (id) => setSelectedId(id === "self" ? void 0 : id)
         }
       ),
-      /* @__PURE__ */ jsx("div", { className: c.legend, children: ["ok", "undeclared", "silent", "broker", "composed"].map((s) => /* @__PURE__ */ jsx(StatusChip, { tone: STATE_TONE[s], children: STATE_LABEL[s] }, s)) })
+      /* @__PURE__ */ jsx(EdgeLegend, { states: legendStates(airspace) })
     ] }),
     /* @__PURE__ */ jsx(Card, { className: c.inspector, title: selected ? selected.name : airspace.app, meta: selected ? /* @__PURE__ */ jsx(StatusChip, { tone: STATE_TONE[selected.state], children: STATE_LABEL[selected.state] }) : void 0, children: selected ? /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs(FactGrid, { min: 90, children: [
@@ -122,5 +127,5 @@ function AirspaceRadar({
   ] });
 }
 
-export { AirspaceRadar, radarLayout };
+export { AirspaceRadar, legendStates, radarLayout };
 //# sourceMappingURL=AirspaceRadar.esm.js.map

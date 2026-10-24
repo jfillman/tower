@@ -22,6 +22,14 @@ const STATE_HINT = {
   ingress: "Requests with no traced caller: the gateway, probes, or a client without tracing.",
   broker: "Producer to consumer through the message broker the app attaches to; no NetworkPolicy declaration applies."
 };
+const STATE_TODO = {
+  ok: "Nothing to do.",
+  undeclared: "Declare the caller in the callee's networkPolicy.allowIngressFrom (and the caller's allowEgressTo if it restricts egress), or remove the call. A NetworkPolicy built from the declarations would block it.",
+  silent: "Check that the caller still exists before removing the declaration; a quiet environment can be idle, not broken.",
+  composed: "Nothing to declare: Crossplane creates it with the app, so the connection is known.",
+  ingress: "Nothing to do. A caller you expected to see here is not instrumented, or calls through the gateway.",
+  broker: "Nothing to declare: both sides only talk to the broker, which the app already attaches to."
+};
 const KIND_LABEL = {
   rpc: "HTTP / RPC",
   messaging: "Messaging",
@@ -44,5 +52,5 @@ function edgeStroke(state, t) {
   }
 }
 
-export { KIND_LABEL, STATE_HINT, STATE_LABEL, STATE_TONE, edgeStroke };
+export { KIND_LABEL, STATE_HINT, STATE_LABEL, STATE_TODO, STATE_TONE, edgeStroke };
 //# sourceMappingURL=presentation.esm.js.map
