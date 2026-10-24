@@ -13,6 +13,7 @@ import { useFleetPipelineRuns } from '../../fleet/useFleetPipelineRuns';
 import { useFleetPipelineHistory } from '../../fleet/useFleetPipelineHistory';
 import { formatCategories, parseCategories, type PipelineCategory } from '../../fleet/pipelineHistory';
 import { useFleetReleaseEvents, useFleetReleaseRecords } from '../../fleet/useFleetReleases';
+import { useApiCompatPending } from '../../airspace/apiCompatPending';
 import { useReleaseCalendar } from '../../releaseFlow';
 import { isStale, usePolled, type Polled } from '../../fleet/usePolled';
 import { ProvisioningStrip } from '../../provisioning/ProvisioningStrip';
@@ -199,6 +200,8 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
     [provItems, appFilter],
   );
 
+  const apiCompat = useApiCompatPending(records.data);
+
   const model = useMemo(
     () =>
       buildOpsWallModel({
@@ -212,6 +215,7 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
         events: events.data ?? [],
         slos,
         provisioning: provSignals,
+        apiCompat: apiCompat.data,
         towerHref,
         appFilter,
       }),
@@ -226,6 +230,7 @@ export function OpsWallDashboard({ fit = false }: DashboardProps) {
       events.data,
       slos,
       provSignals,
+      apiCompat.data,
       towerHref,
       appFilter,
     ],

@@ -110,7 +110,17 @@ export function AirspacePage({ onBack }: { onBack: () => void }) {
       )}
       {sub === 'map' && <MapView graph={graph.graph} env={env} knownApps={appNames} onOpenApp={openApp} />}
       {sub === 'contracts' && (
-        <ContractsView graph={graph.graph} cluster={cluster} env={env} win={win} appFilter={appFilter} onOpenApp={openApp} />
+        <ContractsView
+          graph={graph.graph}
+          cluster={cluster}
+          env={env}
+          win={win}
+          appFilter={appFilter}
+          compareTo={searchParams.get('compare') ?? undefined}
+          roster={apps.entities}
+          nonce={nonce}
+          onOpenApp={openApp}
+        />
       )}
       {sub === 'drift' && <DriftView graph={graph.graph} env={env} cluster={cluster} apps={apps.apps} nonce={nonce} onOpenApp={openApp} />}
     </div>

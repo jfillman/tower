@@ -257,6 +257,40 @@ describe('buildOpsWallModel', () => {
     });
   });
 
+  it('flags a release PR whose api-compat check warns or blocks, and nothing for a pass or no report', () => {
+    const report = (verdict: 'pass' | 'warn' | 'block') => ({
+      version: 1 as const,
+      verdict,
+      env: 'prod',
+      baseline: null,
+      breaking: [
+        { id: 'a', level: 'error' as const, text: 'removed /api/whoami', inUse: true, rate: 0.2 },
+        { id: 'b', level: 'error' as const, text: 'removed field', inUse: false, rate: 0 },
+      ],
+      nonBreakingCount: 0,
+      usage: { source: 'prometheus' as const, callers: [] },
+      override: null,
+    });
+    const pending = (app: string, verdict?: 'pass' | 'warn' | 'block') => ({
+      app,
+      env: 'prod',
+      cluster: 'example-prod',
+      prUrl: `https://github.com/example-org/gitops-${app}/pull/3`,
+      prNumber: 3,
+      report: verdict ? report(verdict) : undefined,
+    });
+    const m = buildOpsWallModel(
+      inputs({ apiCompat: [pending('flight-api', 'warn'), pending('gate-api', 'block'), pending('boarding-api', 'pass'), pending('checkin-api')] }),
+    );
+    const items = m.attention.filter(a => a.rule === 'api-breaking-pending');
+    expect(items.map(a => `${a.app}:${a.severity}`).sort()).toEqual(['flight-api:warn', 'gate-api:high']);
+    expect(items.find(a => a.app === 'flight-api')?.detail).toBe('2 breaking · 1 in use');
+    expect(items.find(a => a.app === 'gate-api')?.links[0]).toEqual({ label: 'PR', href: 'https://github.com/example-org/gitops-gate-api/pull/3', external: true });
+    // The owner filter applies too.
+    const filtered = buildOpsWallModel(inputs({ apiCompat: [pending('flight-api', 'warn')], appFilter: new Set(['gate-api']) }));
+    expect(filtered.attention.some(a => a.rule === 'api-breaking-pending')).toBe(false);
+  });
+
   it('shows a deploying release with its canary, and a sync failure as critical', () => {
     const progressing = toReleaseRecord(
       record({
