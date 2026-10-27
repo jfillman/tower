@@ -44,11 +44,23 @@ export function autolandEligibility(records: ReleaseRecord[], signoffEnv?: strin
     detail: prod?.rolloutStrategy ? `${signoffEnv} rolls out with ${prod.rolloutStrategy}` : `No rollout strategy seen on ${signoffEnv ?? 'production'}`,
   });
 
+  // Canary analysis reads the production cluster's Prometheus, so a canary in production is judged on real metrics.
+  // The bake window doesn't read them yet: an outcome is still decided from the rollout alone.
+  const canary = prod?.rolloutStrategy === 'canary';
   items.push({
     id: 'metrics',
     label: 'Production metrics',
+    state: canary ? 'ok' : 'todo',
+    detail: canary
+      ? `Canary analysis on ${signoffEnv} reads the production cluster's Prometheus`
+      : 'Production metrics are read by canary analysis, so they need a canary rollout in production',
+  });
+
+  items.push({
+    id: 'bake',
+    label: 'SLO burn read during the bake',
     state: 'todo',
-    detail: "Judging a canary and the bake window needs production metrics; the production cluster's Prometheus is off",
+    detail: 'Tower does not read SLO burn during the bake window yet; an outcome is decided from the rollout alone',
   });
 
   const cfr = closed.length > 0 ? rolledBack / closed.length : undefined;

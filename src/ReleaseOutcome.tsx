@@ -94,8 +94,8 @@ export function ReleaseOutcomePanel({
       {githubRelease?.skipped && <Hint>{`GitHub Release not published: ${githubRelease.skipped}.`}</Hint>}
       {outcome && (
         <Hint>
-          SLO burn during the bake window is not measured yet: the production cluster's Prometheus is off, so there is no production
-          metric to read.
+          SLO burn during the bake window is not read yet. The production cluster's Prometheus is on and canary analysis uses it,
+          but the outcome is still decided from the rollout alone.
         </Hint>
       )}
     </RecordColumn>

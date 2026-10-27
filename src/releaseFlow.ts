@@ -21,7 +21,7 @@ export const RELEASE_MODE_HELP: Record<ReleaseMode, string> = {
   'hand-flown': 'A production release needs an approving review from someone other than the person who merges it.',
   assisted: 'A person merges each Flight release PR. Tower records who merged and who reviewed; no sign-off is required.',
   autoland:
-    'Releases land in production with no human, once a candidate passes every gate and soaks without SLO burn. Not available yet: it needs real test results and canary metrics.',
+    'Releases land in production with no human, once a candidate passes every gate and soaks without SLO burn. Not available yet: the check ride and canary metrics it would decide on are in place, but the decision itself is not built.',
 };
 
 export interface ReleaseModeInfo {
