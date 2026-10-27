@@ -493,12 +493,16 @@ export function extractShortShaFromImageTag(tag: string): string | undefined {
   return tag.match(/(?:^|-)([0-9a-f]{7,40})$/i)?.[1];
 }
 
+// A release pinned by digest runs `repo:tag@sha256:...` (airframe-application, ADR-0029): the tag still names the
+// release, so it wins; only a bare `repo@sha256:...` shows the short digest.
 export function imageTag(image?: string): string {
   if (!image) return 'no image';
   const atIndex = image.indexOf('@sha256:');
+  const named = atIndex === -1 ? image : image.slice(0, atIndex);
+  const colonIndex = named.lastIndexOf(':');
+  if (colonIndex > named.lastIndexOf('/')) return named.slice(colonIndex + 1);
   if (atIndex !== -1) return `sha256:${image.slice(atIndex + 8, atIndex + 20)}…`;
-  const colonIndex = image.lastIndexOf(':');
-  return colonIndex === -1 ? image : image.slice(colonIndex + 1);
+  return image;
 }
 
 // The inverse of imageTag - repo and tag both, for a first-deploy Promote
@@ -508,9 +512,10 @@ export function imageTag(image?: string): string {
 // buildReleases() row/build-image task result carries is always the former
 // on this platform (see build-image.yaml's own tagging convention).
 export function splitImageRef(image: string): { repo: string; tag: string } | undefined {
-  const colonIndex = image.lastIndexOf(':');
-  if (colonIndex === -1) return undefined;
-  return { repo: image.slice(0, colonIndex), tag: image.slice(colonIndex + 1) };
+  const named = image.split('@')[0]; // drop a digest pin: `repo:tag@sha256:...` -> `repo:tag`
+  const colonIndex = named.lastIndexOf(':');
+  if (colonIndex === -1 || colonIndex < named.lastIndexOf('/')) return undefined;
+  return { repo: named.slice(0, colonIndex), tag: named.slice(colonIndex + 1) };
 }
 
 // GHCR images are always ghcr.io/<owner>/<repo>[:tag|@digest] on this
