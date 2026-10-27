@@ -278,7 +278,7 @@ function FlowSlugChip({ slug, classes }: { slug: string; classes: ReturnType<typ
 // toPipelineRunSummary) rather than anything env-specific added just for
 // this - the same param every one of those three Pipelines already declares.
 export function pipelineTitle(run: PipelineRunSummary): string {
-  // The still-stub release gates (itsm, qa, policy-validation) all run the one shared
+  // A stub release gate (today only itsm, when the catalog names no change tool) runs the one shared
   // governance-check Pipeline; which gate a run is lives only in its gate-name param. Titled like the real
   // gates' own Pipelines (sast-check, provenance-check, ...).
   if (run.pipelineName === 'governance-check') {
