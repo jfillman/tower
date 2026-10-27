@@ -18,14 +18,17 @@ function extractShortShaFromImageTag(tag) {
 function imageTag(image) {
   if (!image) return "no image";
   const atIndex = image.indexOf("@sha256:");
+  const named = atIndex === -1 ? image : image.slice(0, atIndex);
+  const colonIndex = named.lastIndexOf(":");
+  if (colonIndex > named.lastIndexOf("/")) return named.slice(colonIndex + 1);
   if (atIndex !== -1) return `sha256:${image.slice(atIndex + 8, atIndex + 20)}\u2026`;
-  const colonIndex = image.lastIndexOf(":");
-  return colonIndex === -1 ? image : image.slice(colonIndex + 1);
+  return image;
 }
 function splitImageRef(image) {
-  const colonIndex = image.lastIndexOf(":");
-  if (colonIndex === -1) return void 0;
-  return { repo: image.slice(0, colonIndex), tag: image.slice(colonIndex + 1) };
+  const named = image.split("@")[0];
+  const colonIndex = named.lastIndexOf(":");
+  if (colonIndex === -1 || colonIndex < named.lastIndexOf("/")) return void 0;
+  return { repo: named.slice(0, colonIndex), tag: named.slice(colonIndex + 1) };
 }
 function parseGhcrOwnerRepo(image) {
   const prefix = "ghcr.io/";
