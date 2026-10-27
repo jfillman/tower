@@ -11,7 +11,7 @@ const RELEASE_MODE_LABEL = {
 const RELEASE_MODE_HELP = {
   "hand-flown": "A production release needs an approving review from someone other than the person who merges it.",
   assisted: "A person merges each Flight release PR. Tower records who merged and who reviewed; no sign-off is required.",
-  autoland: "Releases land in production with no human, once a candidate passes every gate and soaks without SLO burn. Not available yet: it needs real test results and canary metrics."
+  autoland: "Releases land in production with no human, once a candidate passes every gate and soaks without SLO burn. Not available yet: the check ride and canary metrics it would decide on are in place, but the decision itself is not built."
 };
 const NOTE_CATEGORIES = ["added", "changed", "fixed", "security", "deprecated", "removed"];
 const NOTE_LABEL = {
