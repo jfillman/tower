@@ -58,7 +58,7 @@ describe('outcomes on records', () => {
     );
     expect(screen.getByText('Replaced by CEDAR · 1.2.0-bbbbbbb')).toBeTruthy();
     expect(screen.getByText('v1.1.0 ↗').closest('a')?.getAttribute('href')).toBe('https://github.com/o/bags/releases/tag/v1.1.0');
-    expect(screen.getByText(/the production cluster's Prometheus is off/)).toBeTruthy();
+    expect(screen.getByText(/SLO burn during the bake window is not read yet/)).toBeTruthy();
   });
 
   it('explains a record with no outcome', () => {
@@ -100,7 +100,7 @@ describe('changelog', () => {
 });
 
 describe('autolandEligibility', () => {
-  it('needs test results, a canary, production metrics, a clean history and high readiness', () => {
+  it('needs test results, a canary judged on production metrics, SLO burn in the bake, a clean history and high readiness', () => {
     const clean = Array.from({ length: 5 }, (_, i) =>
       record({
         imageTag: `1.${i}.0-aaaaaaa`,
@@ -115,7 +115,8 @@ describe('autolandEligibility', () => {
     expect(autolandEligibility(clean, 'prod').map(i => [i.id, i.state])).toEqual([
       ['tests', 'ok'],
       ['canary', 'ok'],
-      ['metrics', 'todo'],
+      ['metrics', 'ok'],
+      ['bake', 'todo'],
       ['outcomes', 'ok'],
       ['readiness', 'ok'],
     ]);
@@ -125,6 +126,7 @@ describe('autolandEligibility', () => {
     const today = autolandEligibility([record({ confidence: 60 })], 'prod');
     expect(today.filter(i => i.state === 'ok')).toEqual([]);
     expect(today.find(i => i.id === 'outcomes')?.detail).toBe('0 recorded outcomes; needs at least 5');
+    expect(today.find(i => i.id === 'metrics')?.detail).toBe('Production metrics are read by canary analysis, so they need a canary rollout in production');
   });
 });
 

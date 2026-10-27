@@ -59,7 +59,7 @@ An app releases in one of three modes:
 |---|---|
 | **Hand-flown** | A release PR to the sign-off environment needs an approving review from one of the app's owners or an admin, other than the person who merges it. |
 | **Assisted** (the default) | A person merges each Flight release PR. Tower records who merged and who reviewed; no sign-off is required. |
-| **Autoland** | Releases land in production with no human. Not available yet: it needs real test results and canary metrics to decide on its own. |
+| **Autoland** | Releases land in production with no human. Not available yet: the check ride and canary metrics it would decide on are in place, but the decision itself is not built. |
 
 The **sign-off environment** is the Flight environment `cicd.yaml` marks `production: true`, else the last Flight
 environment. Staging and pre-prod never need a sign-off.
@@ -173,7 +173,8 @@ backend writes the outcome into the record with one PR per release (branch `rele
 excluded from the release gates like the record PRs themselves), together with the production sign-off when the
 record was written before that PR merged (an app with staging before production). Glidepath sweeps its tracking
 records after 14 days, so releases older than that, and cloud targets, have no outcome. SLO burn during the bake
-window is not measured yet: the production cluster's Prometheus is off, so there is no production metric to read.
+window is not read yet: the production cluster's Prometheus is on and canary analysis uses it, but the outcome is
+still decided from the rollout alone.
 
 The record's score is now called **readiness**: how ready the release was when it shipped (guardrails, signed
 and attested, commit proof, sign-offs). **Commit proof** (2026-10-20) is worth up to 6: gitsign 6, GitHub merge
@@ -202,9 +203,11 @@ for that tag at the same commit is linked, not recreated. The link reaches the r
   it merges ("CEDAR released to prod", with who signed off). They are Backstage notifications, in Tower's Activity
   feed under Releases; no Slack integration is configured.
 - **Autoland eligibility** under the mode bar: what an app would need before Autoland could land releases on its
-  own (tests that report results, a canary rollout in production, production metrics, at least five recorded
-  outcomes with under 15% rolled back, and an average readiness of 80). "Tests report results" counts a release when
-  its image carries a passed check ride (frozen into the record, or read live from provenance). Display only;
+  own (tests that report results, a canary rollout in production, production metrics, SLO burn read during the
+  bake, at least five recorded outcomes with under 15% rolled back, and an average readiness of 80). "Tests report
+  results" counts a release when its image carries a passed check ride (frozen into the record, or read live from
+  provenance). "Production metrics" is met when production rolls out with a canary, since canary analysis reads the
+  production cluster's Prometheus. "SLO burn read during the bake" stays a to-do until Tower reads it. Display only;
   Autoland is not available yet.
 
 ## Where it lives, and what runs on its own
