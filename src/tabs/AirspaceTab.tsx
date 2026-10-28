@@ -159,7 +159,7 @@ export function AirspaceTab() {
       )}
       {noTraces && (
         <Callout tone="neutral" title="No traces from this cluster yet">
-          The service graph comes from Tempo, fed by OpenTelemetry auto-instrumentation. A cluster without its tracing stack, or
+          The service graph comes from the OpenTelemetry collector, fed by auto-instrumentation. A cluster without its tracing stack, or
           apps not yet rolled with the agent, shows declared and owned connections only.
         </Callout>
       )}

@@ -1,9 +1,10 @@
 import type { ServiceGraph, ServiceGraphSample } from './model';
 import { edgeKey } from './model';
 
-// PromQL over Tempo's service-graph series (remote-written into each cluster's Prometheus, docs/airspace.md). Label
-// names checked against hangar-dev on 2026-10-23: client, server, connection_type; failures are
-// traces_service_graph_request_failed_total, which only exists once some request has failed.
+// PromQL over the service-graph series (the OpenTelemetry collector's servicegraph connector, remote-written into
+// each cluster's Prometheus, docs/airspace.md). Label names checked against hangar-dev on 2026-10-28: client,
+// server, connection_type (plus `failed`, summed away); failures are traces_service_graph_request_failed_total,
+// which only exists once some request has failed.
 export const WINDOWS = ['15m', '1h', '24h'] as const;
 export type AirspaceWindow = (typeof WINDOWS)[number];
 

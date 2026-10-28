@@ -1,11 +1,12 @@
 // Airspace: who an app talks to, from three sources that disagree on purpose (docs/airspace.md).
 //
-//   observed  Tempo's service graph: traces_service_graph_request_total{client, server, connection_type}, remote-written
-//             into the cluster's Prometheus by Tempo's metrics generator. client/server are OpenTelemetry service names,
-//             which Hangar's Instrumentation derives from app.kubernetes.io/instance: `<app>-<env>`. A client of `user`
-//             is a request with no traced caller (the gateway, a probe). connection_type is "" for an RPC,
-//             `messaging_system` for a producer/consumer pair through a broker, `database` for a DB span and
-//             `virtual_node` for a peer that sends no spans of its own (Redis, an external host).
+//   observed  the service graph: traces_service_graph_request_total{client, server, connection_type}, remote-written
+//             into the cluster's Prometheus by the OTel collector's servicegraph connector. client/server are
+//             OpenTelemetry service names, which Hangar's Instrumentation derives from app.kubernetes.io/instance:
+//             `<app>-<env>`. A client of `user` is a request with no traced caller (the gateway, a port-forward).
+//             connection_type is "" for an RPC, `messaging_system` for a producer/consumer pair through a broker,
+//             `database` for a DB span (Postgres, Redis; named by host) and `virtual_node` for a peer that sends no
+//             spans of its own (an external host).
 //   declared  The environment's chart values: networkPolicy.allowIngressFrom / allowEgressTo namespace peers, the only
 //             place an app says today which other apps may reach it.
 //   composed  The environment's chart values: components[] (Redis, PostgreSQL, RabbitMQ, ...), which Crossplane runs for

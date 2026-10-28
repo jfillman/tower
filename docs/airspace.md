@@ -54,7 +54,7 @@ one fleet page (**Airspace →** on Tower's home: Map, Contracts, Drift).
 
 | Source | What it gives | Where |
 |---|---|---|
-| Observed | Edges with rate, p95 and errors | `traces_service_graph_request_total{client, server, connection_type}`, `..._request_server_seconds_bucket` and `..._request_failed_total` in the cluster's Prometheus. Tempo's metrics generator writes them from the traces that OpenTelemetry auto-instrumentation sends |
+| Observed | Edges with rate, p95 and errors | `traces_service_graph_request_total{client, server, connection_type}`, `..._request_server_seconds_bucket` and `..._request_failed_total` in the cluster's Prometheus. The OpenTelemetry collector's `servicegraph` connector writes them from the traces that auto-instrumentation sends (Tempo is optional; it only stores traces). The collector drops probe and Prometheus-scrape requests first (by user agent and health paths), so they never count as traffic |
 | Declared | Which apps may call the app | `networkPolicy.allowIngressFrom` / `allowEgressTo` namespace peers in the environment's values file (`app-<name>-<env>`) |
 | Composed | What the app owns | `components[]` in the values file |
 | Contracts | API definitions and relations | The catalog's API entities: an app's own, plus the ones the kubernetes-ingestor publishes for every Airframe XRD (type `crd`) |
@@ -84,7 +84,8 @@ The fleet page's cluster list comes from the cluster registry. Without it, Tower
 (the backend's shape) are never offered as clusters.
 
 The service names in the graph are `<app>-<env>`: Hangar's Instrumentation takes `service.name` from the pod's
-`app.kubernetes.io/instance` label. A client of `user` is a request with no traced caller (the gateway, a probe).
+`app.kubernetes.io/instance` label. A client of `user` is a request with no traced caller (the gateway, a
+port-forward, an uninstrumented client). A database edge is named by the database's host (`postgresql-rw`, `redis-master`), not its database name.
 
 Edge states:
 
@@ -101,10 +102,12 @@ Edge states:
 
 - **Few app-to-app calls are declared today.** The only declaration is the NetworkPolicy peer list, so expect most
   of them to start out as *Seen, not declared*.
-- **p95 is coarse.** It comes from Tempo's server-latency histogram, whose default buckets make low values round to
-  the nearest bucket.
-- **Some operations show only a method.** Span names depend on the framework: Node.js HTTP spans with no route
-  report only the method (`GET`).
+- **p95 is coarse.** It comes from the service graph's server-latency histogram, whose default buckets make low values
+  round to the nearest bucket.
+- **Operations need a route in the span name.** Span names depend on the framework. Spring names spans after the
+  route; a plain Node.js `http` server reports only the method (`GET`) unless the app names the span itself, and
+  Python's bare `http.server` is not traced at all unless the app opens its own server spans. The Skyport apps do
+  both (`tracing.js`, `tracing.py`).
 - **Not every app shows up in the graph.** An app only appears once it has served or sent traced traffic in the
   window.
 
@@ -130,9 +133,8 @@ walk); schemas are compared to depth 4, arrays as `field[]`.
   which fields a caller reads, and a span that names only a method matches nothing.
 - An image built before its app had a spec, or before Glidepath attested specs, carries none: that environment shows
   no spec until a newer build is deployed.
-- The api-compat line is read from the gate comment's message. The backend trusts the provenance gate's signature line
-  only from the platform App's comment; it does not yet do the same for this line, so the Check Run's own conclusion is
-  what counts.
+- The api-compat line is read from the gate comment's message. The backend keeps it only when the comment is the
+  platform App's own api-compat comment, as it does for the provenance gate's signature line.
 
 **Not built yet.**
 - **Connection drift on the Ops Wall.** It needs every app's values file on every poll.
