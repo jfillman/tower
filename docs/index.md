@@ -48,7 +48,7 @@ Shared values, Pipeline). Plus a fleet-wide dashboard and the fleet **Airspace**
 - **Pull requests and checks**: the PRs in flight and their gates
 - **Configure** (Environments, Shared values, Pipeline): edit an app's environment values and `cicd.yaml` through a real GitOps PR, never a direct commit
 - **SLOs, topology, images**: burn rate, live objects, artifact catalog
-- **Airspace**: who an app talks to, from traces (Tempo's service graph), its values file (declared peers) and its components, with drift between them; a fleet map, the catalog's API contracts and fleet drift. See [Airspace](airspace.md)
+- **Airspace**: who an app talks to, from traces (the OpenTelemetry collector's service graph), its values file (declared peers) and its components, with drift between them; a fleet map, the catalog's API contracts and fleet drift. See [Airspace](airspace.md)
 - **Fleet dashboards**: Fleet Grid and Ops Wall
 - **Hangar sign-in page**: the branded first screen (mark, product family, one sign-in box), light and dark, installed with one line; see [Installation](installation.md#sign-in-page)
 
