@@ -1,4 +1,4 @@
-import { buildNextRelease, closingIssueRefs, suggestVersion } from './nextRelease';
+import { buildNextRelease, closingIssueRefs, promotionReadiness, suggestVersion } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { ReleaseRow } from './useReleaseContext';
 import { buildReleaseRecords } from './useReleaseRecords';
@@ -297,5 +297,38 @@ describe('R4: Jira links, planned scope and the target date', () => {
       ['target', 'todo', '2026-10-11 (3 days late)'],
       ['planned', 'todo', '1 of 2 on Oct bag-tag'],
     ]);
+  });
+});
+
+describe('promotion readiness (glidepath ADR-0029)', () => {
+  const release = (checks: NonNullable<PullRequestSummary['ci']>['checks'], state: PullRequestSummary['state'] = 'open') =>
+    pr({
+      number: 57,
+      repo: 'gitops',
+      state,
+      title: 'Release: gate-api to prod @ 2.0.7-92988b1',
+      ci: { state: 'pending', totalChecks: 1, passedChecks: 0, checks },
+    } as Partial<PullRequestSummary> & { number: number });
+  const check = (status: 'queued' | 'in_progress' | 'completed', conclusion?: string, message?: string) => [
+    { name: 'Pipelines as Code CI / image-promotion-', status, conclusion, message },
+  ];
+
+  it('is ready once the release PR has a green image-promotion check', () => {
+    expect(promotionReadiness('2.0.7-92988b1', [release(check('completed', 'success'))])).toEqual([
+      { id: 'promotion', label: 'Promoted to Flight', state: 'ok', detail: 'Promoted for release PR #57' },
+    ]);
+  });
+
+  it('says why a failed promotion is not ready, and that a running one is in progress', () => {
+    expect(promotionReadiness('2.0.7-92988b1', [release(check('completed', 'failure', 'PROM-03: qa is red\nmore'))])[0].detail).toBe(
+      'Not promoted: PROM-03: qa is red (release PR #57)',
+    );
+    expect(promotionReadiness('2.0.7-92988b1', [release(check('in_progress'))])[0]).toMatchObject({ state: 'todo', detail: 'Promoting (release PR #57)' });
+  });
+
+  it('has no row without an open release PR for the candidate, or without the check', () => {
+    expect(promotionReadiness('2.0.7-92988b1', [release(check('completed', 'success'), 'merged')])).toEqual([]);
+    expect(promotionReadiness('2.0.8-aaaaaaa', [release(check('completed', 'success'))])).toEqual([]);
+    expect(promotionReadiness('2.0.7-92988b1', [release([{ name: 'Pipelines as Code CI / qa-', status: 'completed', conclusion: 'success' }])])).toEqual([]);
   });
 });

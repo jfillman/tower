@@ -1,5 +1,5 @@
 import { buildSupplyChainStages } from './PipelineFlow';
-import { explain, findCheckRide, findSlsa, findTestRuns, isSignedAndAttested, verdictOf } from './supplyChain';
+import { explain, findCheckRide, findPromotion, findSlsa, findTestRuns, isSignedAndAttested, PROMOTION, verdictOf } from './supplyChain';
 import type { Attestation, ProvenanceResponse } from './types';
 
 const att = (predicateType: string, over: Partial<Attestation> = {}): Attestation => ({
@@ -24,13 +24,14 @@ describe('supply-chain steps say what verified, not what exists', () => {
       tests: 'pending',
       'sign-attest': 'done',
       rekor: 'done',
+      promoted: 'pending',
     });
   });
 
   it('turns amber, not green, when present but unverified (found live: boarding-api 1.1.3 in pre-prod)', () => {
     const stale = { verified: false, verificationCode: 'stale-receipt' as const, verificationError: 'inclusion promise could not be verified' };
     const p = prov(att(SLSA, stale), att(SBOM, stale), att(SIG, { verified: false, verificationCode: 'no-log-entry', transparencyLog: undefined }));
-    expect(statuses(p)).toEqual({ build: 'warn', 'sast-sbom': 'warn', signature: 'warn', tests: 'pending', 'sign-attest': 'warn', rekor: 'warn' });
+    expect(statuses(p)).toEqual({ build: 'warn', 'sast-sbom': 'warn', signature: 'warn', tests: 'pending', 'sign-attest': 'warn', rekor: 'warn', promoted: 'pending' });
     expect(isSignedAndAttested(p)).toBe(false);
   });
 
@@ -48,6 +49,32 @@ describe('supply-chain steps say what verified, not what exists', () => {
   it('reads an older backend that sends no code from its message', () => {
     expect(verdictOf(att(SLSA, { verified: false, verificationCode: undefined, verificationError: 'expected 1 timestamps, got 0' }))).toBe('unverified');
     expect(verdictOf(att(SLSA, { verified: false, verificationCode: undefined, verificationError: 'attestation subject digest does not match this image' }))).toBe('contradicted');
+  });
+});
+
+describe('promotion to Flight (glidepath ADR-0029)', () => {
+  const promo = (promotedAt: string, over: Partial<Attestation> = {}) =>
+    att(PROMOTION, { predicate: { promotedAt, source: 'ghcr.io/jfillman/a@sha256:1' }, ...over });
+
+  it('is its own step and never colours the platform roll-ups', () => {
+    // A promotion signed on public Sigstore that this backend could not verify must not turn Sign + Attest red.
+    const p = prov(att(SLSA), att(SBOM), att(SIG), promo('2026-10-29T02:00:00Z', { verified: false, verificationCode: 'signature-invalid' }));
+    expect(statuses(p)).toMatchObject({ 'sign-attest': 'done', rekor: 'done', promoted: 'fail' });
+    expect(isSignedAndAttested(p)).toBe(true);
+  });
+
+  it('is green for a verified promotion and grey for a Ground image', () => {
+    expect(statuses(prov(att(SLSA), promo('2026-10-29T02:00:00Z'))).promoted).toBe('done');
+    expect(statuses(prov(att(SLSA))).promoted).toBe('pending');
+  });
+
+  it('prefers the newest verified promotion', () => {
+    const p = prov(
+      promo('2026-10-28T00:00:00Z'),
+      promo('2026-10-29T03:00:00Z', { verified: false, verificationCode: 'signature-invalid' }),
+      promo('2026-10-29T02:00:00Z'),
+    );
+    expect((findPromotion(p)?.predicate as { promotedAt: string }).promotedAt).toBe('2026-10-29T02:00:00Z');
   });
 });
 

@@ -1,3 +1,4 @@
+import { parseGitopsPrTitle } from './useReleaseContext.esm.js';
 import { RELEASE_MODE_LABEL } from './releaseFlow.esm.js';
 import { extractShortShaFromImageTag, imageTag, envTierOf } from './types.esm.js';
 import { landedAtMs, buildChangeCategories, findPipelineRunForTag, buildSecurityScans, findRelatedPipelineRuns, versionFromImageTag } from './useReleaseRecords.esm.js';
@@ -113,8 +114,29 @@ function buildNextRelease(input) {
     previousVersion,
     suggestedVersion,
     planned: input.flow?.planned,
-    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow, now)]
+    readiness: [
+      ...buildReadiness({ scope, leading, previous, previousVersion, now }),
+      ...promotionReadiness(leading?.imageTag, input.gitopsPrs),
+      ...flowReadiness(input.flow, now)
+    ]
   };
+}
+function promotionReadiness(tag, gitopsPrs) {
+  if (!tag) return [];
+  const pr = (gitopsPrs ?? []).find((p) => p.state === "open" && parseGitopsPrTitle(p.title)?.imageTag.toLowerCase() === tag.toLowerCase());
+  const check = pr?.ci?.checks?.find((c) => /(^|\/ )image-promotion-?$/.test(c.name.trim()));
+  if (!pr || !check) return [];
+  const label = "Promoted to Flight";
+  if (check.status !== "completed") return [{ id: "promotion", label, state: "todo", detail: `Promoting (release PR #${pr.number})` }];
+  if (check.conclusion === "success") return [{ id: "promotion", label, state: "ok", detail: `Promoted for release PR #${pr.number}` }];
+  return [
+    {
+      id: "promotion",
+      label,
+      state: "todo",
+      detail: `Not promoted: ${check.message?.split("\n")[0] ?? check.conclusion ?? "the check failed"} (release PR #${pr.number})`
+    }
+  ];
 }
 function buildReadiness(input) {
   const { scope, leading, previous, previousVersion, now } = input;
@@ -227,5 +249,5 @@ function flowReadiness(flow, now) {
   return items;
 }
 
-export { GROUND_SOAK_TARGET_HOURS, buildNextRelease, closingIssueRefs, suggestVersion };
+export { GROUND_SOAK_TARGET_HOURS, buildNextRelease, closingIssueRefs, promotionReadiness, suggestVersion };
 //# sourceMappingURL=nextRelease.esm.js.map

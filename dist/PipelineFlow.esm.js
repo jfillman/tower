@@ -16,14 +16,15 @@ import AssignmentTurnedInIcon from '@material-ui/icons/AssignmentTurnedIn';
 import { formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { JsonDocumentView } from './ResourceInspector.esm.js';
-import { findSlsa, findSbom, findSignature, findTestRuns, findCheckRide, verdictOf, worstVerdict, isSharedCheckRide, SIMPLE_SIGNING, explain, testRunOf } from './supplyChain.esm.js';
+import { findSlsa, findSbom, findSignature, platformSigned, findPromotion, findTestRuns, findCheckRide, verdictOf, worstVerdict, isSharedCheckRide, SIMPLE_SIGNING, explain, testRunOf, promotionOf } from './supplyChain.esm.js';
 
 function buildSupplyChainStages(provenance, loading) {
   const slsa = findSlsa(provenance);
   const sbom = findSbom(provenance);
   const signature = findSignature(provenance);
-  const all = provenance?.attestations ?? [];
+  const all = platformSigned(provenance);
   const logged = all.filter((a) => a.transparencyLog);
+  const promotion = findPromotion(provenance);
   const testRuns = findTestRuns(provenance);
   const checkRide = findCheckRide(provenance);
   const primaryRun = checkRide ?? testRuns[0];
@@ -69,7 +70,10 @@ function buildSupplyChainStages(provenance, loading) {
       status: statusOf(worstVerdict(logged)),
       attestation: weakest(logged),
       all
-    }
+    },
+    // Promoted to Flight by the promoter (glidepath ADR-0029). Grey for a Ground image: not promoted (yet) is not a
+    // fault, only a Flight environment needs it, and admission there checks it.
+    { kind: "supply-chain", id: "promoted", label: "Promoted", status: statusOf(verdictOf(promotion)), attestation: promotion }
   ];
 }
 const useMiniFlowStyles = makeStyles(
@@ -342,6 +346,11 @@ function friendlySummary(stageId, att, all) {
         return { headline: "No image signature", body: "This image has no `cosign sign` signature on its manifest. The attestations are separate." };
       case "rekor":
         return { headline: "Not in the transparency log", body: "Nothing on this image has a Rekor entry." };
+      case "promoted":
+        return {
+          headline: "Not promoted",
+          body: "This image is in Ground only: the promoter has not copied it to Flight. A Flight environment can run it only after its release PR passes every required gate and the image-promotion check goes green."
+        };
       case "tests":
         return {
           headline: "No test run attested",
@@ -373,8 +382,29 @@ function friendlySummary(stageId, att, all) {
     };
   }
   if (stageId === "tests") return testsSummary(att, all);
+  if (stageId === "promoted") return promotionSummary(att);
   const e = explain(att, STAGE_WHAT[stageId] ?? "attestation");
   return { headline: e.headline, body: e.body, consequence: e.consequence, pill: { tone: e.tone, label: e.label } };
+}
+function promotionSummary(att) {
+  const p = promotionOf(att);
+  const when = p.promotedAt ? ` on ${formatDateTime(p.promotedAt)}` : "";
+  const pr = p.pullRequest ? ` for ${p.pullRequest.split("@")[0]}` : "";
+  const gates = p.gates ? Object.keys(p.gates).length : 0;
+  if (verdictOf(att) === "verified") {
+    return {
+      headline: `Promoted to Flight${when}`,
+      body: `The promoter copied this exact digest from ${p.source?.split("@")[0] ?? "Ground"}${pr}, with ${gates} required gate${gates === 1 ? "" : "s"} green, and signed the promotion with its own workflow identity (public Sigstore). An upper cluster admits a Flight image only with this attestation.`,
+      pill: { tone: "good", label: "verified" }
+    };
+  }
+  const contradicted = verdictOf(att) === "contradicted";
+  return {
+    headline: contradicted ? "The promotion attestation does not verify" : "The promotion attestation couldn't be checked",
+    body: att.verificationError ?? "No reason given.",
+    consequence: contradicted ? "It was not signed by the promoter workflow, or it was changed: an upper cluster refuses this image." : "Not a sign of tampering by itself; an upper cluster verifies it again at admission.",
+    pill: { tone: contradicted ? "bad" : "warn", label: contradicted ? "not verified" : "unchecked" }
+  };
 }
 function countsOf(r) {
   if (r.testsTotal === void 0) return "no test counts recorded";
@@ -434,6 +464,7 @@ function testsSummary(att, all) {
   };
 }
 const RAW_DOCUMENT_LABEL = {
+  promoted: "promotion attestation",
   build: "SLSA provenance document",
   "sast-sbom": "SBOM file",
   signature: "cosign image signature",

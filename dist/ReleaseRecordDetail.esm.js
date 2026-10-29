@@ -20,7 +20,7 @@ import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel, Callout } from './ui/index.esm.js';
 import { PrRef, prFromSummary, OPENING_PR, PrReceipt } from './ui/PrRef.esm.js';
 import { isSignedAndAttested } from './supplyChain.esm.js';
-import { hasCommitSignature, ChangeRequestFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
+import { hasCommitSignature, ChangeRequestFact, FlightPromotionFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
 import { ApiCompatSection } from './airspace/ApiCompatSection.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
@@ -472,6 +472,7 @@ function ReleaseRecordDetail({
         ] }),
         /* @__PURE__ */ jsxs("div", { className: classes.colBody, children: [
           /* @__PURE__ */ jsx(ChangeRequestFact, { record, classes }),
+          /* @__PURE__ */ jsx(FlightPromotionFact, { record, classes }),
           record.promotionChain.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, { children: "No recorded promotions between tracked environments." }) : /* @__PURE__ */ jsx("div", { className: classes.promoChain, children: record.promotionChain.map((p) => /* @__PURE__ */ jsxs("div", { className: classes.promo, children: [
             /* @__PURE__ */ jsx("span", { className: classes.promoEnv, children: p.fromEnv }),
             /* @__PURE__ */ jsx("span", { className: classes.promoArrow, children: "\u2192" }),

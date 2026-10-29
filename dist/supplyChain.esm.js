@@ -1,5 +1,7 @@
 const SLSA_PROVENANCE = "https://slsa.dev/provenance/v0.2";
 const SIMPLE_SIGNING = "cosign.sigstore.dev/signature/simple-signing";
+const PROMOTION = "https://hangar.io/attestations/promotion/v1";
+const isPromotion = (a) => a.predicateType === PROMOTION;
 const CONTRADICTED = ["log-entry-mismatch", "digest-mismatch", "signature-invalid"];
 function codeOf(a) {
   if (a.verificationCode) return a.verificationCode;
@@ -85,9 +87,19 @@ function findSbom(p) {
 function findSignature(p) {
   return p?.attestations.find((a) => a.predicateType === SIMPLE_SIGNING);
 }
+function findPromotion(p) {
+  const all = (p?.attestations ?? []).filter(isPromotion).sort((a, b) => (promotionOf(b).promotedAt ?? "").localeCompare(promotionOf(a).promotedAt ?? ""));
+  return all.find((a) => verdictOf(a) === "verified") ?? all[0];
+}
+function promotionOf(a) {
+  return a.predicate ?? {};
+}
+function platformSigned(p) {
+  return (p?.attestations ?? []).filter((a) => !isPromotion(a));
+}
 function isSignedAndAttested(p) {
   if (!p) return false;
-  return verdictOf(findSlsa(p)) === "verified" && worstVerdict(p.attestations) !== "contradicted";
+  return verdictOf(findSlsa(p)) === "verified" && worstVerdict(platformSigned(p)) !== "contradicted";
 }
 function explain(a, what) {
   const code = codeOf(a);
@@ -159,5 +171,5 @@ function explain(a, what) {
   }
 }
 
-export { SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findCheckRide, findReleaseTestRun, findSbom, findSignature, findSlsa, findTestRuns, isBuildProvenance, isSharedCheckRide, isSignedAndAttested, isTestProvenance, testRunOf, verdictOf, worstVerdict };
+export { PROMOTION, SIMPLE_SIGNING, SLSA_PROVENANCE, explain, findCheckRide, findPromotion, findReleaseTestRun, findSbom, findSignature, findSlsa, findTestRuns, isBuildProvenance, isPromotion, isSharedCheckRide, isSignedAndAttested, isTestProvenance, platformSigned, promotionOf, testRunOf, verdictOf, worstVerdict };
 //# sourceMappingURL=supplyChain.esm.js.map

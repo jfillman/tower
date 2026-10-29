@@ -684,3 +684,42 @@ export function useReleaseRunStatus(appName: string | undefined, run: string | u
 
   return state;
 }
+
+/** Where one digest is (glidepath ADR-0029): Ground, where builds push, and Flight, the promoted copies. */
+export interface ImagePresence {
+  digest: string;
+  ground: { repository: string; present: boolean | null };
+  /** Absent when no Flight registry is configured. present null: the registry could not say. */
+  flight?: { repository: string; present: boolean | null };
+}
+
+export function useImagePresence(
+  ownerRepo: { owner: string; repo: string } | undefined,
+  digest: string | undefined,
+  refreshNonce = 0,
+): ImagePresence | undefined {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [data, setData] = useState<ImagePresence>();
+  const key = ownerRepo && digest ? `${ownerRepo.owner}/${ownerRepo.repo}@${digest}` : '';
+
+  useEffect(() => {
+    if (!ownerRepo || !digest?.startsWith('sha256:')) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl('glidepath');
+        const params = new URLSearchParams({ owner: ownerRepo.owner, repo: ownerRepo.repo, digest });
+        const res = await fetchApi.fetch(`${baseUrl}/images/presence?${params.toString()}`);
+        if (res.ok && !cancelled) setData((await res.json()) as ImagePresence);
+      } catch {
+        // An older backend or a registry outage: no chip, never a wrong one.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, refreshNonce, discoveryApi, fetchApi]);
+  return data;
+}

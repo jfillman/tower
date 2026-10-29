@@ -33,7 +33,7 @@ It is computed from data Tower already reads and nothing is saved.
 | **Incoming** | Open PRs on the source repo, from any branch. Shown, not in scope: no image from main contains them yet. |
 | **Issues** | Issues those PRs close, read from GitHub's closing keywords (`Fixes #12`, `closes owner/repo#5`) in the PR title and body. Issues linked only through a PR's Development sidebar are not seen. |
 | **Candidates** | Images built from main since the previous release, newest first, with where each runs on Ground, how long it has been there and how many scope PRs it contains. The leading candidate is the one live on the highest Ground environment. |
-| **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, **check ride passed** (a verified, passed run from the shared check-rides repository attested on the image, what the qa release gate will read; see [supply chain](../supply-chain.md)), version bumped, and a healthy previous release to roll back to. Display only: nothing is blocked. |
+| **Readiness** | Checks on the leading candidate: changes merged, running on Ground, 24 hours on Ground, build and scans passed, signed and attested, **check ride passed** (a verified, passed run from the shared check-rides repository attested on the image, what the qa release gate will read; see [supply chain](../supply-chain.md)), version bumped, a healthy previous release to roll back to, and **promoted to Flight** (only when the candidate's open release PR carries an `image-promotion` check: promoting, promoted, or why not). Display only: nothing is blocked. |
 | **Version** | A suggestion: the previous release's version plus the bump the merged PRs call for (a breaking change: major, or minor before 1.0; a feature: minor; otherwise patch). The real version is whatever the promoted image's tag carries. |
 
 **Notes and owner** is the one part of the draft people write: a one-paragraph summary of what the release does,
@@ -156,6 +156,12 @@ An app whose releases go through change management (Glidepath's itsm wrapper: Se
 deploy), plus the change that rolled it back when one did. The record list shows the same state as a chip beside the
 outcome. The fact comes from Glidepath's release-tracking record (`changeRequest*` keys) and is frozen into the
 record with the rest of the evidence.
+
+A release whose image was promoted to Flight (Glidepath ADR-0029) gets a **Promoted to Flight** fact under the change
+request: when, whether the promoter's attestation verified (public Sigstore, the promoter workflow's identity), the
+release PR it was promoted for, how many required gates were green, the promoter run, and the Ground image it was
+copied from. Frozen into the record at sealing (`promotion`), read live from the image's provenance before. The
+Images tab marks each digest **in Flight** or **Ground only**, and always lists the Ground package.
 
 ## Outcome (what happened after it shipped)
 

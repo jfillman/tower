@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { commitProofPoints, commitProofOf, COMMIT_PROOF_MAX, commitProofNote } from './commitProof.esm.js';
 import { gitopsPrForEnvAndImage } from './useReleaseContext.esm.js';
 import { envTierOf, imageTag, health, extractShortShaFromImageTag } from './types.esm.js';
-import { findReleaseTestRun, isSignedAndAttested } from './supplyChain.esm.js';
+import { findReleaseTestRun, isSignedAndAttested, findPromotion, promotionOf } from './supplyChain.esm.js';
 
 function dedupeCommits(commits) {
   const seen = /* @__PURE__ */ new Set();
@@ -120,11 +120,17 @@ function withRecordedEvidence(record, recorded) {
   if (recorded.signoffs !== void 0) out = { ...out, signoffs: recorded.signoffs };
   if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
   if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
+  if (recorded.promotion) out = { ...out, flightPromotion: recorded.promotion };
   if (recorded.outcome) {
     out = { ...out, outcome: recorded.outcome };
     if (recorded.outcome.result === "rolled-back" && !out.current) out = { ...out, status: "rolled-back" };
   }
   return out;
+}
+function flightPromotionOf(provenance) {
+  const a = findPromotion(provenance);
+  if (!a) return void 0;
+  return { ...promotionOf(a), verified: a.verified, verificationError: a.verificationError };
 }
 function confidenceBreakdown(record, approvalsCount) {
   const g = record.guardrails;
@@ -243,6 +249,7 @@ function buildReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs,
       securityScans,
       provenance,
       checkRide: findReleaseTestRun(provenance),
+      flightPromotion: flightPromotionOf(provenance),
       nickname: row.nickname,
       hasSbom: hasSbomAttestation(provenance),
       guardrails: guardrailPr?.ci,
@@ -286,5 +293,5 @@ function useReleaseRecords(appName, pipelineEnvironments, releases, gitopsPrs, s
   );
 }
 
-export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, classifyPr, confidenceBreakdown, dedupeCommits, displayScore, findPipelineRunForTag, findRelatedPipelineRuns, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails, withRecordedEvidence };
+export { applyApprovalBonus, buildChangeCategories, buildReleaseRecords, buildSecurityScans, classifyPr, confidenceBreakdown, dedupeCommits, displayScore, findPipelineRunForTag, findRelatedPipelineRuns, flightPromotionOf, landedAtMs, useReleaseRecords, versionFromImageTag, withPersistedGuardrails, withRecordedEvidence };
 //# sourceMappingURL=useReleaseRecords.esm.js.map

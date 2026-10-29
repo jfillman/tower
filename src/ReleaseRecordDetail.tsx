@@ -22,7 +22,7 @@ import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink, Tooltip } from './ui';
 import { OPENING_PR, PrReceipt, PrRef, prFromSummary } from './ui/PrRef';
 import { isSignedAndAttested } from './supplyChain';
-import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, hasCommitSignature } from './ReleaseRecordEvidence';
+import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, FlightPromotionFact, hasCommitSignature } from './ReleaseRecordEvidence';
 import { ApiCompatSection } from './airspace/ApiCompatSection';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
@@ -561,6 +561,7 @@ export function ReleaseRecordDetail({
           </div>
           <div className={classes.colBody}>
             <ChangeRequestFact record={record} classes={classes} />
+            <FlightPromotionFact record={record} classes={classes} />
             {record.promotionChain.length === 0 ? (
               <EmptyNote>No recorded promotions between tracked environments.</EmptyNote>
             ) : (

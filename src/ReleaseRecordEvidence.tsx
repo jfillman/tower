@@ -4,7 +4,7 @@ import { ColumnLabel, Hint, StatusChip, type StatusTone } from './ui';
 import { PrRef } from './ui/PrRef';
 import { explain, isSharedCheckRide, verdictOf, type TestRunEvidence } from './supplyChain';
 import type { ReleaseRecord } from './useReleaseRecords';
-import type { ChangeRequestRef, TestEvidence } from './useReleaseRecordPersistence';
+import type { ChangeRequestRef, FlightPromotion, TestEvidence } from './useReleaseRecordPersistence';
 import {
   COMMIT_SIGNING_DOC,
   MERGE_HINT,
@@ -149,6 +149,41 @@ export function ChangeRequestFact({ record, classes }: { record: Pick<ReleaseRec
         {cr.approval && cr.state === 'created' && <Hint>approval: {cr.approval}</Hint>}
         {cr.rolledBackByChange && <Hint>rolled back by {cr.rolledBackByChange}</Hint>}
       </div>
+    </div>
+  );
+}
+
+/** owner/repo#pr@sha -> the PR's URL and number. */
+function promotionPr(ref: string | undefined): { url: string; number: number } | undefined {
+  const m = /^([^/#@\s]+\/[^/#@\s]+)#(\d+)/.exec(ref ?? '');
+  return m ? { url: `https://github.com/${m[1]}/pull/${m[2]}`, number: Number(m[2]) } : undefined;
+}
+
+/**
+ * The image's promotion to Flight (glidepath ADR-0029): when, from which Ground image, for which release PR, and the
+ * promoter run - frozen at sealing, live before. Nothing for a release that was never promoted (a Ground-only image).
+ */
+export function FlightPromotionFact({ record, classes }: { record: Pick<ReleaseRecord, 'flightPromotion'>; classes: Classes }) {
+  const p: FlightPromotion | undefined = record.flightPromotion;
+  if (!p) return null;
+  const pr = promotionPr(p.pullRequest);
+  const gates = p.gates ? Object.keys(p.gates).length : 0;
+  return (
+    <div className={classes.kv} style={{ marginBottom: 10 }} data-testid="record-flight-promotion">
+      <ColumnLabel>Promoted to Flight</ColumnLabel>
+      <div className={classes.scanHead}>
+        <span>{p.promotedAt ? formatDateTime(p.promotedAt) : 'promoted'}</span>
+        <StatusChip tone={p.verified ? 'ok' : 'warn'}>{p.verified ? 'attestation verified' : 'not verified'}</StatusChip>
+        {pr && <PrRef pr={pr} size="inline" />}
+        {gates > 0 && <Hint>{gates} required gate{gates === 1 ? '' : 's'} green</Hint>}
+        {p.runUrl && (
+          <Link href={p.runUrl} target="_blank" rel="noopener noreferrer">
+            promoter run
+          </Link>
+        )}
+      </div>
+      {p.source && <Hint>from {p.source.split('@')[0]}</Hint>}
+      {!p.verified && p.verificationError && <Hint>{p.verificationError}</Hint>}
     </div>
   );
 }
