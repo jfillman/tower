@@ -21,9 +21,10 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel';
 import { ReleaseOutcomePanel } from './ReleaseOutcome';
 import { ActionSelect, Button, Callout, ColumnLabel, EmptyNote, Fact, Hint, StatusChip, TextLink, Tooltip } from './ui';
 import { OPENING_PR, PrReceipt, PrRef, prFromSummary } from './ui/PrRef';
-import { isSignedAndAttested } from './supplyChain';
+import { isSignedAndAttested, platformSigned } from './supplyChain';
 import { CheckRideBlock, ChangeRequestFact, CommitSignatureBlock, FlightPromotionFact, hasCommitSignature } from './ReleaseRecordEvidence';
 import { ApiCompatSection } from './airspace/ApiCompatSection';
+import { apiCompatOf } from './airspace/apiCompat';
 
 // Board 2 of the mockup - "the record itself." Three automated columns
 // (What changed / What was built / What happened), a Human Context band and
@@ -302,7 +303,9 @@ export function ReleaseRecordDetail({
   // Guardrails frozen into the committed record win over nothing, never over live data - see withPersistedGuardrails.
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
-  const rekor = record.provenance?.attestations.find(a => a.transparencyLog)?.transparencyLog;
+  // The platform Rekor's entry; the promotion attestation's index is public Rekor's (its own fact, below).
+  const rekor = platformSigned(record.provenance).find(a => a.transparencyLog)?.transparencyLog;
+  const hasApiCompat = Boolean(apiCompatOf(record.guardrails?.checks));
   const hasSecurity =
     record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence || hasCommitSignature(record);
   const liveDeployment = record.deployments.find(d => d.isLive);
@@ -612,9 +615,11 @@ export function ReleaseRecordDetail({
               <SupplyChainChips provenance={record.provenance} />
             </div>
             <div className={hasSecurity ? classes.builtGrid3 : classes.builtGrid}>
-              {record.pipelineRuns.length > 0 && (
+              {/* The API change sits in the first column, under the pipeline runs: the release gates' column is always the
+                  longest, and the API report below it was off-screen (2026-10-29). */}
+              {(record.pipelineRuns.length > 0 || hasApiCompat) && (
                 <div className={classes.builtSection}>
-                  <span className={classes.builtSectionTitle}>Pipeline runs</span>
+                  {record.pipelineRuns.length > 0 && <span className={classes.builtSectionTitle}>Pipeline runs</span>}
                   <div className={classes.runList}>
                     {record.pipelineRuns.map(run => {
                       const tone = phaseTone(t, run.phase);
@@ -629,6 +634,7 @@ export function ReleaseRecordDetail({
                       );
                     })}
                   </div>
+                  {hasApiCompat && <ApiCompatSection checks={record.guardrails?.checks} appName={appName} />}
                 </div>
               )}
               {hasSecurity && (
@@ -679,7 +685,6 @@ export function ReleaseRecordDetail({
                 {record.guardrails ? (
                   <>
                     <GateGrid checks={record.guardrails.checks ?? []} classes={classes} t={t} />
-                    <ApiCompatSection checks={record.guardrails.checks} appName={appName} />
                     {record.guardrailsPrUrl && (
                       <PrRef
                         pr={{ url: record.guardrailsPrUrl, number: record.guardrailsPrNumber }}

@@ -1,9 +1,11 @@
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
+import { useState } from 'react';
 import Link from '@material-ui/core/Link';
 import { formatDateTime } from './shared/format.esm.js';
-import { ColumnLabel, StatusChip, Hint } from './ui/index.esm.js';
+import { ColumnLabel, StatusChip, Hint, TextLink } from './ui/index.esm.js';
+import { JsonDocumentView } from './ResourceInspector.esm.js';
 import { PrRef } from './ui/PrRef.esm.js';
-import { verdictOf, isSharedCheckRide, explain } from './supplyChain.esm.js';
+import { findPromotion, verdictOf, isSharedCheckRide, explain } from './supplyChain.esm.js';
 import { commitProofOf, commitProofChip, commitProofPrUrl, commitProofTone, commitProofLine, isMergePath, MERGE_HINT, COMMIT_SIGNING_DOC } from './commitProof.esm.js';
 
 function checkRideOf(record) {
@@ -105,9 +107,14 @@ function promotionPr(ref) {
   const m = /^([^/#@\s]+\/[^/#@\s]+)#(\d+)/.exec(ref ?? "");
   return m ? { url: `https://github.com/${m[1]}/pull/${m[2]}`, number: Number(m[2]) } : void 0;
 }
-function FlightPromotionFact({ record, classes }) {
+function FlightPromotionFact({
+  record,
+  classes
+}) {
+  const [open, setOpen] = useState(false);
   const p = record.flightPromotion;
   if (!p) return null;
+  const statement = findPromotion(record.provenance);
   const pr = promotionPr(p.pullRequest);
   const gates = p.gates ? Object.keys(p.gates).length : 0;
   return /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { marginBottom: 10 }, "data-testid": "record-flight-promotion", children: [
@@ -128,7 +135,25 @@ function FlightPromotionFact({ record, classes }) {
       "from ",
       p.source.split("@")[0]
     ] }),
-    !p.verified && p.verificationError && /* @__PURE__ */ jsx(Hint, { children: p.verificationError })
+    (p.signer || p.logIndex !== void 0) && /* @__PURE__ */ jsxs(Hint, { children: [
+      p.signer && /* @__PURE__ */ jsxs(Fragment, { children: [
+        "signed by ",
+        p.signer.replace(/^https:\/\/github\.com\//, "")
+      ] }),
+      p.signer && p.logIndex !== void 0 && " \xB7 ",
+      p.logIndex !== void 0 && /* @__PURE__ */ jsxs(Link, { href: `https://search.sigstore.dev/?logIndex=${p.logIndex}`, target: "_blank", rel: "noopener noreferrer", children: [
+        "public Rekor #",
+        p.logIndex
+      ] })
+    ] }),
+    !p.verified && p.verificationError && /* @__PURE__ */ jsx(Hint, { children: p.verificationError }),
+    /* @__PURE__ */ jsx(TextLink, { expanded: open, onClick: () => setOpen((v) => !v), children: "Promotion attestation" }),
+    open && /* @__PURE__ */ jsx(
+      JsonDocumentView,
+      {
+        value: statement ? { predicateType: statement.predicateType, subject: statement.subject, predicate: statement.predicate } : { predicateType: "https://hangar.io/attestations/promotion/v1", predicate: p }
+      }
+    )
   ] });
 }
 function CommitSignatureBlock({ record, classes }) {

@@ -23,7 +23,8 @@ one fleet page (**Airspace →** on Tower's home: Map, Contracts, Drift).
   that are declared but silent. Above them, **Breaking changes pending**: open release PRs whose api-compat check
   warned or blocked.
 - **Release Record → API compatibility** shows a release PR's api-compat check report: the verdict, each breaking
-  change with whether the operation is in use, any accepted override, and a link to the diff in Contracts.
+  change with whether the operation is in use, any accepted override, and a link to the diff in Contracts. It sits in
+  *What was built*'s first column, under the pipeline runs (the release gates' column is the long one).
 - **Ops Wall**: an open release PR whose api-compat check warned or blocked is a Needs-Attention item
   (`api-breaking-pending`; warn → warn, block → high).
 
