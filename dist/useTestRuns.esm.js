@@ -32,8 +32,10 @@ function useTestRuns(appName, refreshNonce = 0) {
   }, [appName, refreshNonce, discoveryApi, fetchApi]);
   return state;
 }
-async function downloadTestReport(fetchApi, baseUrl, run) {
-  const res = await fetchApi.fetch(`${baseUrl}/tests/report?id=${encodeURIComponent(run.id)}`);
+async function downloadTestReport(fetchApi, baseUrl, appName, run) {
+  const res = await fetchApi.fetch(
+    `${baseUrl}/tests/report?id=${encodeURIComponent(run.id)}${appName ? `&app=${encodeURIComponent(appName)}` : ""}`
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => void 0);
     throw new Error(body?.error ?? `${res.status} ${res.statusText}`);

@@ -68,7 +68,7 @@ function duration(ms: number | undefined): string | undefined {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-export function TestRunsPanel({ state }: { state: TestRunsState }) {
+export function TestRunsPanel({ appName, state }: { appName: string | undefined; state: TestRunsState }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const fetchApi = useApi(fetchApiRef);
@@ -90,7 +90,7 @@ export function TestRunsPanel({ state }: { state: TestRunsState }) {
     setDownloadError(undefined);
     try {
       const baseUrl = await discoveryApi.getBaseUrl('glidepath');
-      await downloadTestReport(fetchApi, baseUrl, run);
+      await downloadTestReport(fetchApi, baseUrl, appName, run);
     } catch (e) {
       setDownloadError(`${run.workflow}: ${e instanceof Error ? e.message : String(e)}`);
     }

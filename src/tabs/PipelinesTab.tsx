@@ -319,7 +319,7 @@ export function PipelinesTab() {
           />
           )}
         </FilterBar>
-        {view === 'tests' ? <TestRunsPanel state={testRuns} /> : ciBody}
+        {view === 'tests' ? <TestRunsPanel appName={appName} state={testRuns} /> : ciBody}
       </div>
     </div>
   );
