@@ -64,7 +64,9 @@ Tekton pipeline execution visibility:
   what each step did, and a **Download JUnit report** link. A run Testkube marked *aborted* although every step
   passed (a known agent race) is shown as passed with a note. Read through the backend's `/tests` and
   `/tests/report` routes, which reach the Testkube API server over the control plane's service proxy as Tower's
-  read identity (`testkube` namespace, `services/proxy` on `testkube-api-server:8088`).
+  read identity (`testkube` namespace, `services/proxy` on `testkube-api-server:8088`), or through glidepath-api when the
+  backend's `supplyChain` group is `api`. The download names the app (`/tests/report?id=…&app=…`): glidepath-api
+  authorizes per app, so without it the backend can only read Testkube directly.
 
 **Key exports:** `PipelinesTab`, `PipelineFlow`, `PipelineRunList`
 

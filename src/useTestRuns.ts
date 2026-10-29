@@ -64,13 +64,17 @@ export function useTestRuns(appName: string | undefined, refreshNonce = 0): Test
   return state;
 }
 
-/** Fetches a run's JUnit report through the backend and hands it to the browser as a file. */
+/** Fetches a run's JUnit report through the backend and hands it to the browser as a file. The app lets the backend ask
+ * glidepath-api, which authorizes per app; without it the backend can only read Testkube directly. */
 export async function downloadTestReport(
   fetchApi: { fetch: (url: string) => Promise<Response> },
   baseUrl: string,
+  appName: string | undefined,
   run: Pick<TestRun, 'id' | 'workflow'>,
 ): Promise<void> {
-  const res = await fetchApi.fetch(`${baseUrl}/tests/report?id=${encodeURIComponent(run.id)}`);
+  const res = await fetchApi.fetch(
+    `${baseUrl}/tests/report?id=${encodeURIComponent(run.id)}${appName ? `&app=${encodeURIComponent(appName)}` : ''}`,
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => undefined);
     throw new Error(body?.error ?? `${res.status} ${res.statusText}`);

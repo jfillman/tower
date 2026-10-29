@@ -275,7 +275,7 @@ function PipelinesTab() {
           ]
         }
       ),
-      view === "tests" ? /* @__PURE__ */ jsx(TestRunsPanel, { state: testRuns }) : ciBody
+      view === "tests" ? /* @__PURE__ */ jsx(TestRunsPanel, { appName, state: testRuns }) : ciBody
     ] })
   ] });
 }

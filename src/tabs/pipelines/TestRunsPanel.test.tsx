@@ -27,7 +27,7 @@ const run = (over: Partial<TestRun> = {}): TestRun => ({
 });
 
 const renderPanel = (runs: TestRun[], over: Partial<{ loading: boolean; error: string }> = {}) =>
-  render(<TestRunsPanel state={{ loading: false, runs, ...over }} />);
+  render(<TestRunsPanel appName="boarding-api" state={{ loading: false, runs, ...over }} />);
 
 describe('TestRunsPanel', () => {
   it('lists each run with what ran, where, what each step did and the report to download', () => {
