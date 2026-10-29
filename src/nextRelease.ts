@@ -1,7 +1,7 @@
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
 import type { ProvenanceState } from './useReleaseData';
-import type { ReleaseRow } from './useReleaseContext';
+import { parseGitopsPrTitle, type ReleaseRow } from './useReleaseContext';
 import { RELEASE_MODE_LABEL, type PlannedScope, type ReleaseDraft, type ReleaseMode } from './releaseFlow';
 import { envTierOf, extractShortShaFromImageTag, imageTag, type EnvironmentSummary } from './types';
 import {
@@ -163,6 +163,8 @@ export function buildNextRelease(input: {
   pipelineOrder: { lower?: string[]; upper?: string[] };
   /** The saved draft and the app's release mode (R2), once loaded. Adds the notes, owner and sign-off checks. */
   flow?: { draft?: ReleaseDraft; mode?: ReleaseMode; signoffEnv?: string; jiraBaseUrl?: string; planned?: PlannedScope };
+  /** The gitops repo's PRs: an open release PR for the candidate carries its image-promotion check. */
+  gitopsPrs?: PullRequestSummary[];
   now?: number;
 }): NextRelease {
   const { records, releases, sourcePrs, pipelineRuns, provenanceByImage, pipelineEnvironments, pipelineOrder } = input;
@@ -256,8 +258,35 @@ export function buildNextRelease(input: {
     previousVersion,
     suggestedVersion,
     planned: input.flow?.planned,
-    readiness: [...buildReadiness({ scope, leading, previous, previousVersion, now }), ...flowReadiness(input.flow, now)],
+    readiness: [
+      ...buildReadiness({ scope, leading, previous, previousVersion, now }),
+      ...promotionReadiness(leading?.imageTag, input.gitopsPrs),
+      ...flowReadiness(input.flow, now),
+    ],
   };
+}
+
+/**
+ * Promotion to Flight (glidepath ADR-0029), read from the candidate's open release PR: its image-promotion check
+ * starts by itself when the last required gate turns green. No row without such a check (no release PR yet, or a
+ * platform that does not promote).
+ */
+export function promotionReadiness(tag: string | undefined, gitopsPrs: PullRequestSummary[] | undefined): ReadinessItem[] {
+  if (!tag) return [];
+  const pr = (gitopsPrs ?? []).find(p => p.state === 'open' && parseGitopsPrTitle(p.title)?.imageTag.toLowerCase() === tag.toLowerCase());
+  const check = pr?.ci?.checks?.find(c => /(^|\/ )image-promotion-?$/.test(c.name.trim()));
+  if (!pr || !check) return [];
+  const label = 'Promoted to Flight';
+  if (check.status !== 'completed') return [{ id: 'promotion', label, state: 'todo', detail: `Promoting (release PR #${pr.number})` }];
+  if (check.conclusion === 'success') return [{ id: 'promotion', label, state: 'ok', detail: `Promoted for release PR #${pr.number}` }];
+  return [
+    {
+      id: 'promotion',
+      label,
+      state: 'todo',
+      detail: `Not promoted: ${check.message?.split('\n')[0] ?? check.conclusion ?? 'the check failed'} (release PR #${pr.number})`,
+    },
+  ];
 }
 
 function buildReadiness(input: {

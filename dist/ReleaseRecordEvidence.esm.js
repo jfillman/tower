@@ -101,6 +101,36 @@ function ChangeRequestFact({ record, classes }) {
     ] })
   ] });
 }
+function promotionPr(ref) {
+  const m = /^([^/#@\s]+\/[^/#@\s]+)#(\d+)/.exec(ref ?? "");
+  return m ? { url: `https://github.com/${m[1]}/pull/${m[2]}`, number: Number(m[2]) } : void 0;
+}
+function FlightPromotionFact({ record, classes }) {
+  const p = record.flightPromotion;
+  if (!p) return null;
+  const pr = promotionPr(p.pullRequest);
+  const gates = p.gates ? Object.keys(p.gates).length : 0;
+  return /* @__PURE__ */ jsxs("div", { className: classes.kv, style: { marginBottom: 10 }, "data-testid": "record-flight-promotion", children: [
+    /* @__PURE__ */ jsx(ColumnLabel, { children: "Promoted to Flight" }),
+    /* @__PURE__ */ jsxs("div", { className: classes.scanHead, children: [
+      /* @__PURE__ */ jsx("span", { children: p.promotedAt ? formatDateTime(p.promotedAt) : "promoted" }),
+      /* @__PURE__ */ jsx(StatusChip, { tone: p.verified ? "ok" : "warn", children: p.verified ? "attestation verified" : "not verified" }),
+      pr && /* @__PURE__ */ jsx(PrRef, { pr, size: "inline" }),
+      gates > 0 && /* @__PURE__ */ jsxs(Hint, { children: [
+        gates,
+        " required gate",
+        gates === 1 ? "" : "s",
+        " green"
+      ] }),
+      p.runUrl && /* @__PURE__ */ jsx(Link, { href: p.runUrl, target: "_blank", rel: "noopener noreferrer", children: "promoter run" })
+    ] }),
+    p.source && /* @__PURE__ */ jsxs(Hint, { children: [
+      "from ",
+      p.source.split("@")[0]
+    ] }),
+    !p.verified && p.verificationError && /* @__PURE__ */ jsx(Hint, { children: p.verificationError })
+  ] });
+}
 function CommitSignatureBlock({ record, classes }) {
   const proof = commitProofOf(record);
   const chip = commitProofChip(proof);
@@ -130,5 +160,5 @@ function hasCommitSignature(record) {
   return state === "gitsign" || state === "github-merge-strict" || state === "github-merge" || state === "unknown";
 }
 
-export { ChangeRequestFact, CheckRideBlock, CommitSignatureBlock, changeRequestTone, checkRideHeadline, checkRideOf, checkRideTone, hasCommitSignature };
+export { ChangeRequestFact, CheckRideBlock, CommitSignatureBlock, FlightPromotionFact, changeRequestTone, checkRideHeadline, checkRideOf, checkRideTone, hasCommitSignature };
 //# sourceMappingURL=ReleaseRecordEvidence.esm.js.map

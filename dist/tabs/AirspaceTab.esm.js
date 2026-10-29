@@ -131,7 +131,7 @@ function AirspaceTab() {
         ]
       }
     ),
-    noTraces && /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: "No traces from this cluster yet", children: "The service graph comes from Tempo, fed by OpenTelemetry auto-instrumentation. A cluster without its tracing stack, or apps not yet rolled with the agent, shows declared and owned connections only." }),
+    noTraces && /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: "No traces from this cluster yet", children: "The service graph comes from the OpenTelemetry collector, fed by auto-instrumentation. A cluster without its tracing stack, or apps not yet rolled with the agent, shows declared and owned connections only." }),
     !noTraces && !graphState.loading && !selfSeen && !graphState.error && /* @__PURE__ */ jsx(Callout, { tone: "neutral", title: `No traffic for ${self} in the last ${win}`, children: "The app sent and received no traced requests in this window. Try a longer window." }),
     valuesState.error && /* @__PURE__ */ jsxs(Callout, { tone: "neutral", title: "Couldn't read this environment's values file", children: [
       valuesState.error,

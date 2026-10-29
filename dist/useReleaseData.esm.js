@@ -424,6 +424,29 @@ function useReleaseRunStatus(appName, run) {
   }, [appName, run, tick]);
   return state;
 }
+function useImagePresence(ownerRepo, digest, refreshNonce = 0) {
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [data, setData] = useState();
+  const key = ownerRepo && digest ? `${ownerRepo.owner}/${ownerRepo.repo}@${digest}` : "";
+  useEffect(() => {
+    if (!ownerRepo || !digest?.startsWith("sha256:")) return void 0;
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseUrl = await discoveryApi.getBaseUrl("glidepath");
+        const params = new URLSearchParams({ owner: ownerRepo.owner, repo: ownerRepo.repo, digest });
+        const res = await fetchApi.fetch(`${baseUrl}/images/presence?${params.toString()}`);
+        if (res.ok && !cancelled) setData(await res.json());
+      } catch {
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key, refreshNonce, discoveryApi, fetchApi]);
+  return data;
+}
 
-export { useArgoActions, useArgoCapabilities, useArgoStatusMap, useDeployHistory, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useReleaseRunStatus, useRepoHead };
+export { useArgoActions, useArgoCapabilities, useArgoStatusMap, useDeployHistory, useImagePresence, useImageVersions, usePipelineOrder, usePromote, useProvenanceMap, useReleaseRunStatus, useRepoHead };
 //# sourceMappingURL=useReleaseData.esm.js.map

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { COMMIT_PROOF_MAX, commitProofNote, commitProofOf, commitProofPoints } from './commitProof';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import type { PipelineRunSummary } from './tekton/types';
-import type { ChangeRequestRef, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
+import type { ChangeRequestRef, FlightPromotion, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
 import type { RecordOutcome } from './releaseFlow';
 import type { ProvenanceState } from './useReleaseData';
 import { gitopsPrForEnvAndImage } from './useReleaseContext';
@@ -17,7 +17,7 @@ import {
   type ProvenanceResponse,
   type WorkloadDetail,
 } from './types';
-import { findReleaseTestRun, isSignedAndAttested, type TestRunEvidence } from './supplyChain';
+import { findPromotion, findReleaseTestRun, isSignedAndAttested, promotionOf, type TestRunEvidence } from './supplyChain';
 
 // The Release Record - HANDOFF-tower-release-record.md's design, Phase 1
 // ("read-only, no new infra"). That handoff sketched a ReleaseRecord shape
@@ -147,6 +147,8 @@ export interface ReleaseRecord {
   testEvidence?: TestEvidence;
   /** The itsm change request, frozen at sealing or read live from the release-tracking record. */
   changeRequest?: ChangeRequestRef;
+  /** The image's promotion to Flight (glidepath ADR-0029), frozen at sealing or read live from its provenance. */
+  flightPromotion?: FlightPromotion;
   nickname?: string;
   hasSbom: boolean;
 
@@ -454,7 +456,14 @@ export function displayScore(record: ReleaseRecord): number {
 export function withRecordedEvidence(
   record: ReleaseRecord,
   recorded:
-    | { guardrails?: ReleaseRecordDoc['guardrails']; signoffs?: number; outcome?: RecordOutcome; changeRequest?: ChangeRequestRef; testEvidence?: TestEvidence }
+    | {
+        guardrails?: ReleaseRecordDoc['guardrails'];
+        signoffs?: number;
+        outcome?: RecordOutcome;
+        changeRequest?: ChangeRequestRef;
+        testEvidence?: TestEvidence;
+        promotion?: FlightPromotion;
+      }
     | undefined,
 ): ReleaseRecord {
   if (!recorded) return record;
@@ -464,12 +473,20 @@ export function withRecordedEvidence(
   if (recorded.signoffs !== undefined) out = { ...out, signoffs: recorded.signoffs };
   if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
   if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
+  if (recorded.promotion) out = { ...out, flightPromotion: recorded.promotion };
   if (recorded.outcome) {
     out = { ...out, outcome: recorded.outcome };
     // A release rolled back in production stays rolled back even if its image runs again later.
     if (recorded.outcome.result === 'rolled-back' && !out.current) out = { ...out, status: 'rolled-back' };
   }
   return out;
+}
+
+/** The live promotion fact from an image's provenance: what sealing would freeze (backend promotionOf). */
+export function flightPromotionOf(provenance: ProvenanceResponse | undefined): FlightPromotion | undefined {
+  const a = findPromotion(provenance);
+  if (!a) return undefined;
+  return { ...promotionOf(a), verified: a.verified, verificationError: a.verificationError };
 }
 
 export interface ConfidenceLine {
@@ -653,6 +670,7 @@ export function buildReleaseRecords(
       securityScans,
       provenance,
       checkRide: findReleaseTestRun(provenance),
+      flightPromotion: flightPromotionOf(provenance),
       nickname: row.nickname,
       hasSbom: hasSbomAttestation(provenance),
       guardrails: guardrailPr?.ci,

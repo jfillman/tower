@@ -20,11 +20,14 @@ import type { Attestation, ProvenanceResponse } from './types';
 import {
   explain,
   findCheckRide,
+  findPromotion,
   findSbom,
   findSignature,
   findSlsa,
   findTestRuns,
   isSharedCheckRide,
+  platformSigned,
+  promotionOf,
   SIMPLE_SIGNING,
   testRunOf,
   verdictOf,
@@ -76,8 +79,10 @@ export function buildSupplyChainStages(
   const sbom = findSbom(provenance);
   // The classic `cosign sign` image signature: it signs the image manifest itself, not a statement about it.
   const signature = findSignature(provenance);
-  const all = provenance?.attestations ?? [];
+  // The platform's own signatures; the promotion attestation is signed elsewhere and has its own step.
+  const all = platformSigned(provenance);
   const logged = all.filter(a => a.transparencyLog);
+  const promotion = findPromotion(provenance);
   // Attested test runs (Glidepath test framework, 2026-10-19): Chains attaches every test stage's provenance to the
   // tested image. The step stands for the check ride, the run a release depends on; the team's own runs are listed in
   // its detail. Green: a verified, passed check ride. Amber: tests ran and passed but no check ride, or the ride
@@ -135,6 +140,9 @@ export function buildSupplyChainStages(
       attestation: weakest(logged),
       all,
     },
+    // Promoted to Flight by the promoter (glidepath ADR-0029). Grey for a Ground image: not promoted (yet) is not a
+    // fault, only a Flight environment needs it, and admission there checks it.
+    { kind: 'supply-chain', id: 'promoted', label: 'Promoted', status: statusOf(verdictOf(promotion)), attestation: promotion },
   ];
 }
 
@@ -461,6 +469,11 @@ function friendlySummary(
         return { headline: 'No image signature', body: 'This image has no `cosign sign` signature on its manifest. The attestations are separate.' };
       case 'rekor':
         return { headline: 'Not in the transparency log', body: 'Nothing on this image has a Rekor entry.' };
+      case 'promoted':
+        return {
+          headline: 'Not promoted',
+          body: 'This image is in Ground only: the promoter has not copied it to Flight. A Flight environment can run it only after its release PR passes every required gate and the image-promotion check goes green.',
+        };
       case 'tests':
         return {
           headline: 'No test run attested',
@@ -496,8 +509,34 @@ function friendlySummary(
     };
   }
   if (stageId === 'tests') return testsSummary(att, all);
+  if (stageId === 'promoted') return promotionSummary(att);
   const e = explain(att, STAGE_WHAT[stageId] ?? 'attestation');
   return { headline: e.headline, body: e.body, consequence: e.consequence, pill: { tone: e.tone, label: e.label } };
+}
+
+// The promoter workflow signs on public Sigstore with its GitHub Actions identity; the backend verifies that (offline,
+// pinned to the promoter's workflow), not this platform's signing root, so explain()'s wording does not apply.
+function promotionSummary(att: Attestation): ReturnType<typeof friendlySummary> {
+  const p = promotionOf(att);
+  const when = p.promotedAt ? ` on ${formatDateTime(p.promotedAt)}` : '';
+  const pr = p.pullRequest ? ` for ${p.pullRequest.split('@')[0]}` : '';
+  const gates = p.gates ? Object.keys(p.gates).length : 0;
+  if (verdictOf(att) === 'verified') {
+    return {
+      headline: `Promoted to Flight${when}`,
+      body: `The promoter copied this exact digest from ${p.source?.split('@')[0] ?? 'Ground'}${pr}, with ${gates} required gate${gates === 1 ? '' : 's'} green, and signed the promotion with its own workflow identity (public Sigstore). An upper cluster admits a Flight image only with this attestation.`,
+      pill: { tone: 'good', label: 'verified' },
+    };
+  }
+  const contradicted = verdictOf(att) === 'contradicted';
+  return {
+    headline: contradicted ? 'The promotion attestation does not verify' : "The promotion attestation couldn't be checked",
+    body: att.verificationError ?? 'No reason given.',
+    consequence: contradicted
+      ? 'It was not signed by the promoter workflow, or it was changed: an upper cluster refuses this image.'
+      : 'Not a sign of tampering by itself; an upper cluster verifies it again at admission.',
+    pill: { tone: contradicted ? 'bad' : 'warn', label: contradicted ? 'not verified' : 'unchecked' },
+  };
 }
 
 function countsOf(r: TestRunEvidence): string {
@@ -569,6 +608,7 @@ function testsSummary(att: Attestation, all: Attestation[]): ReturnType<typeof f
 // own fallback logic), so a second raw-document toggle there would just
 // duplicate this one rather than show anything new.
 const RAW_DOCUMENT_LABEL: Partial<Record<string, string>> = {
+  promoted: 'promotion attestation',
   build: 'SLSA provenance document',
   'sast-sbom': 'SBOM file',
   signature: 'cosign image signature',

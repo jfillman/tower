@@ -6,7 +6,7 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../shared/format.esm.js';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
 import { useReleaseContext, nicknameForImageTag } from '../useReleaseContext.esm.js';
-import { useImageVersions, useProvenanceMap } from '../useReleaseData.esm.js';
+import { useImageVersions, useImagePresence, useProvenanceMap } from '../useReleaseData.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
 import { PageHeader, FilterBar, FilterChips, Count, EmptyNote, TextLink, FactGrid, Fact, StatusChip } from '../ui/index.esm.js';
 import { TowerEmptyState } from '../TowerEmptyState.esm.js';
@@ -67,7 +67,8 @@ function ImagesTab() {
   if (loading) return /* @__PURE__ */ jsx(TabSkeleton, {});
   if (error) return /* @__PURE__ */ jsx(TabError, { error, what: "images" });
   const image = environments.find((e) => e.image && !isPreviewEnvName(e.env))?.image ?? environments.find((e) => e.image)?.image;
-  const ownerRepo = (image ? parseGhcrOwnerRepo(image) : void 0) ?? (owner && appName ? { owner, repo: appName } : void 0);
+  const fromImage = image ? parseGhcrOwnerRepo(image) : void 0;
+  const ownerRepo = (fromImage && owner && fromImage.owner !== owner ? { owner, repo: fromImage.repo } : fromImage) ?? (owner && appName ? { owner, repo: appName } : void 0);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     owner && appName && /* @__PURE__ */ jsx(ImageCleanup, { owner, appName }),
     /* @__PURE__ */ jsx(
@@ -221,7 +222,8 @@ function ImagePanel({
 }) {
   const [expanded, setExpanded] = useState(isHighlighted);
   const [fetchEnabled, setFetchEnabled] = useState(isHighlighted);
-  const imageRef = `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}@${entry.digest}`;
+  const presence = useImagePresence(ownerRepo, entry.digest, refreshNonce);
+  const imageRef = presence?.flight?.present ? `${presence.flight.repository}@${entry.digest}` : `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}@${entry.digest}`;
   const provenanceMap = useProvenanceMap(fetchEnabled ? [imageRef] : [], refreshNonce);
   const provenance = provenanceMap[imageRef];
   const stages = buildSupplyChainStages(provenance?.data, provenance?.loading ?? false);
@@ -251,7 +253,8 @@ function ImagePanel({
               /* @__PURE__ */ jsxs(StatusChip, { tone: hasSignatureHint ? "ok" : "neutral", children: [
                 "signature ",
                 hasSignatureHint ? "attached" : "not found"
-              ] })
+              ] }),
+              presence?.flight && presence.flight.present !== null && /* @__PURE__ */ jsx(StatusChip, { tone: presence.flight.present ? "ok" : "neutral", children: presence.flight.present ? "in Flight" : "Ground only" })
             ] })
           ] }),
           entry.htmlUrl && /* @__PURE__ */ jsx(TextLink, { href: entry.htmlUrl, children: "Open in registry \u2197" })

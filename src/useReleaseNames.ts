@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { assignReleaseNames, releaseNameFor } from './releaseNames';
 import type { ReleaseRecord } from './useReleaseRecords';
-import type { ChangeRequestRef, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
+import type { ChangeRequestRef, FlightPromotion, ReleaseRecordDoc, TestEvidence } from './useReleaseRecordPersistence';
 import type { RecordOutcome, ReleaseDraft } from './releaseFlow';
 
 // One committed Release Record, as the backend's /release-records listing returns it.
@@ -20,6 +20,7 @@ export interface ReleaseRecordIndexEntry {
   changeRequest?: ChangeRequestRef;
   /** The check ride frozen at sealing (phase 4): the evidence the qa gate verified, kept past the registry. */
   testEvidence?: TestEvidence;
+  promotion?: FlightPromotion;
   summary?: string;
   notes?: ReleaseDraft['notes'];
   knownIssues?: string[];

@@ -1,8 +1,9 @@
 # Supply chain
 
 Every image Tower shows (the Release matrix, Deployments, a release record) has a supply-chain strip: **Build →
-SAST / SBOM → Signature → Tests → Sign + Attest → Rekor**, then the environments. Tower checks each signature itself, in
-Backstage's backend, against this platform's own Fulcio root and Rekor log; it does not take the image's word for it.
+SAST / SBOM → Signature → Tests → Sign + Attest → Rekor → Promoted**, then the environments. Tower checks each signature
+itself, in Backstage's backend, against this platform's own Fulcio root and Rekor log (the promotion: against public
+Sigstore and the promoter's identity); it does not take the image's word for it.
 
 ## What the steps are
 
@@ -14,6 +15,7 @@ Backstage's backend, against this platform's own Fulcio root and Rekor log; it d
 | **Tests** | The attested test runs on the image (since 2026-10-19 Tekton Chains attaches every Glidepath test stage's provenance to the image it tested). The step stands for the **check ride**, the run from the shared check-rides repository that the qa release gate reads; the team's own runs are listed in its detail, each with its counts, its Testkube execution and a download of the attestation document. |
 | **Sign + Attest** | All of the above together: "n of m verified". |
 | **Rekor** | Their entries in the platform's transparency log, which show each signature was made while its 10-minute signing certificate was valid. |
+| **Promoted** | The promotion to Flight (Glidepath ADR-0029): the attestation the promoter workflow signs on the Flight copy, verified offline against the public Sigstore root and the promoter workflow's exact identity (`glidepath.promotion.promoterRepo`), the same check an upper cluster's admission makes. Grey for an image in Ground only. Not part of Sign + Attest or Rekor, which stand for what this platform signed. |
 
 ## What the colours mean
 

@@ -163,10 +163,11 @@ export function ReleasesTab() {
         pipelineEnvironments: pipelineEnvironmentsForRecords,
         pipelineOrder,
         flow,
+        gitopsPrs,
       }),
     // pipelineEnvironmentsForRecords is a fresh array every render; environments is its stable source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder, flow],
+    [releaseRecords, releases, sourcePrs, pipelineRuns, provenanceByImage, environments, pipelineOrder, flow, gitopsPrs],
   );
   const releaseNames = useReleaseNames(owner && appName ? { owner, appName } : undefined, releaseRecords);
 

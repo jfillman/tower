@@ -7,7 +7,7 @@ import Typography from '@material-ui/core/Typography';
 import { relativeTime, formatDateTime } from '../shared/format';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { nicknameForImageTag, useReleaseContext } from '../useReleaseContext';
-import { useImageVersions, useProvenanceMap } from '../useReleaseData';
+import { useImagePresence, useImageVersions, useProvenanceMap } from '../useReleaseData';
 import { RefreshButton } from '../RefreshButton';
 import { Count, EmptyNote, Fact, FactGrid, FilterBar, FilterChips, PageHeader, PanelSkeleton, StatusChip, TabError, TabSkeleton, TextLink } from '../ui';
 import { TowerEmptyState } from '../TowerEmptyState';
@@ -123,8 +123,12 @@ export function ImagesTab() {
   // (2026-09-24 bug: a brand-new app, boarding-api, had built and pushed its first
   // image to GHCR but the tab only ever looked images up via a LIVE workload's
   // image, so it showed "No live workloads found" instead of the pushed image).
+  // Always the Ground package (where builds push): an environment that pins the promoted Flight copy (glidepath
+  // ADR-0029) names another owner, whose package holds only promoted images.
+  const fromImage = image ? parseGhcrOwnerRepo(image) : undefined;
   const ownerRepo =
-    (image ? parseGhcrOwnerRepo(image) : undefined) ?? (owner && appName ? { owner, repo: appName } : undefined);
+    (fromImage && owner && fromImage.owner !== owner ? { owner, repo: fromImage.repo } : fromImage) ??
+    (owner && appName ? { owner, repo: appName } : undefined);
 
   return (
     <>
@@ -332,7 +336,11 @@ function ImagePanel({
   const [expanded, setExpanded] = useState(isHighlighted);
   const [fetchEnabled, setFetchEnabled] = useState(isHighlighted);
 
-  const imageRef = `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}@${entry.digest}`;
+  const presence = useImagePresence(ownerRepo, entry.digest, refreshNonce);
+  // The promoted copy carries the promotion attestation as well as everything copied from Ground.
+  const imageRef = presence?.flight?.present
+    ? `${presence.flight.repository}@${entry.digest}`
+    : `ghcr.io/${ownerRepo.owner}/${ownerRepo.repo}@${entry.digest}`;
   const provenanceMap = useProvenanceMap(fetchEnabled ? [imageRef] : [], refreshNonce);
   const provenance = provenanceMap[imageRef];
   const stages = buildSupplyChainStages(provenance?.data, provenance?.loading ?? false);
@@ -362,6 +370,11 @@ function ImagePanel({
             <StatusChip tone={hasProvenanceHint ? 'ok' : 'neutral'}>provenance {hasProvenanceHint ? 'attached' : 'not found'}</StatusChip>
             <StatusChip tone={hasSbomHint ? 'ok' : 'neutral'}>SBOM {hasSbomHint ? 'attached' : 'not found'}</StatusChip>
             <StatusChip tone={hasSignatureHint ? 'ok' : 'neutral'}>signature {hasSignatureHint ? 'attached' : 'not found'}</StatusChip>
+            {presence?.flight && presence.flight.present !== null && (
+              <StatusChip tone={presence.flight.present ? 'ok' : 'neutral'}>
+                {presence.flight.present ? 'in Flight' : 'Ground only'}
+              </StatusChip>
+            )}
           </div>
         </div>
         {entry.htmlUrl && (

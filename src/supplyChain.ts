@@ -15,6 +15,25 @@ export type Verdict = 'verified' | 'unverified' | 'contradicted' | 'missing';
 
 export const SLSA_PROVENANCE = 'https://slsa.dev/provenance/v0.2';
 export const SIMPLE_SIGNING = 'cosign.sigstore.dev/signature/simple-signing';
+/**
+ * The Flight promotion attestation (glidepath ADR-0029): signed by the promoter workflow on public Sigstore, not by this
+ * platform's signing root, so it is its own step (Promoted) and never part of the Sign + Attest or Rekor roll-ups.
+ */
+export const PROMOTION = 'https://hangar.io/attestations/promotion/v1';
+
+export interface PromotionPredicate {
+  source?: string;
+  flightRef?: string;
+  digest?: string;
+  releaseId?: string;
+  /** owner/repo#pr@headSha */
+  pullRequest?: string;
+  gates?: Record<string, string>;
+  promotedAt?: string;
+  runUrl?: string;
+}
+
+export const isPromotion = (a: Attestation) => a.predicateType === PROMOTION;
 
 const CONTRADICTED: VerificationCode[] = ['log-entry-mismatch', 'digest-mismatch', 'signature-invalid'];
 
@@ -154,6 +173,20 @@ export function findSbom(p?: ProvenanceResponse) {
 export function findSignature(p?: ProvenanceResponse) {
   return p?.attestations.find(a => a.predicateType === SIMPLE_SIGNING);
 }
+/** The image's promotion to Flight: the newest verified one, else the newest (re-promotion adds one, PROM-07). */
+export function findPromotion(p?: ProvenanceResponse): Attestation | undefined {
+  const all = (p?.attestations ?? [])
+    .filter(isPromotion)
+    .sort((a, b) => (promotionOf(b).promotedAt ?? '').localeCompare(promotionOf(a).promotedAt ?? ''));
+  return all.find(a => verdictOf(a) === 'verified') ?? all[0];
+}
+export function promotionOf(a: Attestation): PromotionPredicate {
+  return (a.predicate ?? {}) as PromotionPredicate;
+}
+/** Everything this platform's own signing root signed: what Sign + Attest and Rekor stand for. */
+export function platformSigned(p?: ProvenanceResponse): Attestation[] {
+  return (p?.attestations ?? []).filter(a => !isPromotion(a));
+}
 
 /**
  * "Signed and attested", as the readiness score, the record and the Command Deck count it: the build provenance (what
@@ -161,7 +194,7 @@ export function findSignature(p?: ProvenanceResponse) {
  */
 export function isSignedAndAttested(p?: ProvenanceResponse): boolean {
   if (!p) return false;
-  return verdictOf(findSlsa(p)) === 'verified' && worstVerdict(p.attestations) !== 'contradicted';
+  return verdictOf(findSlsa(p)) === 'verified' && worstVerdict(platformSigned(p)) !== 'contradicted';
 }
 
 export interface Explanation {

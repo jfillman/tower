@@ -62,6 +62,24 @@ export interface TestEvidence {
   attestedRuns: number;
 }
 
+/**
+ * The image's promotion to Flight frozen into a sealed record (backend promotionEvidence.ts, glidepath ADR-0029): the
+ * promoter's attestation on the Flight digest, verified against public Sigstore and the promoter workflow's identity.
+ */
+export interface FlightPromotion {
+  source?: string;
+  flightRef?: string;
+  digest?: string;
+  releaseId?: string;
+  /** owner/repo#pr@headSha */
+  pullRequest?: string;
+  gates?: Record<string, string>;
+  promotedAt?: string;
+  runUrl?: string;
+  verified: boolean;
+  verificationError?: string;
+}
+
 export interface ReleaseRecordDoc {
   schemaVersion: 1 | 2;
   id: string;
@@ -78,6 +96,7 @@ export interface ReleaseRecordDoc {
   /** Frozen at sealing (phase 4): the change request and the check ride, kept past their sources. */
   changeRequest?: ChangeRequestRef;
   testEvidence?: TestEvidence;
+  promotion?: FlightPromotion;
   humanContext: ReleaseRecordHumanContext;
   // v2 (Release Record R2): the draft the team wrote, the mode the release shipped under, and the
   // sign-off when the production release PR had already merged at sealing time.
