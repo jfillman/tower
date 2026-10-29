@@ -130,7 +130,13 @@ function withRecordedEvidence(record, recorded) {
 function flightPromotionOf(provenance) {
   const a = findPromotion(provenance);
   if (!a) return void 0;
-  return { ...promotionOf(a), verified: a.verified, verificationError: a.verificationError };
+  return {
+    ...promotionOf(a),
+    signer: a.certificate?.identity,
+    logIndex: a.transparencyLog?.logIndex,
+    verified: a.verified,
+    verificationError: a.verificationError
+  };
 }
 function confidenceBreakdown(record, approvalsCount) {
   const g = record.guardrails;

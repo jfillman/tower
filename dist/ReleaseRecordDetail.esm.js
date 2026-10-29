@@ -19,9 +19,10 @@ import { ReleaseSignoffPanel } from './ReleaseSignoffPanel.esm.js';
 import { ReleaseOutcomePanel } from './ReleaseOutcome.esm.js';
 import { TextLink, Button, ActionSelect, EmptyNote, Hint, Fact, StatusChip, ColumnLabel, Callout } from './ui/index.esm.js';
 import { PrRef, prFromSummary, OPENING_PR, PrReceipt } from './ui/PrRef.esm.js';
-import { isSignedAndAttested } from './supplyChain.esm.js';
+import { isSignedAndAttested, platformSigned } from './supplyChain.esm.js';
 import { hasCommitSignature, ChangeRequestFact, FlightPromotionFact, CommitSignatureBlock, CheckRideBlock } from './ReleaseRecordEvidence.esm.js';
 import { ApiCompatSection } from './airspace/ApiCompatSection.esm.js';
+import { apiCompatOf } from './airspace/apiCompat.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -269,7 +270,8 @@ function ReleaseRecordDetail({
   const persisted = useReleaseRecordDoc(persistTarget);
   const record = withPersistedGuardrails(liveRecord, persisted.data);
   const verified = isSignedAndAttested(record.provenance);
-  const rekor = record.provenance?.attestations.find((a) => a.transparencyLog)?.transparencyLog;
+  const rekor = platformSigned(record.provenance).find((a) => a.transparencyLog)?.transparencyLog;
+  const hasApiCompat = Boolean(apiCompatOf(record.guardrails?.checks));
   const hasSecurity = record.securityScans.length > 0 || record.testResults.length > 0 || !!record.checkRide || !!record.testEvidence || hasCommitSignature(record);
   const liveDeployment = record.deployments.find((d) => d.isLive);
   const categoryChips = Object.entries(record.changeCategories).filter(([, count]) => count > 0);
@@ -504,8 +506,8 @@ function ReleaseRecordDetail({
           /* @__PURE__ */ jsx(SupplyChainChips, { provenance: record.provenance })
         ] }),
         /* @__PURE__ */ jsxs("div", { className: hasSecurity ? classes.builtGrid3 : classes.builtGrid, children: [
-          record.pipelineRuns.length > 0 && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
-            /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Pipeline runs" }),
+          (record.pipelineRuns.length > 0 || hasApiCompat) && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
+            record.pipelineRuns.length > 0 && /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Pipeline runs" }),
             /* @__PURE__ */ jsx("div", { className: classes.runList, children: record.pipelineRuns.map((run) => {
               const tone = phaseTone(t, run.phase);
               return /* @__PURE__ */ jsxs("div", { className: classes.runRow, children: [
@@ -513,7 +515,8 @@ function ReleaseRecordDetail({
                 /* @__PURE__ */ jsx("span", { className: classes.runName, children: run.name }),
                 /* @__PURE__ */ jsx(StatusChip, { tone: tone.status, dot: true, children: tone.label })
               ] }, run.name);
-            }) })
+            }) }),
+            hasApiCompat && /* @__PURE__ */ jsx(ApiCompatSection, { checks: record.guardrails?.checks, appName })
           ] }),
           hasSecurity && /* @__PURE__ */ jsxs("div", { className: classes.builtSection, children: [
             /* @__PURE__ */ jsx("span", { className: classes.builtSectionTitle, children: "Tests and security" }),
@@ -558,7 +561,6 @@ function ReleaseRecordDetail({
             ] }),
             record.guardrails ? /* @__PURE__ */ jsxs(Fragment, { children: [
               /* @__PURE__ */ jsx(GateGrid, { checks: record.guardrails.checks ?? [], classes, t }),
-              /* @__PURE__ */ jsx(ApiCompatSection, { checks: record.guardrails.checks, appName }),
               record.guardrailsPrUrl && /* @__PURE__ */ jsx(
                 PrRef,
                 {

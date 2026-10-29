@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import Link from '@material-ui/core/Link';
 import { formatDateTime } from './shared/format';
-import { ColumnLabel, Hint, StatusChip, type StatusTone } from './ui';
+import { ColumnLabel, Hint, StatusChip, TextLink, type StatusTone } from './ui';
+import { JsonDocumentView } from './ResourceInspector';
 import { PrRef } from './ui/PrRef';
-import { explain, isSharedCheckRide, verdictOf, type TestRunEvidence } from './supplyChain';
+import { explain, findPromotion, isSharedCheckRide, verdictOf, type TestRunEvidence } from './supplyChain';
 import type { ReleaseRecord } from './useReleaseRecords';
 import type { ChangeRequestRef, FlightPromotion, TestEvidence } from './useReleaseRecordPersistence';
 import {
@@ -163,9 +165,19 @@ function promotionPr(ref: string | undefined): { url: string; number: number } |
  * The image's promotion to Flight (glidepath ADR-0029): when, from which Ground image, for which release PR, and the
  * promoter run - frozen at sealing, live before. Nothing for a release that was never promoted (a Ground-only image).
  */
-export function FlightPromotionFact({ record, classes }: { record: Pick<ReleaseRecord, 'flightPromotion'>; classes: Classes }) {
+export function FlightPromotionFact({
+  record,
+  classes,
+}: {
+  record: Pick<ReleaseRecord, 'flightPromotion' | 'provenance'>;
+  classes: Classes;
+}) {
+  const [open, setOpen] = useState(false);
   const p: FlightPromotion | undefined = record.flightPromotion;
   if (!p) return null;
+  // The attestation itself: the in-toto statement from the image's provenance while the registry has it, else what
+  // the sealed record froze of it.
+  const statement = findPromotion(record.provenance);
   const pr = promotionPr(p.pullRequest);
   const gates = p.gates ? Object.keys(p.gates).length : 0;
   return (
@@ -183,7 +195,30 @@ export function FlightPromotionFact({ record, classes }: { record: Pick<ReleaseR
         )}
       </div>
       {p.source && <Hint>from {p.source.split('@')[0]}</Hint>}
+      {(p.signer || p.logIndex !== undefined) && (
+        <Hint>
+          {p.signer && <>signed by {p.signer.replace(/^https:\/\/github\.com\//, '')}</>}
+          {p.signer && p.logIndex !== undefined && ' · '}
+          {p.logIndex !== undefined && (
+            <Link href={`https://search.sigstore.dev/?logIndex=${p.logIndex}`} target="_blank" rel="noopener noreferrer">
+              public Rekor #{p.logIndex}
+            </Link>
+          )}
+        </Hint>
+      )}
       {!p.verified && p.verificationError && <Hint>{p.verificationError}</Hint>}
+      <TextLink expanded={open} onClick={() => setOpen(v => !v)}>
+        Promotion attestation
+      </TextLink>
+      {open && (
+        <JsonDocumentView
+          value={
+            statement
+              ? { predicateType: statement.predicateType, subject: statement.subject, predicate: statement.predicate }
+              : { predicateType: 'https://hangar.io/attestations/promotion/v1', predicate: p }
+          }
+        />
+      )}
     </div>
   );
 }

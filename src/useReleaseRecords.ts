@@ -486,7 +486,13 @@ export function withRecordedEvidence(
 export function flightPromotionOf(provenance: ProvenanceResponse | undefined): FlightPromotion | undefined {
   const a = findPromotion(provenance);
   if (!a) return undefined;
-  return { ...promotionOf(a), verified: a.verified, verificationError: a.verificationError };
+  return {
+    ...promotionOf(a),
+    signer: a.certificate?.identity,
+    logIndex: a.transparencyLog?.logIndex,
+    verified: a.verified,
+    verificationError: a.verificationError,
+  };
 }
 
 export interface ConfidenceLine {

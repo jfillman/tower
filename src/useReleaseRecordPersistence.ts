@@ -76,6 +76,10 @@ export interface FlightPromotion {
   gates?: Record<string, string>;
   promotedAt?: string;
   runUrl?: string;
+  /** The signing certificate's identity: the promoter workflow (GitHub Actions, public Sigstore). */
+  signer?: string;
+  /** The attestation's entry in public Rekor (search.sigstore.dev), not the platform's own log. */
+  logIndex?: number;
   verified: boolean;
   verificationError?: string;
 }

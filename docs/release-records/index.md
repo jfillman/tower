@@ -160,7 +160,9 @@ record with the rest of the evidence.
 A release whose image was promoted to Flight (Glidepath ADR-0029) gets a **Promoted to Flight** fact under the change
 request: when, whether the promoter's attestation verified (public Sigstore, the promoter workflow's identity), the
 release PR it was promoted for, how many required gates were green, the promoter run, and the Ground image it was
-copied from. Frozen into the record at sealing (`promotion`), read live from the image's provenance before. The
+copied from, who signed it (the promoter workflow) with a link to its public Rekor entry, and the attestation itself
+(**Promotion attestation** opens the in-toto statement). Frozen into the record at sealing (`promotion`), read live
+from the image's provenance before. The
 Images tab marks each digest **in Flight** or **Ground only**, and always lists the Ground package.
 
 ## Outcome (what happened after it shipped)
