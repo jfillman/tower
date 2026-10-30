@@ -1,4 +1,3 @@
-const RELEASE_RECORD_SELECTOR = "hangar.io/subcomponent=release-tracking";
 const DEPLOYING_STATES = /* @__PURE__ */ new Set(["merged", "progressing", "sync-failed"]);
 const FAILED_STATES = /* @__PURE__ */ new Set(["aborted", "degraded"]);
 const nonEmpty = (v) => v ? v : void 0;
@@ -30,16 +29,6 @@ function toReleaseRecord(cm) {
   };
 }
 const RELEASE_EVENT_REASONS = ["ReleaseStalled", "ReleaseDrift"];
-function toReleaseEvent(e) {
-  if (e.reason !== "ReleaseStalled" && e.reason !== "ReleaseDrift") return void 0;
-  return {
-    reason: e.reason,
-    namespace: e.involvedObject?.namespace ?? e.metadata.namespace,
-    recordName: e.involvedObject?.name ?? "",
-    message: e.message,
-    at: e.lastTimestamp ?? e.eventTime ?? e.firstTimestamp ?? e.metadata.creationTimestamp
-  };
-}
 
-export { DEPLOYING_STATES, FAILED_STATES, RELEASE_EVENT_REASONS, RELEASE_RECORD_SELECTOR, toReleaseEvent, toReleaseRecord };
+export { DEPLOYING_STATES, FAILED_STATES, RELEASE_EVENT_REASONS, toReleaseRecord };
 //# sourceMappingURL=releaseRecords.esm.js.map
