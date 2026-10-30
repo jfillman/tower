@@ -22,7 +22,7 @@ apron (`docs/cluster-identity.md`, `components.clusterIdentity`).
 >
 > That token and everything that carried it are deleted.
 
-![How Tower reaches <dev-cluster> without a stored token: reads with the pod's projected token, writes with a tower-actor token minted per action; <dev-cluster> validates both against <prod-cluster>'s published keys, maps them to two users with separate RBAC, and runs writes through admission policies](diagrams/01-identity-flow.png)
+![How Tower reaches <dev-cluster> without a stored token: reads with the pod's projected token, writes with a tower-actor token minted per action; <dev-cluster> validates both against <prod-cluster>'s published keys, maps them to two users with separate RBAC, and lets the writer call only glidepath-api and bind debug roles, and runs writes through admission policies](diagrams/01-identity-flow.png)
 
 ## The two identities
 
@@ -32,25 +32,37 @@ apron (`docs/cluster-identity.md`, `components.clusterIdentity`).
 | **Group** | `hangar:<prod-cluster>` | `hangar:<prod-cluster>` |
 | **<prod-cluster> ServiceAccount** | `backstage/backstage-ingestor` (the Backstage pod's own) | `backstage/tower-actor` (no pod runs as it, no RBAC on <prod-cluster>, automount off) |
 | **Token** | projected volume at `/var/run/secrets/hangar/<dev-cluster>/token`: audience `<dev-cluster>`, 600 s, bound to the pod, refreshed by the kubelet at 80% | `TokenRequest` per write action: audience `<dev-cluster>`, 600 s, held in memory for that action only. Not bound to the pod: Kubernetes binds a token only to a pod running as the same ServiceAccount, and none runs as `tower-actor` |
-| **Used by** | the Kubernetes proxy (Tower's reads, the catalog ingestor), the pollers (recent activity, SLO transitions, release records, pipeline history), the provenance trust reads (Fulcio root, Rekor key) | Tekton Re-run and Cancel, release and rollback runs, break-glass (grant, debug container, attach, cleanup) |
-| **<dev-cluster> RBAC** | 13 read bindings in gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/rbac.yaml`: `view`, CRDs, Crossplane, Rollouts, Gateway API, GitHub MRs, Infisical projects, RBAC objects, topology resources, Argo CD Applications, and the Rekor, Prometheus and Tekton Results service proxies. No write verb. | `tower-actor-rbac.yaml`: `view`, `backstage-tekton-rerun` (create/patch PipelineRuns) and `tower-breakglass-binder` (create/delete `tower-breakglass-*` RoleBindings, bind the two debug roles) |
+| **Used by** | the Kubernetes proxy (Tower's reads that don't come from glidepath-api: Argo CD, Rollouts, pods, Crossplane, and still the Ops Wall's release records and release Events; the catalog ingestor), the pollers (recent activity, SLO transitions, release records), glidepath-api's reads (runs, live runs and logs, release state, image evidence, tests) | glidepath-api's writes (Tekton Re-run and Cancel, Flight promote and rollback runs), break-glass (grant, debug container, attach, cleanup) |
+| **<dev-cluster> RBAC** | 12 read bindings in gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/rbac.yaml`: `view`, CRDs, Crossplane, Rollouts, Gateway API, GitHub MRs, Infisical projects, RBAC objects, topology resources, Argo CD Applications, and the Prometheus and glidepath-api service proxies. No write verb. Until P6 (2026-10-30) it also had the Rekor, Testkube and Tekton Results (`tekton-results-relay`) service proxies. | `tower-actor-rbac.yaml`: `view`, `tower-actor-glidepath-api-proxy` (`services/proxy` on `glidepath-api` in `platform-system`) and `tower-breakglass-binder` (create/delete `tower-breakglass-*` RoleBindings, bind the two debug roles). No Tekton grant: until P6 (2026-10-30) it held `backstage-tekton-rerun` (create/patch PipelineRuns) |
 
 On <prod-cluster> Backstage is simply its in-cluster ServiceAccount (`system:serviceaccount:backstage:backstage-ingestor`),
 with its usual short-lived token. Nothing on this page changes that.
 
 ## A write, end to end
 
-![A Tower write, end to end: Tower posts a Re-run, the backend checks ownership, mints a ten-minute tower-actor token on <prod-cluster>, reads the source run and creates the copy on <dev-cluster>, where the token is verified, RBAC applied and the shape policy admits it](diagrams/02-write-sequence.png)
+![A Tower write, end to end: Tower posts a Re-run, the backend checks ownership, mints a ten-minute tower-actor token on <prod-cluster> and calls glidepath-api through <dev-cluster>'s service proxy; <dev-cluster> verifies the token and lets it through to glidepath-api only; glidepath-api authorizes the call with a SubjectAccessReview and creates the copy as its own ServiceAccount, which the shape policy admits](diagrams/02-write-sequence.png)
 
-1. **The browser** posts to the backend's own route (`/api/glidepath/tekton/rerun` or `/cancel`). Tower never writes
-   through the Kubernetes proxy, which refuses anything but GET.
-2. **The backend** checks the permission on the app's catalog entity (`tower.pipeline.rerun` / `.cancel`: owners or
-   admins). It audits the decision either way, and mints nothing for a refused request.
+1. **The browser** posts to the backend's own route (`/api/glidepath/tekton/rerun` or `/cancel`; a Flight promotion
+   or rollback: `/promote`, `/release/rollback`). Tower never writes through the Kubernetes proxy, which refuses
+   anything but GET.
+2. **The backend** checks the permission on the app's catalog entity (`tower.pipeline.rerun` / `.cancel`, or
+   `tower.release.promote` / `.rollback`: owners or admins). It audits the decision either way, and mints nothing for a refused request.
 3. **`towerActor.ts`** asks <prod-cluster> for a `tower-actor` token. Backstage's ServiceAccount may create tokens for that
    one name only (Role `tower-actor-token-minter`).
-4. **<dev-cluster>'s API server** checks the token against <prod-cluster>'s published keys and the claim rules (below). It maps
-   the token to `hangar:<prod-cluster>:tower-actor` and applies that user's RBAC. `tower-pipelinerun-shape` then admits
-   only Glidepath's own run shape.
+4. **The backend calls glidepath-api** with that token, through <dev-cluster>'s API server
+   (`/api/v1/namespaces/platform-system/services/glidepath-api:8080/proxy/v1/...`), naming the person in
+   `X-Glidepath-On-Behalf-Of` (`packages/backend/src/glidepathApi.ts`).
+5. **<dev-cluster>'s API server** checks the token against <prod-cluster>'s published keys and the claim rules (below). It maps
+   the token to `hangar:<prod-cluster>:tower-actor` and applies that user's RBAC, which opens glidepath-api's service
+   proxy and nothing else on Tekton.
+6. **glidepath-api** checks the token again (TokenReview), authorizes `tower-actor` with a SubjectAccessReview on its
+   own resources (`rerun`/`cancel` on `runs.glidepath.hangar.io`, `promote`/`rollback` on
+   `environments.glidepath.hangar.io`, from the `glidepath-api-operator` and `glidepath-api-releaser` roles), audits
+   the call with the person, and creates or patches the PipelineRun as its own ServiceAccount
+   (`system:serviceaccount:platform-system:glidepath-api`). `glidepath-api-pipelinerun-shape` admits only Glidepath's
+   own run shape.
+
+Until P6 (2026-10-30) the backend created and patched the PipelineRun itself as `tower-actor`.
 
 Break-glass works the same way. It mints a fresh token for each step (activation, attach, state reads, the end of the
 session), because a session can outlive a 10-minute token. Its RoleBinding's subject is the
@@ -58,23 +70,25 @@ session), because a session can outlive a 10-minute token. Its RoleBinding's sub
 
 ## Guardrails
 
-![What stands between a misused credential and <dev-cluster>: a read-only proxy, owner-gated write routes, no stored credential, trust rules at <dev-cluster>, split RBAC and fail-closed admission policies; what remains is owner-gated, recorded Glidepath runs, cancels and debug grants](diagrams/03-guardrail-layers.png)
+![What stands between a misused credential and <dev-cluster>: a read-only proxy, owner-gated write routes, no stored credential, trust rules at <dev-cluster>, split RBAC and fail-closed admission policies; what remains is glidepath-api's re-run, cancel, promote and rollback, and debug grants, owner-gated and recorded](diagrams/03-guardrail-layers.png)
 
 | Control | Enforced by | Where it lives |
 |---|---|---|
 | The Kubernetes proxy is read-only: GET/HEAD/OPTIONS, no WebSocket upgrades, however the path is spelled | Backstage root router | backstage `packages/backend/src/kubernetesProxyGuard.ts` |
 | Each write needs the app's ownership, and is audited | Backstage permission framework | backstage `towerPermissions.ts`, `permissionPolicy.ts`, `glidepathProvenance.ts` (`/tekton/*`), `breakglass.ts` |
+| glidepath-api authorizes every call (TokenReview, then a SubjectAccessReview on `glidepath.hangar.io` resources) and audits it with the person | glidepath-api | glidepath `docs/admin/api.md`; the `glidepath-api-operator` / `-releaser` bindings for `tower-actor` |
 | Only `tower-actor` tokens can be minted, and only by Backstage | <prod-cluster> RBAC | gitops-cluster-<prod-cluster> `60-backstage/backstage/tower-actor.yaml` |
 | The issuer is <prod-cluster>'s; the token has audience `<dev-cluster>`, comes from namespace `backstage`, belongs to `backstage-ingestor` or `tower-actor`, and lives `exp - iat ≤ 600` s | <dev-cluster> API server (`--authentication-config`) | gitops-cluster-dev `00-bootstrap/cluster-identity/authentication-config.yaml` (installed as `/etc/kubernetes/authn/config.yaml` on the node) |
-| The reader can't write; the actor holds only the two write grants | <dev-cluster> RBAC | gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/rbac.yaml`, `tower-actor-rbac.yaml`, `breakglass-rbac.yaml` |
-| PipelineRuns: only in an app's `-cicd` namespace, a cluster-resolver `pipelineRef` into `platform-catalog`, SA `pipeline-runner`, no inline spec, no `taskRunSpecs`, podTemplate `hostAliases` only, no PaC annotations. Updates may only cancel. | <dev-cluster> admission (`vpol-tower-pipelinerun-shape`) | gitops-cluster-dev `30-policy/kyverno-policies/tower-identity-writes.yaml` |
+| The reader can't write; the actor holds only glidepath-api's service proxy and the break-glass binder | <dev-cluster> RBAC | gitops-cluster-dev `00-bootstrap/backstage-ingestor-rbac/rbac.yaml`, `tower-actor-rbac.yaml`, `breakglass-rbac.yaml` |
+| PipelineRuns: none from `tower-actor` ("Tower writes PipelineRuns only through glidepath-api"). From glidepath-api's ServiceAccount: only in an `app-` or `infra-` `-cicd` namespace, a cluster-resolver `pipelineRef` into `platform-catalog`, SA `pipeline-runner`, no inline spec, no `taskRunSpecs`, podTemplate `hostAliases` only, `emptyDir`/`volumeClaimTemplate` workspaces, no PaC annotations. Updates may only cancel. Until P6 (2026-10-30) this was `tower-pipelinerun-shape`, which admitted `tower-actor`'s runs. | <dev-cluster> admission (`vpol-glidepath-api-pipelinerun-shape`) | gitops-cluster-dev `30-policy/kyverno-policies/tower-identity-writes.yaml` |
 | RoleBinding deletes: `tower-breakglass-*` only | <dev-cluster> admission (`vpol-tower-rolebinding-delete`) | same file |
 | Break-glass grants, debug containers, pod deletes and annotations | <dev-cluster> admission (`vpol-tower-breakglass-*`) | `30-policy/kyverno-policies/tower-breakglass.yaml`; see [Admission policies](../break-glass/admin/policies.md) |
 | No `kubernetes.io/service-account-token` Secrets in `backstage-system` | <dev-cluster> admission (`vpol-no-long-lived-sa-tokens`) | `30-policy/kyverno-policies/no-long-lived-sa-tokens.yaml` |
 | The API server's certificate is verified | Backstage (`caData` / `caFile`) | backstage `app-config.yaml` (the `<dev-cluster>` and `<prod-cluster>` entries) |
 
-**What remains.** Code running inside the Backstage backend can mint actor tokens. What those tokens can do is bounded
-by the policies: Glidepath-shaped runs, cancels and debug grants. Each one is gated on ownership in the routes and
+**What remains.** Code running inside the Backstage backend can mint actor tokens. Those tokens can only call
+glidepath-api's writes (re-run, cancel, promote, rollback), which glidepath-api authorizes and audits, and make
+break-glass's debug grants, held to their shape by the policies. Each one is gated on ownership in the routes and
 recorded. Writing as each user's own identity (spec phase 5) is what would narrow it further.
 
 ## Configuration
@@ -130,7 +144,8 @@ kubernetes:
 - **`00-bootstrap/cluster-identity/authentication-config.yaml`:** the trust rules. It's node-level, so Argo CD doesn't
   sync it; it's installed with apron `hack/cluster-identity.sh trust`.
 - **`00-bootstrap/backstage-ingestor-rbac/`:** the reader's and the actor's RBAC (`rbac.yaml`,
-  `tower-actor-rbac.yaml`, `breakglass-rbac.yaml`).
+  `tower-actor-rbac.yaml`, `breakglass-rbac.yaml`). The reader's glidepath-api grant keeps its old Role name,
+  `backstage-ingestor-tekton-results-proxy`, so the Application (no prune) updates it in place.
 - **`30-policy/kyverno-policies/`:** `tower-identity-writes.yaml`, `tower-breakglass.yaml`, `no-long-lived-sa-tokens.yaml`.
 
 ### The issuer's public keys
@@ -184,8 +199,8 @@ the `<dev-cluster>` entry's `caData`.
 kubectl --context <dev-cluster> --as=hangar:<prod-cluster>:tower-actor --as-group=hangar:<prod-cluster> proxy --port=8013 --reject-paths='^/never$'
 ```
 
-`tower-actor` can read (`view`) and write. Use `hangar:<prod-cluster>:backstage-ingestor` to check that something works
-read-only.
+`tower-actor` can read (`view`), call glidepath-api and bind the debug roles; it can't create or patch a PipelineRun.
+Use `hangar:<prod-cluster>:backstage-ingestor` to check that something works read-only.
 
 ## Troubleshooting
 

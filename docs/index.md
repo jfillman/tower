@@ -23,7 +23,9 @@ Part of the [Hangar](https://github.com/jfillman/hangar) Internal Developer Plat
 - **Safe by design.** Tower holds no stored Kubernetes credential.
   - Reads use the Backstage pod's own rotating token.
   - Each write (a Tekton Re-run or Cancel, a release run, a break-glass step) mints a 10-minute token for that action.
-  - Admission policies hold those writes to Glidepath's own shapes; see [Cluster credentials](credentials/index.md).
+  - Tekton writes go through glidepath-api, which authorizes and audits them and creates the run itself; Tower's
+    token can't write a PipelineRun. Admission policies hold every write to Glidepath's own shapes; see
+    [Cluster credentials](credentials/index.md).
 
   Changes are pull requests; Argo CD and Rollout
   actions are delegated through one narrowly scoped Argo CD account; owners act on their own apps and Flight

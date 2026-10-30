@@ -1,9 +1,10 @@
 # Supply chain
 
 Every image Tower shows (the Release matrix, Deployments, a release record) has a supply-chain strip: **Build →
-SAST / SBOM → Signature → Tests → Sign + Attest → Rekor → Promoted**, then the environments. Tower checks each signature
-itself, in Backstage's backend, against this platform's own Fulcio root and Rekor log (the promotion: against public
-Sigstore and the promoter's identity); it does not take the image's word for it.
+SAST / SBOM → Signature → Tests → Sign + Attest → Rekor → Promoted**, then the environments. glidepath-api checks
+each signature (its `getEvidence`, which Tower's backend calls) against this platform's own Fulcio root and Rekor log
+(the promotion: against public Sigstore and the promoter's identity); it does not take the image's word for it. Until
+P6 (2026-10-30) Tower's backend made the same checks itself.
 
 ## What the steps are
 
@@ -50,17 +51,20 @@ verified, and nothing on the image contradicting it.
 |---|---|---|
 | Verified | The signature checks out, and its Rekor entry shows it was made while the certificate was valid. | Nothing. |
 | Not logged | No Rekor entry was found, so nothing shows the short-lived certificate was valid when it was used. | Treat it as unsigned. The image may predate the transparency log. |
-| Unchecked (receipt) | The receipt in the image was signed with a Rekor key that no longer exists, and Tower couldn't get a fresh one. | Not tampering. It verifies once Rekor is reachable; the release gate reads Rekor directly. |
-| Unchecked (trust root) | Tower couldn't load the platform's signing root. | Try again shortly. It says nothing about the image. |
+| Unchecked (receipt) | The receipt in the image was signed with a Rekor key that no longer exists, and glidepath-api couldn't get a fresh one. | Not tampering. It verifies once Rekor is reachable; the release gate reads Rekor directly. |
+| Unchecked (trust root) | glidepath-api couldn't load the platform's signing root. | Try again shortly. It says nothing about the image. |
 | Incomplete | The certificate or signature is missing from the image. | Rebuild to sign again. |
 | Contradicted / wrong image / failed | See red, above. | Don't promote the image until someone has looked into it. |
 
-## How Tower checks
+## How the checks work
 
 - **Receipts are read fresh.** Each signature's Rekor entry is read from Rekor by its log index and used when its body
   matches the image's own copy. Rekor signs the receipt with its current key when it is read, so a receipt from before
   a Rekor key change still verifies. A different body at that index never verifies. Glidepath's provenance gate does
   the same.
 - **The image signature's entry is looked up.** Chains logs it to Rekor but doesn't attach the receipt to the image,
-  so Tower finds it among the entries next to the image's attestations, by its exact payload hash and signature.
-- **Read only.** Tower reads Rekor through <dev-cluster>'s API server as its read identity, which cannot write to the log.
+  so glidepath-api finds it among the entries next to the image's attestations, by its exact payload hash and signature.
+- **Read only.** glidepath-api reads Rekor inside <dev-cluster> with GET requests only. Tower's read identity lost its
+  Rekor service proxy in P6 (2026-10-30).
+- **A Flight image** (`ghcr.io/<promoter repo owner>/...`) is read with the Flight read credential, because an app's
+  own registry credential belongs to the Ground owner, which Flight refuses.
