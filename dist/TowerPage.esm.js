@@ -17,6 +17,7 @@ import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab.esm.js';
 import { TopologyTab } from './tabs/TopologyTab.esm.js';
 import { AirspaceTab } from './tabs/AirspaceTab.esm.js';
 import { AirspacePage } from './airspace/AirspacePage.esm.js';
+import { AgentRequestsPage } from './agentRequests/AgentRequestsPage.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
 import { DeploymentsTab } from './tabs/DeploymentsTab.esm.js';
@@ -160,6 +161,7 @@ function TowerPage() {
   const tabParam = searchParams.get("tab") ?? "overview";
   const isDashboardView = searchParams.get("view") === "dashboard";
   const isAirspaceView = searchParams.get("view") === "airspace";
+  const isAgentRequestsView = searchParams.get("view") === "agent-requests";
   const [entity, setEntity] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [loading, setLoading] = useState(false);
@@ -192,14 +194,17 @@ function TowerPage() {
   const selectTab = (id) => setSearchParams({ entity: entityRef ?? "", tab: id });
   const openDashboard = () => setSearchParams({ view: "dashboard" });
   const openAirspace = () => setSearchParams({ view: "airspace" });
+  const openAgentRequests = () => setSearchParams({ view: "agent-requests" });
   const openBreakglass = (_row, link) => setSearchParams(new URLSearchParams(link));
   let body;
   if (isDashboardView) {
     body = /* @__PURE__ */ jsx(TowerDashboardPage, { onBack: clearApp });
   } else if (isAirspaceView) {
     body = /* @__PURE__ */ jsx(AirspacePage, { onBack: clearApp });
+  } else if (isAgentRequestsView) {
+    body = /* @__PURE__ */ jsx(AgentRequestsPage, { onBack: clearApp });
   } else if (!entityRef) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenAirspace: openAirspace, onOpenBreakglass: openBreakglass }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenAirspace: openAirspace, onOpenBreakglass: openBreakglass, onOpenAgentRequests: openAgentRequests }) });
   } else if (loading) {
     body = /* @__PURE__ */ jsx(TabSkeleton, {});
   } else if (error) {
