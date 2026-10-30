@@ -30,27 +30,3 @@ export async function k8sProxyGet<T>(
 
 // Reads only: the backend refuses anything but GET on /api/kubernetes/proxy (2026-10-11, backstage
 // kubernetesProxyGuard.ts). Writes go through Tower's owner-gated backend routes, e.g. tekton/pipelineRunAction.ts.
-
-// Same proxy route, for the one endpoint that doesn't return JSON - a pod's
-// raw log text. `kubernetesProxyApiRef.getPodLogs` (the typed wrapper the
-// rest of Tower uses, e.g. PodLogsView) doesn't expose a `timestamps`
-// option, and useTaskRunLogs.ts needs real per-line timestamps to
-// interleave and label a TaskRun's steps in one consolidated view - going
-// straight at the same proxy route with `?timestamps=true` gets that
-// directly from the Kubernetes API rather than trying to reconstruct it.
-export async function k8sProxyGetText(
-  discoveryApi: { getBaseUrl(id: string): Promise<string> },
-  fetchApi: { fetch: typeof fetch },
-  clusterName: string,
-  path: string,
-): Promise<string> {
-  const baseUrl = await discoveryApi.getBaseUrl('kubernetes');
-  const res = await fetchApi.fetch(`${baseUrl}/proxy${path}`, {
-    headers: { 'Backstage-Kubernetes-Cluster': clusterName },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => undefined);
-    throw new Error(body?.error?.message ?? body?.message ?? `request failed with ${res.status}`);
-  }
-  return res.text();
-}

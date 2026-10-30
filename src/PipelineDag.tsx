@@ -652,9 +652,8 @@ export function PipelineDag({ run, expandSignal }: { run: PipelineRunSummary; ex
                 <div className={classes.logsWrap}>
                   <div className={classes.ioTitle}>Logs</div>
                   <TaskRunLogConsole
-                    cluster={run.cluster}
-                    namespace={openTaskRun.namespace}
-                    podName={openTaskRun.podName}
+                    app={run.appName}
+                    taskRun={openTaskRun.name}
                     steps={openTaskRun.steps}
                     archive={run.archive ? { ...run.archive, taskRun: openTaskRun.name } : undefined}
                     fallback={

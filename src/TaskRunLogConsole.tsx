@@ -61,16 +61,16 @@ export function stepDuration(step: TaskStepSummary): string | undefined {
 }
 
 export function TaskRunLogConsole({
-  cluster,
-  namespace,
-  podName,
+  app,
+  taskRun,
   steps,
   archive,
   fallback,
 }: {
-  cluster: string;
-  namespace: string;
-  podName: string;
+  // The app the run belongs to, and the TaskRun: a live log is read from its pod through glidepath-api, which serves
+  // an app's runs (a run outside an app's -cicd namespace has no live log here).
+  app?: string;
+  taskRun: string;
   steps: TaskStepSummary[];
   // An archived run's pod is gone: its logs come from Tekton Results by Log record id instead.
   archive?: { app: string; result: string; taskRun: string };
@@ -82,7 +82,7 @@ export function TaskRunLogConsole({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const live = useTaskRunLogs(archive ? undefined : { cluster, namespace, podName, steps });
+  const live = useTaskRunLogs(archive || !app ? undefined : { app, taskRun, steps });
   // The pod is gone when every step we tried to read failed the same way. Only then is the
   // archive worth a round trip - a transient error on one step is not a missing pod.
   const podGone =
