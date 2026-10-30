@@ -80,7 +80,10 @@ function GitopsTitle({ pr, classes }: { pr: PullRequestSummary; classes: ReturnT
   return (
     <>
       <Chip tone="sky" className={classes.chipGap}>{parsed.targetEnv}</Chip>
-      <span className={classes.imageTagText}>@ {parsed.imageTag}</span>
+      <span className={classes.imageTagText}>
+        {parsed.kind === 'rollback' ? 'roll back to ' : '@ '}
+        {parsed.imageTag}
+      </span>
     </>
   );
 }
