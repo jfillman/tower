@@ -18,6 +18,7 @@ import { ConfigureTab, isConfigureSubtab } from './tabs/ConfigureTab';
 import { TopologyTab } from './tabs/TopologyTab';
 import { AirspaceTab } from './tabs/AirspaceTab';
 import { AirspacePage } from './airspace/AirspacePage';
+import { AgentRequestsPage } from './agentRequests/AgentRequestsPage';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
 import { DeploymentsTab } from './tabs/DeploymentsTab';
@@ -207,6 +208,7 @@ export function TowerPage() {
   const tabParam = (searchParams.get('tab') as TabId | null) ?? 'overview';
   const isDashboardView = searchParams.get('view') === 'dashboard';
   const isAirspaceView = searchParams.get('view') === 'airspace';
+  const isAgentRequestsView = searchParams.get('view') === 'agent-requests';
 
   const [entity, setEntity] = useState<Entity | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -246,6 +248,7 @@ export function TowerPage() {
   const selectTab = (id: TabId) => setSearchParams({ entity: entityRef ?? '', tab: id });
   const openDashboard = () => setSearchParams({ view: 'dashboard' });
   const openAirspace = () => setSearchParams({ view: 'airspace' });
+  const openAgentRequests = () => setSearchParams({ view: 'agent-requests' });
   // A break-glass queue row: the session's deep link (entity, topology, env, breakglass=<id>), see breakglassDeepLink.ts.
   const openBreakglass = (_row: unknown, link: string) => setSearchParams(new URLSearchParams(link));
 
@@ -254,10 +257,12 @@ export function TowerPage() {
     body = <TowerDashboardPage onBack={clearApp} />;
   } else if (isAirspaceView) {
     body = <AirspacePage onBack={clearApp} />;
+  } else if (isAgentRequestsView) {
+    body = <AgentRequestsPage onBack={clearApp} />;
   } else if (!entityRef) {
     body = (
       <div style={{ padding: '48px 24px' }}>
-        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenAirspace={openAirspace} onOpenBreakglass={openBreakglass} />
+        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenAirspace={openAirspace} onOpenBreakglass={openBreakglass} onOpenAgentRequests={openAgentRequests} />
       </div>
     );
   } else if (loading) {
