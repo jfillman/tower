@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { createContext, createElement, useCallback, useContext, type ReactNode } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { usePolled, type Polled } from '../fleet/usePolled';
 
@@ -35,7 +35,10 @@ export class AnswerError extends Error {
   }
 }
 
-export function useAgentRequests(): Polled<AgentRequest[]> & { answer: (id: string, answer: string) => Promise<AgentRequest> } {
+export type AgentRequestsState = Polled<AgentRequest[]> & { answer: (id: string, answer: string) => Promise<AgentRequest> };
+
+/** One poll for the whole Tower page (the header chip, the home link, For you and the page itself share it). */
+function usePolledAgentRequests(): AgentRequestsState {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const fetcher = useCallback(async () => {
@@ -61,6 +64,19 @@ export function useAgentRequests(): Polled<AgentRequest[]> & { answer: (id: stri
     [discoveryApi, fetchApi],
   );
   return { ...polled, answer };
+}
+
+const Ctx = createContext<AgentRequestsState | undefined>(undefined);
+
+export function AgentRequestsProvider({ children }: { children: ReactNode }) {
+  return createElement(Ctx.Provider, { value: usePolledAgentRequests() }, children);
+}
+
+/** The shared agent-requests state. Tower's page renders an AgentRequestsProvider at its root. */
+export function useAgentRequests(): AgentRequestsState {
+  const shared = useContext(Ctx);
+  if (!shared) throw new Error('useAgentRequests needs an AgentRequestsProvider above it');
+  return shared;
 }
 
 /** `user:jfillman` -> `jfillman`; `group:default/team-platform` -> `team-platform`. */

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { AgentRequestsPage } from './AgentRequestsPage';
-import { shortRef } from './useAgentRequests';
+import { AgentRequestsProvider, shortRef } from './useAgentRequests';
 
 const calls: Array<{ url: string; init?: RequestInit }> = [];
 let listResponse: { status: number; body: unknown } = { status: 200, body: { items: [] } };
@@ -28,7 +28,11 @@ const req = (over: Record<string, unknown> = {}) => ({
 
 const renderIt = async () => {
   await act(async () => {
-    render(<AgentRequestsPage onBack={() => {}} />);
+    render(
+      <AgentRequestsProvider>
+        <AgentRequestsPage onBack={() => {}} />
+      </AgentRequestsProvider>,
+    );
   });
 };
 

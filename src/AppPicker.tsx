@@ -300,6 +300,7 @@ export function AppPicker({
   onOpenAirspace,
   onOpenBreakglass,
   onOpenAgentRequests,
+  onOpenForYou,
 }: {
   onSelect: (entityRef: string) => void;
   onOpenDashboard: () => void;
@@ -309,6 +310,8 @@ export function AppPicker({
   onOpenBreakglass?: (row: BreakglassQueueRow, link: string) => void;
   /** The Agent requests page: questions Hangar agents asked that you may answer. */
   onOpenAgentRequests?: () => void;
+  /** The For you page: notifications sent to you personally, across every app. */
+  onOpenForYou?: () => void;
 }) {
   const tc = useTableKit();
   const t = useHangarTokens();
@@ -577,6 +580,7 @@ export function AppPicker({
           <TextLink onClick={onOpenDashboard}>Fleet Dashboard →</TextLink>
           {onOpenAirspace && <TextLink onClick={onOpenAirspace}>Airspace →</TextLink>}
           {onOpenAgentRequests && <AgentRequestsLink onOpen={onOpenAgentRequests} />}
+          {onOpenForYou && <TextLink onClick={onOpenForYou}>For you →</TextLink>}
         </span>
       </div>
       <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>
