@@ -11,6 +11,7 @@ nav:
       - Environments: environments.md
       - Cloud deploys: cloud-deploys.md
       - Service classes: service-classes.md
+      - Agent requests: agent-requests.md
       - Break-glass debugging:
           - Overview: break-glass/index.md
           - "Walkthrough: Ground": break-glass/ground-walkthrough.md

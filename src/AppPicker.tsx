@@ -22,6 +22,7 @@ import { typicalFor, useProvisioningHistory } from './provisioning/provisioningH
 import { useProvisioning } from './provisioning/useProvisioning';
 import { CAP, deployTargetOf, hasCapabilities, isTowerService, serviceClassOf } from './serviceClass';
 import { EmptyNote, FilterBar, FilterChips, PanelSkeleton, SearchField, TabError, TextLink, Tooltip, useTableKit } from './ui';
+import { AgentRequestsLink } from './agentRequests/AgentRequestsLink';
 
 // Plain localStorage, not Backstage's own starredEntitiesApiRef
 // (@backstage/plugin-catalog-react) - that API's default factory is
@@ -298,6 +299,7 @@ export function AppPicker({
   onOpenDashboard,
   onOpenAirspace,
   onOpenBreakglass,
+  onOpenAgentRequests,
 }: {
   onSelect: (entityRef: string) => void;
   onOpenDashboard: () => void;
@@ -305,6 +307,8 @@ export function AppPicker({
   onOpenAirspace?: () => void;
   /** A break-glass queue row was chosen: open its session (the link is Tower's own query string). */
   onOpenBreakglass?: (row: BreakglassQueueRow, link: string) => void;
+  /** The Agent requests page: questions Hangar agents asked that you may answer. */
+  onOpenAgentRequests?: () => void;
 }) {
   const tc = useTableKit();
   const t = useHangarTokens();
@@ -572,6 +576,7 @@ export function AppPicker({
         <span className={classes.fleetLinks}>
           <TextLink onClick={onOpenDashboard}>Fleet Dashboard →</TextLink>
           {onOpenAirspace && <TextLink onClick={onOpenAirspace}>Airspace →</TextLink>}
+          {onOpenAgentRequests && <AgentRequestsLink onOpen={onOpenAgentRequests} />}
         </span>
       </div>
       <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>
