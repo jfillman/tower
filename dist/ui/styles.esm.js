@@ -1,5 +1,5 @@
 import { makeStyles } from '@material-ui/core/styles';
-import { fontDisplay, fontBody, fontMono } from '../brand/tokens.esm.js';
+import { fontMono, fontDisplay, fontBody } from '../brand/tokens.esm.js';
 
 const useUi = makeStyles(() => ({
   // ---- page chrome

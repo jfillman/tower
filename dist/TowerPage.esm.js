@@ -18,6 +18,9 @@ import { TopologyTab } from './tabs/TopologyTab.esm.js';
 import { AirspaceTab } from './tabs/AirspaceTab.esm.js';
 import { AirspacePage } from './airspace/AirspacePage.esm.js';
 import { AgentRequestsPage } from './agentRequests/AgentRequestsPage.esm.js';
+import { AgentRequestsChip } from './agentRequests/AgentRequestsChip.esm.js';
+import { AgentRequestsProvider } from './agentRequests/useAgentRequests.esm.js';
+import { ForYouPage } from './forYou/ForYouPage.esm.js';
 import { PullRequestsTab } from './tabs/PullRequestsTab.esm.js';
 import { PipelinesTab } from './tabs/PipelinesTab.esm.js';
 import { DeploymentsTab } from './tabs/DeploymentsTab.esm.js';
@@ -162,6 +165,7 @@ function TowerPage() {
   const isDashboardView = searchParams.get("view") === "dashboard";
   const isAirspaceView = searchParams.get("view") === "airspace";
   const isAgentRequestsView = searchParams.get("view") === "agent-requests";
+  const isForYouView = searchParams.get("view") === "for-you";
   const [entity, setEntity] = useState(void 0);
   const [error, setError] = useState(void 0);
   const [loading, setLoading] = useState(false);
@@ -195,6 +199,7 @@ function TowerPage() {
   const openDashboard = () => setSearchParams({ view: "dashboard" });
   const openAirspace = () => setSearchParams({ view: "airspace" });
   const openAgentRequests = () => setSearchParams({ view: "agent-requests" });
+  const openForYou = () => setSearchParams({ view: "for-you" });
   const openBreakglass = (_row, link) => setSearchParams(new URLSearchParams(link));
   let body;
   if (isDashboardView) {
@@ -203,8 +208,10 @@ function TowerPage() {
     body = /* @__PURE__ */ jsx(AirspacePage, { onBack: clearApp });
   } else if (isAgentRequestsView) {
     body = /* @__PURE__ */ jsx(AgentRequestsPage, { onBack: clearApp });
+  } else if (isForYouView) {
+    body = /* @__PURE__ */ jsx(ForYouPage, { onBack: clearApp, onOpenAgentRequests: openAgentRequests });
   } else if (!entityRef) {
-    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenAirspace: openAirspace, onOpenBreakglass: openBreakglass, onOpenAgentRequests: openAgentRequests }) });
+    body = /* @__PURE__ */ jsx("div", { style: { padding: "48px 24px" }, children: /* @__PURE__ */ jsx(AppPicker, { onSelect: selectApp, onOpenDashboard: openDashboard, onOpenAirspace: openAirspace, onOpenBreakglass: openBreakglass, onOpenAgentRequests: openAgentRequests, onOpenForYou: openForYou }) });
   } else if (loading) {
     body = /* @__PURE__ */ jsx(TabSkeleton, {});
   } else if (error) {
@@ -225,7 +232,10 @@ function TowerPage() {
       }
     );
   }
-  return /* @__PURE__ */ jsx("div", { className: classes.root, children: body });
+  return /* @__PURE__ */ jsx(AgentRequestsProvider, { children: /* @__PURE__ */ jsxs("div", { className: classes.root, style: { position: "relative" }, children: [
+    !isAgentRequestsView && /* @__PURE__ */ jsx(AgentRequestsChip, { onOpen: openAgentRequests }),
+    body
+  ] }) });
 }
 function TowerAppShell({
   entity,

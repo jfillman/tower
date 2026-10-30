@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { createElement, createContext, useCallback, useContext } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { usePolled } from '../fleet/usePolled.esm.js';
 
@@ -14,7 +14,7 @@ class AnswerError extends Error {
   rule;
   hint;
 }
-function useAgentRequests() {
+function usePolledAgentRequests() {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const fetcher = useCallback(async () => {
@@ -41,7 +41,16 @@ function useAgentRequests() {
   );
   return { ...polled, answer };
 }
+const Ctx = createContext(void 0);
+function AgentRequestsProvider({ children }) {
+  return createElement(Ctx.Provider, { value: usePolledAgentRequests() }, children);
+}
+function useAgentRequests() {
+  const shared = useContext(Ctx);
+  if (!shared) throw new Error("useAgentRequests needs an AgentRequestsProvider above it");
+  return shared;
+}
 const shortRef = (ref) => ref ? ref.replace(/^(user|group):([^/]+\/)?/, "") : "";
 
-export { AnswerError, POLL_MS, shortRef, useAgentRequests };
+export { AgentRequestsProvider, AnswerError, POLL_MS, shortRef, useAgentRequests };
 //# sourceMappingURL=useAgentRequests.esm.js.map
