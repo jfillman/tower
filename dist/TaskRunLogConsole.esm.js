@@ -50,16 +50,15 @@ function stepDuration(step) {
   return step.finishedAt ? text : `${text} so far`;
 }
 function TaskRunLogConsole({
-  cluster,
-  namespace,
-  podName,
+  app,
+  taskRun,
   steps,
   archive,
   fallback
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const live = useTaskRunLogs(archive ? void 0 : { cluster, namespace, podName, steps });
+  const live = useTaskRunLogs(archive || !app ? void 0 : { app, taskRun, steps });
   const podGone = !archive && Boolean(fallback) && !live.loading && live.blocks.length > 0 && live.blocks.filter((b) => b.state !== "waiting").every((b) => Boolean(b.error) && /not found/i.test(b.error ?? ""));
   const lookup = useArchivedRunLookup(podGone && fallback ? { app: fallback.app, runName: fallback.runName } : void 0);
   const effectiveArchive = archive ?? (podGone && fallback && lookup.archive ? { ...lookup.archive, taskRun: fallback.taskRun } : void 0);

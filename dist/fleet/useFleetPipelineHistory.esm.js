@@ -1,14 +1,31 @@
 import { useCallback } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { k8sProxyGet } from '../k8sProxy.esm.js';
+import { fetchFleetHistory } from '../tekton/liveRuns.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
-import { toHistoryRun } from './pipelineHistory.esm.js';
+import { appOfNamespace } from './pipelineHistory.esm.js';
 import { usePolled } from './usePolled.esm.js';
 
-const RELAY = "/api/v1/namespaces/platform-system/services/tekton-results-relay:8080/proxy";
 const POLL_MS = 2 * 6e4;
-const PAGE_SIZE = 200;
-const MAX_PAGES = 10;
+const LIMIT = 1e3;
+function toFleetHistoryRun(r) {
+  if (r.status === "unknown") return void 0;
+  const start = r.startTime ? Date.parse(r.startTime) : NaN;
+  const end = r.endTime ? Date.parse(r.endTime) : NaN;
+  return {
+    key: `${r.namespace}/${r.name}`,
+    namespace: r.namespace,
+    name: r.name,
+    app: r.app ?? appOfNamespace(r.namespace),
+    pipeline: r.pipeline,
+    status: r.status,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    durationSec: Number.isNaN(start) || Number.isNaN(end) ? void 0 : Math.max(0, Math.round((end - start) / 1e3)),
+    commit: r.commit,
+    eventType: r.eventType,
+    prNumber: r.prNumber
+  };
+}
 function useFleetPipelineHistory(windowMs) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -16,38 +33,14 @@ function useFleetPipelineHistory(windowMs) {
   const fetcher = useCallback(async () => {
     if (!cluster) throw new Error(NO_CONTROL_PLANE);
     const cutoff = Date.now() - windowMs;
-    const out = [];
-    let pageToken;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const params = new URLSearchParams({
-        page_size: String(PAGE_SIZE),
-        order_by: "create_time desc",
-        filter: 'summary.type=="tekton.dev/v1.PipelineRun"'
-      });
-      if (pageToken) params.set("page_token", pageToken);
-      const res = await k8sProxyGet(
-        discoveryApi,
-        fetchApi,
-        cluster,
-        `${RELAY}/apis/results.tekton.dev/v1alpha2/parents/-/results?${params.toString()}`
-      );
-      const results = res.results ?? [];
-      let older = false;
-      for (const r of results) {
-        if (r.create_time && Date.parse(r.create_time) < cutoff) {
-          older = true;
-          break;
-        }
-        const run = toHistoryRun(r);
-        if (run) out.push(run);
-      }
-      pageToken = res.nextPageToken ?? res.next_page_token;
-      if (older || !pageToken || results.length === 0) break;
-    }
-    return out;
+    const rows = await fetchFleetHistory({ discoveryApi, fetchApi }, Math.max(1, Math.ceil(windowMs / 36e5)), LIMIT);
+    return rows.flatMap((r) => {
+      const run = toFleetHistoryRun(r);
+      return run && !(run.startTime && Date.parse(run.startTime) < cutoff) ? [run] : [];
+    });
   }, [discoveryApi, fetchApi, windowMs, cluster]);
   return usePolled(`fleet-history:${windowMs}:${cluster ?? ""}`, fetcher, POLL_MS);
 }
 
-export { useFleetPipelineHistory };
+export { toFleetHistoryRun, useFleetPipelineHistory };
 //# sourceMappingURL=useFleetPipelineHistory.esm.js.map

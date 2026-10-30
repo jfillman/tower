@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { k8sProxyGetText } from '../k8sProxy.esm.js';
+import { fetchLiveLog } from './liveRuns.esm.js';
 
 const POLL_MS = 3e3;
 function parseTimestampedLine(line) {
@@ -32,12 +32,7 @@ function useTaskRunLogs(params) {
       const fetched = await Promise.all(
         fetchable.map(async (step) => {
           try {
-            const text = await k8sProxyGetText(
-              discoveryApi,
-              fetchApi,
-              params.cluster,
-              `/api/v1/namespaces/${params.namespace}/pods/${params.podName}/log?container=${step.container}&timestamps=true`
-            );
+            const text = await fetchLiveLog({ discoveryApi, fetchApi }, params.app, params.taskRun, step.container);
             const lines = text.split("\n").filter(Boolean).map(parseTimestampedLine);
             return { step: step.name, container: step.container, state: step.state, lines };
           } catch (e) {
@@ -61,7 +56,7 @@ function useTaskRunLogs(params) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [params?.cluster, params?.namespace, params?.podName, stepsKey, anyRunning, discoveryApi, fetchApi]);
+  }, [params?.app, params?.taskRun, stepsKey, anyRunning, discoveryApi, fetchApi]);
   return state;
 }
 

@@ -25,37 +25,7 @@ function formatCategories(cats) {
   const isDefault = sorted.length === DEFAULT_CATEGORIES.length && DEFAULT_CATEGORIES.every((c) => cats.has(c));
   return isDefault ? void 0 : sorted.join(",");
 }
-const STATUS = {
-  SUCCESS: "succeeded",
-  FAILURE: "failed",
-  TIMEOUT: "failed",
-  CANCELLED: "cancelled"
-};
 const appOfNamespace = (ns) => ns.replace(/^app-/, "").replace(/-cicd$/, "");
-function toHistoryRun(r) {
-  const s = r.summary;
-  if (!s || s.type !== "tekton.dev/v1.PipelineRun") return void 0;
-  const status = s.status ? STATUS[s.status] : void 0;
-  const name = r.annotations?.["object.metadata.name"];
-  if (!status || !name) return void 0;
-  const namespace = r.name.split("/")[0];
-  const start = s.start_time ? Date.parse(s.start_time) : NaN;
-  const end = s.end_time ? Date.parse(s.end_time) : NaN;
-  return {
-    key: `${namespace}/${name}`,
-    namespace,
-    name,
-    app: appOfNamespace(namespace),
-    pipeline: r.annotations?.["tekton.dev/pipeline"],
-    status,
-    startTime: s.start_time,
-    endTime: s.end_time,
-    durationSec: Number.isNaN(start) || Number.isNaN(end) ? void 0 : Math.max(0, Math.round((end - start) / 1e3)),
-    commit: s.annotations?.commit,
-    eventType: s.annotations?.eventType,
-    prNumber: s.annotations?.["pull_request-id"]
-  };
-}
 
-export { CATEGORY_LABEL, DEFAULT_CATEGORIES, PIPELINE_CATEGORIES, appOfNamespace, formatCategories, parseCategories, pipelineCategory, toHistoryRun };
+export { CATEGORY_LABEL, DEFAULT_CATEGORIES, PIPELINE_CATEGORIES, appOfNamespace, formatCategories, parseCategories, pipelineCategory };
 //# sourceMappingURL=pipelineHistory.esm.js.map
