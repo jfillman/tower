@@ -62,7 +62,11 @@ Tekton pipeline execution visibility:
   Testkube recorded it, newest first. Each row names the workflow and its role (the shared **check ride** the qa
   release gate reads, the team's own test, or an action), the environment, image tag and commit it ran against,
   what each step did, and a **Download JUnit report** link. A run Testkube marked *aborted* although every step
-  passed (a known agent race) is shown as passed with a note. Read through the backend's `/tests` and
+  passed (a known agent race) is shown as passed with a note. A failed run lists its **failed tests** from the
+  JUnit report: each case, its failure message, the first stack line in the team's own code, and the full output
+  on request. The newest run opens by itself when it failed; any other opens from its *failed tests* link. A
+  failed run with no report says so, and points at the end of the test stage's log, where Glidepath's
+  `run-testworkflow` prints the failing step's last output. Read through the backend's `/tests` and
   `/tests/report` routes, which reach the Testkube API server over the control plane's service proxy as Tower's
   read identity (`testkube` namespace, `services/proxy` on `testkube-api-server:8088`), or through glidepath-api when the
   backend's `supplyChain` group is `api`. The download names the app (`/tests/report?id=…&app=…`): glidepath-api

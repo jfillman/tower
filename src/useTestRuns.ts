@@ -64,14 +64,14 @@ export function useTestRuns(appName: string | undefined, refreshNonce = 0): Test
   return state;
 }
 
-/** Fetches a run's JUnit report through the backend and hands it to the browser as a file. The app lets the backend ask
- * glidepath-api, which authorizes per app; without it the backend can only read Testkube directly. */
-export async function downloadTestReport(
+/** A run's JUnit report through the backend, as text. The app lets the backend ask glidepath-api, which authorizes
+ * per app; without it the backend can only read Testkube directly. */
+export async function fetchTestReport(
   fetchApi: { fetch: (url: string) => Promise<Response> },
   baseUrl: string,
   appName: string | undefined,
-  run: Pick<TestRun, 'id' | 'workflow'>,
-): Promise<void> {
+  run: Pick<TestRun, 'id'>,
+): Promise<string> {
   const res = await fetchApi.fetch(
     `${baseUrl}/tests/report?id=${encodeURIComponent(run.id)}${appName ? `&app=${encodeURIComponent(appName)}` : ''}`,
   );
@@ -79,8 +79,18 @@ export async function downloadTestReport(
     const body = await res.json().catch(() => undefined);
     throw new Error(body?.error ?? `${res.status} ${res.statusText}`);
   }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  return res.text();
+}
+
+/** Fetches a run's JUnit report and hands it to the browser as a file. */
+export async function downloadTestReport(
+  fetchApi: { fetch: (url: string) => Promise<Response> },
+  baseUrl: string,
+  appName: string | undefined,
+  run: Pick<TestRun, 'id' | 'workflow'>,
+): Promise<void> {
+  const xml = await fetchTestReport(fetchApi, baseUrl, appName, run);
+  const url = URL.createObjectURL(new Blob([xml], { type: 'application/xml' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = `${run.workflow}-${run.id}-junit.xml`;
@@ -88,4 +98,44 @@ export async function downloadTestReport(
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+export interface TestFailure {
+  name: string;
+  classname?: string;
+  /** The failure's message attribute, else the first line of its text. */
+  message: string;
+  /** The first stack line in the team's own code (file:line, not the runtime's or a dependency's). */
+  location?: string;
+  /** The failure's full text: the stack, the assertion's actual/expected. */
+  detail: string;
+}
+
+// Frames the location skips: the runtime's own and installed dependencies'. Glidepath's run-testworkflow Task prints
+// the same pick in the test stage's log.
+const NOT_OURS = /node:internal|node_modules|site-packages|\/usr\/lib\//;
+
+/** The failed (<failure>) and errored (<error>) test cases in a JUnit report, any nesting of <testsuite>s. Undefined
+ * when the text is not a JUnit report at all. */
+export function parseJUnitFailures(xml: string): { total: number; failures: TestFailure[] } | undefined {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) return undefined;
+  const root = doc.documentElement?.nodeName;
+  if (root !== 'testsuites' && root !== 'testsuite') return undefined;
+  const cases = Array.from(doc.getElementsByTagName('testcase'));
+  const failures: TestFailure[] = [];
+  for (const c of cases) {
+    const f = Array.from(c.children).find(e => e.nodeName === 'failure' || e.nodeName === 'error');
+    if (!f) continue;
+    const detail = (f.textContent ?? '').trim();
+    const lines = detail.split('\n').map(l => l.trim()).filter(Boolean);
+    failures.push({
+      name: c.getAttribute('name') ?? '?',
+      classname: c.getAttribute('classname') || undefined,
+      message: f.getAttribute('message') || lines[0] || f.nodeName,
+      location: lines.find(l => /[^ ():]+:\d+/.test(l) && !NOT_OURS.test(l)),
+      detail,
+    });
+  }
+  return { total: cases.length, failures };
 }
