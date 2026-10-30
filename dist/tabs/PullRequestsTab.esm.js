@@ -56,7 +56,7 @@ function GitopsTitle({ pr, classes }) {
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx(Chip, { tone: "sky", className: classes.chipGap, children: parsed.targetEnv }),
     /* @__PURE__ */ jsxs("span", { className: classes.imageTagText, children: [
-      "@ ",
+      parsed.kind === "rollback" ? "roll back to " : "@ ",
       parsed.imageTag
     ] })
   ] });

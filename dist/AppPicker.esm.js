@@ -20,6 +20,7 @@ import { useProvisioningHistory, typicalFor } from './provisioning/provisioningH
 import { useProvisioning } from './provisioning/useProvisioning.esm.js';
 import { serviceClassOf, deployTargetOf, isTowerService, hasCapabilities, CAP } from './serviceClass.esm.js';
 import { useTableKit, TextLink, FilterBar, FilterChips, SearchField, EmptyNote } from './ui/index.esm.js';
+import { AgentRequestsLink } from './agentRequests/AgentRequestsLink.esm.js';
 import { TabError, PanelSkeleton } from './ui/LoadState.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
@@ -266,7 +267,8 @@ function AppPicker({
   onSelect,
   onOpenDashboard,
   onOpenAirspace,
-  onOpenBreakglass
+  onOpenBreakglass,
+  onOpenAgentRequests
 }) {
   const tc = useTableKit();
   const t = useHangarTokens();
@@ -449,7 +451,8 @@ function AppPicker({
       /* @__PURE__ */ jsx(Typography, { className: classes.title, children: "Services" }),
       /* @__PURE__ */ jsxs("span", { className: classes.fleetLinks, children: [
         /* @__PURE__ */ jsx(TextLink, { onClick: onOpenDashboard, children: "Fleet Dashboard \u2192" }),
-        onOpenAirspace && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenAirspace, children: "Airspace \u2192" })
+        onOpenAirspace && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenAirspace, children: "Airspace \u2192" }),
+        onOpenAgentRequests && /* @__PURE__ */ jsx(AgentRequestsLink, { onOpen: onOpenAgentRequests })
       ] })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Select a service to open its tabs." }),

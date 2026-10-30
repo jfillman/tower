@@ -206,11 +206,19 @@ function useReleaseContext(options = {}) {
   };
 }
 const GITOPS_PR_TITLE_RE = /^Release:\s+(\S+)\s+to\s+(\S+)\s+@\s+(\S+)$/i;
+const GITOPS_ROLLBACK_PR_TITLE_RE = /^Rollback:\s+(\S+)\s+(\S+)\s+to\s+(\S+)$/i;
 function parseGitopsPrTitle(title) {
-  const match = title.match(GITOPS_PR_TITLE_RE);
-  if (!match) return void 0;
-  const [, appName, targetEnv, tag] = match;
-  return { appName, targetEnv, imageTag: tag };
+  const release = title.match(GITOPS_PR_TITLE_RE);
+  if (release) {
+    const [, appName, targetEnv, tag] = release;
+    return { appName, targetEnv, imageTag: tag, kind: "release" };
+  }
+  const rollback = title.match(GITOPS_ROLLBACK_PR_TITLE_RE);
+  if (rollback) {
+    const [, appName, targetEnv, tag] = rollback;
+    return { appName, targetEnv, imageTag: tag, kind: "rollback" };
+  }
+  return void 0;
 }
 function gitopsPrForEnv(gitopsPrs, env) {
   const needle = env.toLowerCase();
