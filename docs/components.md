@@ -67,10 +67,9 @@ Tekton pipeline execution visibility:
   on request. The newest run opens by itself when it failed; any other opens from its *failed tests* link. A
   failed run with no report says so, and points at the end of the test stage's log, where Glidepath's
   `run-testworkflow` prints the failing step's last output. Read through the backend's `/tests` and
-  `/tests/report` routes, which reach the Testkube API server over the control plane's service proxy as Tower's
-  read identity (`testkube` namespace, `services/proxy` on `testkube-api-server:8088`), or through glidepath-api when the
-  backend's `supplyChain` group is `api`. The download names the app (`/tests/report?id=…&app=…`): glidepath-api
-  authorizes per app, so without it the backend can only read Testkube directly.
+  `/tests/report` routes, which glidepath-api answers (`listTests`, `getTestReport`); until P6 (2026-10-30) the
+  backend could read the Testkube API server itself. The download names the app (`/tests/report?id=…&app=…`), which
+  the route requires: glidepath-api authorizes per app.
 
 **Key exports:** `PipelinesTab`, `PipelineFlow`, `PipelineRunList`
 
@@ -104,7 +103,8 @@ panel (sync and health, Refresh and Sync), a notification banner, and the pipeli
 the stage detail below it. The Rollout starts/completes steps carry real timestamps, and a rollout topology DAG shows
 the Rollout's objects. Tier 1 write actions live here: Tekton **Re-run** and **Cancel**, ArgoCD Refresh and plain
 Sync (no prune, no force). Verified against real failed and running PipelineRuns on 2026-09-27. Re-run and Cancel
-go through the backend's `/tekton/rerun` and `/tekton/cancel`, which need the app's owning team (or admins).
+go through the backend's `/tekton/rerun` and `/tekton/cancel`, which need the app's owning team (or admins), and then
+through glidepath-api (`rerunRun`, `cancelRun`), which creates or patches the run; Tower holds no Tekton write access.
 
 **Rollout controls** (glidepath ADR-0021 phase 4) sit in the "Rollout starts" and "Rollout completes" stage details:
 Resume, Promote (skip the current step), Promote full, Pause, Abort, Retry and Restart pods. They are Argo CD's
@@ -153,8 +153,9 @@ Tower service right now, and what needs a human.
   thresholds in `src/fleet/opsWallModel.ts`.
 - **Pipelines**: running now (task progress, elapsed vs typical), then the window's history (a strip of every finished
   run, oldest to newest, and the latest failures). Type filter: Build & test, Deploy, Guardrails, Platform (platform
-  plumbing such as notifications and onboarding re-syncs is off by default). History comes from Tekton Results'
-  Result summaries for the whole fleet in one call (`src/fleet/useFleetPipelineHistory.ts`).
+  plumbing such as notifications and onboarding re-syncs is off by default). History comes from Tekton Results
+  for the whole fleet in one call, through glidepath-api (the backend's `/fleet/history`,
+  `src/fleet/useFleetPipelineHistory.ts`).
 - **Deployments**: Glidepath release records for upper environments, deploy pipelines for ground and cloud targets,
   Rollouts with nothing behind them; releases waiting for approval; what landed in the window.
 - **DORA** (see [installation](installation.md#dora-metrics-source-ops-wall)) and the notifications feed.

@@ -16,8 +16,12 @@ A change to a rule updates that page too.
    checks that the resource belongs to the Application and records the operation. There are two exceptions. Both are
    held to their exact shape by admission policies in the cluster, and on <dev-cluster> both are held only by
    `hangar:<prod-cluster>:tower-actor`, whose token is minted for each action ([Cluster credentials](credentials/index.md)):
-   - Tekton Re-run and Cancel: `create` and `patch` on PipelineRuns. `tower-pipelinerun-shape` allows only
-     Glidepath's own run shape in an app's `-cicd` namespace, and on an existing run only a cancel.
+   - Tekton Re-run and Cancel, and a Flight promotion's or rollback's run: only a call to glidepath-api, through
+     <dev-cluster>'s service proxy. glidepath-api authorizes it (a SubjectAccessReview on its own resources), audits
+     it, and creates or patches the PipelineRun as its own ServiceAccount; `glidepath-api-pipelinerun-shape` allows
+     only Glidepath's own run shape in an `app-` or `infra-` `-cicd` namespace, and on an existing run only a cancel.
+     It refuses any PipelineRun write from `tower-actor`, which holds no Tekton grant (until P6, 2026-10-30, it
+     created and patched PipelineRuns itself).
    - [Break-glass](break-glass/index.md): the only standing right is to bind one of two debug roles to itself, for one
      session, in one namespace.
 3. **The server decides, not the request.** Whether an environment is Ground or Flight comes from the app's

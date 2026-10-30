@@ -69,31 +69,38 @@ Live status, SLO metrics, activity feeds
 ### CI/CD Pipelines
 
 ```
-Tekton API (live runs)  +  Backstage backend /api/glidepath/pipeline-history (archived runs)
-  ↓
+Backstage backend /api/glidepath/live-runs (live runs)  +  /api/glidepath/pipeline-history (archived runs)
+  ↓  (both answered by glidepath-api)
 PipelineRunList (list runs; History range Live / 24h / 7d / 30d)
   ↓
 PipelineDag (render DAG)
   ↓
-TaskRunLogConsole (live: pod logs; archived: Tekton Results logs)
+TaskRunLogConsole (live: /live-log, the step's pod log; archived: /pipeline-history/log, Tekton Results logs)
 ```
 
+Every CI/CD answer comes from glidepath-api, which the backend calls through the control-plane cluster's API server
+(`packages/backend/src/glidepathApi.ts` in the backstage repo); an API error or timeout goes back to the person, with
+no fallback. Live runs are glidepath-api's `listLiveRuns` (the app's `-cicd` PipelineRuns and TaskRuns now) and
+`getLiveLog`; the Ops Wall's fleet views use `/fleet/live`, `/fleet/live/taskruns` and `/fleet/history`. Until P6b
+(2026-10-30) the browser read these from the cluster through the Kubernetes proxy itself.
+
 Tekton deletes a finished run from the cluster about an hour after it completes. Older runs come from Tekton Results
-(30-day retention) through the Backstage backend, which queries Results server-side, trims each run to the fields Tower
-reads and caches it (`packages/backend/src/pipelineHistory.ts` in the backstage repo). The Release Record's "What was
-built" and the cloud deployments view read the same endpoint. History never reaches back past the creation of the
-app's `app-<app>-cicd` namespace: Results keys runs by namespace, so an app deleted and created again under the same
-name would otherwise show the old app's runs, and its cloud environments the old app's deploys (smoke-ecs,
-2026-10-17).
+(30-day retention) through glidepath-api's `listRuns`, `getRun` and `getRunLog`; until P6 (2026-10-30) the backend
+queried and cached Results itself. The Release Record's "What was built" and the cloud deployments view read the same
+endpoint. History never reaches back past the creation of the app's `app-<app>-cicd` namespace: Results keys runs by
+namespace, so an app deleted and created again under the same name would otherwise show the old app's runs, and its
+cloud environments the old app's deploys (smoke-ecs, 2026-10-17).
 
 ## Key Design Decisions
 
 ### Reads in the browser, writes in the backend
 
-Tower reads clusters through Backstage's Kubernetes proxy (read only) and Argo CD through the backend. Everything that
-changes something (Argo CD actions, release PRs, config PRs, release records, Tekton re-runs) goes through routes in
-Backstage's backend (`packages/backend/src` in the backstage repo), which check Tower's permissions and audit the
-write. The browser never holds a cluster, Argo CD or GitHub credential. See [Security model](security.md).
+Tower reads clusters through Backstage's Kubernetes proxy (read only), Argo CD through the backend, and CI/CD (runs,
+logs, release state, image evidence, tests) from glidepath-api through the backend. Everything that changes something
+(Argo CD actions, release PRs, config PRs, release records, Tekton re-runs) goes through routes in Backstage's backend
+(`packages/backend/src` in the backstage repo), which check Tower's permissions and audit the write. Tekton writes
+(Re-run, Cancel, Flight promote and rollback runs) are then glidepath-api's: the backend asks it, and it creates the
+run. The browser never holds a cluster, Argo CD or GitHub credential. See [Security model](security.md).
 
 ### Release Records as Git State
 
@@ -123,11 +130,12 @@ State management uses React Context (for release data) and custom hooks (for clu
   workload is turned off.
 - Application-to-namespace mapping for environment visibility
 
-### Tekton
+### Tekton (through glidepath-api)
 
-- List TaskRuns and PipelineRuns
-- Stream pod logs for live task debugging
+- List TaskRuns and PipelineRuns, live and archived
+- Read a running step's pod log for live task debugging
 - Render pipeline DAG from Run status
+- Re-run and cancel, which glidepath-api performs
 
 ### External Secrets Operator
 
