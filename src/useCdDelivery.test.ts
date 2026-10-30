@@ -41,3 +41,34 @@ describe('guardrails step after the merge', () => {
     expect(step([pr(undefined)], 'guardrails')).toMatchObject({ status: 'good' });
   });
 });
+
+describe('a rollback release PR', () => {
+  const ok = { state: 'success' as const, totalChecks: 8, passedChecks: 8 };
+  const merged = (number: number, title: string, mergedAt: string): PullRequestSummary => ({
+    ...pr(ok),
+    number,
+    title,
+    updatedAt: mergedAt,
+    mergedAt,
+  });
+  // 2026-10-30, gate-api prod: 2.0.7 then 2.0.8 released, then rolled back to 2.0.6.
+  const prs = [
+    merged(1, 'Release: app to staging @ 2.0.7-92988b1', '2026-10-30T04:00:00Z'),
+    merged(2, 'Release: app to staging @ 2.0.8-49ccca1', '2026-10-30T05:00:00Z'),
+    merged(3, 'Rollback: app staging to 2.0.6-f54c365', '2026-10-30T16:41:55Z'),
+  ];
+
+  it('is the delivery once merged, with the release it replaced before it', () => {
+    // Argo still syncing the rollback: it is in flight.
+    const d = buildCdEnvDelivery('staging', prs, { ...argo, syncStatus: 'OutOfSync', healthStatus: 'Progressing', operationPhase: 'Running' });
+    expect(d.current?.pr?.number).toBe(3);
+    expect(d.previous?.pr?.number).toBe(2);
+  });
+
+  it('is the delivery while open', () => {
+    const open = { ...merged(3, 'Rollback: app staging to 2.0.6-f54c365', '2026-10-30T16:32:13Z'), state: 'open' as const, mergedAt: undefined };
+    const d = buildCdEnvDelivery('staging', [prs[0], prs[1], open], argo);
+    expect(d.current?.pr?.number).toBe(3);
+    expect(d.previous?.pr?.number).toBe(2);
+  });
+});

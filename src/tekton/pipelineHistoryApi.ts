@@ -5,10 +5,10 @@ import { usePlatformConfig } from '../platformConfig';
 import type { PipelineRunSummary, TaskStepSummary } from './types';
 import { parseTimestampedLine, type StepLogBlock, type TaskLogLine } from './useTaskRunLogs';
 
-// Archived pipeline runs from the Backstage backend's /api/glidepath/pipeline-history endpoints, which read Tekton
-// Results (30-day retention) server-side, trim each object to the fields Tower reads and cache it (backstage
-// packages/backend/src/pipelineHistory.ts). Tekton deletes a finished run from the cluster about an hour after it
-// completes, so anything older than that is only here.
+// Archived pipeline runs from the Backstage backend's /api/glidepath/pipeline-history endpoints, which ask
+// glidepath-api (listRuns, getRun, getRunLog). The API reads Tekton Results (30-day retention), trims each object to
+// the fields Tower reads and caches it; until P6 (2026-10-30) the backend did that itself. Tekton deletes a finished
+// run from the cluster about an hour after it completes, so anything older than that is only here.
 
 interface ArchivedRunDto {
   result: string;
@@ -122,9 +122,9 @@ export function useArchivedRunLookup(
  * Splits an archived TaskRun log into per-step blocks. Results stores one text stream per TaskRun with each line
  * prefixed by its container's short name (`[build] ...`, init containers included); lines without a prefix continue
  * the previous step. Only the TaskRun's own steps are kept, in step order. The watcher collects the logs with
- * `-logs_timestamps` (gitops-cluster-dev TektonConfig `result.watcher.logs_timestamps`), so after the step prefix each
- * line starts with the same RFC3339 instant a live `?timestamps=true` read gives; runs archived before that flag have
- * none, and a line without one is kept as it is.
+ * `-logs_timestamps` (apron 50-glidepath/tekton-operator/tektonconfig.yaml, `result.watcher.logs_timestamps`), so
+ * after the step prefix each line starts with the same RFC3339 instant a live `?timestamps=true` read gives; runs
+ * archived before that flag have none, and a line without one is kept as it is.
  */
 export function parseArchivedLog(text: string, steps: TaskStepSummary[]): StepLogBlock[] {
   const byStep = new Map<string, TaskLogLine[]>();

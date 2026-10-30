@@ -406,15 +406,27 @@ export interface ParsedGitopsPrTitle {
   appName: string;
   targetEnv: string;
   imageTag: string;
+  kind: 'release' | 'rollback';
 }
 
 const GITOPS_PR_TITLE_RE = /^Release:\s+(\S+)\s+to\s+(\S+)\s+@\s+(\S+)$/i;
+// glidepath's open-release-pr titles a rollback release PR differently (RELEASE_KIND=rollback). Until 2026-10-30
+// those PRs matched nothing, so during a rollback the Deployments tab kept showing the release being rolled back
+// as DEPLOYING and the one before it as LIVE.
+const GITOPS_ROLLBACK_PR_TITLE_RE = /^Rollback:\s+(\S+)\s+(\S+)\s+to\s+(\S+)$/i;
 
 export function parseGitopsPrTitle(title: string): ParsedGitopsPrTitle | undefined {
-  const match = title.match(GITOPS_PR_TITLE_RE);
-  if (!match) return undefined;
-  const [, appName, targetEnv, tag] = match;
-  return { appName, targetEnv, imageTag: tag };
+  const release = title.match(GITOPS_PR_TITLE_RE);
+  if (release) {
+    const [, appName, targetEnv, tag] = release;
+    return { appName, targetEnv, imageTag: tag, kind: 'release' };
+  }
+  const rollback = title.match(GITOPS_ROLLBACK_PR_TITLE_RE);
+  if (rollback) {
+    const [, appName, targetEnv, tag] = rollback;
+    return { appName, targetEnv, imageTag: tag, kind: 'rollback' };
+  }
+  return undefined;
 }
 
 export function gitopsPrForEnv(
