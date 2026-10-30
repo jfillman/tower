@@ -1,11 +1,11 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi, fetchApiRef, discoveryApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime, formatDateTime } from '../../shared/format.esm.js';
 import { EmptyNote, Hint, Panel, StatusChip, TextLink } from '../../ui/index.esm.js';
-import { downloadTestReport } from '../../useTestRuns.esm.js';
+import { fetchTestReport, parseJUnitFailures, downloadTestReport } from '../../useTestRuns.esm.js';
 import { PanelSkeleton } from '../../ui/LoadState.esm.js';
 import { Tooltip } from '../../ui/Tooltip.esm.js';
 
@@ -35,8 +35,85 @@ const useStyles = makeStyles(() => ({
     color: ({ t }) => t.textLo
   },
   stepFailed: { borderColor: ({ t }) => t.bad, color: ({ t }) => t.bad },
-  actions: { display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" }
+  actions: { display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" },
+  failures: { display: "flex", flexDirection: "column", gap: 8, margin: 0, padding: 0, listStyle: "none" },
+  failure: {
+    borderLeft: ({ t }) => `2px solid ${t.bad}`,
+    paddingLeft: 10,
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    minWidth: 0
+  },
+  failureName: { fontSize: 12, fontWeight: 600, color: ({ t }) => t.textHi },
+  failureClass: { fontWeight: 400, color: ({ t }) => t.textFaint, marginLeft: 6 },
+  failureMessage: {
+    margin: 0,
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.bad,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere"
+  },
+  failureWhere: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflowWrap: "anywhere" },
+  failureDetail: {
+    margin: 0,
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.textLo,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    maxHeight: 260,
+    overflow: "auto"
+  }
 }));
+function FailedTests({ appName, run, classes }) {
+  const fetchApi = useApi(fetchApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
+  const [state, setState] = useState({ loading: true });
+  const [open, setOpen] = useState({});
+  const id = run.id;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const xml = await fetchTestReport(fetchApi, await discoveryApi.getBaseUrl("glidepath"), appName, { id });
+        const parsed = parseJUnitFailures(xml);
+        if (!cancelled) setState(parsed ?? { error: "the report is not JUnit XML" });
+      } catch (e) {
+        if (!cancelled) setState({ error: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appName, id, fetchApi, discoveryApi]);
+  if ("loading" in state) return /* @__PURE__ */ jsx(Hint, { style: { margin: 0 }, children: "Reading the JUnit report\u2026" });
+  if ("error" in state) return /* @__PURE__ */ jsxs(Hint, { style: { margin: 0 }, children: [
+    "Couldn't read the failed tests: ",
+    state.error
+  ] });
+  if (state.failures.length === 0) {
+    return /* @__PURE__ */ jsxs(Hint, { style: { margin: 0 }, children: [
+      "No failed test case in the report (",
+      state.total,
+      " ran): a step failed outside the tests. Its output is at the end of the test stage's log."
+    ] });
+  }
+  return /* @__PURE__ */ jsx("ul", { className: classes.failures, "data-testid": "test-failures", children: state.failures.map((f, i) => /* @__PURE__ */ jsxs("li", { className: classes.failure, children: [
+    /* @__PURE__ */ jsxs("span", { className: classes.failureName, children: [
+      "\u2716 ",
+      f.name,
+      f.classname && /* @__PURE__ */ jsx("span", { className: classes.failureClass, children: f.classname })
+    ] }),
+    /* @__PURE__ */ jsx("pre", { className: classes.failureMessage, children: f.message }),
+    f.location && /* @__PURE__ */ jsx("span", { className: classes.failureWhere, children: f.location }),
+    f.detail && f.detail !== f.message && /* @__PURE__ */ jsxs(Fragment, { children: [
+      /* @__PURE__ */ jsx("span", { children: /* @__PURE__ */ jsx(TextLink, { expanded: Boolean(open[i]), onClick: () => setOpen((o) => ({ ...o, [i]: !o[i] })), children: "full output" }) }),
+      open[i] && /* @__PURE__ */ jsx("pre", { className: classes.failureDetail, children: f.detail })
+    ] })
+  ] }, `${f.name}-${i}`)) });
+}
 function statusTone(status) {
   if (status === "passed") return "ok";
   if (status === "failed" || status === "aborted" || status === "timeout") return "bad";
@@ -66,6 +143,7 @@ function TestRunsPanel({ appName, state }) {
   const fetchApi = useApi(fetchApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const [downloadError, setDownloadError] = useState();
+  const [shown, setShown] = useState({});
   if (state.loading && state.runs.length === 0) return /* @__PURE__ */ jsx(PanelSkeleton, {});
   if (state.error) return /* @__PURE__ */ jsxs(EmptyNote, { inset: true, children: [
     "Couldn't read the test runs: ",
@@ -91,8 +169,10 @@ function TestRunsPanel({ appName, state }) {
   };
   return /* @__PURE__ */ jsxs("div", { className: classes.list, "data-testid": "test-runs", children: [
     downloadError && /* @__PURE__ */ jsx(Hint, { inset: true, children: downloadError }),
-    state.runs.map((run) => {
+    state.runs.map((run, index) => {
       const tag = imageTagOf(run.image);
+      const failed = statusTone(run.status) === "bad";
+      const showFailures = failed && run.hasReport && (shown[run.id] ?? index === 0);
       const passed = run.steps.filter((s) => s.status === "passed").length;
       return /* @__PURE__ */ jsxs(Panel, { className: classes.run, "data-testid": "test-run", children: [
         /* @__PURE__ */ jsxs("div", { className: classes.head, children: [
@@ -128,7 +208,10 @@ function TestRunsPanel({ appName, state }) {
           " \xB7 ",
           s.status
         ] }, `${s.name}-${i}`)) }) }),
+        showFailures && /* @__PURE__ */ jsx(FailedTests, { appName, run, classes }),
+        failed && !run.hasReport && /* @__PURE__ */ jsx(Hint, { style: { margin: 0 }, children: "No JUnit report from this run: why it failed is at the end of the test stage's log." }),
         /* @__PURE__ */ jsxs("div", { className: classes.actions, children: [
+          failed && run.hasReport && /* @__PURE__ */ jsx(TextLink, { expanded: showFailures, onClick: () => setShown((m) => ({ ...m, [run.id]: !showFailures })), children: "failed tests" }),
           run.hasReport && /* @__PURE__ */ jsx(TextLink, { onClick: () => onDownload(run), children: "\u2B73 Download JUnit report" }),
           /* @__PURE__ */ jsx(Hint, { style: { margin: 0 }, children: run.role === "check-ride" ? "The run the qa release gate reads; its attestation is on the image (Images tab)." : "The team's own run; attested on the image, not read by the release gate." })
         ] })
