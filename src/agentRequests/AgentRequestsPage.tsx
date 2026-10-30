@@ -3,7 +3,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { formatDateTime, relativeTime } from '../shared/format';
-import { Button, Callout, EmptyNote, PageHeader, TextLink } from '../ui';
+import { Button, Callout, Card, EmptyNote, PageHeader, TextLink } from '../ui';
 import { AnswerError, shortRef, useAgentRequests, type AgentRequest } from './useAgentRequests';
 
 // The Agent requests page (?view=agent-requests): each question an agent asked that you may answer, from your own
@@ -12,16 +12,7 @@ import { AnswerError, shortRef, useAgentRequests, type AgentRequest } from './us
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { padding: '20px 24px 40px', display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 960 },
-  card: {
-    border: ({ t }) => `1px solid ${t.line}`,
-    borderLeft: ({ t }) => `3px solid ${t.amber}`,
-    borderRadius: 6,
-    backgroundColor: ({ t }) => t.panel,
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
+  body: { display: 'flex', flexDirection: 'column', gap: 10 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, display: 'flex', gap: 14, flexWrap: 'wrap' },
   question: { margin: 0, fontSize: 15, lineHeight: 1.45, color: ({ t }) => t.textHi, whiteSpace: 'pre-wrap' },
   actions: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' },
@@ -29,7 +20,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     flex: '1 1 320px',
     minHeight: 64,
     fontFamily: 'inherit',
-    fontSize: 14,
+    fontSize: 13,
     padding: 8,
     borderRadius: 4,
     border: ({ t }) => `1px solid ${t.line}`,
@@ -63,14 +54,19 @@ function RequestCard({ r, onAnswer }: { r: AgentRequest; onAnswer: (id: string, 
 
   const from = r.group ? `${shortRef(r.owner)} · team ${shortRef(r.group)}` : shortRef(r.owner);
   return (
-    <section className={c.card} aria-label={`Question from ${r.agent}`}>
-      <div className={c.meta}>
-        <span>{r.agent}</span>
-        <span title={r.owner}>{from}</span>
-        <span title={formatDateTime(r.created_at)}>asked {relativeTime(r.created_at)}</span>
-        <span title={formatDateTime(r.expires_at)}>expires {relativeTime(r.expires_at)}</span>
-        <span title={`session ${r.session}`}>{r.task_id}</span>
-      </div>
+    <Card
+      title={r.agent}
+      aria-label={`Question from ${r.agent}`}
+      meta={
+        <span className={c.meta}>
+          <span title={r.owner}>{from}</span>
+          <span title={formatDateTime(r.created_at)}>asked {relativeTime(r.created_at)}</span>
+          <span title={formatDateTime(r.expires_at)}>expires {relativeTime(r.expires_at)}</span>
+          <span title={`session ${r.session}`}>{r.task_id}</span>
+        </span>
+      }
+    >
+      <div className={c.body}>
       <p className={c.question}>{r.question}</p>
       {outcome?.ok ? (
         <span className={c.done}>Answered: {outcome.answer}</span>
@@ -104,7 +100,8 @@ function RequestCard({ r, onAnswer }: { r: AgentRequest; onAnswer: (id: string, 
           {outcome.hint ? ` ${outcome.hint}` : ''}
         </Callout>
       )}
-    </section>
+      </div>
+    </Card>
   );
 }
 
