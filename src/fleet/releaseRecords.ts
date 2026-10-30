@@ -3,7 +3,6 @@
 // cluster; the state machine and every key are documented in glidepath's
 // docs/admin/release-state.md. Read-only here: Glidepath's tasks, relay and sweeper write them.
 
-export const RELEASE_RECORD_SELECTOR = 'hangar.io/subcomponent=release-tracking';
 
 export type ReleaseState =
   | 'proposed'
