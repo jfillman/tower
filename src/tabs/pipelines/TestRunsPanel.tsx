@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens';
 import { formatDateTime, relativeTime } from '../../shared/format';
 import { EmptyNote, Hint, Panel, PanelSkeleton, StatusChip, type StatusTone, TextLink, Tooltip } from '../../ui';
-import { downloadTestReport, type TestRun, type TestRunsState } from '../../useTestRuns';
+import { downloadTestReport, fetchTestReport, parseJUnitFailures, type TestFailure, type TestRun, type TestRunsState } from '../../useTestRuns';
 
 // The Tests view under Pipelines (Glidepath test framework, phase 4): every test run Glidepath started for this
 // app, as Testkube recorded it, newest first. A row says what ran (the check ride or the team's own workflow),
 // against which environment and image, what the agent concluded and what each step did, with the JUnit report
-// to download. The Images tab shows the same runs as attested evidence on the image; this is the run log.
+// to download, and for a failed run the test cases that failed and why. The Images tab shows the same runs as attested evidence on the image; this is the run log.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   list: { display: 'flex', flexDirection: 'column', gap: 8 },
@@ -39,7 +39,100 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   stepFailed: { borderColor: ({ t }) => t.bad, color: ({ t }) => t.bad },
   actions: { display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' },
+  failures: { display: 'flex', flexDirection: 'column', gap: 8, margin: 0, padding: 0, listStyle: 'none' },
+  failure: {
+    borderLeft: ({ t }) => `2px solid ${t.bad}`,
+    paddingLeft: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    minWidth: 0,
+  },
+  failureName: { fontSize: 12, fontWeight: 600, color: ({ t }) => t.textHi },
+  failureClass: { fontWeight: 400, color: ({ t }) => t.textFaint, marginLeft: 6 },
+  failureMessage: {
+    margin: 0,
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.bad,
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+  },
+  failureWhere: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflowWrap: 'anywhere' },
+  failureDetail: {
+    margin: 0,
+    fontFamily: fontMono,
+    fontSize: 11,
+    color: ({ t }) => t.textLo,
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    maxHeight: 260,
+    overflow: 'auto',
+  },
 }));
+
+type FailuresState = { loading: true } | { error: string } | { total: number; failures: TestFailure[] };
+
+/** A failed run's failed test cases, read from its JUnit report when first opened. */
+function FailedTests({ appName, run, classes }: { appName: string | undefined; run: TestRun; classes: ReturnType<typeof useStyles> }) {
+  const fetchApi = useApi(fetchApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
+  const [state, setState] = useState<FailuresState>({ loading: true });
+  const [open, setOpen] = useState<Record<number, boolean>>({});
+  // By id, not the run object: the list re-polls with new objects and the report does not change.
+  const id = run.id;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const xml = await fetchTestReport(fetchApi, await discoveryApi.getBaseUrl('glidepath'), appName, { id });
+        const parsed = parseJUnitFailures(xml);
+        if (!cancelled) setState(parsed ?? { error: 'the report is not JUnit XML' });
+      } catch (e) {
+        if (!cancelled) setState({ error: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appName, id, fetchApi, discoveryApi]);
+
+  if ('loading' in state) return <Hint style={{ margin: 0 }}>Reading the JUnit report…</Hint>;
+  if ('error' in state) return <Hint style={{ margin: 0 }}>Couldn't read the failed tests: {state.error}</Hint>;
+  if (state.failures.length === 0) {
+    return (
+      <Hint style={{ margin: 0 }}>
+        No failed test case in the report ({state.total} ran): a step failed outside the tests. Its output is at the end of the test
+        stage's log.
+      </Hint>
+    );
+  }
+  return (
+    <ul className={classes.failures} data-testid="test-failures">
+      {state.failures.map((f, i) => (
+        <li key={`${f.name}-${i}`} className={classes.failure}>
+          <span className={classes.failureName}>
+            ✖ {f.name}
+            {f.classname && <span className={classes.failureClass}>{f.classname}</span>}
+          </span>
+          <pre className={classes.failureMessage}>{f.message}</pre>
+          {f.location && <span className={classes.failureWhere}>{f.location}</span>}
+          {f.detail && f.detail !== f.message && (
+            <>
+              <span>
+                <TextLink expanded={Boolean(open[i])} onClick={() => setOpen(o => ({ ...o, [i]: !o[i] }))}>
+                  full output
+                </TextLink>
+              </span>
+              {open[i] && <pre className={classes.failureDetail}>{f.detail}</pre>}
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function statusTone(status: string): StatusTone {
   if (status === 'passed') return 'ok';
@@ -74,6 +167,8 @@ export function TestRunsPanel({ appName, state }: { appName: string | undefined;
   const fetchApi = useApi(fetchApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const [downloadError, setDownloadError] = useState<string | undefined>();
+  // Which failed runs show their failed tests. The newest run opens by itself when it failed; any other on request.
+  const [shown, setShown] = useState<Record<string, boolean>>({});
 
   if (state.loading && state.runs.length === 0) return <PanelSkeleton />;
   if (state.error) return <EmptyNote inset>Couldn't read the test runs: {state.error}</EmptyNote>;
@@ -99,8 +194,10 @@ export function TestRunsPanel({ appName, state }: { appName: string | undefined;
   return (
     <div className={classes.list} data-testid="test-runs">
       {downloadError && <Hint inset>{downloadError}</Hint>}
-      {state.runs.map(run => {
+      {state.runs.map((run, index) => {
         const tag = imageTagOf(run.image);
+        const failed = statusTone(run.status) === 'bad';
+        const showFailures = failed && run.hasReport && (shown[run.id] ?? index === 0);
         const passed = run.steps.filter(s => s.status === 'passed').length;
         return (
           <Panel key={run.id} className={classes.run} data-testid="test-run">
@@ -155,7 +252,16 @@ export function TestRunsPanel({ appName, state }: { appName: string | undefined;
                 </div>
               </Tooltip>
             )}
+            {showFailures && <FailedTests appName={appName} run={run} classes={classes} />}
+            {failed && !run.hasReport && (
+              <Hint style={{ margin: 0 }}>No JUnit report from this run: why it failed is at the end of the test stage's log.</Hint>
+            )}
             <div className={classes.actions}>
+              {failed && run.hasReport && (
+                <TextLink expanded={showFailures} onClick={() => setShown(m => ({ ...m, [run.id]: !showFailures }))}>
+                  failed tests
+                </TextLink>
+              )}
               {run.hasReport && (
                 <TextLink onClick={() => onDownload(run)}>⭳ Download JUnit report</TextLink>
               )}
