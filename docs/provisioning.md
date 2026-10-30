@@ -7,7 +7,8 @@ After a user creates an Airframe application, the Tower home page shows how far 
 
 ## Where the status comes from
 
-Tower reads these through the Kubernetes proxy on the dev cluster, with its existing read-only identity:
+Tower reads these through the Kubernetes proxy on the dev cluster, with its existing read-only identity, except the
+app's PipelineRuns and TaskRuns, which come from glidepath-api (the backend's `/live-runs`, since P6b, 2026-10-30):
 
 | Step | Signal |
 |---|---|

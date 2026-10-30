@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { k8sProxyGetText } from '../k8sProxy';
+import { fetchLiveLog } from './liveRuns';
 import type { TaskStepSummary } from './types';
 
 const POLL_MS = 3000;
@@ -41,7 +41,7 @@ export function parseTimestampedLine(line: string): TaskLogLine {
 // waiting step just renders as "queued" (see TaskRunLogConsole.tsx).
 export function useTaskRunLogs(
   params:
-    | { cluster: string; namespace: string; podName: string; steps: TaskStepSummary[] }
+    | { app: string; taskRun: string; steps: TaskStepSummary[] }
     | undefined,
 ): { loading: boolean; blocks: StepLogBlock[] } {
   const discoveryApi = useApi(discoveryApiRef);
@@ -68,12 +68,8 @@ export function useTaskRunLogs(
       const fetched = await Promise.all(
         fetchable.map(async (step): Promise<StepLogBlock> => {
           try {
-            const text = await k8sProxyGetText(
-              discoveryApi,
-              fetchApi,
-              params!.cluster,
-              `/api/v1/namespaces/${params!.namespace}/pods/${params!.podName}/log?container=${step.container}&timestamps=true`,
-            );
+            // From the TaskRun's pod, through glidepath-api (tekton/liveRuns.ts).
+            const text = await fetchLiveLog({ discoveryApi, fetchApi }, params!.app, params!.taskRun, step.container);
             const lines = text
               .split('\n')
               .filter(Boolean)
@@ -102,7 +98,7 @@ export function useTaskRunLogs(
       if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params?.cluster, params?.namespace, params?.podName, stepsKey, anyRunning, discoveryApi, fetchApi]);
+  }, [params?.app, params?.taskRun, stepsKey, anyRunning, discoveryApi, fetchApi]);
 
   return state;
 }

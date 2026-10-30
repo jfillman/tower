@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { appRepos, useAppType } from '../appRepos';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { k8sProxyGet } from '../k8sProxy';
+import { fetchLiveRuns } from './liveRuns';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { chainIdToSlug } from './chainSlug';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
@@ -14,22 +13,9 @@ import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } fr
 // counterparts.
 const POLL_MS = 6000;
 
-// Deliberately NOT fetched via useCustomResources(entity, [...]) the way
-// Rollout/HTTPRoute/PDB are elsewhere in Tower (see useTowerEnvironments.ts):
-// that path resolves objects through the entity's own
-// `backstage.io/kubernetes-label-selector` annotation, which the
-// kubernetes-ingestor patch computes as `hangar.io/app=<name>` (see
-// .yarn/patches's kubernetes-label-selector fix). Whether a Tekton
-// PipelineRun even carries that label turns out to be inconsistent: a real
-// onboarded app's own build/deploy/test pipeline (confirmed live,
-// app-checkout-api-cicd) does carry `hangar.io/app`/`hangar.io/flow`, but
-// this app's own bootstrap CI pipeline (app-backstage-cicd, self-hosting
-// Backstage) still only carries the pre-rebrand `platform.io/app` pair - two
-// different apps, two different label sets, neither of them something this
-// tab should have to guess right for every app it's ever pointed at. See
-// ../k8sProxy.ts for the actual proxy mechanism this (and now
-// useAnalysisRuns.ts, hitting the exact same problem for Argo Rollouts'
-// AnalysisRun child resources) uses instead.
+// Read from glidepath-api (P6b, 2026-10-30: tekton/liveRuns.ts), which lists the app's whole -cicd namespace: a
+// label selector would miss runs, since PipelineRuns carry hangar.io/app inconsistently (an app's own CI carries it,
+// Backstage's bootstrap CI only the pre-rebrand platform.io pair) and the guardrail runs carry no flow label at all.
 
 interface RawTaskRefParam {
   name: string;
@@ -480,7 +466,6 @@ export function useTektonPipelineRuns(
 ): UseTektonPipelineRunsResult {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [state, setState] = useState<UseTektonPipelineRunsResult>({ loading: Boolean(appName), runs: [] });
 
@@ -493,29 +478,17 @@ export function useTektonPipelineRuns(
       setState({ loading: false, runs: [], error: NO_CONTROL_PLANE });
       return undefined;
     }
-    const namespace = appRepos(appName, appType).cicdNamespace;
+    const app: string = appName;
     const tektonCluster: string = cluster;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function tick() {
       try {
-        const [prList, trList] = await Promise.all([
-          k8sProxyGet<{ items: RawPipelineRun[] }>(
-            discoveryApi,
-            fetchApi,
-            tektonCluster,
-            `/apis/tekton.dev/v1/namespaces/${namespace}/pipelineruns`,
-          ),
-          k8sProxyGet<{ items: RawTaskRun[] }>(
-            discoveryApi,
-            fetchApi,
-            tektonCluster,
-            `/apis/tekton.dev/v1/namespaces/${namespace}/taskruns`,
-          ),
-        ]);
+        // The app's -cicd namespace now, from glidepath-api (tekton/liveRuns.ts).
+        const live = await fetchLiveRuns({ discoveryApi, fetchApi }, app);
         if (cancelled) return;
-        const taskRunsByName = new Map(trList.items.map(tr => [tr.metadata.name, tr]));
+        const taskRunsByName = new Map(live.taskRuns.map(tr => [tr.metadata.name, tr]));
         // 2026-09-16: this hook used to filter to only hangar.io/flow
         // ci/pr-build, on the theory that this namespace also carries other,
         // unrelated Tekton flows (e.g. release-outcome-notify's tracing/
@@ -530,7 +503,7 @@ export function useTektonPipelineRuns(
         // Pipelines, and PipelineRunList's "All flows" chip is what shows
         // everything else (including genuinely unrelated flows like the
         // tracing pipeline) rather than this hook guessing what to hide.
-        const runs = prList.items
+        const runs = live.pipelineRuns
           .map(pr => toPipelineRunSummary(pr, tektonCluster, taskRunsByName))
           .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
         linkFlowSlugsByChainId(runs);
@@ -547,7 +520,7 @@ export function useTektonPipelineRuns(
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [appName, appType, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
 
   return state;
 }

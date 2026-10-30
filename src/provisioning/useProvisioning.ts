@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy';
+import { fetchLiveRuns } from '../tekton/liveRuns';
 import {
   toPipelineRunSummary,
   type RawPipelineRun as TektonRawPipelineRun,
@@ -644,7 +645,6 @@ export function useProvisioning(): UseProvisioningResult {
           const name = x.metadata.name;
           const infra = x.kind === INFRA_KIND;
           const names = appRepos(name, infra ? 'infra' : 'app');
-          const cicdNs = names.cicdNamespace;
           const firstEnv = firstEnvs.get(name)?.env;
           const envNs = `app-${name}-${firstEnv?.name ?? 'dev'}`;
           const envCluster = firstEnv?.cluster ?? XR_CLUSTER;
@@ -654,9 +654,8 @@ export function useProvisioning(): UseProvisioningResult {
           // An InfraService has no build and no Rollout, so its runs and rollouts are not read; its environment's
           // ArgoCD app is instead.
           const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo, envArgo] = await Promise.all([
-            infra
-              ? undefined
-              : optional<ListResponse<TektonRawPipelineRun>>(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
+            // The app's runs from glidepath-api (tekton/liveRuns.ts; P6b). A new app may not be resolvable yet.
+            infra ? undefined : fetchLiveRuns({ discoveryApi, fetchApi }, name).catch(() => undefined),
             infra
               ? undefined
               : optional<ListResponse<RawRollout>>(
@@ -689,15 +688,14 @@ export function useProvisioning(): UseProvisioningResult {
             refreshFirstEnv(name, repoLinks.owner ?? tenants?.owner);
           }
           const gh = github.get(name);
-          const first = pickFirstBuild(runs?.items);
+          const first = pickFirstBuild(runs?.pipelineRuns as TektonRawPipelineRun[] | undefined);
           // TaskRuns carry the deploy target and config, so they are only fetched for an app that has
           // a deploy run to read them for (the common case of "nothing deployed yet" costs nothing).
-          const deployRuns = (runs?.items ?? []).filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === 'deploy');
+          const deployRuns = ((runs?.pipelineRuns ?? []) as TektonRawPipelineRun[]).filter(r => r.metadata.labels?.['tekton.dev/pipeline'] === 'deploy');
           const cloudDeploy = deployRuns.length
             ? toCloudDeploySnapshot(
                 deployRuns,
-                (await optional<ListResponse<RawTaskRun>>(`/apis/tekton.dev/v1/namespaces/${cicdNs}/taskruns`))
-                  ?.items,
+                runs?.taskRuns as RawTaskRun[] | undefined,
                 XR_CLUSTER,
               )
             : undefined;

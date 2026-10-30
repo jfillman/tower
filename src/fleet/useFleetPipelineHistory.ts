@@ -1,19 +1,36 @@
 import { useCallback } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { k8sProxyGet } from '../k8sProxy';
+import { fetchFleetHistory, type FleetHistoryRow } from '../tekton/liveRuns';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
-import { toHistoryRun, type HistoryRun, type RawResult } from './pipelineHistory';
+import { appOfNamespace, type HistoryRun } from './pipelineHistory';
 import { usePolled, type Polled } from './usePolled';
 
-// Finished runs for the whole fleet, from Tekton Results through the same relay the Release Record
-// uses (useTektonResultsRuns.ts explains why the relay). `parents/-` lists every namespace at once
-// (verified 2026-10-07), and the Result summaries are ~1 KB each: a week of the fleet was 559 runs,
-// 0.5 MB, under a second. Results' list filter rejects create_time, so pages are read newest first
-// until one is older than the window.
-const RELAY = '/api/v1/namespaces/platform-system/services/tekton-results-relay:8080/proxy';
+// Finished runs for the whole fleet, from Tekton Results through glidepath-api (tekton/liveRuns.ts; P6b, 2026-10-30:
+// Tower paged Results' `parents/-` itself until then). The API takes the window in whole hours and lists newest
+// first; a week of the fleet was 559 runs.
 const POLL_MS = 2 * 60_000;
-const PAGE_SIZE = 200;
-const MAX_PAGES = 10;
+const LIMIT = 1000; // the API's cap
+
+/** A fleet history row as HistoryRun; a run Results has no outcome for (still running) is left out. */
+export function toFleetHistoryRun(r: FleetHistoryRow): HistoryRun | undefined {
+  if (r.status === 'unknown') return undefined;
+  const start = r.startTime ? Date.parse(r.startTime) : NaN;
+  const end = r.endTime ? Date.parse(r.endTime) : NaN;
+  return {
+    key: `${r.namespace}/${r.name}`,
+    namespace: r.namespace,
+    name: r.name,
+    app: r.app ?? appOfNamespace(r.namespace),
+    pipeline: r.pipeline,
+    status: r.status,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    durationSec: Number.isNaN(start) || Number.isNaN(end) ? undefined : Math.max(0, Math.round((end - start) / 1000)),
+    commit: r.commit,
+    eventType: r.eventType,
+    prNumber: r.prNumber,
+  };
+}
 
 export function useFleetPipelineHistory(windowMs: number): Polled<HistoryRun[]> {
   const discoveryApi = useApi(discoveryApiRef);
@@ -23,35 +40,12 @@ export function useFleetPipelineHistory(windowMs: number): Polled<HistoryRun[]> 
   const fetcher = useCallback(async () => {
     if (!cluster) throw new Error(NO_CONTROL_PLANE);
     const cutoff = Date.now() - windowMs;
-    const out: HistoryRun[] = [];
-    let pageToken: string | undefined;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const params = new URLSearchParams({
-        page_size: String(PAGE_SIZE),
-        order_by: 'create_time desc',
-        filter: 'summary.type=="tekton.dev/v1.PipelineRun"',
-      });
-      if (pageToken) params.set('page_token', pageToken);
-      const res = await k8sProxyGet<{ results?: RawResult[]; nextPageToken?: string; next_page_token?: string }>(
-        discoveryApi,
-        fetchApi,
-        cluster,
-        `${RELAY}/apis/results.tekton.dev/v1alpha2/parents/-/results?${params.toString()}`,
-      );
-      const results = res.results ?? [];
-      let older = false;
-      for (const r of results) {
-        if (r.create_time && Date.parse(r.create_time) < cutoff) {
-          older = true;
-          break;
-        }
-        const run = toHistoryRun(r);
-        if (run) out.push(run);
-      }
-      pageToken = res.nextPageToken ?? res.next_page_token;
-      if (older || !pageToken || results.length === 0) break;
-    }
-    return out;
+    const rows = await fetchFleetHistory({ discoveryApi, fetchApi }, Math.max(1, Math.ceil(windowMs / 3_600_000)), LIMIT);
+    // Whole hours round the window up: drop what started before it.
+    return rows.flatMap(r => {
+      const run = toFleetHistoryRun(r);
+      return run && !(run.startTime && Date.parse(run.startTime) < cutoff) ? [run] : [];
+    });
   }, [discoveryApi, fetchApi, windowMs, cluster]);
 
   return usePolled(`fleet-history:${windowMs}:${cluster ?? ''}`, fetcher, POLL_MS);
