@@ -268,7 +268,8 @@ function AppPicker({
   onOpenDashboard,
   onOpenAirspace,
   onOpenBreakglass,
-  onOpenAgentRequests
+  onOpenAgentRequests,
+  onOpenForYou
 }) {
   const tc = useTableKit();
   const t = useHangarTokens();
@@ -452,7 +453,8 @@ function AppPicker({
       /* @__PURE__ */ jsxs("span", { className: classes.fleetLinks, children: [
         /* @__PURE__ */ jsx(TextLink, { onClick: onOpenDashboard, children: "Fleet Dashboard \u2192" }),
         onOpenAirspace && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenAirspace, children: "Airspace \u2192" }),
-        onOpenAgentRequests && /* @__PURE__ */ jsx(AgentRequestsLink, { onOpen: onOpenAgentRequests })
+        onOpenAgentRequests && /* @__PURE__ */ jsx(AgentRequestsLink, { onOpen: onOpenAgentRequests }),
+        onOpenForYou && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenForYou, children: "For you \u2192" })
       ] })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Select a service to open its tabs." }),
