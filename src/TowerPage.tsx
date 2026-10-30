@@ -19,6 +19,9 @@ import { TopologyTab } from './tabs/TopologyTab';
 import { AirspaceTab } from './tabs/AirspaceTab';
 import { AirspacePage } from './airspace/AirspacePage';
 import { AgentRequestsPage } from './agentRequests/AgentRequestsPage';
+import { AgentRequestsChip } from './agentRequests/AgentRequestsChip';
+import { AgentRequestsProvider } from './agentRequests/useAgentRequests';
+import { ForYouPage } from './forYou/ForYouPage';
 import { PullRequestsTab } from './tabs/PullRequestsTab';
 import { PipelinesTab } from './tabs/PipelinesTab';
 import { DeploymentsTab } from './tabs/DeploymentsTab';
@@ -209,6 +212,7 @@ export function TowerPage() {
   const isDashboardView = searchParams.get('view') === 'dashboard';
   const isAirspaceView = searchParams.get('view') === 'airspace';
   const isAgentRequestsView = searchParams.get('view') === 'agent-requests';
+  const isForYouView = searchParams.get('view') === 'for-you';
 
   const [entity, setEntity] = useState<Entity | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -249,6 +253,7 @@ export function TowerPage() {
   const openDashboard = () => setSearchParams({ view: 'dashboard' });
   const openAirspace = () => setSearchParams({ view: 'airspace' });
   const openAgentRequests = () => setSearchParams({ view: 'agent-requests' });
+  const openForYou = () => setSearchParams({ view: 'for-you' });
   // A break-glass queue row: the session's deep link (entity, topology, env, breakglass=<id>), see breakglassDeepLink.ts.
   const openBreakglass = (_row: unknown, link: string) => setSearchParams(new URLSearchParams(link));
 
@@ -259,10 +264,12 @@ export function TowerPage() {
     body = <AirspacePage onBack={clearApp} />;
   } else if (isAgentRequestsView) {
     body = <AgentRequestsPage onBack={clearApp} />;
+  } else if (isForYouView) {
+    body = <ForYouPage onBack={clearApp} onOpenAgentRequests={openAgentRequests} />;
   } else if (!entityRef) {
     body = (
       <div style={{ padding: '48px 24px' }}>
-        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenAirspace={openAirspace} onOpenBreakglass={openBreakglass} onOpenAgentRequests={openAgentRequests} />
+        <AppPicker onSelect={selectApp} onOpenDashboard={openDashboard} onOpenAirspace={openAirspace} onOpenBreakglass={openBreakglass} onOpenAgentRequests={openAgentRequests} onOpenForYou={openForYou} />
       </div>
     );
   } else if (loading) {
@@ -293,7 +300,15 @@ export function TowerPage() {
     );
   }
 
-  return <div className={classes.root}>{body}</div>;
+  // One agent-requests poll for the whole page; the corner chip on every view but Agent requests itself.
+  return (
+    <AgentRequestsProvider>
+      <div className={classes.root} style={{ position: 'relative' }}>
+        {!isAgentRequestsView && <AgentRequestsChip onOpen={openAgentRequests} />}
+        {body}
+      </div>
+    </AgentRequestsProvider>
+  );
 }
 
 // Split out from TowerPage so its two activity-signal hooks

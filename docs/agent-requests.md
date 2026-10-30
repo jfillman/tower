@@ -5,8 +5,11 @@ Clearance (the `human.request` tool), and Tower shows you the questions you may 
 
 ## Where to find them
 
-- **Tower home → Agent requests →.** The link shows how many questions are waiting on you.
-- **A notification** arrives for each new question, linking to the same page.
+- **The corner chip.** On every Tower page, a chip in the top-right corner says how many questions are waiting on
+  you; click it to open Agent requests. A new question that arrives while Tower is open also shows a short toast.
+- **Tower home → Agent requests →**, with the same count, and **For you** ([for-you.md](for-you.md)), which leads
+  with the questions waiting.
+- **A notification** is sent for each new question (it lists under For you).
 
 ## Who sees a question
 
