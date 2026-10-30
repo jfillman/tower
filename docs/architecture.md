@@ -81,8 +81,10 @@ TaskRunLogConsole (live: /live-log, the step's pod log; archived: /pipeline-hist
 Every CI/CD answer comes from glidepath-api, which the backend calls through the control-plane cluster's API server
 (`packages/backend/src/glidepathApi.ts` in the backstage repo); an API error or timeout goes back to the person, with
 no fallback. Live runs are glidepath-api's `listLiveRuns` (the app's `-cicd` PipelineRuns and TaskRuns now) and
-`getLiveLog`; the Ops Wall's fleet views use `/fleet/live`, `/fleet/live/taskruns` and `/fleet/history`. Until P6b
-(2026-10-30) the browser read these from the cluster through the Kubernetes proxy itself.
+`getLiveLog`; the Ops Wall's fleet views use `/fleet/live`, `/fleet/live/taskruns` and `/fleet/history`, and the Ops
+Wall and the drift view read the fleet's release records and their `ReleaseStalled`/`ReleaseDrift` Events from
+`/fleet/releases` and `/fleet/release-events`. Until 2026-10-30 the browser read all of these from the cluster through
+the Kubernetes proxy itself.
 
 Tekton deletes a finished run from the cluster about an hour after it completes. Older runs come from Tekton Results
 (30-day retention) through glidepath-api's `listRuns`, `getRun` and `getRunLog`; until P6 (2026-10-30) the backend
