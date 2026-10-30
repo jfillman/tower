@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAppType, appRepos } from '../appRepos.esm.js';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { k8sProxyGet } from '../k8sProxy.esm.js';
+import { fetchLiveRuns } from './liveRuns.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
 import { chainIdToSlug } from './chainSlug.esm.js';
 
@@ -204,7 +203,6 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
 function useTektonPipelineRuns(appName, refreshNonce = 0) {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const appType = useAppType(appName);
   const cluster = usePlatformConfig().controlPlaneCluster;
   const [state, setState] = useState({ loading: Boolean(appName), runs: [] });
   useEffect(() => {
@@ -216,29 +214,16 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
       setState({ loading: false, runs: [], error: NO_CONTROL_PLANE });
       return void 0;
     }
-    const namespace = appRepos(appName, appType).cicdNamespace;
+    const app = appName;
     const tektonCluster = cluster;
     let cancelled = false;
     let timer;
     async function tick() {
       try {
-        const [prList, trList] = await Promise.all([
-          k8sProxyGet(
-            discoveryApi,
-            fetchApi,
-            tektonCluster,
-            `/apis/tekton.dev/v1/namespaces/${namespace}/pipelineruns`
-          ),
-          k8sProxyGet(
-            discoveryApi,
-            fetchApi,
-            tektonCluster,
-            `/apis/tekton.dev/v1/namespaces/${namespace}/taskruns`
-          )
-        ]);
+        const live = await fetchLiveRuns({ discoveryApi, fetchApi }, app);
         if (cancelled) return;
-        const taskRunsByName = new Map(trList.items.map((tr) => [tr.metadata.name, tr]));
-        const runs = prList.items.map((pr) => toPipelineRunSummary(pr, tektonCluster, taskRunsByName)).sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+        const taskRunsByName = new Map(live.taskRuns.map((tr) => [tr.metadata.name, tr]));
+        const runs = live.pipelineRuns.map((pr) => toPipelineRunSummary(pr, tektonCluster, taskRunsByName)).sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
         linkFlowSlugsByChainId(runs);
         setState({ loading: false, runs });
       } catch (e) {
@@ -252,7 +237,7 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [appName, appType, cluster, discoveryApi, fetchApi, refreshNonce]);
+  }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
   return state;
 }
 

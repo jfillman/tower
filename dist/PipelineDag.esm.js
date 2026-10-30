@@ -515,9 +515,8 @@ function PipelineDag({ run, expandSignal }) {
           /* @__PURE__ */ jsx(
             TaskRunLogConsole,
             {
-              cluster: run.cluster,
-              namespace: openTaskRun.namespace,
-              podName: openTaskRun.podName,
+              app: run.appName,
+              taskRun: openTaskRun.name,
               steps: openTaskRun.steps,
               archive: run.archive ? { ...run.archive, taskRun: openTaskRun.name } : void 0,
               fallback: !run.archive && run.appName && openTaskRun.phase !== "running" ? { app: run.appName, runName: run.name, taskRun: openTaskRun.name } : void 0

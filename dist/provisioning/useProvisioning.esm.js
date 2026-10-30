@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { k8sProxyGet } from '../k8sProxy.esm.js';
+import { fetchLiveRuns } from '../tekton/liveRuns.esm.js';
 import { toPipelineRunSummary } from '../tekton/useTektonPipelineRuns.esm.js';
 import { summarizeCloudDeploys } from '../cloudDeploy.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
@@ -370,7 +371,6 @@ function useProvisioning() {
           const name = x.metadata.name;
           const infra = x.kind === INFRA_KIND;
           const names = appRepos(name, infra ? "infra" : "app");
-          const cicdNs = names.cicdNamespace;
           const firstEnv = firstEnvs.get(name)?.env;
           const envNs = `app-${name}-${firstEnv?.name ?? "dev"}`;
           const envCluster = firstEnv?.cluster ?? XR_CLUSTER;
@@ -378,7 +378,8 @@ function useProvisioning() {
           const mrBase = `/apis/repo.github.m.upbound.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const nsBase = `/apis/catalog.hangar.io/v1alpha1/namespaces/${x.metadata.namespace}`;
           const [runs, rollouts, repos, files, stores, cicds, catalog, cicdArgo, envArgo] = await Promise.all([
-            infra ? void 0 : optional(`/apis/tekton.dev/v1/namespaces/${cicdNs}/pipelineruns`),
+            // The app's runs from glidepath-api (tekton/liveRuns.ts; P6b). A new app may not be resolvable yet.
+            infra ? void 0 : fetchLiveRuns({ discoveryApi, fetchApi }, name).catch(() => void 0),
             infra ? void 0 : optional(
               `/apis/argoproj.io/v1alpha1/namespaces/${envNs}/rollouts`,
               envCluster
@@ -403,11 +404,11 @@ function useProvisioning() {
             refreshFirstEnv(name, repoLinks.owner ?? tenants?.owner);
           }
           const gh = github.get(name);
-          const first = pickFirstBuild(runs?.items);
-          const deployRuns = (runs?.items ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
+          const first = pickFirstBuild(runs?.pipelineRuns);
+          const deployRuns = (runs?.pipelineRuns ?? []).filter((r) => r.metadata.labels?.["tekton.dev/pipeline"] === "deploy");
           const cloudDeploy = deployRuns.length ? toCloudDeploySnapshot(
             deployRuns,
-            (await optional(`/apis/tekton.dev/v1/namespaces/${cicdNs}/taskruns`))?.items,
+            runs?.taskRuns,
             XR_CLUSTER
           ) : void 0;
           return {
