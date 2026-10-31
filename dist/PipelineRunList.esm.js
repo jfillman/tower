@@ -5,8 +5,8 @@ import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 import { EmptyNote, FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
-import { markForBranch } from './fleetMarks.esm.js';
-import { AgentMark } from './AgentMark.esm.js';
+import { runMarkFor, markForBranch } from './fleetMarks.esm.js';
+import { AgentMark, RunMarkChip } from './AgentMark.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const STATUS_FILTERS = [
@@ -202,12 +202,13 @@ function RunError({ run, classes }) {
   if (run.phase !== "failed" || !run.message) return null;
   return /* @__PURE__ */ jsx("span", { className: classes.errorLine, title: run.message, children: run.message });
 }
-function RunDescriptor({ run, classes, mark }) {
+function RunDescriptor({ run, classes, mark, runMark }) {
   if (run.sha) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
       /* @__PURE__ */ jsxs("span", { className: classes.title, children: [
         pipelineTitle(run),
-        mark && /* @__PURE__ */ jsx(AgentMark, { mark, what: "build", className: classes.agentMark })
+        mark && /* @__PURE__ */ jsx(AgentMark, { mark, what: "build", className: classes.agentMark }),
+        runMark && /* @__PURE__ */ jsx(RunMarkChip, { mark: runMark, className: classes.agentMark })
       ] }),
       /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
         (run.branch ?? run.name) && /* @__PURE__ */ jsxs("span", { children: [
@@ -235,7 +236,10 @@ function RunDescriptor({ run, classes, mark }) {
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-    /* @__PURE__ */ jsx("span", { className: classes.title, children: pipelineTitle(run) }),
+    /* @__PURE__ */ jsxs("span", { className: classes.title, children: [
+      pipelineTitle(run),
+      runMark && /* @__PURE__ */ jsx(RunMarkChip, { mark: runMark, className: classes.agentMark })
+    ] }),
     /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
       run.pipelineName && /* @__PURE__ */ jsx("span", { className: classes.sha, children: run.name }),
       run.triggerName && /* @__PURE__ */ jsxs("span", { children: [
@@ -255,7 +259,8 @@ function PipelineRunList({
   rerunPending,
   onCancel,
   cancelPending,
-  marks = []
+  marks = [],
+  runMarks = []
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -350,7 +355,7 @@ function PipelineRunList({
             },
             children: [
               /* @__PURE__ */ jsx("span", { className: classes.statusDot, style: { backgroundColor: tone.fg } }),
-              /* @__PURE__ */ jsx(RunDescriptor, { run, classes, mark: markForBranch(marks, run.branch, run.sourceRepoUrl) }),
+              /* @__PURE__ */ jsx(RunDescriptor, { run, classes, mark: markForBranch(marks, run.branch, run.sourceRepoUrl), runMark: runMarkFor(runMarks, run.name) }),
               /* @__PURE__ */ jsx("div", { className: classes.thumb, children: /* @__PURE__ */ jsx(MiniDag, { run, maxCols, maxRows }) }),
               /* @__PURE__ */ jsxs("div", { className: classes.side, children: [
                 /* @__PURE__ */ jsxs("div", { className: classes.actionSlot, children: [

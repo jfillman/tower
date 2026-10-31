@@ -18,6 +18,25 @@ function AgentMark({ mark, what = "pr", className }) {
     mark.agent
   ] }) }) });
 }
+function RunMarkChip({ mark, className }) {
+  const c = useStyles();
+  let tone = "neutral";
+  let verb = "investigated";
+  if (mark.tripped) {
+    tone = "warn";
+    verb = "frozen";
+  } else if (mark.state === "live") {
+    tone = "info";
+    verb = "investigating";
+  } else if (mark.state === "unknown") verb = "started";
+  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? "frozen: the breaker tripped" : mark.state}`;
+  return /* @__PURE__ */ jsx(Tooltip, { title, children: /* @__PURE__ */ jsx("span", { className: `${c.mark} ${className ?? ""}`, children: /* @__PURE__ */ jsxs(StatusChip, { tone, dot: mark.state === "live", children: [
+    /* @__PURE__ */ jsx(HangarMark, { glyph: "clearance", size: 12 }),
+    mark.agent,
+    " ",
+    verb
+  ] }) }) });
+}
 function AgentStateChips({ state }) {
   const c = useStyles();
   let live = null;
@@ -59,5 +78,5 @@ function ActingAgentsChip({ agents }) {
   ] }) }) });
 }
 
-export { ActingAgentsChip, AgentMark, AgentStateChips };
+export { ActingAgentsChip, AgentMark, AgentStateChips, RunMarkChip };
 //# sourceMappingURL=AgentMark.esm.js.map

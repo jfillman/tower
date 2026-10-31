@@ -40,6 +40,11 @@ interface TowerFleetSummary {
 }
 
 interface TowerPrMark { repo: string; pr: number; agent: string; branch?: string; at: string; verified: boolean }
+
+// v0.113.0: the runs an event started an agent for on this app in the last day (Pipelines' "agent
+// investigating" mark). The Clearance mount provides it from clearance-api's event history (v0.15.0).
+runMarks?: (apis, app: string) => Promise<TowerRunMark[]>;
+interface TowerRunMark { pipelineRun: string; agent: string; session: string; eventId: string; at: string; state: 'live' | 'closed' | 'expired' | 'unknown'; tripped: boolean }
 ```
 
 What Tower draws from them (`src/fleetMarks.ts`, `src/AgentMark.tsx`):
@@ -51,7 +56,9 @@ What Tower draws from them (`src/fleetMarks.ts`, `src/AgentMark.tsx`):
   `autopilot.hangar.io/agent` when they differ (the Autopilot plugin reads the same annotation).
 - **Marks**: a Pull requests row whose PR has a receipt carries the Clearance glyph and the agent's name (hover:
   verified or only recorded, when); a Releases card whose PRs include one says so; a Pipelines row building the
-  branch of such a PR says whose PR it builds.
+  branch of such a PR says whose PR it builds; a Pipelines row whose run an event named (a failed build that started
+  triage-agent) says "triage-agent investigating" while that session lives, "investigated" after, "frozen" if its
+  breaker tripped.
 
 `@jfillman/tower` exports `towerTabMountDataRef`, `TOWER_TAB_MOUNT_ID`, `TOWER_MOUNT_INPUTS` and the types
 (`src/mounts.tsx`). The Clearance plugin may not import Tower (it is standalone-ready), so it declares the same ref by
@@ -84,8 +91,5 @@ const towerClearanceTab = createExtension({
 
 - A live-activity dot on the Agent tab (a run in progress), like the Pipelines and Deployments dots. The fleet
   summary could feed it; not wired.
-- A Pipelines row saying "<agent> investigating" on the failed run that started an event agent (board T1): Clearance
-  records the trigger as `trigger:glidepath:<event id>`, not the PipelineRun the event named, so nothing links the
-  two yet. The mark on a PR's own build is there (by branch).
 - The deployment-gate marks ("tier 2 · holding", "clearance attestation") arrive with the gate.
 - A scheduled agent's "next run at" chip: the fleet summary carries the trigger in words, not the next time.

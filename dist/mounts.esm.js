@@ -28,6 +28,15 @@ function useRepoMarks(repos) {
   }, [receipts, key, discoveryApi, fetchApi]);
   return usePolled(`tower-marks-${key}`, fetcher, 6e4).data ?? NO_MARKS;
 }
+const NO_RUN_MARKS = [];
+function useRunMarks(app) {
+  const mounts = useTowerMounts();
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const runMarks = mounts.clearance?.runMarks ?? mounts.agent?.runMarks;
+  const fetcher = useCallback(async () => runMarks && app ? runMarks({ discoveryApi, fetchApi }, app) : NO_RUN_MARKS, [runMarks, app, discoveryApi, fetchApi]);
+  return usePolled(`tower-run-marks-${app ?? ""}`, fetcher, 3e4).data ?? NO_RUN_MARKS;
+}
 const TOWER_TAB_MOUNT_ID = "tower.tab-mount";
 const towerTabMountDataRef = createExtensionDataRef().with({ id: TOWER_TAB_MOUNT_ID });
 const TOWER_MOUNT_INPUTS = { agent: "agentTab", clearance: "clearanceTab" };
@@ -75,5 +84,5 @@ function useVisibleMounts(entity) {
   return answer?.ref === ref ? answer.visible : immediateVisibility(mounts);
 }
 
-export { TOWER_MOUNT_INPUTS, TOWER_TAB_MOUNT_ID, TowerMountsProvider, immediateVisibility, resolveMountVisibility, towerTabMountDataRef, useFleetSummary, useRepoMarks, useTowerMounts, useVisibleMounts };
+export { TOWER_MOUNT_INPUTS, TOWER_TAB_MOUNT_ID, TowerMountsProvider, immediateVisibility, resolveMountVisibility, towerTabMountDataRef, useFleetSummary, useRepoMarks, useRunMarks, useTowerMounts, useVisibleMounts };
 //# sourceMappingURL=mounts.esm.js.map
