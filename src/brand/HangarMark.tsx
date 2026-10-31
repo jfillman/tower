@@ -18,9 +18,12 @@ import { useHangarTokens } from './tokens';
 //              set, inside limits; amber because an agent acting on its own needs supervision)
 // Autopilot was chosen 2026-09-26 as Option A, "Hold", from five candidates (Hold, Flight director,
 // Annunciator, Corridor, Loop): hangar/docs/brand/autopilot-logo-options.html. The geometry below is the same
-// as hangar/brand/marks/autopilot-inline.svg; change both together. Clearance, Preflight and Flight recorder
-// are features of Autopilot and have no glyph.
-export type HangarGlyph = 'hangar' | 'tower' | 'glidepath' | 'airframe' | 'apron' | 'autopilot';
+// as hangar/brand/marks/autopilot-inline.svg; change both together.
+//   clearance  check mark over a hold-short line         good   (cleared past the hold: the product whose whole
+//              job is to say a change is cleared, so it takes the UI's "good" colour; hangar/brand/README.md)
+// Geometry as hangar/brand/marks/clearance-inline.svg; change both together. Preflight and Flight recorder are
+// features and have no glyph.
+export type HangarGlyph = 'hangar' | 'tower' | 'glidepath' | 'airframe' | 'apron' | 'autopilot' | 'clearance';
 
 const TICK_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
@@ -35,6 +38,7 @@ export function HangarMark({
   let accent = t.sky;
   if (glyph === 'hangar' || glyph === 'tower' || glyph === 'autopilot') accent = t.amber;
   else if (glyph === 'apron') accent = t.textLo;
+  else if (glyph === 'clearance') accent = t.good;
 
   let center: JSX.Element = <></>;
   switch (glyph) {
@@ -111,6 +115,16 @@ export function HangarMark({
         </>
       );
       break;
+    case 'clearance':
+      // A check mark over the hold-short line (solid) and its dashed pair: cleared past the hold.
+      center = (
+        <>
+          <path d="M35,37 L44.5,46.5 L61.5,29.5" fill="none" stroke={accent} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="29" y1="57" x2="67" y2="57" stroke={accent} strokeWidth={3.2} strokeLinecap="round" />
+          <line x1="29" y1="65" x2="67" y2="65" stroke={accent} strokeWidth={3.2} strokeDasharray="5.5 4.3" />
+        </>
+      );
+      break;
     default:
       break;
   }
@@ -123,7 +137,9 @@ export function HangarMark({
           <line key={angle} x1="48" y1="8" x2="48" y2="15" transform={`rotate(${angle} 48 48)`} />
         ))}
       </g>
-      <polygon points="44,2 52,2 48,9" fill={accent} />
+      {/* The heading bug takes the product's colour, except Clearance's, which stays amber over its green glyph
+          (hangar/brand/marks/clearance-inline.svg): the bug is the person's heading, the check is Clearance's verdict. */}
+      <polygon points="44,2 52,2 48,9" fill={glyph === 'clearance' ? t.amber : accent} />
       {center}
     </svg>
   );

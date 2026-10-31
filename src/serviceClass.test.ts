@@ -136,11 +136,12 @@ describe('capabilitiesOf', () => {
     expect(hasCapabilities(e, [CAP.k8sRuntime])).toBe(false);
     expect(hasCapabilities(e, [CAP.ci, CAP.releases])).toBe(true);
   });
-  it('gives an unregistered class only what it can prove: a repo gets Pull Requests, nothing else', () => {
+  it('gives an unregistered class only what it can prove: a repo gets Pull Requests and Clearance, nothing else', () => {
     const noRepo = entity({}, { 'hangar.io/service-class': 'storage' });
     expect([...capabilitiesOf(noRepo)]).toEqual([]);
+    // Clearance governs what agents do to a repo, so a repo is enough for the Clearance tab (shown where relevant).
     const repo = entity({}, { 'hangar.io/service-class': 'storage', 'github.com/project-slug': 'o/r' });
-    expect([...capabilitiesOf(repo)]).toEqual([CAP.source]);
+    expect([...capabilitiesOf(repo)]).toEqual([CAP.source, CAP.clearance]);
   });
   it('treats no requirements as always satisfied', () => {
     expect(hasCapabilities(entity({}, { 'hangar.io/service-class': 'storage' }))).toBe(true);
