@@ -35,6 +35,7 @@ interface TowerFleetSummary {
     triggers: string[];        // in words: "every 24h", "pipeline finished", "manual"
     live: number; tripped: number; waiting: number;   // waiting = questions on a person
     lastRun?: { at: string; state: 'live' | 'closed' | 'expired'; tripped: boolean };
+    held?: { by: string; until: string };                  // a person's hold on its triggers (v0.114.0)
   }>;
   newAgentHref?: string;       // the New agent profile page (board A3), an in-app path
 }

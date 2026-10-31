@@ -79,6 +79,8 @@ export interface TowerAgentState {
   /** Questions it asked that wait on a person. */
   waiting: number;
   lastRun?: { at: string; state: 'live' | 'closed' | 'expired'; tripped: boolean };
+  /** A person's hold on its triggers (Clearance v0.16.0): no run starts until `until`. */
+  held?: { by: string; until: string };
 }
 
 export interface TowerFleetSummary {
