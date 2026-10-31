@@ -52,6 +52,7 @@ describe('AppPicker with the Autopilot plugin mounted (the fleet summary, 2026-1
         waiting: 2,
         lastRun: { at: new Date(Date.now() - 8 * 60_000).toISOString(), state: 'live', tripped: false },
       },
+      { name: 'held-agent', kind: 'scheduled', actsOn: [], triggers: ['every 24h'], live: 0, tripped: 0, waiting: 0, held: { by: 'user:root', until: new Date(Date.now() + 3_600_000).toISOString() } },
     ],
     newAgentHref: '/autopilot?view=new',
   });

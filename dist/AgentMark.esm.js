@@ -37,11 +37,22 @@ function RunMarkChip({ mark, className }) {
     verb
   ] }) }) });
 }
+function hoursLeft(until) {
+  const ms = Date.parse(until) - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return "lifting";
+  const h = ms / 36e5;
+  return h >= 1 ? `${Math.ceil(h)} h left` : `${Math.max(1, Math.ceil(ms / 6e4))} min left`;
+}
 function AgentStateChips({ state }) {
   const c = useStyles();
   let live = null;
   if (state.tripped > 0) live = /* @__PURE__ */ jsx(StatusChip, { tone: "warn", dot: true, children: "frozen \xB7 breaker tripped" });
-  else if (state.live > 0) {
+  else if (state.held) {
+    live = /* @__PURE__ */ jsx(Tooltip, { title: `Held by ${state.held.by} until ${formatDateTime(state.held.until)}`, children: /* @__PURE__ */ jsx("span", { children: /* @__PURE__ */ jsxs(StatusChip, { tone: "warn", children: [
+      "triggers held \xB7 ",
+      hoursLeft(state.held.until)
+    ] }) }) });
+  } else if (state.live > 0) {
     live = /* @__PURE__ */ jsx(StatusChip, { tone: "info", dot: true, children: state.live === 1 && state.lastRun ? `running \xB7 ${relativeTime(state.lastRun.at)}` : `${state.live} live` });
   } else if (state.lastRun) {
     live = /* @__PURE__ */ jsxs(StatusChip, { tone: state.lastRun.state === "closed" ? "ok" : "neutral", children: [

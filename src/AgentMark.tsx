@@ -57,11 +57,28 @@ export function RunMarkChip({ mark, className }: { mark: TowerRunMark; className
   );
 }
 
+/** "3 h left" / "20 min left" until a hold lifts; "lifting" once it has passed and the fleet has not noticed yet. */
+function hoursLeft(until: string): string {
+  const ms = Date.parse(until) - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 'lifting';
+  const h = ms / 3_600_000;
+  return h >= 1 ? `${Math.ceil(h)} h left` : `${Math.max(1, Math.ceil(ms / 60_000))} min left`;
+}
+
 /** An agent's row of chips on the Services list: shape, live state, what waits on a person, what it acts on. */
 export function AgentStateChips({ state }: { state: TowerAgentState }) {
   const c = useStyles();
   let live: JSX.Element | null = null;
   if (state.tripped > 0) live = <StatusChip tone="warn" dot>frozen · breaker tripped</StatusChip>;
+  else if (state.held) {
+    live = (
+      <Tooltip title={`Held by ${state.held.by} until ${formatDateTime(state.held.until)}`}>
+        <span>
+          <StatusChip tone="warn">triggers held · {hoursLeft(state.held.until)}</StatusChip>
+        </span>
+      </Tooltip>
+    );
+  }
   else if (state.live > 0) {
     live = (
       <StatusChip tone="info" dot>

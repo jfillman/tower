@@ -64,6 +64,11 @@ interface TowerAgentState {
         state: 'live' | 'closed' | 'expired';
         tripped: boolean;
     };
+    /** A person's hold on its triggers (Clearance v0.16.0): no run starts until `until`. */
+    held?: {
+        by: string;
+        until: string;
+    };
 }
 interface TowerFleetSummary {
     agents: TowerAgentState[];
