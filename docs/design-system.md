@@ -89,8 +89,9 @@ its own title, chip, table header and button styles with slightly different numb
   (src/configure) searches key paths and values across `cicd.yaml`, the shared values files and every environment's
   values file, read once on first use, and opens the sub-tab (and the environment's row, `?row=<env>`) that edits it.
 - **Nothing waits in a dialog for a pipeline.** Promote to a Flight environment closes once the release run starts;
-  `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`) and becomes the
-  PR's receipt.
+  `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`, glidepath-api's
+  `getReleaseRun`), shows the step it is on, and becomes the PR's receipt (with the change request when there is
+  one). The Deployments tab's Roll back follows its run the same way once the 90 s wait for its PR runs out.
 - **Environment groups** are told apart by name and tier chip (Ground sky, Flight amber), never by an extra hue.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 

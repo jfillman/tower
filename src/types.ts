@@ -462,6 +462,10 @@ export interface ReleaseRunStatus {
   prUrl?: string;
   reason?: string;
   tasks: Array<{ name: string; state: 'done' | 'running' | 'pending' | 'failed' }>;
+  /** glidepath-api's one word (2026-10-31): the release record's state once there is one (proposed, merged, ...), else the run's. */
+  phase?: string;
+  /** The change request open-release-pr opened, when the change tool is wired. */
+  changeRequest?: string;
 }
 
 export interface DeployHistoryEntry {

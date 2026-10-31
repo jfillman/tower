@@ -6,6 +6,8 @@ import { fontMono, useHangarTokens, type HangarTokens } from '../../brand/tokens
 import { relativeTime } from '../../shared/format';
 import { ActionReason, Button, Callout, Hint } from '../../ui';
 import { OPENING_PR, PrReceipt } from '../../ui/PrRef';
+import { useSearchParams } from 'react-router-dom';
+import { ReleaseRunTracker } from '../../ReleaseRunTracker';
 
 // Roll back a Kubernetes Flight environment (glidepath ADR-0021 phase 4). A rollback is a release of an earlier image:
 // the backend (backstage glidepathRollback.ts) starts the app's release Pipeline for it, which opens a gitops PR like
@@ -39,7 +41,6 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
     minWidth: 220,
   },
-  ok: { fontSize: 11, color: ({ t }) => t.good },
 }));
 
 const tagOf = (image?: string) => (image ? image.slice(image.lastIndexOf(':') + 1) : '?');
@@ -67,7 +68,15 @@ export function RollbackControl({
   const [reason, setReason] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ prUrl?: string; pipelineRun?: string; alreadyOpen?: boolean } | undefined>();
+  const [result, setResult] = useState<{ prUrl?: string; pipelineRun?: string; alreadyOpen?: boolean; label?: string } | undefined>();
+  const [, setSearchParams] = useSearchParams();
+  const openRun = (run: string) =>
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'pipelines');
+      next.set('run', run);
+      return next;
+    });
 
   useEffect(() => {
     let live = true;
@@ -103,7 +112,8 @@ export function RollbackControl({
       });
       const body = await res.json().catch(() => undefined);
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
-      setResult(body);
+      // The tag rolled back to, kept with the answer: the plan re-reads once the result is in.
+      setResult({ ...body, label: tagOf(plan?.targets.find(x => x.releaseId === target)?.image) });
       setConfirming(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -171,12 +181,18 @@ export function RollbackControl({
         </div>
       )}
       {error && <Callout tone="bad">{error}</Callout>}
-      {result &&
-        (result.prUrl ? (
-          <PrReceipt prUrl={result.prUrl} alreadyOpen={result.alreadyOpen} next="merge it to roll back." />
-        ) : (
-          <span className={c.ok}>Rollback run {result.pipelineRun} started; its PR will show in Pull requests.</span>
-        ))}
+      {result?.prUrl && <PrReceipt prUrl={result.prUrl} alreadyOpen={result.alreadyOpen} next="merge it to roll back." />}
+      {result && !result.prUrl && result.pipelineRun && (
+        // The backend waited 90 s for the PR; the run goes on, and this follows it to the PR (2026-10-31: the first
+        // live rollback took 8 minutes to open its PR, with nothing on screen in between).
+        <ReleaseRunTracker
+          appName={appName}
+          release={{ run: result.pipelineRun, env, label: result.label ?? '?', kind: 'rollback' }}
+          onPr={() => undefined}
+          onOpenRun={openRun}
+          onDismiss={() => setResult(undefined)}
+        />
+      )}
     </div>
   );
 }

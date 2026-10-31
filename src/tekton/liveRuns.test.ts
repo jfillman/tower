@@ -1,4 +1,4 @@
-import { fetchFleetHistory, fetchFleetLiveTaskRuns, fetchLiveLog, fetchLiveRuns, LiveReadError } from './liveRuns';
+import { fetchFleetHistory, fetchFleetLiveTaskRuns, fetchLiveLog, fetchLiveRuns, LiveReadError, sseParser, streamLiveRuns } from './liveRuns';
 import { toFleetHistoryRun } from '../fleet/useFleetPipelineHistory';
 
 const apis = (answer: (url: string) => Response) => {
@@ -45,5 +45,56 @@ describe('liveRuns', () => {
     expect(toFleetHistoryRun(rows[0])).toMatchObject({ key: 'app-bags-cicd/ci-0-build-a', app: 'bags', status: 'failed', durationSec: 150 });
     expect(toFleetHistoryRun(rows[1])).toMatchObject({ key: 'platform-catalog/promote-x', app: 'platform-catalog' });
     expect(toFleetHistoryRun(rows[2])).toBeUndefined();
+  });
+});
+
+describe('the live stream (2026-10-31)', () => {
+  const discoveryApi = { getBaseUrl: async () => 'http://be/api/glidepath' };
+
+  it('splits server-sent events however the text arrives, dropping comments', () => {
+    const seen: string[] = [];
+    const feed = sseParser((event, data) => seen.push(`${event}:${data}`));
+    feed('retry: 5000\n: glidepath-api live runs\n\nevent: snap');
+    feed('shot\ndata: {"a":1}\n\n: ping\n\nevent: change\r\ndata: {"b":');
+    expect(seen).toEqual(['snapshot:{"a":1}']);
+    feed('2}\r\n\r\n');
+    expect(seen).toEqual(['snapshot:{"a":1}', 'change:{"b":2}']);
+  });
+
+  const bodyOf = (text: string) => {
+    const bytes = new TextEncoder().encode(text);
+    let sent = false;
+    return {
+      getReader: () => ({
+        read: async () => (sent ? { done: true, value: undefined } : ((sent = true), { done: false, value: bytes })),
+      }),
+    };
+  };
+
+  it('reads the snapshot and each change from /live-stream', async () => {
+    const fetch = jest.fn(async () => ({
+      ok: true,
+      body: bodyOf(
+        'event: snapshot\ndata: {"pipelineRuns":[{"metadata":{"name":"p1"}}],"taskRuns":[]}\n\n' +
+          'event: change\ndata: {"type":"upsert","kind":"TaskRun","name":"t1","object":{"metadata":{"name":"t1"}}}\n\n' +
+          'event: change\ndata: {"type":"delete","kind":"PipelineRun","name":"p1"}\n\n',
+      ),
+    }));
+    const snaps: unknown[] = [];
+    const changes: unknown[] = [];
+    await streamLiveRuns({ discoveryApi, fetchApi: { fetch } as any }, 'gate-api', { onSnapshot: s => snaps.push(s), onChange: c => changes.push(c) }, new AbortController().signal);
+    expect(fetch).toHaveBeenCalledWith('http://be/api/glidepath/live-stream?app=gate-api', expect.objectContaining({ headers: { Accept: 'text/event-stream' } }));
+    expect(snaps).toHaveLength(1);
+    expect(changes).toEqual([
+      { type: 'upsert', kind: 'TaskRun', name: 't1', object: { metadata: { name: 't1' } } },
+      { type: 'delete', kind: 'PipelineRun', name: 'p1' },
+    ]);
+  });
+
+  it("rejects a stream it can't open, so the hook polls instead", async () => {
+    const fetch = jest.fn(async () => ({ ok: false, status: 503, json: async () => ({ error: 'too many live streams' }) }));
+    await expect(
+      streamLiveRuns({ discoveryApi, fetchApi: { fetch } as any }, 'gate-api', { onSnapshot: () => {}, onChange: () => {} }, new AbortController().signal),
+    ).rejects.toMatchObject({ status: 503 });
   });
 });

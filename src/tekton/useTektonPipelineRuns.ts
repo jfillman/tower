@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api';
-import { fetchLiveRuns } from './liveRuns';
+import { fetchLiveRuns, streamLiveRuns } from './liveRuns';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { chainIdToSlug } from './chainSlug';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
@@ -12,6 +12,15 @@ import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } fr
 // Archived runs live in the same namespace on the same cluster as their live
 // counterparts.
 const POLL_MS = 6000;
+// The stream's changes come one object at a time, and a run moving emits several at once: they are applied to the
+// list once per this long.
+const STREAM_FLUSH_MS = 250;
+// A stream that ended (the server closed it, a lagging viewer, a replica restart) is reopened after this long, for a
+// fresh snapshot; one that keeps ending within STREAM_SHORT_MS of opening, STREAM_MAX_SHORT times running, gives way
+// to polling for the rest of the view.
+const STREAM_RECONNECT_MS = 2000;
+const STREAM_SHORT_MS = 30_000;
+const STREAM_MAX_SHORT = 3;
 
 // Read from glidepath-api (P6b, 2026-10-30: tekton/liveRuns.ts), which lists the app's whole -cicd namespace: a
 // label selector would miss runs, since PipelineRuns carry hangar.io/app inconsistently (an app's own CI carries it,
@@ -450,15 +459,15 @@ export interface UseTektonPipelineRunsResult {
   runs: PipelineRunSummary[];
 }
 
-// Polled (unlike Tower's GitHub-backed hooks) - this hits the app's own
-// cluster directly, not a rate-limited external API, and a running
-// PipelineRun's whole point on this tab is watching it move. Caps how many
+// Pushed since 2026-10-31 (glidepath-api's live stream; polled every 6 s when
+// the stream can't be opened) - a running PipelineRun's whole point on this
+// tab is watching it move. Caps how many
 // runs it keeps in memory via Pipelines-as-Code's own `max-keep-runs`
 // annotation (5, confirmed live) - it prunes old PipelineRuns itself, so
 // there's never an unbounded list to page through here.
 // refreshNonce: bump it (from a caller's own useState, same convention as
 // every other manually-refreshable hook in Tower) to force an immediate
-// re-fetch instead of waiting out the rest of the current 6s poll interval -
+// re-read (a fresh stream, so a fresh snapshot; or a poll right away) -
 // wired to the CI/CD tab's own Refresh control.
 export function useTektonPipelineRuns(
   appName: string | undefined,
@@ -480,45 +489,104 @@ export function useTektonPipelineRuns(
     }
     const app: string = appName;
     const tektonCluster: string = cluster;
+    const apis = { discoveryApi, fetchApi };
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let flushTimer: ReturnType<typeof setTimeout> | undefined;
+    const abort = new AbortController();
 
-    async function tick() {
+    function publish(pipelineRuns: RawPipelineRun[], taskRuns: RawTaskRun[]) {
+      const taskRunsByName = new Map(taskRuns.map(tr => [tr.metadata.name, tr]));
+      // 2026-09-16: this hook used to filter to only hangar.io/flow
+      // ci/pr-build, on the theory that this namespace also carries other,
+      // unrelated Tekton flows (e.g. release-outcome-notify's tracing/
+      // CDEvents pipeline, confirmed live on app-checkout-api-cicd). That
+      // filter also silently dropped every real release-guardrail
+      // PipelineRun (sast/image-scan/provenance/sbom) - they genuinely run
+      // in this exact namespace and carry no flow label at all, so they
+      // were invisible even though they're real CI/CD work. Per explicit
+      // direction: anything executing in this namespace should be visible
+      // and filterable here, not fetch-time-excluded - toPipelineRunSummary
+      // now derives a 'guardrail' flow for the four known guardrail
+      // Pipelines, and PipelineRunList's "All flows" chip is what shows
+      // everything else (including genuinely unrelated flows like the
+      // tracing pipeline) rather than this hook guessing what to hide.
+      const runs = pipelineRuns
+        .map(pr => toPipelineRunSummary(pr, tektonCluster, taskRunsByName))
+        .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      linkFlowSlugsByChainId(runs);
+      setState({ loading: false, runs });
+    }
+
+    // Polling: the app's -cicd namespace now, from glidepath-api (tekton/liveRuns.ts), every POLL_MS. What this hook
+    // did until 2026-10-31, and what it falls back to when the stream can't be opened.
+    async function poll() {
       try {
-        // The app's -cicd namespace now, from glidepath-api (tekton/liveRuns.ts).
-        const live = await fetchLiveRuns({ discoveryApi, fetchApi }, app);
+        const live = await fetchLiveRuns(apis, app);
         if (cancelled) return;
-        const taskRunsByName = new Map(live.taskRuns.map(tr => [tr.metadata.name, tr]));
-        // 2026-09-16: this hook used to filter to only hangar.io/flow
-        // ci/pr-build, on the theory that this namespace also carries other,
-        // unrelated Tekton flows (e.g. release-outcome-notify's tracing/
-        // CDEvents pipeline, confirmed live on app-checkout-api-cicd). That
-        // filter also silently dropped every real release-guardrail
-        // PipelineRun (sast/image-scan/provenance/sbom) - they genuinely run
-        // in this exact namespace and carry no flow label at all, so they
-        // were invisible even though they're real CI/CD work. Per explicit
-        // direction: anything executing in this namespace should be visible
-        // and filterable here, not fetch-time-excluded - toPipelineRunSummary
-        // now derives a 'guardrail' flow for the four known guardrail
-        // Pipelines, and PipelineRunList's "All flows" chip is what shows
-        // everything else (including genuinely unrelated flows like the
-        // tracing pipeline) rather than this hook guessing what to hide.
-        const runs = live.pipelineRuns
-          .map(pr => toPipelineRunSummary(pr, tektonCluster, taskRunsByName))
-          .sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
-        linkFlowSlugsByChainId(runs);
-        setState({ loading: false, runs });
+        publish(live.pipelineRuns, live.taskRuns);
       } catch (e) {
         if (!cancelled) setState(prev => ({ loading: false, runs: prev.runs, error: String(e) }));
       }
-      if (!cancelled) timer = setTimeout(tick, POLL_MS);
+      if (!cancelled) timer = setTimeout(poll, POLL_MS);
+    }
+
+    // Pushed (2026-10-31): glidepath-api's live stream, a snapshot and then each change. One connection instead of a
+    // read every 6 s.
+    const pipelineRuns = new Map<string, RawPipelineRun>();
+    const taskRuns = new Map<string, RawTaskRun>();
+    let shortLived = 0;
+    function flushSoon() {
+      if (flushTimer) return;
+      flushTimer = setTimeout(() => {
+        flushTimer = undefined;
+        if (!cancelled) publish([...pipelineRuns.values()], [...taskRuns.values()]);
+      }, STREAM_FLUSH_MS);
+    }
+    async function stream() {
+      let openedAt: number | undefined;
+      try {
+        await streamLiveRuns(
+          apis,
+          app,
+          {
+            onSnapshot: snap => {
+              openedAt = Date.now();
+              pipelineRuns.clear();
+              taskRuns.clear();
+              for (const pr of snap.pipelineRuns) pipelineRuns.set(pr.metadata.name, pr);
+              for (const tr of snap.taskRuns) taskRuns.set(tr.metadata.name, tr);
+              publish(snap.pipelineRuns, snap.taskRuns);
+            },
+            onChange: c => {
+              const map: Map<string, any> = c.kind === 'TaskRun' ? taskRuns : pipelineRuns;
+              if (c.type === 'delete') map.delete(c.name);
+              else if (c.object) map.set(c.name, c.object);
+              flushSoon();
+            },
+          },
+          abort.signal,
+        );
+      } catch {
+        // Not opened (an older backend, a full replica, an error): poll, as before. Opened and then broken: reopen.
+      }
+      if (cancelled) return;
+      if (openedAt === undefined) {
+        poll();
+        return;
+      }
+      shortLived = Date.now() - openedAt < STREAM_SHORT_MS ? shortLived + 1 : 0;
+      if (shortLived >= STREAM_MAX_SHORT) poll();
+      else timer = setTimeout(stream, STREAM_RECONNECT_MS);
     }
 
     setState(prev => ({ loading: prev.runs.length === 0, runs: prev.runs }));
-    tick();
+    stream();
     return () => {
       cancelled = true;
+      abort.abort();
       if (timer) clearTimeout(timer);
+      if (flushTimer) clearTimeout(flushTimer);
     };
   }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
 

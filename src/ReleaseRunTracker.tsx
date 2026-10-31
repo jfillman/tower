@@ -11,13 +11,21 @@ import { Callout, IconButton, TextLink, Tooltip } from './ui';
 // release run to open its PR (2026-10-22: "the dialog sits for a very long time"). The dialog now closes as soon as
 // the run exists and this strip, at the top of the Releases tab, follows the run (GET /release-run every 4 s) and
 // turns into the PR's receipt when open-release-pr reports it. Sky while it moves; amber is not used here, because
-// nothing waits on a person until the PR exists.
+// nothing waits on a person until the PR exists. The Deployments tab's Roll back follows its run the same way
+// (2026-10-31). The backend reads the run from glidepath-api (GET /v1/apps/{app}/releases/runs/{name}).
 
 export interface TrackedRelease {
   run: string;
   env: string;
   /** The release name, else the image tag. */
   label: string;
+  /** A rollback run (the Deployments tab's Roll back) reads as one; a promotion is the default. */
+  kind?: 'release' | 'rollback';
+}
+
+/** The step the run is on, for a person waiting on its PR. */
+function runningStep(data: ReleaseRunStatus | undefined): string | undefined {
+  return data?.tasks.find(t => t.state === 'running')?.name;
 }
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
@@ -76,8 +84,8 @@ export function ReleaseRunTracker({
         <PrReceipt
           className={classes.receipt}
           prUrl={data.prUrl}
-          title={`Release: ${appName} to ${release.env} · ${release.label}`}
-          next="checks finish and, where the release mode asks for it, someone signs off; then merge it."
+          title={`${release.kind === 'rollback' ? 'Rollback' : 'Release'}: ${appName} to ${release.env} · ${release.label}`}
+          next={`${data.changeRequest ? `change ${data.changeRequest} is approved, ` : ''}checks finish and, where the release mode asks for it, someone signs off; then merge it.`}
         />
         {dismiss}
       </div>
@@ -106,7 +114,7 @@ export function ReleaseRunTracker({
     <Callout
       tone="info"
       label="Release run"
-      title={`Release PR for ${release.label} → ${release.env} on its way`}
+      title={`${release.kind === 'rollback' ? 'Rollback' : 'Release'} PR for ${release.label} → ${release.env} on its way`}
       actions={
         <>
           {runLink}
@@ -117,7 +125,7 @@ export function ReleaseRunTracker({
       <span data-testid="release-run-tracker">
         {status.gaveUp
           ? 'Still no PR after 15 minutes; the Pipelines tab has the run.'
-          : 'You can leave this page: the PR also shows in Pull requests when it opens.'}
+          : `${runningStep(data) ? `Now: ${runningStep(data)}. ` : ''}You can leave this page: the PR also shows in Pull requests when it opens.`}
         {status.error && !data ? ` Couldn't read the run yet (${status.error}); trying again.` : ''}
       </span>
       {data && data.tasks.length > 0 && (

@@ -68,3 +68,73 @@ export async function fetchFleetHistory(apis: Apis, sinceHours: number, limit: n
   const q = new URLSearchParams({ sinceHours: String(sinceHours), limit: String(limit) });
   return (await (await get(apis, `/fleet/history?${q}`)).json()).runs;
 }
+
+/** One object that appeared or moved (upsert) or went (delete): glidepath-api's live stream `change` event. */
+export interface LiveChange {
+  type: 'upsert' | 'delete';
+  kind: 'PipelineRun' | 'TaskRun';
+  name: string;
+  object?: RawPipelineRun | RawTaskRun;
+}
+
+export interface LiveStreamHandlers {
+  onSnapshot(s: { pipelineRuns: RawPipelineRun[]; taskRuns: RawTaskRun[] }): void;
+  onChange(c: LiveChange): void;
+}
+
+/**
+ * Splits server-sent events out of text as it arrives: feed it chunks, it calls `emit(event, data)` per complete event
+ * and keeps the rest. Comment lines (": ping") are dropped; an event with no `event:` line is "message".
+ */
+export function sseParser(emit: (event: string, data: string) => void): (chunk: string) => void {
+  let buf = '';
+  return chunk => {
+    buf += chunk.replace(/\r\n/g, '\n');
+    let end = buf.indexOf('\n\n');
+    while (end >= 0) {
+      const block = buf.slice(0, end);
+      buf = buf.slice(end + 2);
+      let event = 'message';
+      const data: string[] = [];
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+      }
+      if (data.length > 0) emit(event, data.join('\n'));
+      end = buf.indexOf('\n\n');
+    }
+  };
+}
+
+/**
+ * The app's runs pushed (2026-10-31): the backend's /live-stream, glidepath-api's GET /v1/apps/{app}/live/stream, a
+ * snapshot and then each change, instead of polling /live-runs. Resolves when the stream ends (the server closed it,
+ * a lagging viewer, a restart); rejects when it can't be opened, which tells the caller to poll instead. A fetch body
+ * read, not EventSource: EventSource can't carry Backstage's auth header.
+ */
+export async function streamLiveRuns(apis: Apis, app: string, handlers: LiveStreamHandlers, signal: AbortSignal): Promise<void> {
+  const base = await apis.discoveryApi.getBaseUrl('glidepath');
+  const res = await apis.fetchApi.fetch(`${base}/live-stream?app=${encodeURIComponent(app)}`, {
+    headers: { Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => undefined);
+    throw new LiveReadError(body?.error ?? `live stream failed with ${res.status}`, res.status);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  const feed = sseParser((event, data) => {
+    try {
+      if (event === 'snapshot') handlers.onSnapshot(JSON.parse(data));
+      else if (event === 'change') handlers.onChange(JSON.parse(data));
+    } catch {
+      // A malformed event is skipped; the next snapshot (on reconnect) is the whole state again.
+    }
+  });
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    feed(decoder.decode(value, { stream: true }));
+  }
+}

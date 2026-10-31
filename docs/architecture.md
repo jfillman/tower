@@ -69,7 +69,8 @@ Live status, SLO metrics, activity feeds
 ### CI/CD Pipelines
 
 ```
-Backstage backend /api/glidepath/live-runs (live runs)  +  /api/glidepath/pipeline-history (archived runs)
+Backstage backend /api/glidepath/live-stream (live runs, pushed: a snapshot then each change; /live-runs polled
+  every 6 s when the stream can't open)  +  /api/glidepath/pipeline-history (archived runs)
   ↓  (both answered by glidepath-api)
 PipelineRunList (list runs; History range Live / 24h / 7d / 30d)
   ↓
