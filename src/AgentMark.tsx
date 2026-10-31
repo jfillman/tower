@@ -1,7 +1,7 @@
 import { makeStyles } from '@material-ui/core/styles';
 import { HangarMark } from './brand/HangarMark';
 import { formatDateTime, relativeTime } from './shared/format';
-import type { TowerAgentState, TowerPrMark } from './mounts';
+import type { TowerAgentState, TowerPrMark, TowerRunMark } from './mounts';
 import { Chip, StatusChip, Tooltip } from './ui';
 
 // The small Clearance marks (design board T1: "the same data in other tabs, small marks, no new screens") and the
@@ -27,6 +27,31 @@ export function AgentMark({ mark, what = 'pr', className }: { mark: TowerPrMark;
           <HangarMark glyph="clearance" size={12} />
           {mark.agent}
         </Chip>
+      </span>
+    </Tooltip>
+  );
+}
+
+/** "An event about this run started an agent": investigating while its session lives, investigated after. */
+export function RunMarkChip({ mark, className }: { mark: TowerRunMark; className?: string }) {
+  const c = useStyles();
+  let tone: 'info' | 'warn' | 'neutral' = 'neutral';
+  let verb = 'investigated';
+  if (mark.tripped) {
+    tone = 'warn';
+    verb = 'frozen';
+  } else if (mark.state === 'live') {
+    tone = 'info';
+    verb = 'investigating';
+  } else if (mark.state === 'unknown') verb = 'started';
+  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? 'frozen: the breaker tripped' : mark.state}`;
+  return (
+    <Tooltip title={title}>
+      <span className={`${c.mark} ${className ?? ''}`}>
+        <StatusChip tone={tone} dot={mark.state === 'live'}>
+          <HangarMark glyph="clearance" size={12} />
+          {mark.agent} {verb}
+        </StatusChip>
       </span>
     </Tooltip>
   );

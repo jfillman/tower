@@ -37,6 +37,23 @@ export interface TowerTabMount {
    * Releases (board T1). The Clearance mount provides it; Tower asks per repo it shows, every 60 s.
    */
   receipts?: (apis: TowerMountApis, repo: string) => Promise<TowerPrMark[]>;
+  /**
+   * The runs an event started an agent for on this app in the last day, for Pipelines' "agent investigating" mark
+   * (board T1). The Clearance mount provides it from clearance-api's event history; Tower asks every 30 s.
+   */
+  runMarks?: (apis: TowerMountApis, app: string) => Promise<TowerRunMark[]>;
+}
+
+/** A run an event named (its PipelineRun) and the agent the event started on it. */
+export interface TowerRunMark {
+  pipelineRun: string;
+  agent: string;
+  session: string;
+  eventId: string;
+  at: string;
+  /** The agent's session: live (investigating), closed or expired (investigated), or unknown to this viewer. */
+  state: 'live' | 'closed' | 'expired' | 'unknown';
+  tripped: boolean;
 }
 
 export interface TowerMountApis {
@@ -108,6 +125,18 @@ export function useRepoMarks(repos: Array<string | undefined>): TowerPrMark[] {
     return lists.flat();
   }, [receipts, key, discoveryApi, fetchApi]);
   return usePolled(`tower-marks-${key}`, fetcher, 60_000).data ?? NO_MARKS;
+}
+
+const NO_RUN_MARKS: TowerRunMark[] = [];
+
+/** The runs an event started an agent for on this app (Pipelines' marks), from the mount that reads the event history. */
+export function useRunMarks(app: string | undefined): TowerRunMark[] {
+  const mounts = useTowerMounts();
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const runMarks = mounts.clearance?.runMarks ?? mounts.agent?.runMarks;
+  const fetcher = useCallback(async () => (runMarks && app ? runMarks({ discoveryApi, fetchApi }, app) : NO_RUN_MARKS), [runMarks, app, discoveryApi, fetchApi]);
+  return usePolled(`tower-run-marks-${app ?? ''}`, fetcher, 30_000).data ?? NO_RUN_MARKS;
 }
 
 export const TOWER_TAB_MOUNT_ID = 'tower.tab-mount';

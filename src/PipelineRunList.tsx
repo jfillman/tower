@@ -6,9 +6,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
 import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
-import type { TowerPrMark } from './mounts';
-import { markForBranch } from './fleetMarks';
-import { AgentMark } from './AgentMark';
+import type { TowerPrMark, TowerRunMark } from './mounts';
+import { markForBranch, runMarkFor } from './fleetMarks';
+import { AgentMark, RunMarkChip } from './AgentMark';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -318,13 +318,14 @@ function RunError({ run, classes }: { run: PipelineRunSummary; classes: ReturnTy
 // push/PR carries a branch/commit/event, while a Tekton-Trigger run off a
 // CDEvent (e.g. a flow's gitops-image-bump stage) carries none of that, only
 // a pipeline name + the trigger that fired it.
-function RunDescriptor({ run, classes, mark }: { run: PipelineRunSummary; classes: ReturnType<typeof useStyles>; mark?: TowerPrMark }) {
+function RunDescriptor({ run, classes, mark, runMark }: { run: PipelineRunSummary; classes: ReturnType<typeof useStyles>; mark?: TowerPrMark; runMark?: TowerRunMark }) {
   if (run.sha) {
     return (
       <div className={classes.main}>
         <span className={classes.title}>
           {pipelineTitle(run)}
           {mark && <AgentMark mark={mark} what="build" className={classes.agentMark} />}
+          {runMark && <RunMarkChip mark={runMark} className={classes.agentMark} />}
         </span>
         <span className={classes.meta}>
           {(run.branch ?? run.name) && <span>{run.branch ?? run.name} &middot;</span>}
@@ -350,7 +351,10 @@ function RunDescriptor({ run, classes, mark }: { run: PipelineRunSummary; classe
   }
   return (
     <div className={classes.main}>
-      <span className={classes.title}>{pipelineTitle(run)}</span>
+      <span className={classes.title}>
+        {pipelineTitle(run)}
+        {runMark && <RunMarkChip mark={runMark} className={classes.agentMark} />}
+      </span>
       <span className={classes.meta}>
         {run.pipelineName && <span className={classes.sha}>{run.name}</span>}
         {run.triggerName && <span>&middot; trigger: {run.triggerName}</span>}
@@ -370,10 +374,13 @@ export function PipelineRunList({
   onCancel,
   cancelPending,
   marks = [],
+  runMarks = [],
 }: {
   runs: PipelineRunSummary[];
   /** PRs agents opened through Clearance (mounts.tsx): a run on such a PR's branch carries the agent's mark. */
   marks?: TowerPrMark[];
+  /** Runs an event started an agent for (mounts.tsx): "triage-agent investigating" on that row. */
+  runMarks?: TowerRunMark[];
   selectedName?: string;
   onSelect: (run: PipelineRunSummary) => void;
   // Tower's Tekton "Re-run" action (HANDOFF-tower-write-actions.md Tier 1) -
@@ -496,7 +503,7 @@ export function PipelineRunList({
               }}
             >
               <span className={classes.statusDot} style={{ backgroundColor: tone.fg }} />
-              <RunDescriptor run={run} classes={classes} mark={markForBranch(marks, run.branch, run.sourceRepoUrl)} />
+              <RunDescriptor run={run} classes={classes} mark={markForBranch(marks, run.branch, run.sourceRepoUrl)} runMark={runMarkFor(runMarks, run.name)} />
               <div className={classes.thumb}>
                 <MiniDag run={run} maxCols={maxCols} maxRows={maxRows} />
               </div>

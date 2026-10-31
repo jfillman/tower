@@ -1,7 +1,7 @@
 import type { Entity } from '@backstage/catalog-model';
 import { CAP, capabilitiesOf } from './serviceClass';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
-import type { TowerAgentState, TowerFleetSummary, TowerPrMark } from './mounts';
+import type { TowerAgentState, TowerFleetSummary, TowerPrMark, TowerRunMark } from './mounts';
 
 // What Tower does with the fleet summary and the receipts a mount provides (mounts.tsx): which agent a Component is,
 // which agents may act on an app, and which PR or build an agent made. Pure, so the Services list, the Pull requests,
@@ -61,6 +61,13 @@ export function repoSlugOfUrl(url: string | undefined): string | undefined {
 export function markForPr(marks: TowerPrMark[], pr: Pick<PullRequestSummary, 'number' | 'url'>): TowerPrMark | undefined {
   const repo = repoSlugOfUrl(pr.url);
   return repo ? marks.find(m => m.repo === repo && m.pr === pr.number) : undefined;
+}
+
+/** The agent an event started for this run (by the run's name, the event's subject); a live one first. */
+export function runMarkFor(marks: TowerRunMark[], runName: string | undefined): TowerRunMark | undefined {
+  if (!runName) return undefined;
+  const mine = marks.filter(m => m.pipelineRun === runName);
+  return mine.find(m => m.state === 'live') ?? mine[0];
 }
 
 /** The receipt whose branch a build ran on (a PR's own preview build), by repo when the run knows its source repo. */

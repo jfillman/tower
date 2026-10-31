@@ -1,6 +1,6 @@
 import type { Entity } from '@backstage/catalog-model';
-import { agentMatchesQuery, agentNameOf, agentStateOf, appNameOf, indexFleet, markForBranch, markForPr, repoSlugOfUrl } from './fleetMarks';
-import type { TowerAgentState, TowerPrMark } from './mounts';
+import { agentMatchesQuery, agentNameOf, agentStateOf, appNameOf, indexFleet, markForBranch, markForPr, repoSlugOfUrl, runMarkFor } from './fleetMarks';
+import type { TowerAgentState, TowerPrMark, TowerRunMark } from './mounts';
 
 const entity = (name: string, annotations?: Record<string, string>): Entity => ({
   apiVersion: 'backstage.io/v1alpha1',
@@ -54,4 +54,13 @@ it('finds the receipt behind a PR or a branch build', () => {
   expect(markForBranch(marks, 'agent/t-9')?.pr).toBe(61);
   expect(markForBranch(marks, 'agent/t-9', 'https://github.com/jfillman/other')).toBeUndefined();
   expect(markForBranch(marks, undefined)).toBeUndefined();
+});
+
+it('finds the agent an event started for a run, preferring the live session', () => {
+  const mark = (state: TowerRunMark['state'], agent = 'triage-agent'): TowerRunMark => ({ pipelineRun: 'gate-api-push-abc', agent, session: `s-${state}`, eventId: 'e', at: '2026-10-31T00:00:00Z', state, tripped: false });
+  const marks = [mark('closed'), mark('live', 'other'), mark('expired')];
+  expect(runMarkFor(marks, 'gate-api-push-abc')?.agent).toBe('other');
+  expect(runMarkFor([mark('closed')], 'gate-api-push-abc')?.state).toBe('closed');
+  expect(runMarkFor(marks, 'another-run')).toBeUndefined();
+  expect(runMarkFor(marks, undefined)).toBeUndefined();
 });

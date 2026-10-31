@@ -18,7 +18,7 @@ import { Count, FilterBar, FilterChips, PageHeader, PanelSkeleton, TabError, Tab
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { TestRunsPanel } from './pipelines/TestRunsPanel';
 import { useTestRuns } from '../useTestRuns';
-import { useRepoMarks } from '../mounts';
+import { useRepoMarks, useRunMarks } from '../mounts';
 import { repoSlugOfUrl } from '../fleetMarks';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 import { usePlatformConfig } from '../platformConfig';
@@ -189,6 +189,8 @@ export function PipelinesTab() {
   // The PRs agents opened through Clearance on the repos these runs build (mounts.tsx): a run on such a PR's branch
   // carries the agent's mark. None without the Clearance plugin.
   const marks = useRepoMarks(useMemo(() => listRuns.map(r => repoSlugOfUrl(r.sourceRepoUrl)), [listRuns]));
+  // The runs an event started an agent for ("triage-agent investigating"), from the same mount's event history.
+  const runMarks = useRunMarks(appName);
   const dagPanelRef = useRef<HTMLDivElement>(null);
   const selectRun = (name: string) => {
     setSelectedRunName(name);
@@ -228,6 +230,7 @@ export function PipelinesTab() {
         <PipelineRunList
           runs={listRuns}
           marks={marks}
+          runMarks={runMarks}
           selectedName={selectedRunName}
           onSelect={run => selectRun(run.name)}
           onRerun={rerun.rerun}
