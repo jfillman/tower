@@ -7,6 +7,9 @@ import { useReleaseRunStatus } from './useReleaseData.esm.js';
 import { Callout, IconButton, TextLink } from './ui/index.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
+function runningStep(data) {
+  return data?.tasks.find((t) => t.state === "running")?.name;
+}
 const useStyles = makeStyles(() => ({
   steps: { display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(0, 1fr)", gap: 6, marginTop: 10 },
   step: { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 },
@@ -48,8 +51,8 @@ function ReleaseRunTracker({
         {
           className: classes.receipt,
           prUrl: data.prUrl,
-          title: `Release: ${appName} to ${release.env} \xB7 ${release.label}`,
-          next: "checks finish and, where the release mode asks for it, someone signs off; then merge it."
+          title: `${release.kind === "rollback" ? "Rollback" : "Release"}: ${appName} to ${release.env} \xB7 ${release.label}`,
+          next: `${data.changeRequest ? `change ${data.changeRequest} is approved, ` : ""}checks finish and, where the release mode asks for it, someone signs off; then merge it.`
         }
       ),
       dismiss
@@ -75,14 +78,14 @@ function ReleaseRunTracker({
     {
       tone: "info",
       label: "Release run",
-      title: `Release PR for ${release.label} \u2192 ${release.env} on its way`,
+      title: `${release.kind === "rollback" ? "Rollback" : "Release"} PR for ${release.label} \u2192 ${release.env} on its way`,
       actions: /* @__PURE__ */ jsxs(Fragment, { children: [
         runLink,
         status.gaveUp && dismiss
       ] }),
       children: [
         /* @__PURE__ */ jsxs("span", { "data-testid": "release-run-tracker", children: [
-          status.gaveUp ? "Still no PR after 15 minutes; the Pipelines tab has the run." : "You can leave this page: the PR also shows in Pull requests when it opens.",
+          status.gaveUp ? "Still no PR after 15 minutes; the Pipelines tab has the run." : `${runningStep(data) ? `Now: ${runningStep(data)}. ` : ""}You can leave this page: the PR also shows in Pull requests when it opens.`,
           status.error && !data ? ` Couldn't read the run yet (${status.error}); trying again.` : ""
         ] }),
         data && data.tasks.length > 0 && /* @__PURE__ */ jsx("div", { className: classes.steps, "aria-label": "Release run progress", children: data.tasks.map((task) => /* @__PURE__ */ jsx(Tooltip, { title: `${task.name}: ${task.state}`, children: /* @__PURE__ */ jsxs("div", { className: classes.step, children: [

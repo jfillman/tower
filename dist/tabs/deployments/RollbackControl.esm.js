@@ -6,6 +6,8 @@ import { fontMono, useHangarTokens } from '../../brand/tokens.esm.js';
 import { relativeTime } from '../../shared/format.esm.js';
 import { Hint, Button, Callout } from '../../ui/index.esm.js';
 import { OPENING_PR, PrReceipt } from '../../ui/PrRef.esm.js';
+import { useSearchParams } from 'react-router-dom';
+import { ReleaseRunTracker } from '../../ReleaseRunTracker.esm.js';
 import { ActionReason } from '../../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -21,8 +23,7 @@ const useStyles = makeStyles(() => ({
     backgroundColor: ({ t }) => t.panel,
     color: ({ t }) => t.textHi,
     minWidth: 220
-  },
-  ok: { fontSize: 11, color: ({ t }) => t.good }
+  }
 }));
 const tagOf = (image) => image ? image.slice(image.lastIndexOf(":") + 1) : "?";
 function RollbackControl({
@@ -43,6 +44,13 @@ function RollbackControl({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState();
+  const [, setSearchParams] = useSearchParams();
+  const openRun = (run) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.set("tab", "pipelines");
+    next.set("run", run);
+    return next;
+  });
   useEffect(() => {
     let live = true;
     (async () => {
@@ -75,7 +83,7 @@ function RollbackControl({
       });
       const body = await res.json().catch(() => void 0);
       if (!res.ok) throw new Error(body?.error ?? `request failed with ${res.status}`);
-      setResult(body);
+      setResult({ ...body, label: tagOf(plan?.targets.find((x) => x.releaseId === target)?.image) });
       setConfirming(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -145,11 +153,19 @@ function RollbackControl({
       /* @__PURE__ */ jsx(Button, { small: true, disabled: busy, onClick: () => setConfirming(false), children: "Cancel" })
     ] }),
     error && /* @__PURE__ */ jsx(Callout, { tone: "bad", children: error }),
-    result && (result.prUrl ? /* @__PURE__ */ jsx(PrReceipt, { prUrl: result.prUrl, alreadyOpen: result.alreadyOpen, next: "merge it to roll back." }) : /* @__PURE__ */ jsxs("span", { className: c.ok, children: [
-      "Rollback run ",
-      result.pipelineRun,
-      " started; its PR will show in Pull requests."
-    ] }))
+    result?.prUrl && /* @__PURE__ */ jsx(PrReceipt, { prUrl: result.prUrl, alreadyOpen: result.alreadyOpen, next: "merge it to roll back." }),
+    result && !result.prUrl && result.pipelineRun && // The backend waited 90 s for the PR; the run goes on, and this follows it to the PR (2026-10-31: the first
+    // live rollback took 8 minutes to open its PR, with nothing on screen in between).
+    /* @__PURE__ */ jsx(
+      ReleaseRunTracker,
+      {
+        appName,
+        release: { run: result.pipelineRun, env, label: result.label ?? "?", kind: "rollback" },
+        onPr: () => void 0,
+        onOpenRun: openRun,
+        onDismiss: () => setResult(void 0)
+      }
+    )
   ] });
 }
 
