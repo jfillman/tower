@@ -12,6 +12,9 @@ import { RefreshButton } from '../RefreshButton';
 import { Chip, EmptyNote, Hint, PageHeader, Section, StatusChip, TabError, TabSkeleton, TextLink, useTableKit } from '../ui';
 import { prFromSummary, prWord } from '../ui/PrRef';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
+import { useRepoMarks, type TowerPrMark } from '../mounts';
+import { markForPr } from '../fleetMarks';
+import { AgentMark } from '../AgentMark';
 
 const MERGED_DISPLAY_CAP = 10;
 
@@ -94,12 +97,15 @@ function PrTable({
   variant,
   classes,
   showPreviewChip = true,
+  marks = [],
 }: {
   prs: PullRequestSummary[];
   emptyMessage: string;
   variant: 'gitops' | 'source';
   classes: ReturnType<typeof useStyles>;
   showPreviewChip?: boolean;
+  /** PRs agents opened through Clearance (mounts.tsx): a matching row carries the agent's mark. */
+  marks?: TowerPrMark[];
 }) {
   const tc = useTableKit();
   if (prs.length === 0) return <EmptyNote inset>{emptyMessage}</EmptyNote>;
@@ -116,6 +122,7 @@ function PrTable({
       <tbody>
         {prs.map(pr => {
           const stale = Date.now() - new Date(pr.updatedAt).getTime() > STALE_THRESHOLD_MS;
+          const agentMark = markForPr(marks, pr);
           return (
             <tr
               key={`${pr.repo}-${pr.number}`}
@@ -127,6 +134,7 @@ function PrTable({
                 {variant === 'gitops' ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
                 <PrWordChip pr={pr} />
                 {showPreviewChip && hasPreviewLabel(pr) && <Chip className={classes.chipGapLeft}>preview</Chip>}
+                {agentMark && <AgentMark mark={agentMark} className={classes.chipGapLeft} />}
               </td>
               <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
               <td className={tc.td}>
@@ -154,7 +162,7 @@ function PrWordChip({ pr }: { pr: PullRequestSummary }) {
 // commits to "open". One list across both repos (rather than two more
 // gitops/source tables) since by the time a PR has merged, which repo it
 // was on matters less than just "what happened recently".
-function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: ReturnType<typeof useStyles> }) {
+function MergedPrTable({ prs, classes, marks = [] }: { prs: PullRequestSummary[]; classes: ReturnType<typeof useStyles>; marks?: TowerPrMark[] }) {
   const tc = useTableKit();
   if (prs.length === 0) return <EmptyNote inset>Nothing merged recently.</EmptyNote>;
   return (
@@ -168,7 +176,9 @@ function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: R
         </tr>
       </thead>
       <tbody>
-        {prs.map(pr => (
+        {prs.map(pr => {
+          const agentMark = markForPr(marks, pr);
+          return (
           <tr
             key={`${pr.repo}-${pr.number}`}
             className={tc.rowLink}
@@ -178,6 +188,7 @@ function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: R
             <td className={tc.td}>
               <Chip className={classes.chipGap}>{pr.repo}</Chip>
               {pr.repo === 'gitops' || pr.releasePin ? <GitopsTitle pr={pr} classes={classes} /> : pr.title}
+              {agentMark && <AgentMark mark={agentMark} className={classes.chipGapLeft} />}
             </td>
             <td className={`${tc.td} ${classes.mono}`}>{pr.author ?? '—'}</td>
             <td className={tc.td}>
@@ -186,7 +197,8 @@ function MergedPrTable({ prs, classes }: { prs: PullRequestSummary[]; classes: R
               </span>
             </td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
@@ -204,6 +216,8 @@ export function PullRequestsTab() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const repos = appName ? appRepos(appName, appTypeOf(entity)) : undefined;
   const prs = usePullRequests(owner && appName ? { owner, appName, appType: repos?.type } : undefined, refreshNonce);
+  // The PRs agents opened through Clearance on this app's repos, for the marks (mounts.tsx); none without the plugin.
+  const marks = useRepoMarks([owner && repos?.sourceRepo ? `${owner}/${repos.sourceRepo}` : undefined, owner && repos ? `${owner}/${repos.gitopsRepo}` : undefined]);
 
   if (!projectSlug || !owner || !appName) {
     return <MissingAnnotationEmptyState annotation="github.com/project-slug" />;
@@ -249,7 +263,7 @@ export function PullRequestsTab() {
         meta={<Chip tone="sky">{gitopsPrs.some(pr => pr.releasePin) ? `${appName} pins` : repos?.gitopsRepo}</Chip>}
         count={`${gitopsPrs.length} open`}
       >
-        <PrTable prs={gitopsPrs} emptyMessage="No open release PRs." variant="gitops" classes={classes} />
+        <PrTable prs={gitopsPrs} emptyMessage="No open release PRs." variant="gitops" classes={classes} marks={marks} />
       </Section>
 
       {previewPrs.length > 0 && (
@@ -265,13 +279,14 @@ export function PullRequestsTab() {
             variant="source"
             classes={classes}
             showPreviewChip={false}
+            marks={marks}
           />
         </Section>
       )}
 
       {repos?.sourceRepo && (
       <Section framed title="Source PRs" meta={<Chip tone="sky">{repos.sourceRepo}</Chip>} count={`${sourcePrsRaw.length} open`}>
-        <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} />
+        <PrTable prs={sourcePrs} emptyMessage="No open source PRs." variant="source" classes={classes} marks={marks} />
         {overflowCount > 0 && (
           <Hint inset>
             <TextLink href={`https://github.com/${owner}/${appName}/pulls`}>
@@ -283,7 +298,7 @@ export function PullRequestsTab() {
       )}
 
       <Section framed title="Recently merged" count={`${mergedPrs.length} shown`}>
-        <MergedPrTable prs={mergedPrs} classes={classes} />
+        <MergedPrTable prs={mergedPrs} classes={classes} marks={marks} />
       </Section>
       </div>
     </div>

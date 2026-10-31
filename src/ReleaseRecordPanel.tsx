@@ -12,6 +12,8 @@ import type { NextRelease, NextReleaseCandidate } from './nextRelease';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
 import { withRecordedEvidence, type ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseNames } from './useReleaseNames';
+import { useRepoMarks } from './mounts';
+import { repoSlugOfUrl } from './fleetMarks';
 
 // The Releases sub-tab: list<->detail<->compare. Which record is open can be controlled by the tab (openId /
 // onOpenIdChange), since the cards above it open records too (2026-10-14, mockup E); left uncontrolled, it keeps its
@@ -77,6 +79,8 @@ export function ReleaseRecordPanel({
     const byTag = new Map((names?.index ?? []).map(e => [e.imageTag, e]));
     return liveRecords.map(r => withRecordedEvidence(r, byTag.get(r.imageTag)));
   }, [liveRecords, names]);
+  // The PRs agents opened through Clearance on the repos these records' PRs live in (mounts.tsx), for the marks.
+  const marks = useRepoMarks(useMemo(() => records.flatMap(r => r.pullRequests.map(pr => repoSlugOfUrl(pr.url))), [records]));
   const [ownOpenId, setOwnOpenId] = useState<string | null>(null);
   const openId = controlledOpenId !== undefined ? controlledOpenId : ownOpenId;
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -162,6 +166,7 @@ export function ReleaseRecordPanel({
         totalKnown={totalKnown}
         names={names?.byTag}
         flightEnvs={flightEnvs}
+        marks={marks}
         onChangelog={names ? onChangelog : undefined}
         onOpen={setOpenId}
       />

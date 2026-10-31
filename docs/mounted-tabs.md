@@ -20,8 +20,38 @@ interface TowerTabMount {
   // Whether the tab has anything to say about this service; absent means always. Tower asks once per
   // service and hides the tab until the answer is yes. A failure counts as no.
   relevant?: (ctx: { entity: Entity; discoveryApi: DiscoveryApi; fetchApi: FetchApi }) => Promise<boolean>;
+  // Every agent's state for the Services list (board T0), polled every 30 s while the list is open.
+  // The Autopilot mount provides it.
+  fleet?: (apis: { discoveryApi; fetchApi }) => Promise<TowerFleetSummary>;
+  // The PRs agents opened on a repo (owner/name) through Clearance, for the marks in Pull requests,
+  // Pipelines and Releases (board T1). The Clearance mount provides it; asked per repo shown, every 60 s.
+  receipts?: (apis: { discoveryApi; fetchApi }, repo: string) => Promise<TowerPrMark[]>;
 }
+
+interface TowerFleetSummary {
+  agents: Array<{
+    name: string; kind: string;
+    actsOn: string[];          // the apps its scope names (Glidepath apps, repo names without gitops-)
+    triggers: string[];        // in words: "every 24h", "pipeline finished", "manual"
+    live: number; tripped: number; waiting: number;   // waiting = questions on a person
+    lastRun?: { at: string; state: 'live' | 'closed' | 'expired'; tripped: boolean };
+  }>;
+  newAgentHref?: string;       // the New agent profile page (board A3), an in-app path
+}
+
+interface TowerPrMark { repo: string; pr: number; agent: string; branch?: string; at: string; verified: boolean }
 ```
+
+What Tower draws from them (`src/fleetMarks.ts`, `src/AgentMark.tsx`):
+
+- **Services list** (board T0): an AI workload's card shows its shape or trigger, its live state (running, frozen
+  with the breaker tripped, last run), the questions waiting on a person and the apps it acts on, in place of
+  environment health; an app's card says how many agents can act on it; search matches the apps an agent may act
+  on; the header links to New agent profile when the mount names it. The agent behind a Component is its name, or
+  `autopilot.hangar.io/agent` when they differ (the Autopilot plugin reads the same annotation).
+- **Marks**: a Pull requests row whose PR has a receipt carries the Clearance glyph and the agent's name (hover:
+  verified or only recorded, when); a Releases card whose PRs include one says so; a Pipelines row building the
+  branch of such a PR says whose PR it builds.
 
 `@jfillman/tower` exports `towerTabMountDataRef`, `TOWER_TAB_MOUNT_ID`, `TOWER_MOUNT_INPUTS` and the types
 (`src/mounts.tsx`). The Clearance plugin may not import Tower (it is standalone-ready), so it declares the same ref by
@@ -52,8 +82,10 @@ const towerClearanceTab = createExtension({
 
 ## Not built yet
 
-- A live-activity dot on the Agent tab (a run in progress), like the Pipelines and Deployments dots. The mount would
-  have to report it; the contract has no field for that yet.
-- Tower's Services list showing an agent's live state in place of environment health, searching by the apps an agent
-  may act on, and an app's card saying how many agents can act on it (design board T0).
-- The small Clearance marks in Pipelines, Pull requests and Releases (design board T1).
+- A live-activity dot on the Agent tab (a run in progress), like the Pipelines and Deployments dots. The fleet
+  summary could feed it; not wired.
+- A Pipelines row saying "<agent> investigating" on the failed run that started an event agent (board T1): Clearance
+  records the trigger as `trigger:glidepath:<event id>`, not the PipelineRun the event named, so nothing links the
+  two yet. The mark on a PR's own build is there (by branch).
+- The deployment-gate marks ("tier 2 · holding", "clearance attestation") arrive with the gate.
+- A scheduled agent's "next run at" chip: the fleet summary carries the trigger in words, not the next time.
