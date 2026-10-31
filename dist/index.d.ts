@@ -12,11 +12,58 @@ interface TowerTabMount {
      * hides the tab until the answer is yes, so most services do not get an empty tab. A failure counts as no.
      */
     relevant?: (ctx: TowerMountContext) => Promise<boolean>;
+    /**
+     * Every agent's state for the Services list (design board T0: live, frozen, a request waiting, what it acts on),
+     * polled every 30 s while the list is open. The Autopilot mount provides it.
+     */
+    fleet?: (apis: TowerMountApis) => Promise<TowerFleetSummary>;
+    /**
+     * The PRs agents opened on a repo (`owner/name`) through Clearance, for the marks in Pull requests, Pipelines and
+     * Releases (board T1). The Clearance mount provides it; Tower asks per repo it shows, every 60 s.
+     */
+    receipts?: (apis: TowerMountApis, repo: string) => Promise<TowerPrMark[]>;
 }
-interface TowerMountContext {
-    entity: Entity;
+interface TowerMountApis {
     discoveryApi: DiscoveryApi;
     fetchApi: FetchApi;
+}
+interface TowerMountContext extends TowerMountApis {
+    entity: Entity;
+}
+/** One agent, as the Services list shows it. `name` is the definition's name (the Component's, or its annotation). */
+interface TowerAgentState {
+    name: string;
+    /** task | session | service | scheduled | event | team */
+    kind: string;
+    /** The apps its definition's scope names (Glidepath apps, repo names without a gitops- prefix): "acts on", and search. */
+    actsOn: string[];
+    /** The triggers in words: "every 24h", "pipeline finished", "manual". */
+    triggers: string[];
+    live: number;
+    tripped: number;
+    /** Questions it asked that wait on a person. */
+    waiting: number;
+    lastRun?: {
+        at: string;
+        state: 'live' | 'closed' | 'expired';
+        tripped: boolean;
+    };
+}
+interface TowerFleetSummary {
+    agents: TowerAgentState[];
+    /** Where a person starts a new agent profile (board A3), when the plugin offers it; an in-app path. */
+    newAgentHref?: string;
+}
+/** A PR an agent opened through Clearance: the receipt Clearance recorded. */
+interface TowerPrMark {
+    /** `owner/name`, lower case. */
+    repo: string;
+    pr: number;
+    agent: string;
+    branch?: string;
+    at: string;
+    /** Clearance verified the receipt against the PR (authorized-and-verified coverage), or only recorded the claim. */
+    verified: boolean;
 }
 declare const TOWER_TAB_MOUNT_ID = "tower.tab-mount";
 declare const towerTabMountDataRef: _backstage_frontend_plugin_api.ConfigurableExtensionDataRef<TowerTabMount, "tower.tab-mount", {}>;

@@ -9,6 +9,8 @@ import { ReleaseRecordCompare } from './ReleaseRecordCompare.esm.js';
 import { NextReleaseCard } from './NextReleaseCard.esm.js';
 import { AutolandEligibility } from './AutolandEligibility.esm.js';
 import { withRecordedEvidence } from './useReleaseRecords.esm.js';
+import { useRepoMarks } from './mounts.esm.js';
+import { repoSlugOfUrl } from './fleetMarks.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -42,6 +44,7 @@ function ReleaseRecordPanel({
     const byTag = new Map((names?.index ?? []).map((e) => [e.imageTag, e]));
     return liveRecords.map((r) => withRecordedEvidence(r, byTag.get(r.imageTag)));
   }, [liveRecords, names]);
+  const marks = useRepoMarks(useMemo(() => records.flatMap((r) => r.pullRequests.map((pr) => repoSlugOfUrl(pr.url))), [records]));
   const [ownOpenId, setOwnOpenId] = useState(null);
   const openId = controlledOpenId !== void 0 ? controlledOpenId : ownOpenId;
   const [compareId, setCompareId] = useState(null);
@@ -116,6 +119,7 @@ function ReleaseRecordPanel({
         totalKnown,
         names: names?.byTag,
         flightEnvs,
+        marks,
         onChangelog: names ? onChangelog : void 0,
         onOpen: setOpenId
       }

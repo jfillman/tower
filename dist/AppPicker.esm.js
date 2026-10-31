@@ -11,8 +11,11 @@ import { triggerCatalogRefresh } from './catalogRefresh.esm.js';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip.esm.js';
+import { useFleetSummary } from './mounts.esm.js';
+import { indexFleet, agentMatchesQuery, agentStateOf, isAgentEntity, appNameOf } from './fleetMarks.esm.js';
+import { AgentStateChips, ActingAgentsChip } from './AgentMark.esm.js';
 import { BreakglassQueueStrip } from './breakglass/BreakglassQueueStrip.esm.js';
 import { ProvisioningView } from './provisioning/ProvisioningView.esm.js';
 import { useNow, toItems } from './provisioning/shared.esm.js';
@@ -303,6 +306,9 @@ function AppPicker({
   const [typeFilter, setTypeFilter] = useState(ALL);
   const [providerFilter, setProviderFilter] = useState(ALL);
   const [viewMode, setViewModeState] = useState(() => loadViewMode());
+  const navigate = useNavigate();
+  const fleet = useFleetSummary();
+  const fleetIndex = useMemo(() => indexFleet(fleet.data), [fleet.data]);
   useEffect(() => {
     let cancelled = false;
     let loaded = false;
@@ -357,10 +363,11 @@ function AppPicker({
     const list = entities.filter((e) => {
       if (!matchesFilters(e)) return false;
       if (!q) return true;
-      return e.metadata.name.toLowerCase().includes(q) || (e.metadata.title ?? "").toLowerCase().includes(q) || (e.metadata.description ?? "").toLowerCase().includes(q);
+      return e.metadata.name.toLowerCase().includes(q) || (e.metadata.title ?? "").toLowerCase().includes(q) || (e.metadata.description ?? "").toLowerCase().includes(q) || // An agent is also found by the apps it may act on: "gate" finds triage-agent (scope gate-api).
+      agentMatchesQuery(agentStateOf(fleetIndex, e), q);
     });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query, matchesFilters]);
+  }, [entities, query, matchesFilters, fleetIndex]);
   const starredEntities = useMemo(
     () => (entities ?? []).filter((e) => starred.has(stringifyEntityRef(e)) && matchesFilters(e)).sort((a, b) => a.metadata.name.localeCompare(b.metadata.name)),
     [entities, starred, matchesFilters]
@@ -403,6 +410,12 @@ function AppPicker({
       target && target.id !== "k8s-rollout" ? ` \xB7 ${target.label}` : ""
     ] });
   };
+  const renderAgentChips = (e) => {
+    const state = agentStateOf(fleetIndex, e);
+    if (state) return /* @__PURE__ */ jsx(AgentStateChips, { state });
+    if (isAgentEntity(e)) return null;
+    return /* @__PURE__ */ jsx(ActingAgentsChip, { agents: fleetIndex.actingOn(appNameOf(e)) });
+  };
   const renderCard = (e) => {
     const ref = stringifyEntityRef(e);
     return /* @__PURE__ */ jsxs("div", { className: classes.card, ...activate(ref), children: [
@@ -411,6 +424,7 @@ function AppPicker({
         renderStar(ref)
       ] }),
       /* @__PURE__ */ jsx("div", { className: classes.cardDesc, children: e.metadata.description }),
+      renderAgentChips(e),
       /* @__PURE__ */ jsxs("div", { className: classes.cardFoot, children: [
         renderTypeChip(e),
         /* @__PURE__ */ jsx(Tooltip, { title: e.spec?.owner, children: /* @__PURE__ */ jsx("span", { className: classes.owner, children: ownerLabel(e.spec?.owner) }) })
@@ -429,7 +443,10 @@ function AppPicker({
       const ref = stringifyEntityRef(e);
       return /* @__PURE__ */ jsxs("tr", { className: tc.rowLink, ...activate(ref), children: [
         /* @__PURE__ */ jsx("td", { className: tc.td, children: renderStar(ref) }),
-        /* @__PURE__ */ jsx("td", { className: tc.td, children: /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }) }),
+        /* @__PURE__ */ jsxs("td", { className: tc.td, children: [
+          /* @__PURE__ */ jsx("span", { className: classes.name, children: e.metadata.title ?? e.metadata.name }),
+          renderAgentChips(e)
+        ] }),
         /* @__PURE__ */ jsx("td", { className: tc.td, children: renderTypeChip(e) }),
         /* @__PURE__ */ jsx(Tooltip, { title: e.spec?.owner, children: /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.meta}`, children: ownerLabel(e.spec?.owner) }) }),
         /* @__PURE__ */ jsx("td", { className: `${tc.td} ${classes.tdDesc}`, children: e.metadata.description })
@@ -454,7 +471,8 @@ function AppPicker({
         /* @__PURE__ */ jsx(TextLink, { onClick: onOpenDashboard, children: "Fleet Dashboard \u2192" }),
         onOpenAirspace && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenAirspace, children: "Airspace \u2192" }),
         onOpenAgentRequests && /* @__PURE__ */ jsx(AgentRequestsLink, { onOpen: onOpenAgentRequests }),
-        onOpenForYou && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenForYou, children: "For you \u2192" })
+        onOpenForYou && /* @__PURE__ */ jsx(TextLink, { onClick: onOpenForYou, children: "For you \u2192" }),
+        fleetIndex.newAgentHref && /* @__PURE__ */ jsx(TextLink, { onClick: () => navigate(fleetIndex.newAgentHref), children: "New agent profile \u2192" })
       ] })
     ] }),
     /* @__PURE__ */ jsx(Typography, { className: classes.sub, children: "Everything running on Hangar. Select a service to open its tabs." }),

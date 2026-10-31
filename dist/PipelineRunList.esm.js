@@ -5,6 +5,8 @@ import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
 import { EmptyNote, FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
+import { markForBranch } from './fleetMarks.esm.js';
+import { AgentMark } from './AgentMark.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const STATUS_FILTERS = [
@@ -53,6 +55,7 @@ const useStyles = makeStyles(() => ({
   // component's comment) already assumed was happening.
   main: { display: "flex", flexDirection: "column", gap: 2, flex: "0 0 260px", minWidth: 0 },
   title: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
+  agentMark: { marginLeft: 8 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, display: "flex", flexWrap: "wrap", gap: 6 },
   sha: { color: ({ t }) => t.sky, textDecoration: "none" },
   shaLink: { "&:hover": { textDecoration: "underline" } },
@@ -199,10 +202,13 @@ function RunError({ run, classes }) {
   if (run.phase !== "failed" || !run.message) return null;
   return /* @__PURE__ */ jsx("span", { className: classes.errorLine, title: run.message, children: run.message });
 }
-function RunDescriptor({ run, classes }) {
+function RunDescriptor({ run, classes, mark }) {
   if (run.sha) {
     return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
-      /* @__PURE__ */ jsx("span", { className: classes.title, children: pipelineTitle(run) }),
+      /* @__PURE__ */ jsxs("span", { className: classes.title, children: [
+        pipelineTitle(run),
+        mark && /* @__PURE__ */ jsx(AgentMark, { mark, what: "build", className: classes.agentMark })
+      ] }),
       /* @__PURE__ */ jsxs("span", { className: classes.meta, children: [
         (run.branch ?? run.name) && /* @__PURE__ */ jsxs("span", { children: [
           run.branch ?? run.name,
@@ -248,7 +254,8 @@ function PipelineRunList({
   onRerun,
   rerunPending,
   onCancel,
-  cancelPending
+  cancelPending,
+  marks = []
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -343,7 +350,7 @@ function PipelineRunList({
             },
             children: [
               /* @__PURE__ */ jsx("span", { className: classes.statusDot, style: { backgroundColor: tone.fg } }),
-              /* @__PURE__ */ jsx(RunDescriptor, { run, classes }),
+              /* @__PURE__ */ jsx(RunDescriptor, { run, classes, mark: markForBranch(marks, run.branch, run.sourceRepoUrl) }),
               /* @__PURE__ */ jsx("div", { className: classes.thumb, children: /* @__PURE__ */ jsx(MiniDag, { run, maxCols, maxRows }) }),
               /* @__PURE__ */ jsxs("div", { className: classes.side, children: [
                 /* @__PURE__ */ jsxs("div", { className: classes.actionSlot, children: [
