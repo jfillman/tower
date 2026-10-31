@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppPicker, CATALOG_REFRESH_MS } from './AppPicker';
+import { TowerMountsProvider, type TowerFleetSummary } from './mounts';
 
 const entities = [
   { name: 'baggage-api', type: 'service', tags: ['kind:nodejsapplication'] },
@@ -37,6 +38,44 @@ jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => 
 
 const pressed = (name: string) =>
   screen.getByRole('button', { name: new RegExp(`^${name}`) }).getAttribute('aria-pressed');
+
+describe('AppPicker with the Autopilot plugin mounted (the fleet summary, 2026-10-31)', () => {
+  const fleet = async (): Promise<TowerFleetSummary> => ({
+    agents: [
+      {
+        name: 'ops-copilot',
+        kind: 'session',
+        actsOn: ['gate-assign-svc'],
+        triggers: ['manual'],
+        live: 1,
+        tripped: 0,
+        waiting: 2,
+        lastRun: { at: new Date(Date.now() - 8 * 60_000).toISOString(), state: 'live', tripped: false },
+      },
+    ],
+    newAgentHref: '/autopilot?view=new',
+  });
+
+  it("shows an agent's live state and scope on its card, counts agents on an app, searches by scope, links to New agent", async () => {
+    render(
+      <MemoryRouter>
+        <TowerMountsProvider mounts={{ agent: { element: <i />, fleet } }}>
+          <AppPicker onSelect={jest.fn()} onOpenDashboard={jest.fn()} />
+        </TowerMountsProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByText('ops-copilot');
+    await screen.findByText(/^running · \dm ago$/);
+    expect(screen.getByText('2 requests waiting')).toBeTruthy();
+    expect(screen.getByText('acts on gate-assign-svc')).toBeTruthy();
+    expect(screen.getByText('1 agent can act')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New agent profile →' })).toBeTruthy();
+    // "gate" is not in ops-copilot's name or description, but it acts on gate-assign-svc.
+    fireEvent.change(screen.getByPlaceholderText('Search services…'), { target: { value: 'gate-assign' } });
+    expect(screen.getByText('ops-copilot')).toBeTruthy();
+    expect(screen.queryByText('baggage-api')).toBeNull();
+  });
+});
 
 describe('AppPicker home', () => {
   beforeEach(() => {

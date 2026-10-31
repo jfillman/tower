@@ -18,6 +18,8 @@ import { Count, FilterBar, FilterChips, PageHeader, PanelSkeleton, TabError, Tab
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { TestRunsPanel } from './pipelines/TestRunsPanel';
 import { useTestRuns } from '../useTestRuns';
+import { useRepoMarks } from '../mounts';
+import { repoSlugOfUrl } from '../fleetMarks';
 import { isPreviewEnvName, isRolloutActive } from '../types';
 import { usePlatformConfig } from '../platformConfig';
 
@@ -184,6 +186,9 @@ export function PipelinesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listRuns, mergedRuns, linkedRun]);
   const selectedRun = mergedRuns.find(r => r.name === selectedRunName);
+  // The PRs agents opened through Clearance on the repos these runs build (mounts.tsx): a run on such a PR's branch
+  // carries the agent's mark. None without the Clearance plugin.
+  const marks = useRepoMarks(useMemo(() => listRuns.map(r => repoSlugOfUrl(r.sourceRepoUrl)), [listRuns]));
   const dagPanelRef = useRef<HTMLDivElement>(null);
   const selectRun = (name: string) => {
     setSelectedRunName(name);
@@ -222,6 +227,7 @@ export function PipelinesTab() {
         )}
         <PipelineRunList
           runs={listRuns}
+          marks={marks}
           selectedName={selectedRunName}
           onSelect={run => selectRun(run.name)}
           onRerun={rerun.rerun}

@@ -12,8 +12,11 @@ import type { Entity } from '@backstage/catalog-model';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { HangarMark } from './brand/HangarMark';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ProvisioningStrip } from './provisioning/ProvisioningStrip';
+import { useFleetSummary } from './mounts';
+import { agentMatchesQuery, agentStateOf, appNameOf, indexFleet, isAgentEntity } from './fleetMarks';
+import { ActingAgentsChip, AgentStateChips } from './AgentMark';
 import { BreakglassQueueStrip } from './breakglass/BreakglassQueueStrip';
 import type { BreakglassQueueRow } from './breakglass/useBreakglassQueue';
 import { ProvisioningView } from './provisioning/ProvisioningView';
@@ -349,6 +352,11 @@ export function AppPicker({
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(ALL);
   const [providerFilter, setProviderFilter] = useState<string>(ALL);
   const [viewMode, setViewModeState] = useState<ViewMode>(() => loadViewMode());
+  const navigate = useNavigate();
+  // Every agent's state, from the Autopilot plugin when it is installed (mounts.tsx): an AI workload's card shows it
+  // in place of environment health, an app's card says how many agents can act on it (design board T0, 2026-10-31).
+  const fleet = useFleetSummary();
+  const fleetIndex = useMemo(() => indexFleet(fleet.data), [fleet.data]);
 
   useEffect(() => {
     let cancelled = false;
@@ -435,11 +443,13 @@ export function AppPicker({
       return (
         e.metadata.name.toLowerCase().includes(q) ||
         (e.metadata.title ?? '').toLowerCase().includes(q) ||
-        (e.metadata.description ?? '').toLowerCase().includes(q)
+        (e.metadata.description ?? '').toLowerCase().includes(q) ||
+        // An agent is also found by the apps it may act on: "gate" finds triage-agent (scope gate-api).
+        agentMatchesQuery(agentStateOf(fleetIndex, e), q)
       );
     });
     return [...list].sort((a, b) => a.metadata.name.localeCompare(b.metadata.name));
-  }, [entities, query, matchesFilters]);
+  }, [entities, query, matchesFilters, fleetIndex]);
 
   // Follows the workload-type filter (it scopes the whole page, so starred
   // container apps should not sit under "AI workloads") but not the text
@@ -501,6 +511,14 @@ export function AppPicker({
     );
   };
 
+  // An agent's live state, or how many agents can act on an app; nothing until the Autopilot plugin reports.
+  const renderAgentChips = (e: Entity) => {
+    const state = agentStateOf(fleetIndex, e);
+    if (state) return <AgentStateChips state={state} />;
+    if (isAgentEntity(e)) return null;
+    return <ActingAgentsChip agents={fleetIndex.actingOn(appNameOf(e))} />;
+  };
+
   const renderCard = (e: Entity) => {
     const ref = stringifyEntityRef(e);
     return (
@@ -510,6 +528,7 @@ export function AppPicker({
           {renderStar(ref)}
         </div>
         <div className={classes.cardDesc}>{e.metadata.description}</div>
+        {renderAgentChips(e)}
         <div className={classes.cardFoot}>
           {renderTypeChip(e)}
           <Tooltip title={e.spec?.owner as string | undefined}>
@@ -542,6 +561,7 @@ export function AppPicker({
                 <td className={tc.td}>{renderStar(ref)}</td>
                 <td className={tc.td}>
                   <span className={classes.name}>{e.metadata.title ?? e.metadata.name}</span>
+                  {renderAgentChips(e)}
                 </td>
                 <td className={tc.td}>{renderTypeChip(e)}</td>
                 <Tooltip title={e.spec?.owner as string | undefined}>
@@ -581,6 +601,7 @@ export function AppPicker({
           {onOpenAirspace && <TextLink onClick={onOpenAirspace}>Airspace →</TextLink>}
           {onOpenAgentRequests && <AgentRequestsLink onOpen={onOpenAgentRequests} />}
           {onOpenForYou && <TextLink onClick={onOpenForYou}>For you →</TextLink>}
+          {fleetIndex.newAgentHref && <TextLink onClick={() => navigate(fleetIndex.newAgentHref!)}>New agent profile →</TextLink>}
         </span>
       </div>
       <Typography className={classes.sub}>Everything running on Hangar. Select a service to open its tabs.</Typography>

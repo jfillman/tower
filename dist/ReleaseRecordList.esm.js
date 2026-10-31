@@ -1,4 +1,4 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { makeStyles } from '@material-ui/core/styles';
 import { commitProofOf, commitProofChip, commitProofTone, commitProofLine } from './commitProof.esm.js';
 import { formatDateTime } from './shared/format.esm.js';
@@ -10,6 +10,8 @@ import { outcomeChip } from './ReleaseOutcome.esm.js';
 import { changeRequestTone } from './ReleaseRecordEvidence.esm.js';
 import { displayScore } from './useReleaseRecords.esm.js';
 import { SectionTitle, TextLink, Count, StatusChip, IconButton } from './ui/index.esm.js';
+import { markForPr } from './fleetMarks.esm.js';
+import { AgentMark } from './AgentMark.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -77,7 +79,8 @@ function ReleaseRecordList({
   names,
   flightEnvs,
   onOpen,
-  onChangelog
+  onChangelog,
+  marks
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -109,6 +112,7 @@ function ReleaseRecordList({
       const pill = statusPill(record);
       const outcome = outcomeChip(record.outcome);
       const prAuthor = record.pullRequests[0]?.author;
+      const agentMark = marks?.length ? record.pullRequests.map((pr) => markForPr(marks, pr)).find(Boolean) : void 0;
       return /* @__PURE__ */ jsxs(
         "button",
         {
@@ -132,7 +136,11 @@ function ReleaseRecordList({
                 " PR",
                 record.pullRequests.length === 1 ? "" : "s",
                 prAuthor ? ` \xB7 ${prAuthor}` : "",
-                record.status === "degraded" && record.current ? " \xB7 currently degraded" : ""
+                record.status === "degraded" && record.current ? " \xB7 currently degraded" : "",
+                agentMark && /* @__PURE__ */ jsxs(Fragment, { children: [
+                  " \xB7 ",
+                  /* @__PURE__ */ jsx(AgentMark, { mark: agentMark })
+                ] })
               ] }),
               flightEnvs && flightEnvs.length > 1 && /* @__PURE__ */ jsx("div", { className: classes.ladder, "aria-label": "Flight environments", children: flightEnvs.map((env) => {
                 const d = record.deployments.find((x) => x.env.toLowerCase() === env.toLowerCase());

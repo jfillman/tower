@@ -6,6 +6,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
 import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
+import type { TowerPrMark } from './mounts';
+import { markForBranch } from './fleetMarks';
+import { AgentMark } from './AgentMark';
 
 // Rows sorted newest-started-first (useTektonPipelineRuns already sorts this
 // way) with a small non-interactive DAG thumbnail per row - the
@@ -87,6 +90,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   // component's comment) already assumed was happening.
   main: { display: 'flex', flexDirection: 'column', gap: 2, flex: '0 0 260px', minWidth: 0 },
   title: { fontFamily: fontDisplay, fontWeight: 600, fontSize: 13, color: ({ t }) => t.textHi },
+  agentMark: { marginLeft: 8 },
   meta: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textFaint, display: 'flex', flexWrap: 'wrap', gap: 6 },
   sha: { color: ({ t }) => t.sky, textDecoration: 'none' },
   shaLink: { '&:hover': { textDecoration: 'underline' } },
@@ -314,11 +318,14 @@ function RunError({ run, classes }: { run: PipelineRunSummary; classes: ReturnTy
 // push/PR carries a branch/commit/event, while a Tekton-Trigger run off a
 // CDEvent (e.g. a flow's gitops-image-bump stage) carries none of that, only
 // a pipeline name + the trigger that fired it.
-function RunDescriptor({ run, classes }: { run: PipelineRunSummary; classes: ReturnType<typeof useStyles> }) {
+function RunDescriptor({ run, classes, mark }: { run: PipelineRunSummary; classes: ReturnType<typeof useStyles>; mark?: TowerPrMark }) {
   if (run.sha) {
     return (
       <div className={classes.main}>
-        <span className={classes.title}>{pipelineTitle(run)}</span>
+        <span className={classes.title}>
+          {pipelineTitle(run)}
+          {mark && <AgentMark mark={mark} what="build" className={classes.agentMark} />}
+        </span>
         <span className={classes.meta}>
           {(run.branch ?? run.name) && <span>{run.branch ?? run.name} &middot;</span>}
           {run.sourceRepoUrl ? (
@@ -362,8 +369,11 @@ export function PipelineRunList({
   rerunPending,
   onCancel,
   cancelPending,
+  marks = [],
 }: {
   runs: PipelineRunSummary[];
+  /** PRs agents opened through Clearance (mounts.tsx): a run on such a PR's branch carries the agent's mark. */
+  marks?: TowerPrMark[];
   selectedName?: string;
   onSelect: (run: PipelineRunSummary) => void;
   // Tower's Tekton "Re-run" action (HANDOFF-tower-write-actions.md Tier 1) -
@@ -486,7 +496,7 @@ export function PipelineRunList({
               }}
             >
               <span className={classes.statusDot} style={{ backgroundColor: tone.fg }} />
-              <RunDescriptor run={run} classes={classes} />
+              <RunDescriptor run={run} classes={classes} mark={markForBranch(marks, run.branch, run.sourceRepoUrl)} />
               <div className={classes.thumb}>
                 <MiniDag run={run} maxCols={maxCols} maxRows={maxRows} />
               </div>

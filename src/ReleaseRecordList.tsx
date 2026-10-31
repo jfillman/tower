@@ -10,6 +10,9 @@ import { outcomeChip } from './ReleaseOutcome';
 import { changeRequestTone } from './ReleaseRecordEvidence';
 import { displayScore, type ReleaseRecord } from './useReleaseRecords';
 import { Count, IconButton, SectionTitle, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
+import type { TowerPrMark } from './mounts';
+import { markForPr } from './fleetMarks';
+import { AgentMark } from './AgentMark';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -84,6 +87,7 @@ export function ReleaseRecordList({
   flightEnvs,
   onOpen,
   onChangelog,
+  marks,
 }: {
   records: ReleaseRecord[];
   totalKnown: number;
@@ -94,6 +98,8 @@ export function ReleaseRecordList({
   onOpen: (id: string) => void;
   /** Opens the app's changelog (every release's notes), once its release history has loaded. */
   onChangelog?: () => void;
+  /** PRs agents opened through Clearance (mounts.tsx): a record carrying one says whose. */
+  marks?: TowerPrMark[];
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
@@ -123,6 +129,7 @@ export function ReleaseRecordList({
           const pill = statusPill(record);
           const outcome = outcomeChip(record.outcome);
           const prAuthor = record.pullRequests[0]?.author;
+          const agentMark = marks?.length ? record.pullRequests.map(pr => markForPr(marks, pr)).find(Boolean) : undefined;
           return (
             <button
               key={record.id}
@@ -151,6 +158,12 @@ export function ReleaseRecordList({
                   {record.pullRequests.length} PR{record.pullRequests.length === 1 ? '' : 's'}
                   {prAuthor ? ` · ${prAuthor}` : ''}
                   {record.status === 'degraded' && record.current ? ' · currently degraded' : ''}
+                  {agentMark && (
+                    <>
+                      {' · '}
+                      <AgentMark mark={agentMark} />
+                    </>
+                  )}
                 </div>
                 {flightEnvs && flightEnvs.length > 1 && (
                   <div className={classes.ladder} aria-label="Flight environments">
