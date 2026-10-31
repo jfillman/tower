@@ -22,6 +22,22 @@ interface TowerTabMount {
      * Releases (board T1). The Clearance mount provides it; Tower asks per repo it shows, every 60 s.
      */
     receipts?: (apis: TowerMountApis, repo: string) => Promise<TowerPrMark[]>;
+    /**
+     * The runs an event started an agent for on this app in the last day, for Pipelines' "agent investigating" mark
+     * (board T1). The Clearance mount provides it from clearance-api's event history; Tower asks every 30 s.
+     */
+    runMarks?: (apis: TowerMountApis, app: string) => Promise<TowerRunMark[]>;
+}
+/** A run an event named (its PipelineRun) and the agent the event started on it. */
+interface TowerRunMark {
+    pipelineRun: string;
+    agent: string;
+    session: string;
+    eventId: string;
+    at: string;
+    /** The agent's session: live (investigating), closed or expired (investigated), or unknown to this viewer. */
+    state: 'live' | 'closed' | 'expired' | 'unknown';
+    tripped: boolean;
 }
 interface TowerMountApis {
     discoveryApi: DiscoveryApi;

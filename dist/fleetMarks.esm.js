@@ -35,11 +35,16 @@ function markForPr(marks, pr) {
   const repo = repoSlugOfUrl(pr.url);
   return repo ? marks.find((m) => m.repo === repo && m.pr === pr.number) : void 0;
 }
+function runMarkFor(marks, runName) {
+  if (!runName) return void 0;
+  const mine = marks.filter((m) => m.pipelineRun === runName);
+  return mine.find((m) => m.state === "live") ?? mine[0];
+}
 function markForBranch(marks, branch, sourceRepoUrl) {
   if (!branch) return void 0;
   const repo = repoSlugOfUrl(sourceRepoUrl);
   return marks.find((m) => m.branch === branch && (!repo || m.repo === repo));
 }
 
-export { AGENT_ANNOTATION, agentMatchesQuery, agentNameOf, agentStateOf, appNameOf, indexFleet, isAgentEntity, markForBranch, markForPr, repoSlugOfUrl };
+export { AGENT_ANNOTATION, agentMatchesQuery, agentNameOf, agentStateOf, appNameOf, indexFleet, isAgentEntity, markForBranch, markForPr, repoSlugOfUrl, runMarkFor };
 //# sourceMappingURL=fleetMarks.esm.js.map

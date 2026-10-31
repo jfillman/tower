@@ -17,7 +17,7 @@ import { PageHeader, FilterBar, FilterChips, Count } from '../ui/index.esm.js';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel.esm.js';
 import { TestRunsPanel } from './pipelines/TestRunsPanel.esm.js';
 import { useTestRuns } from '../useTestRuns.esm.js';
-import { useRepoMarks } from '../mounts.esm.js';
+import { useRepoMarks, useRunMarks } from '../mounts.esm.js';
 import { repoSlugOfUrl } from '../fleetMarks.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
@@ -138,6 +138,7 @@ function PipelinesTab() {
   }, [listRuns, mergedRuns, linkedRun]);
   const selectedRun = mergedRuns.find((r) => r.name === selectedRunName);
   const marks = useRepoMarks(useMemo(() => listRuns.map((r) => repoSlugOfUrl(r.sourceRepoUrl)), [listRuns]));
+  const runMarks = useRunMarks(appName);
   const dagPanelRef = useRef(null);
   const selectRun = (name) => {
     setSelectedRunName(name);
@@ -170,6 +171,7 @@ function PipelinesTab() {
         {
           runs: listRuns,
           marks,
+          runMarks,
           selectedName: selectedRunName,
           onSelect: (run) => selectRun(run.name),
           onRerun: rerun.rerun,
