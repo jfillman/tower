@@ -1,20 +1,39 @@
+import * as _backstage_frontend_plugin_api from '@backstage/frontend-plugin-api';
+import { Entity } from '@backstage/catalog-model';
+import { DiscoveryApi, FetchApi, ApiRef, ProfileInfoApi, BackstageIdentityApi, SessionApi, SignInPageProps } from '@backstage/core-plugin-api';
 import * as react from 'react';
 import { ReactNode } from 'react';
-import * as _backstage_frontend_plugin_api from '@backstage/frontend-plugin-api';
-import { ApiRef, ProfileInfoApi, BackstageIdentityApi, SessionApi, SignInPageProps } from '@backstage/core-plugin-api';
+
+interface TowerTabMount {
+    /** The tab's body. Rendered inside Tower's EntityProvider, so `useEntity()` gives it the service. */
+    element: JSX.Element;
+    /**
+     * Whether the tab has anything to say about this service; absent means always. Tower asks once per service and
+     * hides the tab until the answer is yes, so most services do not get an empty tab. A failure counts as no.
+     */
+    relevant?: (ctx: TowerMountContext) => Promise<boolean>;
+}
+interface TowerMountContext {
+    entity: Entity;
+    discoveryApi: DiscoveryApi;
+    fetchApi: FetchApi;
+}
+declare const TOWER_TAB_MOUNT_ID = "tower.tab-mount";
+declare const towerTabMountDataRef: _backstage_frontend_plugin_api.ConfigurableExtensionDataRef<TowerTabMount, "tower.tab-mount", {}>;
+type TowerMountName = 'agent' | 'clearance';
+/** The page extension's input names, one per mounted tab: `attachTo: { id: 'page:tower', input: <this> }`. */
+declare const TOWER_MOUNT_INPUTS: Record<TowerMountName, string>;
 
 declare const towerRouteRef: _backstage_frontend_plugin_api.RouteRef<undefined>;
 declare const towerPlugin: _backstage_frontend_plugin_api.OverridableFrontendPlugin<{}, {}, {
     "page:tower": _backstage_frontend_plugin_api.OverridableExtensionDefinition<{
-        kind: "page";
-        name: undefined;
         config: {
             path: string | undefined;
             title: string | undefined;
         };
         configInput: {
-            path?: string | undefined;
-            title?: string | undefined;
+            path?: string | undefined | undefined;
+            title?: string | undefined | undefined;
         };
         output: _backstage_frontend_plugin_api.ExtensionDataRef<string, "core.routing.path", {}> | _backstage_frontend_plugin_api.ExtensionDataRef<_backstage_frontend_plugin_api.RouteRef<_backstage_frontend_plugin_api.AnyRouteRefParams>, "core.routing.ref", {
             optional: true;
@@ -35,7 +54,19 @@ declare const towerPlugin: _backstage_frontend_plugin_api.OverridableFrontendPlu
                 optional: false;
                 internal: false;
             }>;
+            agentTab: _backstage_frontend_plugin_api.ExtensionInput<_backstage_frontend_plugin_api.ConfigurableExtensionDataRef<TowerTabMount, "tower.tab-mount", {}>, {
+                singleton: true;
+                optional: true;
+                internal: false;
+            }>;
+            clearanceTab: _backstage_frontend_plugin_api.ExtensionInput<_backstage_frontend_plugin_api.ConfigurableExtensionDataRef<TowerTabMount, "tower.tab-mount", {}>, {
+                singleton: true;
+                optional: true;
+                internal: false;
+            }>;
         };
+        kind: "page";
+        name: undefined;
         params: {
             path: string;
             title?: string;
@@ -73,5 +104,5 @@ declare function HangarSignInPage({ onSignInSuccess, providers, guest, tagline }
  */
 declare function createHangarSignInModule(options: HangarSignInOptions): _backstage_frontend_plugin_api.FrontendModule;
 
-export { HangarSignInPage, createHangarSignInModule, githubSignInProvider, towerPlugin, towerRouteRef };
-export type { HangarSignInOptions, HangarSignInProvider };
+export { HangarSignInPage, TOWER_MOUNT_INPUTS, TOWER_TAB_MOUNT_ID, createHangarSignInModule, githubSignInProvider, towerPlugin, towerRouteRef, towerTabMountDataRef };
+export type { HangarSignInOptions, HangarSignInProvider, TowerMountContext, TowerMountName, TowerTabMount };

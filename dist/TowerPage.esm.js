@@ -10,6 +10,9 @@ import { useHangarTokens, fontMono, fontDisplay } from './brand/tokens.esm.js';
 import { HangarMark } from './brand/HangarMark.esm.js';
 import { AppPicker } from './AppPicker.esm.js';
 import { CAP, hasCapabilities } from './serviceClass.esm.js';
+import { TowerMountsProvider, useVisibleMounts } from './mounts.esm.js';
+import { AgentTab } from './tabs/AgentTab.esm.js';
+import { ClearanceTab } from './tabs/ClearanceTab.esm.js';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage.esm.js';
 import { OverviewTab } from './tabs/OverviewTab.esm.js';
 import { ReleasesTab } from './tabs/ReleasesTab.esm.js';
@@ -40,6 +43,7 @@ import { Tooltip } from './ui/Tooltip.esm.js';
 const TABS = [
   { id: "overview", label: "Overview", Component: OverviewTab },
   { id: "pull-requests", label: "Pull requests", Component: PullRequestsTab, requires: [CAP.source] },
+  { id: "agent", label: "Agent", Component: AgentTab, requires: [CAP.autopilot], mount: "agent" },
   { id: "pipelines", label: "Pipelines", Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: "deployments", label: "Deployments", Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
   // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
@@ -50,12 +54,16 @@ const TABS = [
   { id: "airspace", label: "Airspace", Component: AirspaceTab, requires: [CAP.k8sRuntime] },
   { id: "images", label: "Images", Component: ImagesTab, requires: [CAP.images] },
   { id: "slos", label: "SLOs", Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
+  { id: "clearance", label: "Clearance", Component: ClearanceTab, requires: [CAP.clearance], mount: "clearance" },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
   { id: "notifications", label: "Notifications", Component: NotificationsTab, requires: [CAP.source, CAP.ci] },
   // Environments, shared values and cicd.yaml: everything that lives in git (2026-10-22, was three tabs). Their old ids
   // are now its sub-tabs; activeTabId() maps them here so old deep links still work.
   { id: "configure", label: "Configure", Component: ConfigureTab, requires: [CAP.ci] }
 ];
+function visibleTabs(entity, mounted = {}) {
+  return TABS.filter((tabDef) => hasCapabilities(entity, tabDef.requires) && (!tabDef.mount || mounted[tabDef.mount] === true));
+}
 function activeTabId(tabParam) {
   return isConfigureSubtab(tabParam) ? "configure" : tabParam;
 }
@@ -155,7 +163,7 @@ const useStyles = makeStyles(() => ({
   },
   body: { padding: "20px 24px 40px" }
 }));
-function TowerPage() {
+function TowerPage({ mounts = {} }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
@@ -232,10 +240,10 @@ function TowerPage() {
       }
     );
   }
-  return /* @__PURE__ */ jsx(AgentRequestsProvider, { children: /* @__PURE__ */ jsxs("div", { className: classes.root, style: { position: "relative" }, children: [
+  return /* @__PURE__ */ jsx(TowerMountsProvider, { mounts, children: /* @__PURE__ */ jsx(AgentRequestsProvider, { children: /* @__PURE__ */ jsxs("div", { className: classes.root, style: { position: "relative" }, children: [
     !isAgentRequestsView && /* @__PURE__ */ jsx(AgentRequestsChip, { onOpen: openAgentRequests }),
     body
-  ] }) });
+  ] }) }) });
 }
 function TowerAppShell({
   entity,
@@ -273,7 +281,8 @@ function TowerAppShellInner({
   const ciActive = ciPipelineRuns.runs.some((r) => r.phase === "running");
   const { environments } = useTowerEnvironments();
   const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
-  const tabs = TABS.filter((tabDef) => hasCapabilities(entity, tabDef.requires));
+  const mounted = useVisibleMounts(entity);
+  const tabs = visibleTabs(entity, mounted);
   const activeTab = tabs.find((tabDef) => tabDef.id === activeTabId(tabParam)) ?? tabs[0];
   const { Component } = activeTab;
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -303,5 +312,5 @@ function TowerAppShellInner({
   ] });
 }
 
-export { TABS, TowerPage, activeTabId };
+export { TABS, TowerPage, activeTabId, visibleTabs };
 //# sourceMappingURL=TowerPage.esm.js.map

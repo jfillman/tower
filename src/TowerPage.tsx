@@ -11,6 +11,9 @@ import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './bra
 import { HangarMark } from './brand/HangarMark';
 import { AppPicker } from './AppPicker';
 import { CAP, hasCapabilities, type Capability } from './serviceClass';
+import { TowerMountsProvider, useVisibleMounts, type MountVisibility, type TowerMountName, type TowerMounts } from './mounts';
+import { AgentTab } from './tabs/AgentTab';
+import { ClearanceTab } from './tabs/ClearanceTab';
 import { TowerDashboardPage } from './tabs/dashboard/TowerDashboardPage';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ReleasesTab } from './tabs/ReleasesTab';
@@ -71,16 +74,25 @@ import { TabError, TabSkeleton, Tooltip } from './ui';
 // service Tower lists gets at least Overview. Tabs the cloud targets cannot use
 // (Deployments and Topology read Argo Rollouts, App Configuration edits Helm values)
 // require k8s-runtime/values-config, which an ECS or Lambda service is not granted.
+//
+// 2026-10-31: two tabs are mounted by other plugins (mounts.tsx, docs/mounted-tabs.md). Agent, from the Autopilot
+// plugin, sits right after Pull requests: for an AI workload it is the agent's own page (Overview, Pull requests,
+// Agent). Clearance, from the Clearance plugin, sits after SLOs: what agents did to the app is a report on it, like
+// SLOs, not a stop in the change's lifecycle. A mounted tab also needs its plugin installed and, when the plugin
+// says so, something to show for this service (visibleTabs).
 interface TabDef {
   id: string;
   label: string;
   Component: () => JSX.Element | null;
   requires?: readonly Capability[];
+  /** Mounted by another plugin: the tab exists only while that mount is present and relevant. */
+  mount?: TowerMountName;
 }
 
 export const TABS: readonly TabDef[] = [
   { id: 'overview', label: 'Overview', Component: OverviewTab },
   { id: 'pull-requests', label: 'Pull requests', Component: PullRequestsTab, requires: [CAP.source] },
+  { id: 'agent', label: 'Agent', Component: AgentTab, requires: [CAP.autopilot], mount: 'agent' },
   { id: 'pipelines', label: 'Pipelines', Component: PipelinesTab, requires: [CAP.ci, CAP.build] },
   { id: 'deployments', label: 'Deployments', Component: DeploymentsTab, requires: [CAP.k8sRuntime] },
   // The same tab for a service that deploys to a cloud target instead of a Rollout. A service has
@@ -91,6 +103,7 @@ export const TABS: readonly TabDef[] = [
   { id: 'airspace', label: 'Airspace', Component: AirspaceTab, requires: [CAP.k8sRuntime] },
   { id: 'images', label: 'Images', Component: ImagesTab, requires: [CAP.images] },
   { id: 'slos', label: 'SLOs', Component: SlosTab, requires: [CAP.slo, CAP.k8sRuntime] },
+  { id: 'clearance', label: 'Clearance', Component: ClearanceTab, requires: [CAP.clearance], mount: 'clearance' },
   // Glidepath's build, deploy, release and config-change notifications: only a service onboarded to Glidepath has any.
   { id: 'notifications', label: 'Notifications', Component: NotificationsTab, requires: [CAP.source, CAP.ci] },
   // Environments, shared values and cicd.yaml: everything that lives in git (2026-10-22, was three tabs). Their old ids
@@ -99,6 +112,11 @@ export const TABS: readonly TabDef[] = [
 ];
 
 type TabId = string;
+
+/** The tabs this service gets: every capability it requires granted, and for a mounted tab, the mount present and relevant. */
+export function visibleTabs(entity: Entity, mounted: MountVisibility = {}): TabDef[] {
+  return TABS.filter(tabDef => hasCapabilities(entity, tabDef.requires) && (!tabDef.mount || mounted[tabDef.mount] === true));
+}
 
 /** The top-level tab a ?tab= value opens: the old Environments / App Configuration / Glidepath ids open Configure. */
 export function activeTabId(tabParam: TabId): TabId {
@@ -202,7 +220,7 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   body: { padding: '20px 24px 40px' },
 }));
 
-export function TowerPage() {
+export function TowerPage({ mounts = {} }: { mounts?: TowerMounts }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
   const catalogApi = useApi(catalogApiRef);
@@ -302,12 +320,14 @@ export function TowerPage() {
 
   // One agent-requests poll for the whole page; the corner chip on every view but Agent requests itself.
   return (
-    <AgentRequestsProvider>
-      <div className={classes.root} style={{ position: 'relative' }}>
-        {!isAgentRequestsView && <AgentRequestsChip onOpen={openAgentRequests} />}
-        {body}
-      </div>
-    </AgentRequestsProvider>
+    <TowerMountsProvider mounts={mounts}>
+      <AgentRequestsProvider>
+        <div className={classes.root} style={{ position: 'relative' }}>
+          {!isAgentRequestsView && <AgentRequestsChip onOpen={openAgentRequests} />}
+          {body}
+        </div>
+      </AgentRequestsProvider>
+    </TowerMountsProvider>
   );
 }
 
@@ -389,7 +409,10 @@ function TowerAppShellInner({
   const { environments } = useTowerEnvironments();
   const cdActive = environments.some(isRolloutActive) || hasCloudDeployInFlight(ciPipelineRuns.runs);
 
-  const tabs = TABS.filter(tabDef => hasCapabilities(entity, tabDef.requires));
+  // A mounted tab appears once its plugin says it has something for this service; a ?tab= deep link to it lands on
+  // Overview until then and moves over when it appears.
+  const mounted = useVisibleMounts(entity);
+  const tabs = visibleTabs(entity, mounted);
   const activeTab = tabs.find(tabDef => tabDef.id === activeTabId(tabParam)) ?? tabs[0];
   const { Component } = activeTab;
   return (

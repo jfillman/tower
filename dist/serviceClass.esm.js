@@ -19,8 +19,11 @@ const CAP = {
   // runs on a cluster Tower can read: Deployments, Topology
   cloudRuntime: "cloud-runtime",
   // runs on a cloud service; no tab consumes this yet
-  autopilot: "autopilot"
-  // an Autopilot agent: its definition on Overview; the Agent tab once it is built
+  autopilot: "autopilot",
+  // an Autopilot agent: its definition on Overview; the Agent tab (mounted by the Autopilot plugin)
+  // Clearance governs what agents may do to it: the Clearance tab (mounted by the Clearance plugin, shown where an
+  // agent's scope names the app or an agent has acted on it). Every class with environments or a repo gets it.
+  clearance: "clearance"
 };
 const CLOUD_TARGET = { adds: [CAP.cloudRuntime], removes: [CAP.valuesConfig] };
 const DEPLOY_TARGETS = {
@@ -45,7 +48,7 @@ const SERVICE_CLASSES = {
     id: "container-app",
     label: "Container app",
     labelPlural: "Container apps",
-    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig],
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig, CAP.clearance],
     defaultDeployTarget: "k8s-rollout"
   },
   // An Airframe InfraService (a shared component such as a broker): no source repo, no build, no image, no release
@@ -57,14 +60,14 @@ const SERVICE_CLASSES = {
     id: "infra-service",
     label: "Infra service",
     labelPlural: "Infra services",
-    capabilities: [CAP.source, CAP.ci, CAP.valuesConfig, CAP.slo],
+    capabilities: [CAP.source, CAP.ci, CAP.valuesConfig, CAP.slo, CAP.clearance],
     defaultDeployTarget: "k8s-rollout"
   },
   function: {
     id: "function",
     label: "Function",
     labelPlural: "Functions",
-    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images]
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.clearance]
   },
   // An Autopilot agent in an ephemeral shape (task, session, scheduled, event, team): it runs as AgentRuns and
   // leaves nothing deployed, so it gets Overview (with its agent definition) and its repo's pull requests.
@@ -80,7 +83,7 @@ const SERVICE_CLASSES = {
     id: "ai-service",
     label: "AI service",
     labelPlural: "AI services",
-    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig, CAP.autopilot],
+    capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig, CAP.autopilot, CAP.clearance],
     defaultDeployTarget: "k8s-rollout"
   }
 };
@@ -124,7 +127,7 @@ function serviceClassOf(entity) {
   if (known) return known;
   const label = titleCase(id);
   const hasRepo = Boolean(entity.metadata.annotations?.["github.com/project-slug"]);
-  return { id, label, labelPlural: pluralOf(label), capabilities: hasRepo ? [CAP.source] : [] };
+  return { id, label, labelPlural: pluralOf(label), capabilities: hasRepo ? [CAP.source, CAP.clearance] : [] };
 }
 function deployTargetOf(entity) {
   const cls = serviceClassOf(entity);

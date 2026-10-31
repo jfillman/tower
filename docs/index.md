@@ -65,10 +65,12 @@ Shared values, Pipeline). Plus a fleet-wide dashboard and the fleet **Airspace**
 - [Architecture](architecture.md) — How Tower is structured and designed
 - [Components Reference](components.md) — Details on each major component
 - [Brand](brand/README.md) — the mark and its files
+- [Mounted tabs](mounted-tabs.md) — the Agent and Clearance tabs come from the Autopilot and Clearance plugins: the contract
 
 ## Related Projects
 
 - [Hangar](https://github.com/jfillman/hangar) — IDP core platform
 - [Glidepath](https://github.com/jfillman/glidepath) — CI/CD engine (Tekton, PaC, cosign)
 - [Airframe](https://github.com/jfillman/airframe) — Crossplane XRDs and Compositions
-- [Autopilot](https://github.com/jfillman/autopilot) — runs AI agent workloads with bounded authority; a Tower Agent tab is planned
+- [Autopilot](https://github.com/jfillman/autopilot) — runs AI agent workloads with bounded authority; its Backstage plugin mounts the Agent tab
+- [Clearance](https://github.com/jfillman/clearance) — the MCP gateway every agent call goes through; its Backstage plugin mounts the Clearance tab

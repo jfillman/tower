@@ -1,6 +1,6 @@
 import type { Entity } from '@backstage/catalog-model';
-import { hasCapabilities } from './serviceClass';
-import { TABS, activeTabId } from './TowerPage';
+import type { MountVisibility } from './mounts';
+import { TABS, activeTabId, visibleTabs } from './TowerPage';
 
 jest.mock('@backstage/plugin-kubernetes', () => ({ isKubernetesAvailable: () => true }));
 
@@ -10,8 +10,9 @@ const entity = (annotations?: Record<string, string>, tags?: string[]): Entity =
   metadata: { name: 'svc', annotations, tags },
   spec: { type: 'service' },
 });
-const tabsFor = (e: Entity) => TABS.filter(t => hasCapabilities(e, t.requires));
-const ids = (e: Entity) => tabsFor(e).map(t => t.id);
+// No mounted tabs unless a test says so: the Autopilot and Clearance plugins are not installed here.
+const tabsFor = (e: Entity, mounted: MountVisibility = {}) => visibleTabs(e, mounted);
+const ids = (e: Entity, mounted?: MountVisibility) => tabsFor(e, mounted).map(t => t.id);
 
 describe('which tabs a service gets', () => {
   it('a Kubernetes container app keeps the tabs it had (plus Environments), with the Rollout Deployments tab', () => {
@@ -76,6 +77,35 @@ describe('which tabs a service gets', () => {
       const e = entity({ 'hangar.io/service-class': 'container-app', 'hangar.io/deploy-target': target });
       expect(tabsFor(e).filter(t => t.id === 'deployments').length).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('tabs mounted by other plugins (2026-10-31)', () => {
+  const mounted: MountVisibility = { agent: true, clearance: true };
+
+  it('an AI workload gets the Agent tab right after Pull requests once the Autopilot plugin mounts it', () => {
+    expect(ids(entity({ 'hangar.io/workload-type': 'ai' }), mounted)).toEqual(['overview', 'pull-requests', 'agent']);
+  });
+
+  it('an app gets the Clearance tab after SLOs when the Clearance plugin mounts it and finds something to show', () => {
+    const e = entity(undefined, ['kind:goapplication']);
+    const got = ids(e, mounted);
+    expect(got.indexOf('clearance')).toBe(got.indexOf('slos') + 1);
+    expect(got).not.toContain('agent');
+    // The plugin is installed but says this app is of no interest to it: no tab.
+    expect(ids(e, { clearance: false })).not.toContain('clearance');
+  });
+
+  it('an infra service and a function are governed too; a plain service kind with a repo as well', () => {
+    expect(ids(entity(undefined, ['kind:infraservice']), mounted)).toContain('clearance');
+    expect(ids(entity({ 'hangar.io/service-class': 'function', 'hangar.io/deploy-target': 'aws-lambda' }), mounted)).toContain('clearance');
+    expect(ids(entity({ 'hangar.io/service-class': 'storage', 'github.com/project-slug': 'o/r' }), mounted)).toEqual(['overview', 'pull-requests', 'clearance']);
+    expect(ids(entity({ 'hangar.io/service-class': 'storage' }), mounted)).toEqual(['overview']);
+  });
+
+  it('every mounted tab is also gated by a capability, so an app never gets the Agent tab', () => {
+    for (const tab of TABS.filter(t => t.mount)) expect(tab.requires?.length).toBeGreaterThan(0);
+    expect(ids(entity(undefined, ['kind:goapplication']), { agent: true })).not.toContain('agent');
   });
 });
 

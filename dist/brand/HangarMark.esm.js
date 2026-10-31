@@ -10,6 +10,7 @@ function HangarMark({
   let accent = t.sky;
   if (glyph === "hangar" || glyph === "tower" || glyph === "autopilot") accent = t.amber;
   else if (glyph === "apron") accent = t.textLo;
+  else if (glyph === "clearance") accent = t.good;
   let center = /* @__PURE__ */ jsx(Fragment, {});
   switch (glyph) {
     case "hangar":
@@ -72,11 +73,18 @@ function HangarMark({
         )
       ] });
       break;
+    case "clearance":
+      center = /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsx("path", { d: "M35,37 L44.5,46.5 L61.5,29.5", fill: "none", stroke: accent, strokeWidth: 4.5, strokeLinecap: "round", strokeLinejoin: "round" }),
+        /* @__PURE__ */ jsx("line", { x1: "29", y1: "57", x2: "67", y2: "57", stroke: accent, strokeWidth: 3.2, strokeLinecap: "round" }),
+        /* @__PURE__ */ jsx("line", { x1: "29", y1: "65", x2: "67", y2: "65", stroke: accent, strokeWidth: 3.2, strokeDasharray: "5.5 4.3" })
+      ] });
+      break;
   }
   return /* @__PURE__ */ jsxs("svg", { width: size, height: size, viewBox: "0 0 96 96", role: "img", "aria-label": `${glyph} mark`, children: [
     /* @__PURE__ */ jsx("circle", { cx: "48", cy: "48", r: "40", fill: "none", stroke: t.line, strokeWidth: 2 }),
     /* @__PURE__ */ jsx("g", { stroke: t.textFaint, strokeWidth: 2, children: TICK_ANGLES.map((angle) => /* @__PURE__ */ jsx("line", { x1: "48", y1: "8", x2: "48", y2: "15", transform: `rotate(${angle} 48 48)` }, angle)) }),
-    /* @__PURE__ */ jsx("polygon", { points: "44,2 52,2 48,9", fill: accent }),
+    /* @__PURE__ */ jsx("polygon", { points: "44,2 52,2 48,9", fill: glyph === "clearance" ? t.amber : accent }),
     center
   ] });
 }

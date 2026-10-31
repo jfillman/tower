@@ -45,7 +45,8 @@ has all of the ones it requires; a tab with none required always shows.
 | `values-config` | container-app, infra-service, ai-service; removed by cloud targets | Configure › Shared values |
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
 | `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
-| `autopilot` | ai-workload, ai-service | no tab yet: the agent definition on Overview |
+| `autopilot` | ai-workload, ai-service | the agent definition on Overview; Agent (mounted by the Autopilot plugin, see [mounted-tabs.md](mounted-tabs.md)) |
+| `clearance` | container-app, infra-service, function, ai-service; any unknown class with a repo | Clearance (mounted by the Clearance plugin; shown where an agent's scope names the app or an agent has acted on it) |
 
 An **infra-service** (an Airframe InfraService such as a broker) has no source repo, build,
 image or release records: it gets `source`, `ci`, `values-config` and `slo` but not `build`,
@@ -54,8 +55,8 @@ image or release records: it gets `source`, `ci`, `values-config` and `slo` but 
 An **ai-workload** is an Autopilot agent in an ephemeral shape (task, session, scheduled, event,
 team): it runs as `AgentRun`s and leaves nothing deployed. An **ai-service** is the long-running
 *service* shape that Glidepath builds from its own repo and deploys like a container app. Both show
-the agent's definition on Overview (see below). The Autopilot Agent tab is not built, so no tab
-requires `autopilot` until it is.
+the agent's definition on Overview (see below), and the Agent tab when the Autopilot plugin is installed: the
+agent's live runs, each run's flight log (every call it made through Clearance) and the questions it is waiting on.
 
 ## Tabs by service type
 
@@ -63,6 +64,7 @@ requires `autopilot` until it is.
 |---|---|---|---|---|---|---|
 | Overview | yes | yes | yes | yes | yes (agent definition, no environments) | yes (with agent definition) |
 | Pull Requests | yes | yes | yes | yes (gitops-infra repo) | yes | yes |
+| Agent (Autopilot plugin) | | | | | yes | yes |
 | Pipelines | yes | yes | yes | | | yes |
 | Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |
 | Releases | yes | yes | yes | | | yes |
@@ -70,12 +72,15 @@ requires `autopilot` until it is.
 | Topology | yes | | | yes | | yes |
 | Images | yes | yes | yes | | | yes |
 | SLOs | yes | | | yes | | yes |
+| Clearance (Clearance plugin) | where relevant | where relevant | where relevant | where relevant | | where relevant |
 | Notifications | yes | yes | yes | yes | | yes |
 | Configure › Shared values | yes | | | yes (no preview section) | | yes |
 | Configure › Pipeline | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |
 
 "Container app (cloud)" is `aws-ecs` or `azure-container-apps`; "Function" is `aws-lambda` (LambdaFunction) or
-`azure-container-apps` (AzureFunction). The table is asserted by `src/TowerPage.tabs.test.ts`.
+`azure-container-apps` (AzureFunction). The table is asserted by `src/TowerPage.tabs.test.ts`. The two tabs marked
+with a plugin exist only while that plugin is installed; "where relevant" means the Clearance plugin found an agent
+whose scope names the app, or agent activity on it ([mounted-tabs.md](mounted-tabs.md)).
 
 Within a tab, an InfraService also gets less: Configure › Shared values has no Preview environments section (nothing
 builds its pull requests) and Configure › Pipeline shows only the sections its `cicd.yaml` uses. The tab-by-tab

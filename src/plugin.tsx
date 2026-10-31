@@ -1,5 +1,6 @@
-import { createFrontendPlugin, createRouteRef, PageBlueprint } from '@backstage/frontend-plugin-api';
+import { createExtensionInput, createFrontendPlugin, createRouteRef, PageBlueprint } from '@backstage/frontend-plugin-api';
 import { HangarMark } from './brand/HangarMark';
+import { towerTabMountDataRef, type TowerMounts } from './mounts';
 
 // Tower: the single top-level "release command center" console - a real
 // top-level route (own sidebar entry, own app picker), not an entity-scoped
@@ -22,17 +23,29 @@ import { HangarMark } from './brand/HangarMark';
 // first suspected).
 export const towerRouteRef = createRouteRef();
 
+// The page takes two optional inputs, one per tab another plugin mounts (mounts.tsx, docs/mounted-tabs.md): the
+// Autopilot plugin attaches the Agent tab to `agentTab`, the Clearance plugin the Clearance tab to `clearanceTab`.
 export const towerPlugin = createFrontendPlugin({
   pluginId: 'tower',
   extensions: [
-    PageBlueprint.make({
-      params: {
-        path: '/tower',
-        routeRef: towerRouteRef,
-        title: 'Tower',
-        icon: <HangarMark glyph="tower" size={24} />,
-        noHeader: true,
-        loader: () => import('./TowerPage').then(m => <m.TowerPage />),
+    PageBlueprint.makeWithOverrides({
+      inputs: {
+        agentTab: createExtensionInput([towerTabMountDataRef], { singleton: true, optional: true }),
+        clearanceTab: createExtensionInput([towerTabMountDataRef], { singleton: true, optional: true }),
+      },
+      factory(originalFactory, { inputs }) {
+        const mounts: TowerMounts = {
+          agent: inputs.agentTab?.get(towerTabMountDataRef),
+          clearance: inputs.clearanceTab?.get(towerTabMountDataRef),
+        };
+        return originalFactory({
+          path: '/tower',
+          routeRef: towerRouteRef,
+          title: 'Tower',
+          icon: <HangarMark glyph="tower" size={24} />,
+          noHeader: true,
+          loader: () => import('./TowerPage').then(m => <m.TowerPage mounts={mounts} />),
+        });
       },
     }),
   ],
