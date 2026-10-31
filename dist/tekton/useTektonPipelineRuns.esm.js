@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { fetchLiveRuns } from './liveRuns.esm.js';
+import { streamLiveRuns, fetchLiveRuns } from './liveRuns.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
 import { chainIdToSlug } from './chainSlug.esm.js';
 
 const POLL_MS = 6e3;
+const STREAM_FLUSH_MS = 250;
+const STREAM_RECONNECT_MS = 2e3;
+const STREAM_SHORT_MS = 3e4;
+const STREAM_MAX_SHORT = 3;
 function paramValueToString(value) {
   if (typeof value === "string") return value;
   if (value === void 0 || value === null) return "";
@@ -216,26 +220,79 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
     }
     const app = appName;
     const tektonCluster = cluster;
+    const apis = { discoveryApi, fetchApi };
     let cancelled = false;
     let timer;
-    async function tick() {
+    let flushTimer;
+    const abort = new AbortController();
+    function publish(pipelineRuns2, taskRuns2) {
+      const taskRunsByName = new Map(taskRuns2.map((tr) => [tr.metadata.name, tr]));
+      const runs = pipelineRuns2.map((pr) => toPipelineRunSummary(pr, tektonCluster, taskRunsByName)).sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
+      linkFlowSlugsByChainId(runs);
+      setState({ loading: false, runs });
+    }
+    async function poll() {
       try {
-        const live = await fetchLiveRuns({ discoveryApi, fetchApi }, app);
+        const live = await fetchLiveRuns(apis, app);
         if (cancelled) return;
-        const taskRunsByName = new Map(live.taskRuns.map((tr) => [tr.metadata.name, tr]));
-        const runs = live.pipelineRuns.map((pr) => toPipelineRunSummary(pr, tektonCluster, taskRunsByName)).sort((a, b) => new Date(b.startTime ?? 0).getTime() - new Date(a.startTime ?? 0).getTime());
-        linkFlowSlugsByChainId(runs);
-        setState({ loading: false, runs });
+        publish(live.pipelineRuns, live.taskRuns);
       } catch (e) {
         if (!cancelled) setState((prev) => ({ loading: false, runs: prev.runs, error: String(e) }));
       }
-      if (!cancelled) timer = setTimeout(tick, POLL_MS);
+      if (!cancelled) timer = setTimeout(poll, POLL_MS);
+    }
+    const pipelineRuns = /* @__PURE__ */ new Map();
+    const taskRuns = /* @__PURE__ */ new Map();
+    let shortLived = 0;
+    function flushSoon() {
+      if (flushTimer) return;
+      flushTimer = setTimeout(() => {
+        flushTimer = void 0;
+        if (!cancelled) publish([...pipelineRuns.values()], [...taskRuns.values()]);
+      }, STREAM_FLUSH_MS);
+    }
+    async function stream() {
+      let openedAt;
+      try {
+        await streamLiveRuns(
+          apis,
+          app,
+          {
+            onSnapshot: (snap) => {
+              openedAt = Date.now();
+              pipelineRuns.clear();
+              taskRuns.clear();
+              for (const pr of snap.pipelineRuns) pipelineRuns.set(pr.metadata.name, pr);
+              for (const tr of snap.taskRuns) taskRuns.set(tr.metadata.name, tr);
+              publish(snap.pipelineRuns, snap.taskRuns);
+            },
+            onChange: (c) => {
+              const map = c.kind === "TaskRun" ? taskRuns : pipelineRuns;
+              if (c.type === "delete") map.delete(c.name);
+              else if (c.object) map.set(c.name, c.object);
+              flushSoon();
+            }
+          },
+          abort.signal
+        );
+      } catch {
+      }
+      if (cancelled) return;
+      if (openedAt === void 0) {
+        poll();
+        return;
+      }
+      shortLived = Date.now() - openedAt < STREAM_SHORT_MS ? shortLived + 1 : 0;
+      if (shortLived >= STREAM_MAX_SHORT) poll();
+      else timer = setTimeout(stream, STREAM_RECONNECT_MS);
     }
     setState((prev) => ({ loading: prev.runs.length === 0, runs: prev.runs }));
-    tick();
+    stream();
     return () => {
       cancelled = true;
+      abort.abort();
       if (timer) clearTimeout(timer);
+      if (flushTimer) clearTimeout(flushTimer);
     };
   }, [appName, cluster, discoveryApi, fetchApi, refreshNonce]);
   return state;
