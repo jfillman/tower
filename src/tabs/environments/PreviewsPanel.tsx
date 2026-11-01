@@ -73,20 +73,19 @@ function PreviewRow({ p }: { p: Preview }) {
 
 /**
  * The app's preview environments: one per PR labelled `preview`, deployed by the app's pr-envs ApplicationSet into
- * app-<app>-pr-<n>. Read only: adding or removing the label is what starts or ends one.
+ * app-<app>-pr-<n>. Read only: adding or removing the label is what starts or ends one. Shown only when there are
+ * previews or they could not be read.
  */
 export function PreviewsPanel({ state }: { state: PreviewsState }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
   const ui = useUi({ t });
+  // Like Open PRs: nothing to show, no panel. An app without previews (or before the first read answers) sees none.
+  if (state.previews.length === 0 && !state.error) return null;
   return (
     <Panel className={c.panel} role="region" aria-label="Preview environments">
       <SectionLabel>Previews</SectionLabel>
-      {state.loading && state.previews.length === 0 && <div className={ui.note}>Loading previews…</div>}
       {state.error && <div className={ui.note}>Previews could not be read: {state.error}</div>}
-      {!state.loading && !state.error && state.previews.length === 0 && (
-        <div className={ui.note}>No previews. Label a pull request <code>preview</code> to build it and deploy it here.</div>
-      )}
       {state.previews.map(p => (
         <PreviewRow key={p.application} p={p} />
       ))}

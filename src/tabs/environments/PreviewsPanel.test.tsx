@@ -36,12 +36,11 @@ describe('PreviewsPanel', () => {
     expect(screen.getByText(/ends when its PR closes/)).toBeTruthy();
   });
 
-  it('says how to get one when there are none, and why when they cannot be read', () => {
-    const { rerender } = render(<PreviewsPanel state={{ loading: false, previews: [] }} />);
-    expect(screen.getByText(/Label a pull request/)).toBeTruthy();
+  it('is not shown when there are none, and says why when they cannot be read', () => {
+    const { container, rerender } = render(<PreviewsPanel state={{ loading: false, previews: [] }} />);
+    expect(container.textContent).toBe('');
     rerender(<PreviewsPanel state={{ loading: false, previews: [], error: 'glidepath-api 502' }} />);
     expect(screen.getByText(/could not be read: glidepath-api 502/)).toBeTruthy();
-    expect(screen.queryByText(/Label a pull request/)).toBeNull();
   });
 
   it("maps Argo CD's health onto Tower's", () => {
