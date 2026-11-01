@@ -9,7 +9,9 @@ Clearance (the `human.request` tool), and Tower shows you the questions you may 
   you; click it to open Agent requests. A new question that arrives while Tower is open also shows a short toast.
 - **Tower home → Agent requests →**, with the same count, and **For you** ([for-you.md](for-you.md)), which leads
   with the questions waiting.
-- **A notification** is sent for each new question (it lists under For you).
+- **A notification** is sent for each new question (it lists under For you). Its link opens Agent requests on that
+  question, outlined and scrolled to; if the question is no longer open, the page says whether it was answered (and
+  by whom) or expired.
 
 ## Who sees a question
 
@@ -40,4 +42,8 @@ The page and its notifications need the backstage backend's `agent-requests` plu
 
 Clearance must accept Tower as a delegate: its gateway's `TOWER_ISSUER`, `TOWER_SERVICE_ACCOUNTS` (Tower's service
 account) and `CLEARANCE_DELEGATES` (apron `55-autopilot/clearance`). The backend polls every minute, asking Clearance
-per catalog user, and notifies each person once per question (table `agent_request_notified`).
+per catalog user, and notifies each person once per question (table `agent_request_notified`). Each notification is
+scoped `agent-request:<id>` and links to `?view=agent-requests&id=<id>`. Clearance lists pending questions only, so
+the backend remembers each question it saw (table `agent_request_seen`: its expiry, and who answered when the answer
+went through Tower) and answers `GET /api/agent-requests/requests/status?ids=` with pending, answered, expired or
+unknown for For you.

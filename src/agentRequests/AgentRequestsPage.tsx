@@ -1,14 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { fontMono, useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { formatDateTime, relativeTime } from '../shared/format';
 import { Button, Callout, Card, EmptyNote, PageHeader, TextLink } from '../ui';
 import { AnswerError, shortRef, useAgentRequests, type AgentRequest } from './useAgentRequests';
+import { useAgentRequestStatuses } from './useAgentRequestStatuses';
 
 // The Agent requests page (?view=agent-requests): each question an agent asked that you may answer, from your own
 // session or for one of your teams. Options become one button each; a question without options takes a written
-// answer. One answer per question: whoever answers first wins, and Clearance records who it was.
+// answer. One answer per question: whoever answers first wins, and Clearance records who it was. A notification links
+// to its own question (&id=<id>): that one is scrolled to and outlined, or, when it is no longer open, the page says
+// what became of it.
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
   root: { padding: '20px 24px 40px', display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 960 },
@@ -28,13 +32,18 @@ const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
     color: ({ t }) => t.textHi,
   },
   done: { fontFamily: fontMono, fontSize: 12, color: ({ t }) => t.good },
+  linked: { outline: ({ t }) => `2px solid ${t.amber}`, outlineOffset: 2 },
 }));
 
 type Outcome = { ok: true; answer: string } | { ok: false; message: string; hint?: string };
 
-function RequestCard({ r, onAnswer }: { r: AgentRequest; onAnswer: (id: string, answer: string) => Promise<AgentRequest> }) {
+function RequestCard({ r, linked, onAnswer }: { r: AgentRequest; linked?: boolean; onAnswer: (id: string, answer: string) => Promise<AgentRequest> }) {
   const t = useHangarTokens();
   const c = useStyles({ t });
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (linked) ref.current?.scrollIntoView?.({ block: 'center' });
+  }, [linked]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>();
@@ -55,8 +64,11 @@ function RequestCard({ r, onAnswer }: { r: AgentRequest; onAnswer: (id: string, 
   const from = r.group ? `${shortRef(r.owner)} · team ${shortRef(r.group)}` : shortRef(r.owner);
   return (
     <Card
+      ref={ref}
+      className={linked ? c.linked : undefined}
       title={r.agent}
       aria-label={`Question from ${r.agent}`}
+      aria-current={linked ? 'true' : undefined}
       meta={
         <span className={c.meta}>
           <span title={r.owner}>{from}</span>
@@ -110,6 +122,16 @@ export function AgentRequestsPage({ onBack }: { onBack: () => void }) {
   const c = useStyles({ t });
   const requests = useAgentRequests();
   const items = requests.data ?? [];
+  const [searchParams] = useSearchParams();
+  const linkedId = searchParams.get('id') ?? undefined;
+  const gone = !!linkedId && !!requests.data && !items.some(r => r.id === linkedId);
+  const status = useAgentRequestStatuses(gone && linkedId ? [linkedId] : []).data?.[linkedId ?? ''];
+  let goneTitle = 'That question is no longer open';
+  if (status?.status === 'answered') {
+    goneTitle = `That question was answered${status.answered_by ? ` by ${shortRef(status.answered_by)}` : ''}${status.answered_at ? ` ${relativeTime(status.answered_at)}` : ''}`;
+  } else if (status?.status === 'expired') {
+    goneTitle = `That question expired ${relativeTime(status.expires_at)}`;
+  }
   return (
     <div className={c.root}>
       <TextLink onClick={onBack}>← All services</TextLink>
@@ -123,9 +145,10 @@ export function AgentRequestsPage({ onBack }: { onBack: () => void }) {
         </Callout>
       )}
       {requests.loading && !requests.data && !requests.error && <EmptyNote>Loading…</EmptyNote>}
+      {gone && <Callout tone="neutral" title={goneTitle}>The agent has moved on; nothing is waiting on an answer to it.</Callout>}
       {requests.data && items.length === 0 && <EmptyNote>No agent is waiting on you.</EmptyNote>}
       {items.map(r => (
-        <RequestCard key={r.id} r={r} onAnswer={requests.answer} />
+        <RequestCard key={r.id} r={r} linked={r.id === linkedId} onAnswer={requests.answer} />
       ))}
     </div>
   );

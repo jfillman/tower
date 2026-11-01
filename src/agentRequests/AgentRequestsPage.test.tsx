@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AgentRequestsPage } from './AgentRequestsPage';
 import { AgentRequestsProvider, shortRef } from './useAgentRequests';
 
@@ -7,7 +8,8 @@ let listResponse: { status: number; body: unknown } = { status: 200, body: { ite
 let postResponse: { status: number; body: unknown } = { status: 200, body: {} };
 const mockFetch = jest.fn(async (url: string, init?: RequestInit) => {
   calls.push({ url, init });
-  const r = init?.method === 'POST' ? postResponse : listResponse;
+  let r = init?.method === 'POST' ? postResponse : listResponse;
+  if (url.includes('/requests/status')) r = statusResponse;
   return { ok: r.status < 300, status: r.status, json: async () => r.body };
 });
 const mockApis: Record<string, unknown> = {
@@ -26,12 +28,16 @@ const req = (over: Record<string, unknown> = {}) => ({
   status: 'pending', answer: null, answered_by: null, ...over,
 });
 
-const renderIt = async () => {
+let statusResponse: { status: number; body: unknown } = { status: 200, body: { items: {} } };
+
+const renderIt = async (path = '/tower?view=agent-requests') => {
   await act(async () => {
     render(
-      <AgentRequestsProvider>
-        <AgentRequestsPage onBack={() => {}} />
-      </AgentRequestsProvider>,
+      <MemoryRouter initialEntries={[path]}>
+        <AgentRequestsProvider>
+          <AgentRequestsPage onBack={() => {}} />
+        </AgentRequestsProvider>
+      </MemoryRouter>,
     );
   });
 };
@@ -40,6 +46,32 @@ beforeEach(() => {
   calls.length = 0;
   listResponse = { status: 200, body: { items: [] } };
   postResponse = { status: 200, body: {} };
+  statusResponse = { status: 200, body: { items: {} } };
+});
+
+it('outlines and scrolls to the question a notification links to', async () => {
+  const scrolled = jest.fn();
+  Element.prototype.scrollIntoView = scrolled;
+  listResponse = { status: 200, body: { items: [req({ id: 'h-00000000000a', question: 'Other?' }), req()] } };
+  await renderIt('/tower?view=agent-requests&id=h-0123456789ab');
+  const linked = screen.getByText('Roll gate-api back?').closest('[aria-current="true"]');
+  expect(linked).toBeTruthy();
+  expect(screen.getByText('Other?').closest('[aria-current="true"]')).toBeNull();
+  expect(scrolled).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/no longer open|was answered|expired/)).toBeNull();
+});
+
+it('says what became of a linked question that is no longer open', async () => {
+  statusResponse = { status: 200, body: { items: { 'h-0123456789ab': { status: 'answered', answered_by: 'user:riley', answered_at: new Date().toISOString() } } } };
+  await renderIt('/tower?view=agent-requests&id=h-0123456789ab');
+  expect(screen.getByText(/That question was answered by riley/)).toBeTruthy();
+  expect(calls.some(c => c.url === 'http://be/api/agent-requests/requests/status?ids=h-0123456789ab')).toBe(true);
+});
+
+it('falls back to "no longer open" when the backend cannot say', async () => {
+  statusResponse = { status: 404, body: { error: 'not found' } };
+  await renderIt('/tower?view=agent-requests&id=h-0123456789ab');
+  expect(screen.getByText('That question is no longer open')).toBeTruthy();
 });
 
 it('says when nothing is waiting', async () => {
