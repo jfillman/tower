@@ -271,7 +271,7 @@ function gateCheckTone(t, check) {
   return { label: check.conclusion ?? "failed", color: t.bad, pulse: false };
 }
 function formatGateName(name) {
-  return name.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, "").replace(/-+\s*$/, "");
+  return name.replace(/^[^/]+\s\/\s*/, "").replace(/-+\s*$/, "");
 }
 function stripLightMarkdown(s) {
   return s.replace(/^#{1,6}\s+/gm, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/```[a-z]*\n?/gi, "").replace(/`([^`]+)`/g, "$1");

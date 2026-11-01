@@ -97,9 +97,9 @@ export function parseApiCompat(message: string | undefined): ApiCompatReport | u
   };
 }
 
-/** A Check Run's gate id, the way the backend keys gate comments: `Pipelines as Code CI / api-compat-` -> `api-compat`. */
+/** A Check Run's gate id, the way the backend keys gate comments: `Glidepath / api-compat-` -> `api-compat`, whatever PaC's application-name is. */
 export function gateIdOf(checkName: string): string {
-  return checkName.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, '').replace(/-+\s*$/, '').toLowerCase();
+  return checkName.replace(/^[^/]+\s\/\s*/, '').replace(/-+\s*$/, '').toLowerCase();
 }
 
 /** The api-compat gate among a release PR's checks. */

@@ -401,8 +401,11 @@ export function gateCheckTone(t: HangarTokens, check: PrCheckRun): { label: stri
 // /' portion of the name? also the trailing slash"). Anything that doesn't
 // match this real prefix (a gate reported some other way) passes through
 // unchanged rather than being mangled by a looser guess.
+// 2026-11-01: the prefix is PaC's application-name, which Hangar sets to "Glidepath" (glidepath
+// docs/admin/github-app.md) and another install may set to anything, so everything before the first " / " is
+// dropped, not one spelling. A name without " / " still passes through unchanged.
 export function formatGateName(name: string): string {
-  return name.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, '').replace(/-+\s*$/, '');
+  return name.replace(/^[^/]+\s\/\s*/, '').replace(/-+\s*$/, '');
 }
 
 // The real gate comment (comment-pr-check-result.yaml) is markdown - light

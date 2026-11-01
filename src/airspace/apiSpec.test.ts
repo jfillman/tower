@@ -196,6 +196,8 @@ describe('api-compat report', () => {
 
   it('finds the gate among the release PR checks by gate id', () => {
     expect(gateIdOf('Pipelines as Code CI / api-compat-')).toBe('api-compat');
+    expect(gateIdOf('Glidepath / api-compat-')).toBe('api-compat');
+    expect(gateIdOf('api-compat-')).toBe('api-compat');
     const checks = [
       { name: 'Pipelines as Code CI / provenance-', status: 'completed' as const, conclusion: 'success' },
       { name: 'Pipelines as Code CI / api-compat-', status: 'completed' as const, conclusion: 'neutral', message: comment(report) },

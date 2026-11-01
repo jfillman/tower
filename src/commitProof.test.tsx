@@ -4,7 +4,8 @@ import { CommandDeck } from './CommandDeck';
 import { CommitSignatureBlock } from './ReleaseRecordEvidence';
 import { buildReleaseRecordHtml } from './ReleaseRecordExport';
 import { ReleaseMatrix } from './ReleaseMatrix';
-import { commitProofLine, commitProofOf, commitProofPoints, type SignatureEvidence } from './commitProof';
+import { commitProofLine, commitProofOf, commitProofPoints, provenanceCheck, type SignatureEvidence } from './commitProof';
+import { formatGateName } from './SignalRail';
 import { confidenceBreakdown, withPersistedGuardrails, type ReleaseRecord } from './useReleaseRecords';
 import type { ReleaseRecordDoc } from './useReleaseRecordPersistence';
 import type { PullRequestSummary } from './pullRequests/usePullRequests';
@@ -32,6 +33,18 @@ const ci = (signature?: SignatureEvidence, conclusion = 'success') => ({
   checks: [check(signature, conclusion)],
 });
 const GITOPS = 'https://github.com/jfillman/gitops-backstage/pull/57';
+
+// The check name's prefix is PaC's application-name: "Glidepath" in Hangar, PaC's default before, anything elsewhere.
+describe('gate check names', () => {
+  it('drops any application name before the first " / "', () => {
+    for (const name of ['Glidepath / provenance-', 'Pipelines as Code CI / provenance-', 'Acme CI / provenance-']) {
+      expect(provenanceCheck([{ name, status: 'completed', conclusion: 'success' }])?.name).toBe(name);
+    }
+    expect(formatGateName('Glidepath / image-scan-')).toBe('image-scan');
+    expect(formatGateName('image-scan')).toBe('image-scan');
+    expect(provenanceCheck([{ name: 'Glidepath / sbom-', status: 'completed', conclusion: 'success' }])).toBeUndefined();
+  });
+});
 
 describe('commitProofOf', () => {
   it('reads each path from the provenance check', () => {

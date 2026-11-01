@@ -44,7 +44,7 @@ const PATHS = new Set(['gitsign', 'github-merge-strict', 'github-merge']);
 
 /** The provenance gate's check, whatever PaC prefixes its name with. */
 export function provenanceCheck(checks: PrCheckRun[] | undefined): PrCheckRun | undefined {
-  return checks?.find(c => c.name.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, '').replace(/-+\s*$/, '').toLowerCase() === 'provenance');
+  return checks?.find(c => c.name.replace(/^[^/]+\s\/\s*/, '').replace(/-+\s*$/, '').toLowerCase() === 'provenance');
 }
 
 // A Kubernetes release's gates ran on its gitops-<app> release PR; anything else on record is a cloud target's release
