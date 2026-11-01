@@ -1,6 +1,6 @@
 const PATHS = /* @__PURE__ */ new Set(["gitsign", "github-merge-strict", "github-merge"]);
 function provenanceCheck(checks) {
-  return checks?.find((c) => c.name.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, "").replace(/-+\s*$/, "").toLowerCase() === "provenance");
+  return checks?.find((c) => c.name.replace(/^[^/]+\s\/\s*/, "").replace(/-+\s*$/, "").toLowerCase() === "provenance");
 }
 function isPinPr(prUrl) {
   return Boolean(prUrl) && !/\/gitops-[^/]+\/pull\//.test(prUrl);

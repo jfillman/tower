@@ -46,7 +46,7 @@ function parseApiCompat(message) {
   };
 }
 function gateIdOf(checkName) {
-  return checkName.replace(/^Pipelines as Code(?:\s+CI)?\s*\/\s*/i, "").replace(/-+\s*$/, "").toLowerCase();
+  return checkName.replace(/^[^/]+\s\/\s*/, "").replace(/-+\s*$/, "").toLowerCase();
 }
 function apiCompatCheck(checks) {
   return checks?.find((c) => gateIdOf(c.name) === "api-compat");
