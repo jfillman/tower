@@ -51,6 +51,8 @@ import { AddEnvironmentDialog, ChangeResultDialog, RemoveEnvironmentDialog } fro
 import { PendingChanges } from './environments/PendingChanges';
 import { RowDetail, type RowDetailContext } from './environments/RowDetail';
 import { SubmittedPanel } from './environments/SubmittedPanel';
+import { PreviewsPanel } from './environments/PreviewsPanel';
+import { usePreviews } from '../usePreviews';
 import { same, TARGET_BLOCK, type DisplayRow } from './environments/shared';
 import { ENVS_ROOT } from '../types';
 
@@ -126,6 +128,7 @@ export function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : undefined, nonce);
+  const previews = usePreviews(appName, nonce);
   // The page's entity is this app's Component (useReleaseContext), so its kind tag says whether it is an InfraService.
   const appType = appTypeOf(appEntity);
   const submit = useSubmitCicdConfigChange();
@@ -676,6 +679,7 @@ export function EnvironmentsTab() {
               </div>
             )}
           </Panel>
+          <PreviewsPanel state={previews} />
         </div>
         {canEdit && (
           <div className={c.side}>

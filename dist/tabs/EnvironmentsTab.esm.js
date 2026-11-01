@@ -25,6 +25,8 @@ import { AddEnvironmentDialog, RemoveEnvironmentDialog, ChangeResultDialog } fro
 import { PendingChanges } from './environments/PendingChanges.esm.js';
 import { RowDetail } from './environments/RowDetail.esm.js';
 import { SubmittedPanel } from './environments/SubmittedPanel.esm.js';
+import { PreviewsPanel } from './environments/PreviewsPanel.esm.js';
+import { usePreviews } from '../usePreviews.esm.js';
 import { TARGET_BLOCK, same } from './environments/shared.esm.js';
 import { ENVS_ROOT } from '../types.esm.js';
 import { TabSkeleton, TabError } from '../ui/LoadState.esm.js';
@@ -80,6 +82,7 @@ function EnvironmentsTab() {
   const [searchParams] = useSearchParams();
   const [nonce, setNonce] = useState(0);
   const cicd = useCicdConfig(owner && appName ? { owner, appName } : void 0, nonce);
+  const previews = usePreviews(appName, nonce);
   const appType = appTypeOf(appEntity);
   const submit = useSubmitCicdConfigChange();
   const launcher = useLaunchApplicationEnvironment();
@@ -533,7 +536,8 @@ function EnvironmentsTab() {
               isOpen && r.def && /* @__PURE__ */ jsx(RowDetail, { row: r, ctx: detailCtx })
             ] }, r.name);
           })
-        ] }) }) })
+        ] }) }) }),
+        /* @__PURE__ */ jsx(PreviewsPanel, { state: previews })
       ] }),
       canEdit && /* @__PURE__ */ jsxs("div", { className: c.side, children: [
         /* @__PURE__ */ jsx(

@@ -98,6 +98,14 @@ Opening the pull request does not make the environment appear: it exists when th
 - `src/environments/`: `submitted.ts` (remembered pull requests), `lifecycle.ts` (the provisioning steps, pure) and `useEnvLifecycle.ts` (reads GitHub, the ApplicationEnvironment XR, its files and the SecretStore). A Ground row re-reads its values file every 45 s while its steps are unfinished, so the "file exists" step and the Values tab follow the onboarding PR's merge without a reload.
 - `src/environments/stagedChanges.ts`: the pure model (read either shape, apply staged changes, validate,
   build the `deploy` block, describe the changes). Heavily tested; the rules live here, not in the component.
-- `src/tabs/EnvironmentsTab.tsx`: state and handlers; `src/tabs/environments/`: `RowDetail` (the sub-tabs), `PendingChanges`, `dialogs`, `shared`.
+- `src/tabs/EnvironmentsTab.tsx`: state and handlers; `src/tabs/environments/`: `RowDetail` (the sub-tabs), `PendingChanges`, `dialogs`, `shared`, `PreviewsPanel`.
+
+## Previews
+
+Under the environment list, **Previews** shows the app's preview environments, one per pull request labelled
+`preview` (v0.116.0). Each row shows the PR, Argo CD's health and sync, the namespace (`app-<app>-pr-<n>`), the image
+tag, when it was created, and the `kubectl port-forward` that reaches it (a preview has no route). The panel reads
+glidepath-api's `GET /v1/apps/{app}/previews` through the backend's `/previews` route and is read only: adding or
+removing the label on the PR starts or ends a preview. It is hidden when the app has none.
 - `src/ui/`: the shared kit.
 - `src/environmentRows.ts`: the read-only row builder.

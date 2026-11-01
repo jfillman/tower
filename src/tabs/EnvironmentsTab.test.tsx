@@ -48,6 +48,7 @@ jest.mock('../values/sources', () => ({ ...jest.requireActual('../values/sources
 let workloadView: { data?: unknown } = { data: { shape: 'service', shapeFrom: 'default', inherited: 'service', legacyNull: false, release: null } };
 jest.mock('../values/workload', () => ({ ...jest.requireActual('../values/workload'), useWorkloadView: () => workloadView }));
 jest.mock('../environments/useEnvLifecycle', () => ({ useEnvLifecycle: () => ({ steps: lifecycleSteps, loading: false }) }));
+jest.mock('../usePreviews', () => ({ usePreviews: () => ({ loading: false, previews: [] }) }));
 // The cluster registry: unreadable by default, so the dialog shows its free-text fallback (the tests below that set it
 // ready cover the dropdown).
 let registryState: any = { status: 'failed' };
