@@ -9,8 +9,8 @@ import { PrRef } from '../../ui/PrRef';
 import { useUi } from '../../ui/styles';
 
 const useStyles = makeStyles<Theme, { t: HangarTokens }>(() => ({
-  panel: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
-  row: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 10 },
+  stack: { padding: 16, display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 },
+  entry: { display: 'flex', flexDirection: 'column', gap: 6, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 10 },
   head: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   health: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: ({ t }) => t.textHi },
   detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflowWrap: 'anywhere' },
@@ -49,7 +49,7 @@ function PreviewRow({ p }: { p: Preview }) {
   const health = previewHealth(p.health);
   const tag = p.image?.split(':').pop();
   return (
-    <div className={c.row} data-testid="preview">
+    <div className={c.entry} data-testid="preview">
       <div className={c.head}>
         {p.prUrl ? <PrRef pr={{ url: p.prUrl, title: `PR #${p.pr}` }} size="inline" label="PR" /> : <span>PR #{p.pr}</span>}
         <span className={c.health}>
@@ -83,7 +83,7 @@ export function PreviewsPanel({ state }: { state: PreviewsState }) {
   // Like Open PRs: nothing to show, no panel. An app without previews (or before the first read answers) sees none.
   if (state.previews.length === 0 && !state.error) return null;
   return (
-    <Panel className={c.panel} role="region" aria-label="Preview environments">
+    <Panel className={c.stack} role="region" aria-label="Preview environments">
       <SectionLabel>Previews</SectionLabel>
       {state.error && <div className={ui.note}>Previews could not be read: {state.error}</div>}
       {state.previews.map(p => (

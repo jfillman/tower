@@ -7,8 +7,8 @@ import { PrRef } from '../../ui/PrRef.esm.js';
 import { useUi } from '../../ui/styles.esm.js';
 
 const useStyles = makeStyles(() => ({
-  panel: { padding: 16, display: "flex", flexDirection: "column", gap: 12, marginTop: 16 },
-  row: { display: "flex", flexDirection: "column", gap: 6, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 10 },
+  stack: { padding: 16, display: "flex", flexDirection: "column", gap: 12, marginTop: 16 },
+  entry: { display: "flex", flexDirection: "column", gap: 6, borderTop: ({ t }) => `1px solid ${t.line}`, paddingTop: 10 },
   head: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
   health: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: ({ t }) => t.textHi },
   detail: { fontFamily: fontMono, fontSize: 11, color: ({ t }) => t.textLo, overflowWrap: "anywhere" },
@@ -43,7 +43,7 @@ function PreviewRow({ p }) {
   const c = useStyles({ t });
   const health = previewHealth(p.health);
   const tag = p.image?.split(":").pop();
-  return /* @__PURE__ */ jsxs("div", { className: c.row, "data-testid": "preview", children: [
+  return /* @__PURE__ */ jsxs("div", { className: c.entry, "data-testid": "preview", children: [
     /* @__PURE__ */ jsxs("div", { className: c.head, children: [
       p.prUrl ? /* @__PURE__ */ jsx(PrRef, { pr: { url: p.prUrl, title: `PR #${p.pr}` }, size: "inline", label: "PR" }) : /* @__PURE__ */ jsxs("span", { children: [
         "PR #",
@@ -69,7 +69,7 @@ function PreviewsPanel({ state }) {
   const c = useStyles({ t });
   const ui = useUi({ t });
   if (state.previews.length === 0 && !state.error) return null;
-  return /* @__PURE__ */ jsxs(Panel, { className: c.panel, role: "region", "aria-label": "Preview environments", children: [
+  return /* @__PURE__ */ jsxs(Panel, { className: c.stack, role: "region", "aria-label": "Preview environments", children: [
     /* @__PURE__ */ jsx(SectionLabel, { children: "Previews" }),
     state.error && /* @__PURE__ */ jsxs("div", { className: ui.note, children: [
       "Previews could not be read: ",
