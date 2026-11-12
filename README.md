@@ -153,4 +153,6 @@ See `docs/` for detailed architecture and implementation notes.
 
 ## License
 
-Same as Hangar — see [LICENSE](../hangar/LICENSE) for details.
+Copyright 2026 James Fillman. Licensed under the [Apache License, Version 2.0](LICENSE), the same
+license as [Hangar](https://github.com/jfillman/hangar). See [NOTICE](NOTICE) for attribution and
+[CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute.
