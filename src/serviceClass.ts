@@ -128,6 +128,18 @@ export const SERVICE_CLASSES: Record<string, ServiceClassDef> = {
     capabilities: [CAP.source, CAP.ci, CAP.build, CAP.releases, CAP.images, CAP.slo, CAP.valuesConfig, CAP.autopilot, CAP.clearance],
     defaultDeployTarget: 'k8s-rollout',
   },
+  // An Airframe AgentRepository: a checks-only repo (glidepath GP-CHECKS-001, a cicd.yaml with no build). Glidepath runs
+  // PR checks and the agent release on it; nothing is built, deployed or run from it. So it gets its repo's pull
+  // requests (each shows its check state) and Clearance, and none of the build, deploy, SLO or values capabilities.
+  // It also lacks `ci`: that gates Environments, Pipeline (cicd.yaml) and Notifications, which all describe a deploy
+  // pipeline this repo does not have. It lacks `autopilot` because one repo holds many agents under agents/, not the
+  // single definition the Overview panel and Agent tab show.
+  'agent-repository': {
+    id: 'agent-repository',
+    label: 'Agent repository',
+    labelPlural: 'Agent repositories',
+    capabilities: [CAP.source, CAP.clearance],
+  },
 };
 
 // Entities with these kind tags are classified without any catalog annotation: the original
@@ -140,6 +152,7 @@ const KIND_DEFAULTS: Record<string, { cls: string; target?: string }> = {
   'kind:pythonapplication': { cls: 'container-app' },
   'kind:goapplication': { cls: 'container-app' },
   'kind:infraservice': { cls: 'infra-service' },
+  'kind:agentrepository': { cls: 'agent-repository' },
   'kind:lambdafunction': { cls: 'function', target: 'aws-lambda' },
   // Azure Functions are hosted on Container Apps, so that is the deploy target.
   'kind:azurefunction': { cls: 'function', target: 'azure-container-apps' },

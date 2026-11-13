@@ -5,7 +5,7 @@ with two annotations on its catalog Component, and Tower works out the rest.
 
 | Annotation | Meaning | Example values |
 |---|---|---|
-| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `infra-service`, `ai-workload`, `ai-service`, `storage`, `secret-store`, `data-lake` |
+| `hangar.io/service-class` | what the service is. Any slug. | `container-app`, `function`, `infra-service`, `ai-workload`, `ai-service`, `agent-repository`, `storage`, `secret-store`, `data-lake` |
 | `hangar.io/deploy-target` | where it runs. Optional. | `k8s-rollout`, `aws-ecs`, `aws-lambda`, `azure-container-apps` |
 
 `deploy-target` mirrors `deploy.target` in the service's `cicd.yaml`. The XRD writes both
@@ -19,7 +19,7 @@ inferred as `container-app` on `k8s-rollout`, and InfraService as `infra-service
 (Azure Functions are hosted on Container Apps), so they work before the catalog ingestor
 emits the annotations. An explicit annotation always wins. The older
 `hangar.io/workload-type: ai` and `spec.type: ai-agent` markers are inferred as
-`ai-workload`.
+`ai-workload`. An AgentRepository (`kind:agentrepository`) is inferred as `agent-repository`.
 
 ## Which services Tower lists
 
@@ -36,7 +36,7 @@ has all of the ones it requires; a tab with none required always shows.
 
 | Capability | Granted by | Tabs that need it |
 |---|---|---|
-| `source` | classes with a GitHub repo | Pull Requests, Notifications (with `ci`) |
+| `source` | classes with a GitHub repo (including agent-repository) | Pull Requests, Notifications (with `ci`) |
 | `ci` | classes onboarded to Glidepath (a `cicd.yaml`) | Pipelines, Environments, Notifications, Glidepath |
 | `build` | container-app, function, ai-service: a source repo Glidepath builds | Pipelines (with `ci`) |
 | `releases` | container-app, function, ai-service | Releases |
@@ -46,7 +46,7 @@ has all of the ones it requires; a tab with none required always shows.
 | `k8s-runtime` | the `k8s-rollout` target | Deployments, Topology, SLOs |
 | `cloud-runtime` | every cloud target | Deployments (the cloud variant, see cloud-deploys.md) |
 | `autopilot` | ai-workload, ai-service | the agent definition on Overview; Agent (mounted by the Autopilot plugin, see [mounted-tabs.md](mounted-tabs.md)) |
-| `clearance` | container-app, infra-service, function, ai-service; any unknown class with a repo | Clearance (mounted by the Clearance plugin; shown where an agent's scope names the app or an agent has acted on it) |
+| `clearance` | container-app, infra-service, function, ai-service, agent-repository; any unknown class with a repo | Clearance (mounted by the Clearance plugin; shown where an agent's scope names the app or an agent has acted on it) |
 
 An **infra-service** (an Airframe InfraService such as a broker) has no source repo, build,
 image or release records: it gets `source`, `ci`, `values-config` and `slo` but not `build`,
@@ -58,24 +58,31 @@ team): it runs as `AgentRun`s and leaves nothing deployed. An **ai-service** is 
 the agent's definition on Overview (see below), and the Agent tab when the Autopilot plugin is installed: the
 agent's live runs, each run's flight log (every call it made through Clearance) and the questions it is waiting on.
 
+An **agent-repository** (an Airframe AgentRepository such as `skyport-agents`) is a checks-only repo: Glidepath
+runs PR checks and the agent release on it, and nothing is built, deployed or run from it. It gets `source` and
+`clearance` only: Overview, Pull Requests (each PR shows its check state) and, where relevant, Clearance. It has no
+`ci` because that gates Environments, Pipeline (cicd.yaml) and Notifications, which describe a deploy pipeline it
+does not have, and no `autopilot` because one repo holds many agents under `agents/`, not the single definition the
+Overview panel and Agent tab show. Its XR needs `github.com/project-slug` for Pull Requests to find the repo.
+
 ## Tabs by service type
 
-| Tab | Container app (Kubernetes) | Container app (cloud) | Function | Infra service | AI workload | AI service |
-|---|---|---|---|---|---|---|
-| Overview | yes | yes | yes | yes | yes (agent definition, no environments) | yes (with agent definition) |
-| Pull Requests | yes | yes | yes | yes (gitops-infra repo) | yes | yes |
-| Agent (Autopilot plugin) | | | | | yes | yes |
-| Pipelines | yes | yes | yes | | | yes |
-| Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |
-| Releases | yes | yes | yes | | | yes |
-| Configure › Environments | yes | yes | yes | yes | | yes |
-| Topology | yes | | | yes | | yes |
-| Images | yes | yes | yes | | | yes |
-| SLOs | yes | | | yes | | yes |
-| Clearance (Clearance plugin) | where relevant | where relevant | where relevant | where relevant | | where relevant |
-| Notifications | yes | yes | yes | yes | | yes |
-| Configure › Shared values | yes | | | yes (no preview section) | | yes |
-| Configure › Pipeline | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |
+| Tab | Container app (Kubernetes) | Container app (cloud) | Function | Infra service | AI workload | AI service | Agent repository |
+|---|---|---|---|---|---|---|---|
+| Overview | yes | yes | yes | yes | yes (agent definition, no environments) | yes (with agent definition) | yes (no environments) |
+| Pull Requests | yes | yes | yes | yes (gitops-infra repo) | yes | yes | yes (with check state) |
+| Agent (Autopilot plugin) | | | | | yes | yes |  |
+| Pipelines | yes | yes | yes | | | yes |  |
+| Deployments | Rollout variant | cloud variant | cloud variant | Rollout variant (StatefulSet) | | Rollout variant |  |
+| Releases | yes | yes | yes | | | yes |  |
+| Configure › Environments | yes | yes | yes | yes | | yes |  |
+| Topology | yes | | | yes | | yes |  |
+| Images | yes | yes | yes | | | yes |  |
+| SLOs | yes | | | yes | | yes |  |
+| Clearance (Clearance plugin) | where relevant | where relevant | where relevant | where relevant | | where relevant | where relevant |
+| Notifications | yes | yes | yes | yes | | yes |  |
+| Configure › Shared values | yes | | | yes (no preview section) | | yes |  |
+| Configure › Pipeline | yes | yes | yes | yes (deploy, governance, notifications, secrets, advanced) | | yes |  |
 
 "Container app (cloud)" is `aws-ecs` or `azure-container-apps`; "Function" is `aws-lambda` (LambdaFunction) or
 `azure-container-apps` (AzureFunction). The table is asserted by `src/TowerPage.tabs.test.ts`. The two tabs marked

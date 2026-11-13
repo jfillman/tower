@@ -55,6 +55,13 @@ describe('serviceClassOf', () => {
     expect(serviceClassOf(e)).toMatchObject({ id: 'infra-service', labelPlural: 'Infra services' });
     expect(deployTargetOf(e)?.id).toBe('k8s-rollout');
   });
+  it('maps AgentRepository to its own class with a repo and Clearance but nothing that builds or deploys', () => {
+    const e = entity({}, undefined, kind('agentrepository'));
+    expect(isTowerService(e)).toBe(true);
+    expect(serviceClassOf(e)).toMatchObject({ id: 'agent-repository', label: 'Agent repository' });
+    expect(deployTargetOf(e)).toBeUndefined();
+    expect([...capabilitiesOf(e)].sort()).toEqual([CAP.clearance, CAP.source]);
+  });
   it('maps both legacy AI markers to ai-workload', () => {
     expect(serviceClassOf(entity({ type: 'ai-agent' })).id).toBe('ai-workload');
     expect(serviceClassOf(entity({}, { 'hangar.io/workload-type': 'ai' })).id).toBe('ai-workload');

@@ -68,6 +68,13 @@ describe('which tabs a service gets', () => {
     expect(ids(entity({ 'hangar.io/workload-type': 'ai' }))).toEqual(['overview', 'pull-requests']);
   });
 
+  it('an AgentRepository (a checks-only repo, inferred from its kind) gets Overview and Pull Requests; nothing deploys', () => {
+    const e = entity({ 'github.com/project-slug': 'o/skyport-agents' }, ['kind:agentrepository']);
+    expect(ids(e)).toEqual(['overview', 'pull-requests']);
+    expect(ids(entity({ 'hangar.io/service-class': 'agent-repository' }))).toEqual(['overview', 'pull-requests']);
+    expect(ids(e, { clearance: true })).toEqual(['overview', 'pull-requests', 'clearance']);
+  });
+
   it('an AI service (a long-running agent Glidepath builds) gets every container-app tab', () => {
     expect(ids(entity({ 'hangar.io/service-class': 'ai-service' }))).toEqual(ids(entity(undefined, ['kind:goapplication'])));
   });
