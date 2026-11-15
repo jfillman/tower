@@ -249,6 +249,7 @@ export const useStatus = makeStyles<Theme, { t: HangarTokens }>(() => ({
   },
   statusButton: {
     cursor: 'pointer',
+    textDecoration: 'none',
     '&:hover': { filter: 'brightness(0.97)' },
     '&:focus-visible': { outline: ({ t }) => `2px solid ${t.sky}`, outlineOffset: 1 },
   },
