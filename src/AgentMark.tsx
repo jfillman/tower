@@ -32,6 +32,12 @@ export function AgentMark({ mark, what = 'pr', className }: { mark: TowerPrMark;
   );
 }
 
+/**
+ * The Autopilot plugin's Runs page with one session selected (its `?run=<session id>`): that run's facts, budgets and
+ * flight log, live or finished. The Agent tab cannot select a run by address, so the chip opens the page that can.
+ */
+export const autopilotRunPath = (session: string) => `/autopilot?view=runs&run=${encodeURIComponent(session)}`;
+
 /** "An event about this run started an agent": investigating while its session lives, investigated after. */
 export function RunMarkChip({ mark, className }: { mark: TowerRunMark; className?: string }) {
   const c = useStyles();
@@ -44,12 +50,12 @@ export function RunMarkChip({ mark, className }: { mark: TowerRunMark; className
     tone = 'info';
     verb = 'investigating';
   } else if (mark.state === 'unknown') verb = 'started';
-  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? 'frozen: the breaker tripped' : mark.state}`;
+  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? 'frozen: the breaker tripped' : mark.state}${mark.session ? '. Opens the run in Autopilot' : ''}`;
   return (
     <Tooltip title={title}>
       <span className={`${c.mark} ${className ?? ''}`}>
-        <StatusChip tone={tone} dot={mark.state === 'live'}>
-          <HangarMark glyph="clearance" size={12} />
+        <StatusChip tone={tone} dot={mark.state === 'live'} to={mark.session ? autopilotRunPath(mark.session) : undefined}>
+          <HangarMark glyph="autopilot" size={12} />
           {mark.agent} {verb}
         </StatusChip>
       </span>
