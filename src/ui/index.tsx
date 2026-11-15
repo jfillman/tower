@@ -1,5 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import SearchIcon from '@material-ui/icons/Search';
+import { Link as RouterLink } from 'react-router-dom';
 import { useHangarTokens, type HangarTokens } from '../brand/tokens';
 import { keepAnchored, preventFocusScroll } from '../preventFocusScroll';
 import type { Health } from '../types';
@@ -378,13 +379,17 @@ export function healthTone(h: Health): StatusTone {
 
 /**
  * What state something is in: Healthy, promoted, failed, running. Rounded with a soft tint, so it never reads as a
- * label chip (square, `Chip`) or a button. `onClick` makes it a button (an environment pill that opens its page).
+ * label chip (square, `Chip`) or a button. `onClick` makes it a button (an environment pill that opens its page);
+ * `to` makes it an in-app link (a real anchor: middle-click and copy-address work) to the thing it describes, with
+ * the same hover and focus look and a trailing →, the link mark for another page. A click inside a clickable row
+ * follows the link only.
  */
 export function StatusChip({
   tone,
   dot,
   title,
   onClick,
+  to,
   className,
   children,
 }: {
@@ -392,6 +397,8 @@ export function StatusChip({
   dot?: boolean;
   title?: string;
   onClick?: () => void;
+  /** An in-app path: the chip opens what it describes, as a link. */
+  to?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -403,6 +410,21 @@ export function StatusChip({
       {children}
     </>
   );
+  if (to) {
+    return (
+      <RouterLink
+        to={to}
+        title={title}
+        onMouseDown={preventFocusScroll}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+        className={cx(s.status, s[tone], s.statusButton, className)}
+      >
+        {content}
+        <span aria-hidden>→</span>
+      </RouterLink>
+    );
+  }
   if (onClick) {
     return (
       <button

@@ -18,6 +18,7 @@ function AgentMark({ mark, what = "pr", className }) {
     mark.agent
   ] }) }) });
 }
+const autopilotRunPath = (session) => `/autopilot?view=runs&run=${encodeURIComponent(session)}`;
 function RunMarkChip({ mark, className }) {
   const c = useStyles();
   let tone = "neutral";
@@ -29,9 +30,9 @@ function RunMarkChip({ mark, className }) {
     tone = "info";
     verb = "investigating";
   } else if (mark.state === "unknown") verb = "started";
-  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? "frozen: the breaker tripped" : mark.state}`;
-  return /* @__PURE__ */ jsx(Tooltip, { title, children: /* @__PURE__ */ jsx("span", { className: `${c.mark} ${className ?? ""}`, children: /* @__PURE__ */ jsxs(StatusChip, { tone, dot: mark.state === "live", children: [
-    /* @__PURE__ */ jsx(HangarMark, { glyph: "clearance", size: 12 }),
+  const title = `An event about this run started ${mark.agent} (session ${mark.session}, ${formatDateTime(mark.at)}); its session is ${mark.tripped ? "frozen: the breaker tripped" : mark.state}${mark.session ? ". Opens the run in Autopilot" : ""}`;
+  return /* @__PURE__ */ jsx(Tooltip, { title, children: /* @__PURE__ */ jsx("span", { className: `${c.mark} ${className ?? ""}`, children: /* @__PURE__ */ jsxs(StatusChip, { tone, dot: mark.state === "live", to: mark.session ? autopilotRunPath(mark.session) : void 0, children: [
+    /* @__PURE__ */ jsx(HangarMark, { glyph: "autopilot", size: 12 }),
     mark.agent,
     " ",
     verb
@@ -89,5 +90,5 @@ function ActingAgentsChip({ agents }) {
   ] }) }) });
 }
 
-export { ActingAgentsChip, AgentMark, AgentStateChips, RunMarkChip };
+export { ActingAgentsChip, AgentMark, AgentStateChips, RunMarkChip, autopilotRunPath };
 //# sourceMappingURL=AgentMark.esm.js.map

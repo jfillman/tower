@@ -1,6 +1,7 @@
 import { jsxs, Fragment, jsx } from 'react/jsx-runtime';
 import { forwardRef } from 'react';
 import SearchIcon from '@material-ui/icons/Search';
+import { Link } from 'react-router-dom';
 import { useHangarTokens } from '../brand/tokens.esm.js';
 import { preventFocusScroll, keepAnchored } from '../preventFocusScroll.esm.js';
 import { useStatus, useUi, useBlocks, useSection, useControls, useData } from './styles.esm.js';
@@ -264,6 +265,7 @@ function StatusChip({
   dot,
   title,
   onClick,
+  to,
   className,
   children
 }) {
@@ -273,6 +275,23 @@ function StatusChip({
     dot && /* @__PURE__ */ jsx("i", { className: s.statusDot, "aria-hidden": true }),
     children
   ] });
+  if (to) {
+    return /* @__PURE__ */ jsxs(
+      Link,
+      {
+        to,
+        title,
+        onMouseDown: preventFocusScroll,
+        onClick: (e) => e.stopPropagation(),
+        onKeyDown: (e) => e.stopPropagation(),
+        className: cx(s.status, s[tone], s.statusButton, className),
+        children: [
+          content,
+          /* @__PURE__ */ jsx("span", { "aria-hidden": true, children: "\u2192" })
+        ]
+      }
+    );
+  }
   if (onClick) {
     return /* @__PURE__ */ jsx(
       "button",

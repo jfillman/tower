@@ -59,7 +59,10 @@ What Tower draws from them (`src/fleetMarks.ts`, `src/AgentMark.tsx`):
   verified or only recorded, when); a Releases card whose PRs include one says so; a Pipelines row building the
   branch of such a PR says whose PR it builds; a Pipelines row whose run an event named (a failed build that started
   triage-agent) says "triage-agent investigating" while that session lives, "investigated" after, "frozen" if its
-  breaker tripped.
+  breaker tripped. That chip wears the Autopilot mark and, when the event named a session, is a link (a status chip
+  that opens what it describes, with a trailing →) to the Autopilot plugin's Runs page with that session selected,
+  `/autopilot?view=runs&run=<session>`: its facts, budgets and flight log, live or finished. The Agent tab cannot select
+  a run by address, so the chip opens the page that can. Without a session id it is a plain chip.
 
 `@jfillman/tower` exports `towerTabMountDataRef`, `TOWER_TAB_MOUNT_ID`, `TOWER_MOUNT_INPUTS` and the types
 (`src/mounts.tsx`). The Clearance plugin may not import Tower (it is standalone-ready), so it declares the same ref by
