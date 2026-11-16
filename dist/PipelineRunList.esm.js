@@ -1,9 +1,11 @@
 import { jsx, jsxs } from 'react/jsx-runtime';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { relativeTime, formatDateTime } from './shared/format.esm.js';
 import { fontMono, fontDisplay, useHangarTokens } from './brand/tokens.esm.js';
 import { layoutPipelineGraph } from './tekton/pipelineGraph.esm.js';
+import { LineageLine } from './LineageLine.esm.js';
+import { chainIdOf } from './tekton/useTektonPipelineRuns.esm.js';
 import { EmptyNote, FilterBar, FilterChips, SearchField, Button, StatusChip, TextLink } from './ui/index.esm.js';
 import { runMarkFor, markForBranch } from './fleetMarks.esm.js';
 import { AgentMark, RunMarkChip } from './AgentMark.esm.js';
@@ -119,6 +121,9 @@ function phaseTone(t, phase) {
       return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: "pending", status: "neutral" };
   }
 }
+function queuedTone(t) {
+  return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: "queued", status: "warn" };
+}
 function miniDotColor(t, phase) {
   if (phase === "succeeded") return t.good;
   if (phase === "failed") return t.bad;
@@ -232,7 +237,8 @@ function RunDescriptor({ run, classes, mark, runMark }) {
         ] })
       ] }),
       /* @__PURE__ */ jsx(RunError, { run, classes }),
-      run.flowSlug && /* @__PURE__ */ jsx(FlowSlugChip, { slug: run.flowSlug, classes })
+      run.flowSlug && /* @__PURE__ */ jsx(FlowSlugChip, { slug: run.flowSlug, classes }),
+      run.origin && /* @__PURE__ */ jsx(LineageLine, { slug: run.flowSlug, origin: run.origin, traceId: run.traceId })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: classes.main, children: [
@@ -248,8 +254,14 @@ function RunDescriptor({ run, classes, mark, runMark }) {
       ] })
     ] }),
     /* @__PURE__ */ jsx(RunError, { run, classes }),
-    run.flowSlug && /* @__PURE__ */ jsx(FlowSlugChip, { slug: run.flowSlug, classes })
+    run.flowSlug && /* @__PURE__ */ jsx(FlowSlugChip, { slug: run.flowSlug, classes }),
+    run.origin && /* @__PURE__ */ jsx(LineageLine, { slug: run.flowSlug, origin: run.origin, traceId: run.traceId })
   ] });
+}
+function reissueEntryFor(run, releases) {
+  if (run.pipelineName !== "release" || run.phase !== "succeeded") return void 0;
+  const chain = chainIdOf(run);
+  return chain ? releases.find((r) => r.chainId === chain) : void 0;
 }
 function PipelineRunList({
   runs,
@@ -260,11 +272,16 @@ function PipelineRunList({
   onCancel,
   cancelPending,
   marks = [],
-  runMarks = []
+  runMarks = [],
+  flowQuery,
+  reissue
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(flowQuery ?? "");
+  useEffect(() => {
+    if (flowQuery !== void 0) setSearch(flowQuery);
+  }, [flowQuery]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [flowFilter, setFlowFilter] = useState("all");
   const [pageSize, setPageSize] = useState(25);
@@ -331,7 +348,8 @@ function PipelineRunList({
           "Cancelled"
         );
         const cancelling = (run.phase === "running" || run.phase === "pending") && (cancelPending === run.name || cancelRequested);
-        const tone = cancelling ? { ...phaseTone(t, "running"), label: "canceling" } : phaseTone(t, run.phase);
+        let tone = run.queued ? queuedTone(t) : phaseTone(t, run.phase);
+        if (cancelling) tone = { ...phaseTone(t, "running"), label: "canceling" };
         const durationLabel = (() => {
           if (!run.startTime) return "\u2014";
           const start = new Date(run.startTime).getTime();
@@ -371,6 +389,24 @@ function PipelineRunList({
                       children: rerunPending === run.name ? "Re-running\u2026" : "Re-run"
                     }
                   ),
+                  reissue && (() => {
+                    const entry = reissueEntryFor(run, reissue.releases);
+                    if (!entry) return null;
+                    const reason = reissue.reasonFor(entry);
+                    return /* @__PURE__ */ jsx(
+                      Button,
+                      {
+                        small: true,
+                        disabled: Boolean(reason),
+                        title: reason,
+                        onClick: (ev) => {
+                          ev.stopPropagation();
+                          reissue.onAsk(entry);
+                        },
+                        children: "Reissue release PR"
+                      }
+                    );
+                  })(),
                   (run.phase === "running" || run.phase === "pending") && onCancel && /* @__PURE__ */ jsx(
                     Button,
                     {
@@ -407,5 +443,5 @@ function PipelineRunList({
   ] });
 }
 
-export { PipelineRunList, flowBucket, phaseTone, pipelineTitle, slugHue };
+export { PipelineRunList, flowBucket, phaseTone, pipelineTitle, queuedTone, reissueEntryFor, slugHue };
 //# sourceMappingURL=PipelineRunList.esm.js.map

@@ -183,12 +183,27 @@ function FilterBar({ children, end }) {
 }
 function TextLink({
   href,
+  to,
   onClick,
   title,
   expanded,
   children
 }) {
   const ui = useControlsKit();
+  if (to) {
+    return /* @__PURE__ */ jsx(
+      Link,
+      {
+        className: ui.textLink,
+        to,
+        title,
+        onMouseDown: preventFocusScroll,
+        onClick: (e) => e.stopPropagation(),
+        onKeyDown: (e) => e.stopPropagation(),
+        children
+      }
+    );
+  }
   if (href) {
     return /* @__PURE__ */ jsx("a", { className: ui.textLink, href, target: "_blank", rel: "noopener noreferrer", title, children });
   }

@@ -6,6 +6,7 @@ import { PrReceipt } from './ui/PrRef';
 import { useReleaseRunStatus } from './useReleaseData';
 import type { ReleaseRunStatus } from './types';
 import { Callout, IconButton, TextLink, Tooltip } from './ui';
+import { LineageLine } from './LineageLine';
 
 // Promote to a Flight environment used to hold its dialog open for up to 90 s while the backend waited for the
 // release run to open its PR (2026-10-22: "the dialog sits for a very long time"). The dialog now closes as soon as
@@ -81,12 +82,14 @@ export function ReleaseRunTracker({
   if (data?.state === 'pr' && data.prUrl) {
     return (
       <div className={classes.receiptRow} data-testid="release-run-tracker">
-        <PrReceipt
-          className={classes.receipt}
-          prUrl={data.prUrl}
-          title={`${release.kind === 'rollback' ? 'Rollback' : 'Release'}: ${appName} to ${release.env} · ${release.label}`}
-          next={`${data.changeRequest ? `change ${data.changeRequest} is approved, ` : ''}checks finish and, where the release mode asks for it, someone signs off; then merge it.`}
-        />
+        <div className={classes.receipt}>
+          <PrReceipt
+            prUrl={data.prUrl}
+            title={`${release.kind === 'rollback' ? 'Rollback' : 'Release'}: ${appName} to ${release.env} · ${release.label}`}
+            next={`${data.changeRequest ? `change ${data.changeRequest} is approved, ` : ''}checks finish and, where the release mode asks for it, someone signs off; then merge it.`}
+          />
+          {data.origin && <LineageLine origin={data.origin} />}
+        </div>
         {dismiss}
       </div>
     );
@@ -128,6 +131,7 @@ export function ReleaseRunTracker({
           : `${runningStep(data) ? `Now: ${runningStep(data)}. ` : ''}You can leave this page: the PR also shows in Pull requests when it opens.`}
         {status.error && !data ? ` Couldn't read the run yet (${status.error}); trying again.` : ''}
       </span>
+      {data?.origin && <LineageLine origin={data.origin} />}
       {data && data.tasks.length > 0 && (
         <div className={classes.steps} aria-label="Release run progress">
           {data.tasks.map(task => (

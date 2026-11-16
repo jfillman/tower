@@ -99,6 +99,8 @@ export interface ReleaseRecordDoc {
   guardrails?: { prNumber: number; prUrl: string; ci: NonNullable<PullRequestSummary['ci']> };
   /** Frozen at sealing (phase 4): the change request and the check ride, kept past their sources. */
   changeRequest?: ChangeRequestRef;
+  /** The flow that built this image (promotion lineage), read live from the release-tracking records; not frozen into the record. */
+  origin?: { chainId: string; chainSlug?: string; traceId?: string };
   testEvidence?: TestEvidence;
   promotion?: FlightPromotion;
   humanContext: ReleaseRecordHumanContext;

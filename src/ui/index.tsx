@@ -277,12 +277,15 @@ export function FilterBar({ children, end }: { children?: ReactNode; end?: React
  */
 export function TextLink({
   href,
+  to,
   onClick,
   title,
   expanded,
   children,
 }: {
   href?: string;
+  /** An in-app path or query ("?tab=pipelines&flow=ornate-ram"): a real anchor that stays in Tower (and never selects a row it sits in). */
+  to?: string;
   onClick?: () => void;
   title?: string;
   /** Set for a show/hide toggle: draws the ▸/▾ and sets aria-expanded. */
@@ -290,6 +293,20 @@ export function TextLink({
   children: ReactNode;
 }) {
   const ui = useControlsKit();
+  if (to) {
+    return (
+      <RouterLink
+        className={ui.textLink}
+        to={to}
+        title={title}
+        onMouseDown={preventFocusScroll}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
+        {children}
+      </RouterLink>
+    );
+  }
   if (href) {
     return (
       <a className={ui.textLink} href={href} target="_blank" rel="noopener noreferrer" title={title}>

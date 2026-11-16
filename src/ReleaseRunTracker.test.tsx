@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ReleaseRunTracker } from './ReleaseRunTracker';
 
 let mockStatus: Record<string, unknown> = {};
@@ -31,5 +32,30 @@ describe('ReleaseRunTracker (2026-10-22: Promote no longer waits for the PR)', (
     mockStatus = { data: { state: 'failed', reason: 'release run finished without opening a PR: Failed', tasks: [] } };
     render(<ReleaseRunTracker {...props()} />);
     expect(screen.getByRole('alert').textContent).toContain('without opening a PR');
+  });
+
+  it('shows the flow that built the image, as a link, while it runs and once the PR is open (promotion lineage)', () => {
+    const origin = { chainId: '94e8228a-5cdc-4350-914a-d73802e5b296', chainSlug: 'ornate-ram' };
+    mockStatus = { data: { state: 'running', tasks: [], origin } };
+    const { unmount } = render(
+      <MemoryRouter>
+        <ReleaseRunTracker {...props()} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'ornate-ram' }).getAttribute('href')).toBe('/?tab=pipelines&flow=ornate-ram&history=30d');
+    unmount();
+    mockStatus = { data: { state: 'pr', prUrl: 'https://github.com/jf/gitops-boarding-api/pull/482', tasks: [], origin } };
+    render(
+      <MemoryRouter>
+        <ReleaseRunTracker {...props()} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('lineage').textContent).toContain('ornate-ram');
+  });
+
+  it('shows no lineage when the origin is unknown', () => {
+    mockStatus = { data: { state: 'running', tasks: [] } };
+    render(<ReleaseRunTracker {...props()} />);
+    expect(screen.queryByTestId('lineage')).toBeNull();
   });
 });

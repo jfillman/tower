@@ -119,6 +119,7 @@ function withRecordedEvidence(record, recorded) {
   let out = recorded.guardrails ? withPersistedGuardrails(record, { guardrails: recorded.guardrails }) : record;
   if (recorded.signoffs !== void 0) out = { ...out, signoffs: recorded.signoffs };
   if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
+  if (recorded.origin) out = { ...out, origin: recorded.origin };
   if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
   if (recorded.promotion) out = { ...out, flightPromotion: recorded.promotion };
   if (recorded.outcome) {

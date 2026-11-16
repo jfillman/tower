@@ -13,6 +13,7 @@ import { Count, IconButton, SectionTitle, StatusChip, type StatusTone, TextLink,
 import type { TowerPrMark } from './mounts';
 import { markForPr } from './fleetMarks';
 import { AgentMark } from './AgentMark';
+import { LineageLine } from './LineageLine';
 
 // Board 1 of the mockup (idp_session_tower_release_record_spec memory,
 // HANDOFF-tower-release-record.md) - the Record sub-tab's archive view.
@@ -158,6 +159,12 @@ export function ReleaseRecordList({
                   {record.pullRequests.length} PR{record.pullRequests.length === 1 ? '' : 's'}
                   {prAuthor ? ` · ${prAuthor}` : ''}
                   {record.status === 'degraded' && record.current ? ' · currently degraded' : ''}
+                  {record.origin && (
+                    <>
+                      {' · '}
+                      <LineageLine origin={record.origin} />
+                    </>
+                  )}
                   {agentMark && (
                     <>
                       {' · '}

@@ -12,6 +12,7 @@ import { displayScore } from './useReleaseRecords.esm.js';
 import { SectionTitle, TextLink, Count, StatusChip, IconButton } from './ui/index.esm.js';
 import { markForPr } from './fleetMarks.esm.js';
 import { AgentMark } from './AgentMark.esm.js';
+import { LineageLine } from './LineageLine.esm.js';
 import { Tooltip } from './ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
@@ -137,6 +138,10 @@ function ReleaseRecordList({
                 record.pullRequests.length === 1 ? "" : "s",
                 prAuthor ? ` \xB7 ${prAuthor}` : "",
                 record.status === "degraded" && record.current ? " \xB7 currently degraded" : "",
+                record.origin && /* @__PURE__ */ jsxs(Fragment, { children: [
+                  " \xB7 ",
+                  /* @__PURE__ */ jsx(LineageLine, { origin: record.origin })
+                ] }),
                 agentMark && /* @__PURE__ */ jsxs(Fragment, { children: [
                   " \xB7 ",
                   /* @__PURE__ */ jsx(AgentMark, { mark: agentMark })

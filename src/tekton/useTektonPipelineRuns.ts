@@ -3,6 +3,7 @@ import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api
 import { fetchLiveRuns, streamLiveRuns } from './liveRuns';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { chainIdToSlug } from './chainSlug';
+import { runOriginOf, traceIdOfTraceparent } from './lineage';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
 
 // Real Tekton PipelineRuns for an app live in `app-<appName>-cicd` on the
@@ -62,6 +63,7 @@ export interface RawPipelineRun {
   metadata: RawObjectMeta;
   spec?: {
     params?: RawParam[];
+    status?: string;
   };
   status?: {
     conditions?: RawCondition[];
@@ -276,7 +278,7 @@ function extractFlowSlug(name: string, meta: RawObjectMeta): string | undefined 
 // is its own `start-flow` pipeline task's TaskRun result (confirmed live:
 // chain-id/traceparent/start-time are all real TaskRun results there,
 // already fetched into taskRunsByPipelineTask by toTaskRunSummary above).
-function chainIdOf(run: PipelineRunSummary): string | undefined {
+export function chainIdOf(run: PipelineRunSummary): string | undefined {
   const fromParam = run.params.find(p => p.name === 'chain-id')?.value;
   if (fromParam) return fromParam;
   return firstTaskResult(run.taskRunsByPipelineTask, 'chain-id');
@@ -382,6 +384,15 @@ export function linkFlowSlugsByChainId(runs: PipelineRunSummary[]): void {
 // Exported for useTektonResultsRuns.ts - see toTaskRunSummary's own comment
 // above for why an archived run is fed through this exact function rather
 // than a parallel one.
+// A run Pipelines-as-Code created beyond the repository's concurrency limit waits with spec.status PipelineRunPending (its
+// Succeeded condition is Unknown, reason PipelineRunPending). It is not running yet: Tower says queued. glidepath-api reports
+// the same runs as status `queued` (docs/admin/api.md). Only while unfinished: a finished run is whatever it finished as.
+export function isQueued(raw: RawPipelineRun): boolean {
+  const cond = raw.status?.conditions?.find(c => c.type === 'Succeeded');
+  if (cond && cond.status !== 'Unknown') return false;
+  return raw.spec?.status === 'PipelineRunPending' || cond?.reason === 'PipelineRunPending';
+}
+
 export function toPipelineRunSummary(
   raw: RawPipelineRun,
   cluster: string,
@@ -439,6 +450,9 @@ export function toPipelineRunSummary(
       hangarField(meta, 'flow') ??
       (isGuardrailPipeline(pipelineName) ? 'guardrail' : undefined) ??
       (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, 'subcomponent') ?? '') ? 'ci' : undefined),
+    queued: isQueued(raw) || undefined,
+    origin: runOriginOf(meta.annotations),
+    traceId: traceIdOfTraceparent(firstTaskResult(taskRunsByPipelineTask, 'traceparent')),
     phase: conditionPhase(raw.status?.conditions),
     reason: cond?.reason,
     message: cond?.message,

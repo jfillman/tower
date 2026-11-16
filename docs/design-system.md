@@ -92,6 +92,26 @@ its own title, chip, table header and button styles with slightly different numb
   `ReleaseRunTracker` at the top of the Releases tab follows the run (GET `/glidepath/release-run`, glidepath-api's
   `getReleaseRun`), shows the step it is on, and becomes the PR's receipt (with the change request when there is
   one). The Deployments tab's Roll back follows its run the same way once the 90 s wait for its PR runs out.
+- **Reissue release PR** is an action (a `Button`, `small` in a row), on a release whose PR was closed without merging
+  (`src/reissue`). It opens a **fresh** release PR for the closed release's own image and commit, cut from the gitops
+  repository's current default branch; the closed PR is not reopened. It lives where the release is listed: a row in the
+  Releases tab's "closed release PRs" panel (above the views) and on the release run's row in the Pipelines tab. The
+  confirm step is a row in the page (what it will do, `Open fresh release PR`, `Cancel`), never a browser dialog.
+  Disabled with the reason on the page (`ActionReason`, never only a tooltip): not an owner, or glidepath-api's own
+  words (another release PR is open, a newer release exists, ...); the list comes from glidepath-api
+  (`GET /release/reissuable` -> `GET /v1/apps/{app}/releases/reissuable`), so Tower never decides eligibility. After it
+  starts, the Releases and Pipelines tabs follow the new run with `ReleaseRunTracker` until the new PR's receipt shows.
+  The browser sends only which release; the image, commit, environment and cluster are the closed release's own.
+- **Queued** is a status (`StatusChip`, tone `warn`, amber: waiting on something). A Pipelines row whose run is waiting for a
+  concurrency slot (`spec.status: PipelineRunPending`, glidepath's per-repository limit) says `queued` instead of `running`; its
+  phase stays running, so Cancel stays (glidepath-api's cancel patches `spec.status`, which is how a pending run is cancelled).
+- **Lineage** (`LineageLine`) is information, not a status or an alert: a promotion or rollback run, a release run being
+  followed, and a release row show `<slug> · from <origin slug>` when glidepath-api resolved the flow that built the image
+  (annotations `glidepath.io/origin-*` on the run, `origin` on the release record and the release run). The origin is an
+  in-app link (`TextLink to`) to the Pipelines tab filtered to that flow with the history range widened to 30 days
+  (`?tab=pipelines&flow=<slug>&history=30d`; the build's runs leave the cluster about an hour after they end). A promotion
+  that joined the build's trace shows the one trace id; one that did not shows its own and the build's. Trace ids are text
+  to copy: Tower has no trace viewer to link to. With no origin (unknown, unresolved, malformed) nothing is shown.
 - **Environment groups** are told apart by name and tier chip (Ground sky, Flight amber), never by an extra hue.
 - **Four kinds of control, four looks.** Pick by what the control does, not by where it sits:
 
@@ -99,7 +119,7 @@ its own title, chip, table header and button styles with slightly different numb
   |---|---|---|---|
   | Action | Changes something (Sync, Promote, Re-run, Cancel, Open PR, Download) | A box: `Button`, one amber `primary` per view, `danger` for destructive, `small` inside a panel or row | `Button`, `IconButton`, `ActionSelect` |
   | Filter | Changes what this view shows, nothing else (History, Tier, Type, Status, View: Cards/List) | Separate pills with a label in front; the one that is on is amber. Search is a field in the same row | `FilterChips` (one on), `FilterChip` in a `FilterGroup` (several on), `FilterSelect` (too many values for pills), `SearchField` |
-  | Link | Goes somewhere (another tab, GitHub, the registry) or shows/hides a detail | Sky mono text, no box: `→` for another tab, `↗` for another site, `▸`/`▾` for show/hide | `TextLink` (`href` for external, `expanded` for show/hide) |
+  | Link | Goes somewhere (another tab, GitHub, the registry) or shows/hides a detail | Sky mono text, no box: `→` for another tab, `↗` for another site, `▸`/`▾` for show/hide | `TextLink` (`href` for external, `to` for in-app, `expanded` for show/hide) |
   | Status | Says what state something is in (Healthy, promoted, failed, running) | Rounded, a soft tint of the state's colour, optional dot; clickable only when it opens what it describes (`onClick`, or `to` for an in-app link: a real anchor with a trailing →) | `StatusChip` (tone `ok`, `warn`, `bad`, `info`, `neutral`), `StatusDot` in tables |
   | YAML | Shows a file or a resource as it is (a PipelineRun, a Rollout, cicd.yaml, a values file, merged chart values) | Mono on the base background in a soft-line box: keys sky, numbers and booleans amber, comments faint, a line-number gutter, Copy at the top right, a line filter when long. Never a bare `<pre>` | `YamlBlock` (`title`, `filter`, `maxHeight`, `lineNumbers`); `CopyButton` where a view keeps its own header |
 

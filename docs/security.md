@@ -58,6 +58,7 @@ Owners are the Component's `spec.owner`, which comes from the app's ownership an
 | Rollout: promote, promote full (skip analysis) | `tower.rollout.bypass` | owners | owners, **as a bypass** | critical on Flight |
 | Promote / first deploy (opens a release PR) | `tower.release.promote` | owners | owners | medium |
 | Roll back (opens a rollback release PR) | `tower.release.rollback` | n/a | owners | high |
+| Reissue a release PR that was closed without merging (opens a fresh one) | `tower.release.reissue` | n/a | owners | high |
 | Cloud release pin (promote or roll back) | `tower.release.pin` | owners | owners | medium |
 | Edit values, shared values, env XR, ConfigMap files, `cicd.yaml` (opens a PR) | `tower.config.edit` | owners | owners | medium |
 | Tekton Re-run a PipelineRun | `tower.pipeline.rerun` | owners | owners | medium |

@@ -19,6 +19,9 @@ import { LeadTimePanel } from '../TimelinePanel';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel';
 import { PromoteDialog } from '../PromoteDialog';
 import { ReleaseRunTracker, type TrackedRelease } from '../ReleaseRunTracker';
+import { ReissuePanel } from '../reissue/ReissueRelease';
+import { tagOf } from '../reissue/reissue';
+import { useReissuable } from '../reissue/useReissuable';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass';
 import { CloudPromoteDialog, type CloudPromoteTarget } from './releases/CloudPromoteDialog';
@@ -218,6 +221,9 @@ export function ReleasesTab() {
   // followed here until its PR opens (ReleaseRunTracker). Kept for this page view only; after a reload the PR is in
   // Pull requests and the run in Pipelines.
   const [tracked, setTracked] = useState<TrackedRelease[]>([]);
+  // Release PRs closed without merging, each with a Reissue action (docs/design-system.md). Re-read when a run follows or its PR opens.
+  const [reissueNonce, setReissueNonce] = useState(0);
+  const reissuable = useReissuable(appName, owner, reissueNonce);
   const [, setSearchParams] = useSearchParams();
   useEffect(() => {
     const result = promote.result;
@@ -232,7 +238,10 @@ export function ReleasesTab() {
     setPromoteTarget(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promote.result]);
-  const onTrackedPr = useCallback(() => refresh(), [refresh]);
+  const onTrackedPr = useCallback(() => {
+    refresh();
+    setReissueNonce(n => n + 1);
+  }, [refresh]);
   const openRun = (run: string) =>
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
@@ -363,6 +372,24 @@ export function ReleasesTab() {
             onDismiss={() => setTracked(prev => prev.filter(x => x.run !== r.run))}
           />
         ))}
+
+      {owner && appName && (
+        <ReissuePanel
+          owner={owner}
+          appName={appName}
+          releases={reissuable.releases}
+          allowed={reissuable.allowed}
+          onStarted={(entry, started) => {
+            // The reissue is a release run like a promotion's: followed here until its PR opens.
+            setTracked(prev =>
+              prev.some(r => r.run === started.pipelineRun)
+                ? prev
+                : [{ run: started.pipelineRun, env: entry.env, label: tagOf(entry.image) }, ...prev],
+            );
+            setReissueNonce(n => n + 1);
+          }}
+        />
+      )}
 
       <Subtabs
         label="Release views"

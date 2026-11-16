@@ -10,11 +10,15 @@ import { useTektonResultsRuns } from '../tekton/useTektonResultsRuns';
 import type { PipelineRunSummary } from '../tekton/types';
 import { useRerunPipelineRun } from '../tekton/useRerunPipelineRun';
 import { useCancelPipelineRun } from '../tekton/useCancelPipelineRun';
-import { PipelineRunList } from '../PipelineRunList';
+import { PipelineRunList, reissueEntryFor } from '../PipelineRunList';
+import { ReleaseRunTracker, type TrackedRelease } from '../ReleaseRunTracker';
+import { ReissueConfirm } from '../reissue/ReissueRelease';
+import { reissueDisabledReason, tagOf, type ReissuableRelease } from '../reissue/reissue';
+import { useReissuable } from '../reissue/useReissuable';
 import { PipelineDag } from '../PipelineDag';
 import { scrollPanelIntoView } from '../preventFocusScroll';
 import { RefreshButton } from '../RefreshButton';
-import { Count, FilterBar, FilterChips, PageHeader, PanelSkeleton, TabError, TabSkeleton } from '../ui';
+import { ActionReason, Count, FilterBar, FilterChips, PageHeader, PanelSkeleton, TabError, TabSkeleton } from '../ui';
 import { GlidepathSummaryPanel } from '../GlidepathSummaryPanel';
 import { TestRunsPanel } from './pipelines/TestRunsPanel';
 import { useTestRuns } from '../useTestRuns';
@@ -102,6 +106,8 @@ export function PipelinesTab() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get('run') ?? undefined;
+  // A lineage link (LineageLine) opens this tab on one flow: ?flow=<slug>, with the history range widened by the link.
+  const flowQuery = searchParams.get('flow') ?? undefined;
   // Runs (the pipeline runs) or Tests (every test run Glidepath started, as Testkube recorded it - phase 4).
   const view: PipelinesView = searchParams.get('view') === 'tests' ? 'tests' : 'runs';
   const setView = (v: PipelinesView) =>
@@ -172,6 +178,11 @@ export function PipelinesTab() {
   const listRuns = historyRange === 'live' ? pipelineRuns.runs : mergedRuns;
   const rerun = useRerunPipelineRun(() => setCiRefreshNonce(n => n + 1));
   const cancelRun = useCancelPipelineRun(() => setCiRefreshNonce(n => n + 1));
+  // Reissue release PR: the candidates (a release PR closed without merging), the one being confirmed, and the runs it started.
+  const [reissueNonce, setReissueNonce] = useState(0);
+  const reissuable = useReissuable(appName, owner, reissueNonce);
+  const [reissueAsk, setReissueAsk] = useState<ReissuableRelease | undefined>();
+  const [reissueTracked, setReissueTracked] = useState<TrackedRelease[]>([]);
   const [selectedRunName, setSelectedRunName] = useState<string | undefined>(undefined);
   const [dagExpandSignal, setDagExpandSignal] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -186,6 +197,9 @@ export function PipelinesTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listRuns, mergedRuns, linkedRun]);
   const selectedRun = mergedRuns.find(r => r.name === selectedRunName);
+  // The selected release run's Reissue entry, when the action is off: the reason is on the page, not only in a tooltip.
+  const selectedReissue = selectedRun ? reissueEntryFor(selectedRun, reissuable.releases) : undefined;
+  const selectedReissueReason = selectedReissue ? reissueDisabledReason(selectedReissue, reissuable.allowed) : undefined;
   // The PRs agents opened through Clearance on the repos these runs build (mounts.tsx): a run on such a PR's branch
   // carries the agent's mark. None without the Clearance plugin.
   const marks = useRepoMarks(useMemo(() => listRuns.map(r => repoSlugOfUrl(r.sourceRepoUrl)), [listRuns]));
@@ -237,7 +251,44 @@ export function PipelinesTab() {
           rerunPending={rerun.pending}
           onCancel={cancelRun.cancel}
           cancelPending={cancelRun.pending}
+          flowQuery={flowQuery}
+          reissue={{
+            releases: reissuable.releases,
+            reasonFor: entry => reissueDisabledReason(entry, reissuable.allowed),
+            onAsk: setReissueAsk,
+          }}
         />
+        {selectedReissue && selectedReissueReason && (
+          <ActionReason id="reissue-reason">Reissue release PR is off for {selectedReissue.env}: {selectedReissueReason}</ActionReason>
+        )}
+        {reissueAsk && owner && appName && (
+          <ReissueConfirm
+            owner={owner}
+            appName={appName}
+            entry={reissueAsk}
+            onCancel={() => setReissueAsk(undefined)}
+            onDone={started => {
+              const entry = reissueAsk;
+              setReissueAsk(undefined);
+              setReissueNonce(n => n + 1);
+              setCiRefreshNonce(n => n + 1);
+              setReissueTracked(prev =>
+                prev.some(r => r.run === started.pipelineRun) ? prev : [{ run: started.pipelineRun, env: entry.env, label: tagOf(entry.image) }, ...prev],
+              );
+            }}
+          />
+        )}
+        {appName &&
+          reissueTracked.map(r => (
+            <ReleaseRunTracker
+              key={r.run}
+              appName={appName}
+              release={r}
+              onPr={() => setReissueNonce(n => n + 1)}
+              onOpenRun={run => selectRun(run)}
+              onDismiss={() => setReissueTracked(prev => prev.filter(x => x.run !== r.run))}
+            />
+          ))}
         {rerun.error && <Typography className={classes.warnNote}>Re-run failed: {rerun.error}</Typography>}
         {cancelRun.error && <Typography className={classes.warnNote}>Cancel failed: {cancelRun.error}</Typography>}
         {selectedRun && (
