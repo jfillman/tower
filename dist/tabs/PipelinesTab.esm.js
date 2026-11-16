@@ -9,7 +9,11 @@ import { useTektonPipelineRuns, linkFlowSlugsByChainId } from '../tekton/useTekt
 import { useTektonResultsRuns } from '../tekton/useTektonResultsRuns.esm.js';
 import { useRerunPipelineRun } from '../tekton/useRerunPipelineRun.esm.js';
 import { useCancelPipelineRun } from '../tekton/useCancelPipelineRun.esm.js';
-import { PipelineRunList } from '../PipelineRunList.esm.js';
+import { reissueEntryFor, PipelineRunList } from '../PipelineRunList.esm.js';
+import { ReleaseRunTracker } from '../ReleaseRunTracker.esm.js';
+import { ReissueConfirm } from '../reissue/ReissueRelease.esm.js';
+import { reissueDisabledReason, tagOf } from '../reissue/reissue.esm.js';
+import { useReissuable } from '../reissue/useReissuable.esm.js';
 import { PipelineDag } from '../PipelineDag.esm.js';
 import { scrollPanelIntoView } from '../preventFocusScroll.esm.js';
 import { RefreshButton } from '../RefreshButton.esm.js';
@@ -22,6 +26,7 @@ import { repoSlugOfUrl } from '../fleetMarks.esm.js';
 import { isPreviewEnvName, isRolloutActive } from '../types.esm.js';
 import { usePlatformConfig } from '../platformConfig.esm.js';
 import { TabSkeleton, TabError, PanelSkeleton } from '../ui/LoadState.esm.js';
+import { ActionReason } from '../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
   dagGap: { marginTop: 12 },
@@ -84,6 +89,7 @@ function PipelinesTab() {
   const pendingDeployCount = cdEnvs.filter(isRolloutActive).length;
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedRun = searchParams.get("run") ?? void 0;
+  const flowQuery = searchParams.get("flow") ?? void 0;
   const view = searchParams.get("view") === "tests" ? "tests" : "runs";
   const setView = (v) => setSearchParams((prev) => {
     const next = new URLSearchParams(prev);
@@ -125,6 +131,10 @@ function PipelinesTab() {
   const listRuns = historyRange === "live" ? pipelineRuns.runs : mergedRuns;
   const rerun = useRerunPipelineRun(() => setCiRefreshNonce((n) => n + 1));
   const cancelRun = useCancelPipelineRun(() => setCiRefreshNonce((n) => n + 1));
+  const [reissueNonce, setReissueNonce] = useState(0);
+  const reissuable = useReissuable(appName, owner, reissueNonce);
+  const [reissueAsk, setReissueAsk] = useState();
+  const [reissueTracked, setReissueTracked] = useState([]);
   const [selectedRunName, setSelectedRunName] = useState(void 0);
   const [dagExpandSignal, setDagExpandSignal] = useState(void 0);
   useEffect(() => {
@@ -137,6 +147,8 @@ function PipelinesTab() {
     setSelectedRunName(listRuns[0]?.name);
   }, [listRuns, mergedRuns, linkedRun]);
   const selectedRun = mergedRuns.find((r) => r.name === selectedRunName);
+  const selectedReissue = selectedRun ? reissueEntryFor(selectedRun, reissuable.releases) : void 0;
+  const selectedReissueReason = selectedReissue ? reissueDisabledReason(selectedReissue, reissuable.allowed) : void 0;
   const marks = useRepoMarks(useMemo(() => listRuns.map((r) => repoSlugOfUrl(r.sourceRepoUrl)), [listRuns]));
   const runMarks = useRunMarks(appName);
   const dagPanelRef = useRef(null);
@@ -177,9 +189,50 @@ function PipelinesTab() {
           onRerun: rerun.rerun,
           rerunPending: rerun.pending,
           onCancel: cancelRun.cancel,
-          cancelPending: cancelRun.pending
+          cancelPending: cancelRun.pending,
+          flowQuery,
+          reissue: {
+            releases: reissuable.releases,
+            reasonFor: (entry) => reissueDisabledReason(entry, reissuable.allowed),
+            onAsk: setReissueAsk
+          }
         }
       ),
+      selectedReissue && selectedReissueReason && /* @__PURE__ */ jsxs(ActionReason, { id: "reissue-reason", children: [
+        "Reissue release PR is off for ",
+        selectedReissue.env,
+        ": ",
+        selectedReissueReason
+      ] }),
+      reissueAsk && owner && appName && /* @__PURE__ */ jsx(
+        ReissueConfirm,
+        {
+          owner,
+          appName,
+          entry: reissueAsk,
+          onCancel: () => setReissueAsk(void 0),
+          onDone: (started) => {
+            const entry = reissueAsk;
+            setReissueAsk(void 0);
+            setReissueNonce((n) => n + 1);
+            setCiRefreshNonce((n) => n + 1);
+            setReissueTracked(
+              (prev) => prev.some((r) => r.run === started.pipelineRun) ? prev : [{ run: started.pipelineRun, env: entry.env, label: tagOf(entry.image) }, ...prev]
+            );
+          }
+        }
+      ),
+      appName && reissueTracked.map((r) => /* @__PURE__ */ jsx(
+        ReleaseRunTracker,
+        {
+          appName,
+          release: r,
+          onPr: () => setReissueNonce((n) => n + 1),
+          onOpenRun: (run) => selectRun(run),
+          onDismiss: () => setReissueTracked((prev) => prev.filter((x) => x.run !== r.run))
+        },
+        r.run
+      )),
       rerun.error && /* @__PURE__ */ jsxs(Typography, { className: classes.warnNote, children: [
         "Re-run failed: ",
         rerun.error

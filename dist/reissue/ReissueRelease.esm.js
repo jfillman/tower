@@ -1,11 +1,11 @@
-import { jsx, jsxs } from 'react/jsx-runtime';
+import { jsxs, jsx } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { fontMono, useHangarTokens } from '../brand/tokens.esm.js';
-import { StatusChip, Chip, Button, Hint, Callout } from '../ui/index.esm.js';
+import { Hint, Button, Callout, StatusChip, Chip } from '../ui/index.esm.js';
 import { PrRef } from '../ui/PrRef.esm.js';
-import { reissueDisabledReason, tagOf, postReissue } from './reissue.esm.js';
+import { tagOf, reissueDisabledReason, postReissue } from './reissue.esm.js';
 import { ActionReason } from '../ui/Tooltip.esm.js';
 
 const useStyles = makeStyles(() => ({
