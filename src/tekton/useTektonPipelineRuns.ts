@@ -3,6 +3,7 @@ import { discoveryApiRef, fetchApiRef, useApi } from '@backstage/core-plugin-api
 import { fetchLiveRuns, streamLiveRuns } from './liveRuns';
 import { NO_CONTROL_PLANE, usePlatformConfig } from '../platformConfig';
 import { chainIdToSlug } from './chainSlug';
+import { runOriginOf, traceIdOfTraceparent } from './lineage';
 import type { PipelineRunSummary, PipelineTaskDef, RunPhase, TaskRunSummary } from './types';
 
 // Real Tekton PipelineRuns for an app live in `app-<appName>-cicd` on the
@@ -276,7 +277,7 @@ function extractFlowSlug(name: string, meta: RawObjectMeta): string | undefined 
 // is its own `start-flow` pipeline task's TaskRun result (confirmed live:
 // chain-id/traceparent/start-time are all real TaskRun results there,
 // already fetched into taskRunsByPipelineTask by toTaskRunSummary above).
-function chainIdOf(run: PipelineRunSummary): string | undefined {
+export function chainIdOf(run: PipelineRunSummary): string | undefined {
   const fromParam = run.params.find(p => p.name === 'chain-id')?.value;
   if (fromParam) return fromParam;
   return firstTaskResult(run.taskRunsByPipelineTask, 'chain-id');
@@ -439,6 +440,8 @@ export function toPipelineRunSummary(
       hangarField(meta, 'flow') ??
       (isGuardrailPipeline(pipelineName) ? 'guardrail' : undefined) ??
       (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, 'subcomponent') ?? '') ? 'ci' : undefined),
+    origin: runOriginOf(meta.annotations),
+    traceId: traceIdOfTraceparent(firstTaskResult(taskRunsByPipelineTask, 'traceparent')),
     phase: conditionPhase(raw.status?.conditions),
     reason: cond?.reason,
     message: cond?.message,

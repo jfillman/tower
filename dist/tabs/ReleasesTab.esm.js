@@ -19,6 +19,9 @@ import { LeadTimePanel } from '../TimelinePanel.esm.js';
 import { PreviewEnvironmentsPanel } from '../PreviewEnvironmentsPanel.esm.js';
 import { PromoteDialog } from '../PromoteDialog.esm.js';
 import { ReleaseRunTracker } from '../ReleaseRunTracker.esm.js';
+import { ReissuePanel } from '../reissue/ReissueRelease.esm.js';
+import { tagOf } from '../reissue/reissue.esm.js';
+import { useReissuable } from '../reissue/useReissuable.esm.js';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { deployTargetOf } from '../serviceClass.esm.js';
 import { CloudPromoteDialog } from './releases/CloudPromoteDialog.esm.js';
@@ -130,6 +133,8 @@ function ReleasesTab() {
     if (promote.result && !promote.result.alreadyOpen) refresh();
   }, [promote.result]);
   const [tracked, setTracked] = useState([]);
+  const [reissueNonce, setReissueNonce] = useState(0);
+  const reissuable = useReissuable(appName, owner, reissueNonce);
   const [, setSearchParams] = useSearchParams();
   useEffect(() => {
     const result = promote.result;
@@ -141,7 +146,10 @@ function ReleasesTab() {
     );
     setPromoteTarget(null);
   }, [promote.result]);
-  const onTrackedPr = useCallback(() => refresh(), [refresh]);
+  const onTrackedPr = useCallback(() => {
+    refresh();
+    setReissueNonce((n) => n + 1);
+  }, [refresh]);
   const openRun = (run) => setSearchParams((prev) => {
     const next = new URLSearchParams(prev);
     next.set("tab", "pipelines");
@@ -257,6 +265,21 @@ function ReleasesTab() {
       },
       r.run
     )),
+    owner && appName && /* @__PURE__ */ jsx(
+      ReissuePanel,
+      {
+        owner,
+        appName,
+        releases: reissuable.releases,
+        allowed: reissuable.allowed,
+        onStarted: (entry, started) => {
+          setTracked(
+            (prev) => prev.some((r) => r.run === started.pipelineRun) ? prev : [{ run: started.pipelineRun, env: entry.env, label: tagOf(entry.image) }, ...prev]
+          );
+          setReissueNonce((n) => n + 1);
+        }
+      }
+    ),
     /* @__PURE__ */ jsx(
       Subtabs,
       {

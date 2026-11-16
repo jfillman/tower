@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import { relativeTime, formatDateTime } from './shared/format';
 import { fontDisplay, fontMono, useHangarTokens, type HangarTokens } from './brand/tokens';
 import { layoutPipelineGraph } from './tekton/pipelineGraph';
 import type { PipelineRunSummary, RunPhase, TaskPhase } from './tekton/types';
+import { LineageLine } from './LineageLine';
+import type { ReissuableRelease } from './reissue/reissue';
+import { chainIdOf } from './tekton/useTektonPipelineRuns';
 import { Button, EmptyNote, FilterBar, FilterChips, SearchField, StatusChip, type StatusTone, TextLink, Tooltip } from './ui';
 import type { TowerPrMark, TowerRunMark } from './mounts';
 import { markForBranch, runMarkFor } from './fleetMarks';
@@ -346,6 +349,7 @@ function RunDescriptor({ run, classes, mark, runMark }: { run: PipelineRunSummar
         </span>
         <RunError run={run} classes={classes} />
         {run.flowSlug && <FlowSlugChip slug={run.flowSlug} classes={classes} />}
+        {run.origin && <LineageLine slug={run.flowSlug} origin={run.origin} traceId={run.traceId} />}
       </div>
     );
   }
@@ -361,8 +365,26 @@ function RunDescriptor({ run, classes, mark, runMark }: { run: PipelineRunSummar
       </span>
       <RunError run={run} classes={classes} />
       {run.flowSlug && <FlowSlugChip slug={run.flowSlug} classes={classes} />}
+      {run.origin && <LineageLine slug={run.flowSlug} origin={run.origin} traceId={run.traceId} />}
     </div>
   );
+}
+
+/**
+ * A release run whose release PR was closed without merging gets the Reissue action (src/reissue). Matched by the chain id the
+ * run minted (a promotion's own flow), never by a name.
+ */
+export interface RunReissue {
+  releases: ReissuableRelease[];
+  /** Why the action is off for this entry (not an owner, or the API's own refusal), or undefined when it is on. */
+  reasonFor: (entry: ReissuableRelease) => string | undefined;
+  onAsk: (entry: ReissuableRelease) => void;
+}
+
+export function reissueEntryFor(run: PipelineRunSummary, releases: ReissuableRelease[]): ReissuableRelease | undefined {
+  if (run.pipelineName !== 'release' || run.phase !== 'succeeded') return undefined;
+  const chain = chainIdOf(run);
+  return chain ? releases.find(r => r.chainId === chain) : undefined;
 }
 
 export function PipelineRunList({
@@ -375,8 +397,14 @@ export function PipelineRunList({
   cancelPending,
   marks = [],
   runMarks = [],
+  flowQuery,
+  reissue,
 }: {
   runs: PipelineRunSummary[];
+  /** Narrows the list to one flow (a lineage link's ?flow=): typed into the search field, which the person may then change. */
+  flowQuery?: string;
+  /** Reissue release PR on the release run of a closed, unmerged release PR. */
+  reissue?: RunReissue;
   /** PRs agents opened through Clearance (mounts.tsx): a run on such a PR's branch carries the agent's mark. */
   marks?: TowerPrMark[];
   /** Runs an event started an agent for (mounts.tsx): "triage-agent investigating" on that row. */
@@ -400,7 +428,10 @@ export function PipelineRunList({
 }) {
   const t = useHangarTokens();
   const classes = useStyles({ t });
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(flowQuery ?? '');
+  useEffect(() => {
+    if (flowQuery !== undefined) setSearch(flowQuery);
+  }, [flowQuery]);
   const [statusFilter, setStatusFilter] = useState<'all' | RunPhase>('all');
   const [flowFilter, setFlowFilter] = useState<'all' | 'ci' | 'pr-build' | 'guardrail'>('all');
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -521,6 +552,25 @@ export function PipelineRunList({
                       {rerunPending === run.name ? 'Re-running…' : 'Re-run'}
                     </Button>
                   )}
+                  {reissue &&
+                    (() => {
+                      const entry = reissueEntryFor(run, reissue.releases);
+                      if (!entry) return null;
+                      const reason = reissue.reasonFor(entry);
+                      return (
+                        <Button
+                          small
+                          disabled={Boolean(reason)}
+                          title={reason}
+                          onClick={ev => {
+                            ev.stopPropagation();
+                            reissue.onAsk(entry);
+                          }}
+                        >
+                          Reissue release PR
+                        </Button>
+                      );
+                    })()}
                   {(run.phase === 'running' || run.phase === 'pending') && onCancel && (
                     <Button
                       small

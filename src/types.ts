@@ -466,6 +466,8 @@ export interface ReleaseRunStatus {
   phase?: string;
   /** The change request open-release-pr opened, when the change tool is wired. */
   changeRequest?: string;
+  /** The flow that built the image being released (promotion lineage), when glidepath-api resolved it. */
+  origin?: { chainId: string; chainSlug?: string; traceId?: string };
 }
 
 export interface DeployHistoryEntry {

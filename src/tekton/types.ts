@@ -58,6 +58,17 @@ export interface TaskRunSummary {
   raw: unknown;
 }
 
+/**
+ * The flow that built the image a promotion or rollback releases (promotion lineage, glidepath docs/admin/api.md): read from the
+ * glidepath.io/origin-* annotations glidepath-api stamps on the run, shape-checked (tekton/lineage.ts). Absent on a run that
+ * has none, whatever the reason: lineage is information, never an alert.
+ */
+export interface RunOrigin {
+  chainId: string;
+  chainSlug?: string;
+  traceId?: string;
+}
+
 export interface PipelineRunSummary {
   name: string;
   namespace: string;
@@ -93,6 +104,10 @@ export interface PipelineRunSummary {
   // (2026-09-12: "pr builds could be a busy task that fills up the table.
   // users might want to view release flows only").
   flow?: string;
+  /** The build flow of the image this run releases, when it carries one (promotion lineage). */
+  origin?: RunOrigin;
+  /** This run's own trace id (its preflight's traceparent); equal to origin.traceId when the promotion joined the build's trace. */
+  traceId?: string;
   phase: RunPhase;
   reason?: string;
   message?: string;

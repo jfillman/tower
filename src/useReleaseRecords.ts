@@ -147,6 +147,8 @@ export interface ReleaseRecord {
   testEvidence?: TestEvidence;
   /** The itsm change request, frozen at sealing or read live from the release-tracking record. */
   changeRequest?: ChangeRequestRef;
+  /** The flow that built this image, from the release-tracking record's promotion lineage; absent when unknown. */
+  origin?: { chainId: string; chainSlug?: string; traceId?: string };
   /** The image's promotion to Flight (glidepath ADR-0029), frozen at sealing or read live from its provenance. */
   flightPromotion?: FlightPromotion;
   nickname?: string;
@@ -461,6 +463,7 @@ export function withRecordedEvidence(
         signoffs?: number;
         outcome?: RecordOutcome;
         changeRequest?: ChangeRequestRef;
+        origin?: { chainId: string; chainSlug?: string; traceId?: string };
         testEvidence?: TestEvidence;
         promotion?: FlightPromotion;
       }
@@ -472,6 +475,7 @@ export function withRecordedEvidence(
     : record;
   if (recorded.signoffs !== undefined) out = { ...out, signoffs: recorded.signoffs };
   if (recorded.changeRequest) out = { ...out, changeRequest: recorded.changeRequest };
+  if (recorded.origin) out = { ...out, origin: recorded.origin };
   if (recorded.testEvidence) out = { ...out, testEvidence: recorded.testEvidence };
   if (recorded.promotion) out = { ...out, flightPromotion: recorded.promotion };
   if (recorded.outcome) {

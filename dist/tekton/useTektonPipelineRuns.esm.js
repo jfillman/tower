@@ -3,6 +3,7 @@ import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api
 import { streamLiveRuns, fetchLiveRuns } from './liveRuns.esm.js';
 import { usePlatformConfig, NO_CONTROL_PLANE } from '../platformConfig.esm.js';
 import { chainIdToSlug } from './chainSlug.esm.js';
+import { traceIdOfTraceparent, runOriginOf } from './lineage.esm.js';
 
 const POLL_MS = 6e3;
 const STREAM_FLUSH_MS = 250;
@@ -191,6 +192,8 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
     // stays undefined, which "All flows" already shows, rather than picking
     // a misleading label for it.
     flow: hangarField(meta, "flow") ?? (isGuardrailPipeline(pipelineName) ? "guardrail" : void 0) ?? (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, "subcomponent") ?? "") ? "ci" : void 0),
+    origin: runOriginOf(meta.annotations),
+    traceId: traceIdOfTraceparent(firstTaskResult(taskRunsByPipelineTask, "traceparent")),
     phase: conditionPhase(raw.status?.conditions),
     reason: cond?.reason,
     message: cond?.message,
@@ -298,5 +301,5 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
   return state;
 }
 
-export { isGuardrailPipeline, linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
+export { chainIdOf, isGuardrailPipeline, linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
 //# sourceMappingURL=useTektonPipelineRuns.esm.js.map
