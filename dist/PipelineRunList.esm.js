@@ -121,6 +121,9 @@ function phaseTone(t, phase) {
       return { bg: t.panelAlt, border: t.line, fg: t.textFaint, label: "pending", status: "neutral" };
   }
 }
+function queuedTone(t) {
+  return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: "queued", status: "warn" };
+}
 function miniDotColor(t, phase) {
   if (phase === "succeeded") return t.good;
   if (phase === "failed") return t.bad;
@@ -345,7 +348,8 @@ function PipelineRunList({
           "Cancelled"
         );
         const cancelling = (run.phase === "running" || run.phase === "pending") && (cancelPending === run.name || cancelRequested);
-        const tone = cancelling ? { ...phaseTone(t, "running"), label: "canceling" } : phaseTone(t, run.phase);
+        let tone = run.queued ? queuedTone(t) : phaseTone(t, run.phase);
+        if (cancelling) tone = { ...phaseTone(t, "running"), label: "canceling" };
         const durationLabel = (() => {
           if (!run.startTime) return "\u2014";
           const start = new Date(run.startTime).getTime();
@@ -439,5 +443,5 @@ function PipelineRunList({
   ] });
 }
 
-export { PipelineRunList, flowBucket, phaseTone, pipelineTitle, reissueEntryFor, slugHue };
+export { PipelineRunList, flowBucket, phaseTone, pipelineTitle, queuedTone, reissueEntryFor, slugHue };
 //# sourceMappingURL=PipelineRunList.esm.js.map

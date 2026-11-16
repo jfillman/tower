@@ -104,6 +104,8 @@ export interface PipelineRunSummary {
   // (2026-09-12: "pr builds could be a busy task that fills up the table.
   // users might want to view release flows only").
   flow?: string;
+  /** Waiting for a concurrency slot (PipelineRunPending): phase stays `running`, the chip says queued. Absent otherwise. */
+  queued?: boolean;
   /** The build flow of the image this run releases, when it carries one (promotion lineage). */
   origin?: RunOrigin;
   /** This run's own trace id (its preflight's traceparent); equal to origin.traceId when the promotion joined the build's trace. */

@@ -171,6 +171,11 @@ export function phaseTone(t: HangarTokens, phase: RunPhase) {
   }
 }
 
+/** A run waiting for a concurrency slot (docs/design-system.md: amber is waiting on something). Not running, not cancelled. */
+export function queuedTone(t: HangarTokens) {
+  return { bg: t.amberSoft, border: t.amberLine, fg: t.amberInk, label: 'queued', status: 'warn' as StatusTone };
+}
+
 function miniDotColor(t: HangarTokens, phase: TaskPhase): string {
   if (phase === 'succeeded') return t.good;
   if (phase === 'failed') return t.bad;
@@ -508,9 +513,8 @@ export function PipelineRunList({
             'Cancelled',
           );
           const cancelling = (run.phase === 'running' || run.phase === 'pending') && (cancelPending === run.name || cancelRequested);
-          const tone = cancelling
-            ? { ...phaseTone(t, 'running'), label: 'canceling' }
-            : phaseTone(t, run.phase);
+          let tone = run.queued ? queuedTone(t) : phaseTone(t, run.phase);
+          if (cancelling) tone = { ...phaseTone(t, 'running'), label: 'canceling' };
           const durationLabel = (() => {
             if (!run.startTime) return '—';
             const start = new Date(run.startTime).getTime();

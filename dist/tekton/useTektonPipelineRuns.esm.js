@@ -148,6 +148,11 @@ function linkFlowSlugsByChainId(runs) {
     }
   });
 }
+function isQueued(raw) {
+  const cond = raw.status?.conditions?.find((c) => c.type === "Succeeded");
+  if (cond && cond.status !== "Unknown") return false;
+  return raw.spec?.status === "PipelineRunPending" || cond?.reason === "PipelineRunPending";
+}
 function toPipelineRunSummary(raw, cluster, taskRunsByName) {
   const meta = raw.metadata;
   const cond = raw.status?.conditions?.find((c) => c.type === "Succeeded");
@@ -192,6 +197,7 @@ function toPipelineRunSummary(raw, cluster, taskRunsByName) {
     // stays undefined, which "All flows" already shows, rather than picking
     // a misleading label for it.
     flow: hangarField(meta, "flow") ?? (isGuardrailPipeline(pipelineName) ? "guardrail" : void 0) ?? (RELEASE_TRACKING_SUBCOMPONENTS.includes(hangarField(meta, "subcomponent") ?? "") ? "ci" : void 0),
+    queued: isQueued(raw) || void 0,
     origin: runOriginOf(meta.annotations),
     traceId: traceIdOfTraceparent(firstTaskResult(taskRunsByPipelineTask, "traceparent")),
     phase: conditionPhase(raw.status?.conditions),
@@ -301,5 +307,5 @@ function useTektonPipelineRuns(appName, refreshNonce = 0) {
   return state;
 }
 
-export { chainIdOf, isGuardrailPipeline, linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
+export { chainIdOf, isGuardrailPipeline, isQueued, linkFlowSlugsByChainId, toPipelineRunSummary, toTaskRunSummary, useTektonPipelineRuns };
 //# sourceMappingURL=useTektonPipelineRuns.esm.js.map

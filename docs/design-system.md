@@ -102,6 +102,9 @@ its own title, chip, table header and button styles with slightly different numb
   (`GET /release/reissuable` -> `GET /v1/apps/{app}/releases/reissuable`), so Tower never decides eligibility. After it
   starts, the Releases and Pipelines tabs follow the new run with `ReleaseRunTracker` until the new PR's receipt shows.
   The browser sends only which release; the image, commit, environment and cluster are the closed release's own.
+- **Queued** is a status (`StatusChip`, tone `warn`, amber: waiting on something). A Pipelines row whose run is waiting for a
+  concurrency slot (`spec.status: PipelineRunPending`, glidepath's per-repository limit) says `queued` instead of `running`; its
+  phase stays running, so Cancel stays (glidepath-api's cancel patches `spec.status`, which is how a pending run is cancelled).
 - **Lineage** (`LineageLine`) is information, not a status or an alert: a promotion or rollback run, a release run being
   followed, and a release row show `<slug> · from <origin slug>` when glidepath-api resolved the flow that built the image
   (annotations `glidepath.io/origin-*` on the run, `origin` on the release record and the release run). The origin is an
